@@ -43,12 +43,22 @@ sealed class ScriptedDiarizer : ISpeakerDiarizer
 }
 
 
+// Fires SegmentReady even while stopped: only the session guard may drop segments.
+sealed class RawTranscriber : ISpeechTranscriber
+{
+    public event Action<Segment>? SegmentReady;
+    public bool IsRunning { get; private set; }
+    public Task StartAsync(CancellationToken ct) { IsRunning = true; return Task.CompletedTask; }
+    public Task StopAsync(CancellationToken ct) { IsRunning = false; return Task.CompletedTask; }
+    public void Emit(Segment s) => SegmentReady?.Invoke(s);
+}
+
 public sealed class SessionTests
 {
     [Fact]
     public async Task PauseGap_SkippedAudioNeverReappears()
     {
-        var tx = new FakeTranscriber();
+        var tx = new RawTranscriber();
         var session = new MeetingSession(new FakeAudio(), tx, new FakeDiarizer(), new FakeGender(), new FakeStore());
         await session.StartAsync("mic", "app");
         tx.Emit(new Segment("a", "spk_1", 0, 1000, "one", true));
@@ -65,7 +75,7 @@ public sealed class SessionTests
     public async Task Stop_FinalizesMeeting()
     {
         var store = new FakeStore();
-        var session = new MeetingSession(new FakeAudio(), new FakeTranscriber(), new FakeDiarizer(), new FakeGender(), store);
+        var session = new MeetingSession(new FakeAudio(), new RawTranscriber(), new FakeDiarizer(), new FakeGender(), store);
         await session.StartAsync("mic", "app");
         await session.StopAsync();
         Assert.Equal(MeetingStatus.Ready, store.Saved!.Status);
@@ -75,7 +85,7 @@ public sealed class SessionTests
     [Fact]
     public async Task DoubleStart_Throws()
     {
-        var session = new MeetingSession(new FakeAudio(), new FakeTranscriber(), new FakeDiarizer(), new FakeGender(), new FakeStore());
+        var session = new MeetingSession(new FakeAudio(), new RawTranscriber(), new FakeDiarizer(), new FakeGender(), new FakeStore());
         await session.StartAsync("mic", "app");
         await Assert.ThrowsAsync<InvalidOperationException>(() => session.StartAsync("mic", "app"));
         await session.StopAsync();
@@ -85,7 +95,7 @@ public sealed class SessionTests
     public async Task Resume_RestartsSameSources()
     {
         var audio = new FakeAudio();
-        var session = new MeetingSession(audio, new FakeTranscriber(), new FakeDiarizer(), new FakeGender(), new FakeStore());
+        var session = new MeetingSession(audio, new RawTranscriber(), new FakeDiarizer(), new FakeGender(), new FakeStore());
         await session.StartAsync("mic-A", "app-Zoom");
         await session.PauseAsync();
         await session.ResumeAsync();
@@ -97,7 +107,7 @@ public sealed class SessionTests
     [Fact]
     public async Task Session_UsesSeparateGenderCounters()
     {
-        var tx = new FakeTranscriber();
+        var tx = new RawTranscriber();
         var diarizer = new ScriptedDiarizer("spk_m", "spk_f", "spk_m2");
         var session = new MeetingSession(new FakeAudio(), tx, diarizer, new CounterGenderLabeler(id => id.StartsWith("spk_m") ? Gender.Male : Gender.Female), new FakeStore());
         await session.StartAsync("mic", "app");
@@ -110,6 +120,10 @@ public sealed class SessionTests
     }
 
 }
+
+
+
+
 
 
 

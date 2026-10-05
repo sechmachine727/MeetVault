@@ -77,3 +77,5 @@ public sealed class MeetingSession
     private void EnsureActive() { if (_meeting is null) throw new InvalidOperationException("No active meeting."); }
 }
 
+
+
