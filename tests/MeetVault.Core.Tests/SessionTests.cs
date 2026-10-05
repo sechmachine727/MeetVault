@@ -1,0 +1,75 @@
+using MeetVault.Core;
+
+namespace MeetVault.Core.Tests;
+
+sealed class FakeAudio : IAudioCapture
+{
+    public bool IsCapturing { get; private set; }
+    public Task StartAsync(string micId, string appSource, CancellationToken ct) { IsCapturing = true; return Task.CompletedTask; }
+    public Task StopAsync(CancellationToken ct) { IsCapturing = false; return Task.CompletedTask; }
+}
+
+sealed class FakeTranscriber : ISpeechTranscriber
+{
+    public event Action<Segment>? SegmentReady;
+    public bool IsRunning { get; private set; }
+    public Task StartAsync(CancellationToken ct) { IsRunning = true; return Task.CompletedTask; }
+    public Task StopAsync(CancellationToken ct) { IsRunning = false; return Task.CompletedTask; }
+    public void Emit(Segment s) { if (IsRunning) SegmentReady?.Invoke(s); }
+}
+
+sealed class FakeDiarizer : ISpeakerDiarizer
+{
+    public string AssignTurn(Segment segment) => "spk_1";
+}
+
+sealed class FakeGender : IGenderLabeler
+{
+    public string Label(string speakerId, Gender estimate) => "Male 1";
+}
+
+sealed class FakeStore : IMeetingStore
+{
+    public Meeting? Saved; public int SegmentCount;
+    public void Save(Meeting m, IReadOnlyList<Speaker> sp, IReadOnlyList<Segment> se) { Saved = m; SegmentCount = se.Count; }
+}
+
+public sealed class SessionTests
+{
+    [Fact]
+    public async Task PauseGap_SkippedAudioNeverReappears()
+    {
+        var tx = new FakeTranscriber();
+        var session = new MeetingSession(new FakeAudio(), tx, new FakeDiarizer(), new FakeGender(), new FakeStore());
+        await session.StartAsync("mic", "app");
+        tx.Emit(new Segment("a", "spk_1", 0, 1000, "one", true));
+        await session.PauseAsync();
+        tx.Emit(new Segment("b", "spk_1", 1000, 2000, "ghost", true));
+        await session.ResumeAsync();
+        tx.Emit(new Segment("c", "spk_1", 3000, 4000, "two", true));
+        await session.StopAsync();
+        Assert.DoesNotContain(session.Segments, s => s.Text == "ghost");
+        Assert.Equal(2, session.Segments.Count);
+    }
+
+    [Fact]
+    public async Task Stop_FinalizesMeeting()
+    {
+        var store = new FakeStore();
+        var session = new MeetingSession(new FakeAudio(), new FakeTranscriber(), new FakeDiarizer(), new FakeGender(), store);
+        await session.StartAsync("mic", "app");
+        await session.StopAsync();
+        Assert.Equal(MeetingStatus.Ready, store.Saved!.Status);
+        Assert.NotNull(store.Saved.EndedAt);
+    }
+
+    [Fact]
+    public async Task DoubleStart_Throws()
+    {
+        var session = new MeetingSession(new FakeAudio(), new FakeTranscriber(), new FakeDiarizer(), new FakeGender(), new FakeStore());
+        await session.StartAsync("mic", "app");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => session.StartAsync("mic", "app"));
+        await session.StopAsync();
+    }
+}
+

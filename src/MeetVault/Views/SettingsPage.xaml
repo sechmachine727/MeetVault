@@ -1,0 +1,12 @@
+<Page
+    x:Class="MeetVault.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel Padding="24" Spacing="12" MaxWidth="900" HorizontalAlignment="Left">
+        <TextBlock Text="Settings" Style="{StaticResource TitleTextBlockStyle}" />
+        <InfoBar x:Name="StatusBar" IsOpen="False" Severity="Informational" />
+        <TextBlock Text="Audio, transcription, overlay, storage, Gemini key. Every control wired or absent." TextWrapping="Wrap" />
+        <Button Content="Save" Click="Primary_Click" />
+        <TextBlock x:Name="EmptyState" Text="Nothing here yet. Start a meeting to populate this view." />
+    </StackPanel>
+</Page>

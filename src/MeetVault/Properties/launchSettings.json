@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "MeetVault (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "MeetVault (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+<Page
+    x:Class="MeetVault.Views.DashboardPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel Padding="24" Spacing="12" MaxWidth="900" HorizontalAlignment="Left">
+        <TextBlock Text="Dashboard" Style="{StaticResource TitleTextBlockStyle}" />
+        <InfoBar x:Name="StatusBar" IsOpen="False" Severity="Informational" />
+        <TextBlock Text="Quick start: mic plus source status, model status, recent meetings." TextWrapping="Wrap" />
+        <Button Content="Start new meeting" Click="Primary_Click" />
+        <TextBlock x:Name="EmptyState" Text="Nothing here yet. Start a meeting to populate this view." />
+    </StackPanel>
+</Page>
