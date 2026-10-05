@@ -7,7 +7,7 @@ namespace MeetVault.Views;
 /// <summary>Display projection of a <see cref="Meeting"/>; keeps formatted text out of the XAML.</summary>
 public sealed record MeetingCard(string Title, string When, string Duration, string Status);
 
-// ponytail: demo data lives here so Dashboard and Meetings read one list; swap for LocalMeetingRepository in P4.
+// Demo rows double as the first-run seed; AppStore inserts them when the repo is empty.
 public static class DemoMeetings
 {
     public static IReadOnlyList<Meeting> All { get; } = new[]
@@ -27,6 +27,8 @@ public static class DemoMeetings
 
     public static IReadOnlyList<MeetingCard> Cards { get; } = All.Select(Card).ToArray();
 
+    public static MeetingCard ToCard(Meeting m) => Card(m);
+
     private static MeetingCard Card(Meeting m) => new(m.Title, m.StartedAt.ToString("g"), Duration(m), m.Status.ToString());
 
     private static string Duration(Meeting m)
@@ -37,13 +39,44 @@ public static class DemoMeetings
     }
 }
 
+// Single shared SQLite repo; Meetings/Dashboard project Repo.ListMeetings() to cards.
+public static class AppStore
+{
+    private static LocalMeetingRepository? _repo;
+
+    public static LocalMeetingRepository Repo
+    {
+        get
+        {
+            if (_repo is null)
+            {
+                var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MeetVault");
+                Directory.CreateDirectory(dir);
+                _repo = new LocalMeetingRepository(Path.Combine(dir, "meetings.db"));
+                SeedDemoData();
+            }
+            return _repo;
+        }
+    }
+
+    private static void SeedDemoData()
+    {
+        if (_repo!.ListMeetings().Count != 0) return;
+        foreach (var m in DemoMeetings.All)
+            _repo.Save(m, Array.Empty<Speaker>(), Array.Empty<Segment>());
+    }
+
+    public static IReadOnlyList<MeetingCard> Cards()
+        => Repo.ListMeetings().Select(DemoMeetings.ToCard).ToArray();
+}
+
 public sealed partial class MeetingsPage : Page
 {
     public MeetingsPage()
     {
         InitializeComponent();
         ApplyFilter(string.Empty);
-        StatusBar.Message = $"{DemoMeetings.Cards.Count} meetings from local demo data.";
+        StatusBar.Message = $"{AppStore.Cards().Count} meetings from the local repository.";
         StatusBar.IsOpen = true;
     }
 
@@ -53,7 +86,7 @@ public sealed partial class MeetingsPage : Page
     private void ApplyFilter(string query)
     {
         var term = query.Trim();
-        MeetingList.ItemsSource = DemoMeetings.Cards
+        MeetingList.ItemsSource = AppStore.Cards()
             .Where(c => term.Length == 0 || c.Title.Contains(term, StringComparison.OrdinalIgnoreCase))
             .ToArray();
 

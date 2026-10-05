@@ -46,18 +46,28 @@ public sealed partial class DetailsPage : Page
     {
         InitializeComponent();
 
-        Speakers.Add("Speaker 1");
-        Speakers.Add("Speaker 2");
-        Speakers.Add("Speaker 3");
         TranscriptList.ItemsSource = Lines;
-
-        foreach (var (speaker, text) in Seed)
+        var first = AppStore.Repo.ListMeetings().FirstOrDefault();
+        var repoSegs = first is null ? new List<Segment>() : AppStore.Repo.LoadSegments(first.Id).ToList();
+        var repoSpks = first is null ? new List<Speaker>() : AppStore.Repo.LoadSpeakers(first.Id).ToList();
+        if (repoSegs.Count > 0)
         {
-            Lines.Add(new TranscriptLine(speaker, text));
-            _originalText.Add(text);
+            foreach (var s in repoSpks) Speakers.Add(s.DisplayName);
+            foreach (var s in repoSegs) { Lines.Add(new TranscriptLine(s.SpeakerId, s.Text)); _originalText.Add(s.Text); }
+        }
+        else
+        {
+            Speakers.Add("Speaker 1");
+            Speakers.Add("Speaker 2");
+            Speakers.Add("Speaker 3");
+            foreach (var (speaker, text) in Seed)
+            {
+                Lines.Add(new TranscriptLine(speaker, text));
+                _originalText.Add(text);
+            }
         }
 
-        var card = DemoMeetings.Cards[0];
+        var card = AppStore.Cards().FirstOrDefault() ?? DemoMeetings.Cards[0];
         MeetingTitle.Text = card.Title;
         MeetingMeta.Text = $"{card.When}  \u00b7  {card.Duration}  \u00b7  {card.Status}";
         UpdateLineStatus();
@@ -224,5 +234,6 @@ public sealed partial class DetailsPage : Page
             => Task.FromResult(CannedResult);
     }
 }
+
 
 

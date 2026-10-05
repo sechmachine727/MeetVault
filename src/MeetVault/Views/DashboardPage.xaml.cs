@@ -8,8 +8,9 @@ public sealed partial class DashboardPage : Page
     public DashboardPage()
     {
         InitializeComponent();
-        RecentMeetings.ItemsSource = DemoMeetings.Cards;
-        EmptyState.Visibility = DemoMeetings.Cards.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        var cards = AppStore.Cards();
+        RecentMeetings.ItemsSource = cards;
+        EmptyState.Visibility = cards.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void Start_Click(object sender, RoutedEventArgs e)
@@ -24,4 +25,3 @@ public sealed partial class DashboardPage : Page
         }
     }
 }
-
