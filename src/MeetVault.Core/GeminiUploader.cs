@@ -44,8 +44,12 @@ public sealed class GeminiUploader
             var fileId = await _transport.UploadFileAsync(meeting.MediaPath, stream, meeting.MediaMime ?? "application/octet-stream", ct);
             var resultJson = await _transport.InteractAsync(fileId, transcriptJson, ct);
             Directory.CreateDirectory(resultDir);
-            var path = Path.Combine(resultDir, meeting.Id + ".gemini.json");
-            await File.WriteAllTextAsync(path, resultJson, ct);
+            var safeId = string.Concat(meeting.Id.Where(char.IsLetterOrDigit));
+            if (safeId.Length == 0) return job with { State = GeminiJobState.Failed, LastError = "Invalid meeting id." };
+            var path = Path.Combine(resultDir, safeId + ".gemini.json");
+            var tmp = path + ".tmp";
+            await File.WriteAllTextAsync(tmp, resultJson, ct); // atomic: crash leaves old result, never partial JSON
+            File.Move(tmp, path, overwrite: true);
             return job with { State = GeminiJobState.Succeeded, ResultPath = path };
         }
         catch (Exception ex)

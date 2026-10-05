@@ -5,7 +5,7 @@ namespace MeetVault.Core.Tests;
 sealed class FakeAudio : IAudioCapture
 {
     public bool IsCapturing { get; private set; }
-    public Task StartAsync(string micId, string appSource, CancellationToken ct) { IsCapturing = true; return Task.CompletedTask; }
+    public string LastMic { get; private set; } = ""; public string LastSource { get; private set; } = ""; public Task StartAsync(string micId, string appSource, CancellationToken ct) { IsCapturing = true; LastMic = micId; LastSource = appSource; return Task.CompletedTask; }
     public Task StopAsync(CancellationToken ct) { IsCapturing = false; return Task.CompletedTask; }
 }
 
@@ -71,5 +71,18 @@ public sealed class SessionTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => session.StartAsync("mic", "app"));
         await session.StopAsync();
     }
+
+    [Fact]
+    public async Task Resume_RestartsSameSources()
+    {
+        var audio = new FakeAudio();
+        var session = new MeetingSession(audio, new FakeTranscriber(), new FakeDiarizer(), new FakeGender(), new FakeStore());
+        await session.StartAsync("mic-A", "app-Zoom");
+        await session.PauseAsync();
+        await session.ResumeAsync();
+        Assert.Equal(("mic-A", "app-Zoom"), (audio.LastMic, audio.LastSource));
+        await session.StopAsync();
+    }
+
 }
 

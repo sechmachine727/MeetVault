@@ -12,8 +12,11 @@ public sealed class MeetingSession
     private readonly List<Speaker> _speakers = new();
     private Meeting? _meeting;
     private bool _paused;
+    private string _micId = "";
+    private string _appSource = "";
 
     public IReadOnlyList<Segment> Segments => _segments;
+    public IReadOnlyList<Speaker> Speakers => _speakers;
     public event Action<Segment>? LiveSegment;
 
     public MeetingSession(IAudioCapture audio, ISpeechTranscriber transcriber, ISpeakerDiarizer diarizer, IGenderLabeler gender, IMeetingStore store)
@@ -27,6 +30,7 @@ public sealed class MeetingSession
         if (_meeting is { Status: MeetingStatus.Recording or MeetingStatus.Paused }) throw new InvalidOperationException("Already started.");
         _meeting = new Meeting(Guid.NewGuid().ToString("n"), "Meeting " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"), DateTimeOffset.Now, null, MeetingStatus.Recording, null, null);
         _paused = false;
+        _micId = micId; _appSource = appSource; // retained so Resume restarts the same sources
         await _audio.StartAsync(micId, appSource, ct);
         await _transcriber.StartAsync(ct);
     }
@@ -44,7 +48,7 @@ public sealed class MeetingSession
     {
         EnsureActive();
         _paused = false;
-        await _audio.StartAsync("", "", ct);
+        await _audio.StartAsync(_micId, _appSource, ct);
         await _transcriber.StartAsync(ct);
         _meeting = _meeting! with { Status = MeetingStatus.Recording };
     }
