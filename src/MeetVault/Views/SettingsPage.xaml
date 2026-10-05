@@ -33,7 +33,7 @@
                         <TextBlock Text="Desktop audio to mix alongside the microphone." Opacity="0.7" TextWrapping="Wrap" />
                     </StackPanel>
                     <TextBox x:Name="AppSourceBox" Grid.Column="1" Width="280" HorizontalAlignment="Left"
-                             Text="System audio (loopback)" TextChanged="TextBox_TextChanged"
+                             PlaceholderText="Pick a conference app (e.g. Teams, Zoom)" TextChanged="TextBox_TextChanged"
                              AutomationProperties.Name="Application source" />
                 </Grid>
                 <TextBlock x:Name="AudioStatus" Opacity="0.7" TextWrapping="Wrap" />
@@ -200,3 +200,4 @@
         </StackPanel>
     </ScrollViewer>
 </Page>
+

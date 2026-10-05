@@ -32,7 +32,7 @@ public sealed partial class DetailsPage : Page
     private const string CannedResult = """
         {
           "fileId": "files/demo-quarterly",
-          "model": "gemini-2.5-flash",
+          "model": "gemini-3.8-flash",
           "summary": "Roadmap sync confirms the recorder ships, the overlay review lands Thursday, and diarization remains the open risk.",
           "actionItems": [
             "Ship the overlay opacity and font defaults on Thursday.",
@@ -102,10 +102,15 @@ public sealed partial class DetailsPage : Page
     }
 
     // ponytail: writes straight to Documents with no FileSavePicker; add the picker when export location becomes a user choice.
-    private void Export_Click(object sender, RoutedEventArgs e)
+    private async void Export_Click(object sender, RoutedEventArgs e)
     {
         if (!TryTranscript(out var text)) return;
         var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), FileNameFor(DemoMeetings.Cards[0].Title));
+        if (File.Exists(path))
+        {
+            var confirm = new ContentDialog { Title = "Overwrite export?", Content = $"{path} already exists. Replace it?", PrimaryButtonText = "Overwrite", CloseButtonText = "Cancel", XamlRoot = XamlRoot };
+            if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+        }
         try
         {
             File.WriteAllText(path, text);
@@ -219,3 +224,5 @@ public sealed partial class DetailsPage : Page
             => Task.FromResult(CannedResult);
     }
 }
+
+

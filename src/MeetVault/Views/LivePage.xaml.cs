@@ -43,7 +43,7 @@ public sealed partial class LivePage : Page
         catch (InvalidOperationException) { Status("Nothing to pause: this demo session was never started."); }
     }
 
-    private void Overlay_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) { OverlayWindow.ShowOrActivate(); }
+    private async void Resume_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e){ try { await _session.ResumeAsync(); Status("Resumed: capture continues after the gap."); } catch (InvalidOperationException) { Status("Nothing to resume: this demo session was never started."); } } private void Overlay_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) { OverlayWindow.ShowOrActivate(); }
 
     private async void Stop_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
@@ -88,3 +88,4 @@ public sealed partial class LivePage : Page
         public void Save(Meeting meeting, IReadOnlyList<Speaker> speakers, IReadOnlyList<Segment> segments) => SavedSegments = segments.Count;
     }
 }
+
