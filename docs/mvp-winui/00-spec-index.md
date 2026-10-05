@@ -1,0 +1,5 @@
+# MeetVault WinUI 3 MVP — Spec Index
+
+Read in order: `01-requirements.md`, `02-architecture.md`, `03-ux-design.md`, `04-data-and-gemini.md`, `05-test-plan.md`, `06-build-and-run.md`, `07-engine-integration-notes.md`, `08-risks-and-ponytail.md`. Frozen behavior reference: `Wireframes/Desktop/MeetVault-Desktop-Demo/` plus `docs/codebase/*.md`. Locked decisions: fresh C# WinUI 3 app; whisper.cpp plus native/ONNX diarizer plus local gender labeler; mic plus user-picked conference-app audio; separate Male N / Female N counters with Unknown fallback; pinnable overlay with scroll and rename; SQLite metadata plus media files; transcript edit plus reassignment; manual Gemini 3.8 Flash (agentic video understanding) upload with Credential Locker key; pause halts both streams with a gap; bundled installer; full wired settings.
+
+MVP test spine: counter assignment, rename propagation, edit plus reassign, finish-ordering transaction, pause gap, scripted-PCM protocol tests, Windows manual pass (capture, overlay, recovery, playback, Gemini success and failure), bundled-install smoke.

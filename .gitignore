@@ -1,0 +1,73 @@
+# MeetVault WinUI 3 - gitignore
+# Build outputs, local secrets, models, OS noise, agentic artifacts.
+
+# .NET / MSBuild
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+publish/
+TestResults/
+BenchmarkDotNet.Artifacts/
+*.nupkg
+*.snupkg
+packages/
+
+# Visual Studio / VS Code / Rider
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vscode/
+.idea/
+*.code-workspace
+
+# WinUI / Windows App SDK packaging
+BundleArtifacts/
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
+*.appxupload
+*.appxsym
+*.eappx
+*.eappxbundle
+
+# Certs and local secrets - never commit keys
+*.pfx
+*.p12
+*.cer
+*.key
+appsettings.*.json
+secrets.json
+
+# ML model binaries (fetched or bundled at build time)
+*.onnx
+*.onnx_data
+*.gguf
+*.pt
+*.safetensors
+
+# Crash dumps and logs
+*.dmp
+*.log
+
+# OS noise
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Agentic / AI-assistant working files and artifacts
+.codex/
+.agents/
+.claude/
+.cursor/
+.windsurf/
+.aider*
+.copilot/
+*.rej
+
+# Local scratch
+/scratch/
+/tmp/
