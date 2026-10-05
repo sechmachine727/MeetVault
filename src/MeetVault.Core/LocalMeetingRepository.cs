@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace MeetVault.Core;
 
@@ -83,6 +84,75 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         c.ExecuteNonQuery();
     }
 
+
+    public IReadOnlyList<Segment> LoadSegments(string meetingId)
+    {
+        using var c = _db.CreateCommand();
+        c.CommandText = "SELECT id,speaker_id,start_ms,end_ms,text,is_final FROM transcript_segments WHERE meeting_id=$m ORDER BY start_ms,id";
+        c.Parameters.AddWithValue("$m", meetingId);
+        using var r = c.ExecuteReader();
+        var list = new List<Segment>();
+        while (r.Read()) list.Add(new Segment(r.GetString(0), r.GetString(1), r.GetInt64(2), r.GetInt64(3), r.GetString(4), r.GetInt32(5) != 0));
+        return list;
+    }
+
+    public IReadOnlyList<Speaker> LoadSpeakers(string meetingId)
+    {
+        using var c = _db.CreateCommand();
+        c.CommandText = "SELECT speaker_id,display_name,gender,gender_index FROM speakers WHERE meeting_id=$m ORDER BY speaker_id";
+        c.Parameters.AddWithValue("$m", meetingId);
+        using var r = c.ExecuteReader();
+        var list = new List<Speaker>();
+        while (r.Read()) list.Add(new Speaker(r.GetString(0), r.GetString(1), Enum.Parse<Gender>(r.GetString(2)), r.GetInt32(3)));
+        return list;
+    }
+
+    public IReadOnlyList<Meeting> ListMeetings()
+    {
+        using var c = _db.CreateCommand();
+        c.CommandText = "SELECT id,title,started_at,ended_at,status,media_path,media_mime FROM meetings ORDER BY started_at DESC";
+        using var r = c.ExecuteReader();
+        var list = new List<Meeting>();
+        while (r.Read()) list.Add(ReadMeeting(r));
+        return list;
+    }
+
+    public IReadOnlyList<Meeting> LoadUnfinished()
+    {
+        using var c = _db.CreateCommand();
+        c.CommandText = "SELECT id,title,started_at,ended_at,status,media_path,media_mime FROM meetings WHERE status IN ('Recording','Paused') ORDER BY started_at DESC";
+        using var r = c.ExecuteReader();
+        var list = new List<Meeting>();
+        while (r.Read()) list.Add(ReadMeeting(r));
+        return list;
+    }
+
+    public void SaveJob(GeminiJob job)
+    {
+        using var c = _db.CreateCommand();
+        c.CommandText = "INSERT INTO gemini_jobs(id,meeting_id,state,attempts,last_error,result_paths,updated_at) VALUES($id,$m,$s,$a,$e,$r,$n) ON CONFLICT(id) DO UPDATE SET state=$s,attempts=$a,last_error=$e,result_paths=$r,updated_at=$n";
+        c.Parameters.AddWithValue("$id", job.Id); c.Parameters.AddWithValue("$m", job.MeetingId);
+        c.Parameters.AddWithValue("$s", job.State.ToString()); c.Parameters.AddWithValue("$a", job.Attempts);
+        c.Parameters.AddWithValue("$e", (object?)job.LastError ?? DBNull.Value); c.Parameters.AddWithValue("$r", (object?)job.ResultPath ?? DBNull.Value);
+        c.Parameters.AddWithValue("$n", DateTimeOffset.UtcNow.ToString("o"));
+        c.ExecuteNonQuery();
+    }
+
+    public GeminiJob? LoadJob(string meetingId)
+    {
+        using var c = _db.CreateCommand();
+        c.CommandText = "SELECT id,state,attempts,last_error,result_paths FROM gemini_jobs WHERE meeting_id=$m ORDER BY updated_at DESC LIMIT 1";
+        c.Parameters.AddWithValue("$m", meetingId);
+        using var r = c.ExecuteReader();
+        if (!r.Read()) return null;
+        return new GeminiJob(r.GetString(0), meetingId, Enum.Parse<GeminiJobState>(r.GetString(1)), r.GetInt32(2), r.IsDBNull(3) ? null : r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4));
+    }
+
+    private static Meeting ReadMeeting(SqliteDataReader r) => new(r.GetString(0), r.GetString(1), DateTimeOffset.Parse(r.GetString(2)), r.IsDBNull(3) ? null : DateTimeOffset.Parse(r.GetString(3)), Enum.Parse<MeetingStatus>(r.GetString(4)), r.IsDBNull(5) ? null : r.GetString(5), r.IsDBNull(6) ? null : r.GetString(6));
+
+
     public void Dispose() => _db.Dispose();
 }
+
+
 
