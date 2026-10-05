@@ -34,6 +34,15 @@ sealed class FakeStore : IMeetingStore
     public void Save(Meeting m, IReadOnlyList<Speaker> sp, IReadOnlyList<Segment> se) { Saved = m; SegmentCount = se.Count; }
 }
 
+
+sealed class ScriptedDiarizer : ISpeakerDiarizer
+{
+    private readonly Queue<string> _turns;
+    public ScriptedDiarizer(params string[] turns) { _turns = new Queue<string>(turns); }
+    public string AssignTurn(Segment segment) => _turns.Count > 0 ? _turns.Dequeue() : "spk_x";
+}
+
+
 public sealed class SessionTests
 {
     [Fact]
@@ -84,5 +93,23 @@ public sealed class SessionTests
         await session.StopAsync();
     }
 
+
+    [Fact]
+    public async Task Session_UsesSeparateGenderCounters()
+    {
+        var tx = new FakeTranscriber();
+        var diarizer = new ScriptedDiarizer("spk_m", "spk_f", "spk_m2");
+        var session = new MeetingSession(new FakeAudio(), tx, diarizer, new CounterGenderLabeler(id => id.StartsWith("spk_m") ? Gender.Male : Gender.Female), new FakeStore());
+        await session.StartAsync("mic", "app");
+        tx.Emit(new Segment("a", "", 0, 1000, "one", true));
+        tx.Emit(new Segment("b", "", 1000, 2000, "two", true));
+        tx.Emit(new Segment("c", "", 2000, 3000, "three", true));
+        await session.StopAsync();
+        var names = session.Speakers.OrderBy(s => s.Id).Select(s => s.DisplayName).ToArray();
+        Assert.Equal(new[] { "Female 1", "Male 1", "Male 2" }, names);
+    }
+
 }
+
+
 
