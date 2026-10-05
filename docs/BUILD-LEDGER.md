@@ -24,3 +24,10 @@
 
 ## Progress
 - Scaffold done: src/MeetVault (winui-mvvm, net8.0).
+
+## Language support (user decision 2026-10-06)
+
+- Transcription must support English, Japanese, and Vietnamese, including mid-conversation language switches.
+- Consequence: model choice changes — `base.en-q5_1` (English-only) is OUT; multilingual `base` (~142 MiB) or larger becomes the default candidate.
+- Open: whisper.cpp language detection per segment vs fixed multi-language mode; diarization/gender validation on JA/VI audio; model-size vs real-time CPU tradeoff.
+- Status: requirement recorded; engine selection (P4) must validate JA/VI before locking the bundled model.
