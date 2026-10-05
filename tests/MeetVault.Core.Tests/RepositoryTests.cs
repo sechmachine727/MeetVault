@@ -31,5 +31,16 @@ public sealed class RepositoryTests : IDisposable
     }
 
     public void Dispose() { _repo.Dispose(); try { File.Delete(_path); } catch { } }
-}
 
+    [Fact]
+    public void Save_RollsBack_OnMidTransactionFault()
+    {
+        var m = new Meeting("m3", "Retro", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, MeetingStatus.Ready, null, null);
+        _repo.Save(m, Array.Empty<Speaker>(), new[] { new Segment("s1", "spk_1", 0, 500, "v1", true) });
+        // Duplicate segment id violates the primary key mid-transaction: the whole Save must roll back.
+        Assert.Throws<Microsoft.Data.Sqlite.SqliteException>(() => _repo.Save(m, Array.Empty<Speaker>(), new[] { new Segment("s9", "spk_1", 0, 100, "new", true), new Segment("s9", "spk_1", 100, 200, "dup", true) }));
+        Assert.Equal(1, _repo.CountSegments("m3"));
+        Assert.Equal("v1", _repo.LoadSegments("m3").Single().Text);
+    }
+
+}
