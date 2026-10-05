@@ -6,8 +6,8 @@ namespace MeetVault.Views;
 
 public sealed partial class SettingsPage : Page
 {
-    // ponytail: memory-only by design so a key never reaches disk; move to Windows Credential Manager when real auth lands.
-    public static string? GeminiApiKey { get; private set; }
+    private static readonly CredentialLockerSecretStore Locker = new();
+    public static string? GeminiApiKey => Locker.Get("GeminiApiKey");
 
     public SettingsPage()
     {
@@ -45,13 +45,13 @@ public sealed partial class SettingsPage : Page
     {
         var key = ApiKeyBox.Password.Trim();
         ApiKeyBox.Password = "";
-        GeminiApiKey = key.Length == 0 ? null : key;
+        if (key.Length == 0) Locker.Clear("GeminiApiKey"); else Locker.Set("GeminiApiKey", key);
         Refresh();
 
         StatusBar.Severity = key.Length == 0 ? InfoBarSeverity.Warning : InfoBarSeverity.Success;
         StatusBar.Message = key.Length == 0
             ? "No key entered, so the in-memory key was cleared."
-            : "Key held in memory for this session. It is never written to disk.";
+            : "Key stored in Windows Credential Locker.";
         StatusBar.IsOpen = true;
     }
 
@@ -64,8 +64,8 @@ public sealed partial class SettingsPage : Page
         StorageStatus.Text = $"Transcripts will be written to {StoragePathBox.Text}.";
         UsageText.Text = DescribeUsage(StoragePathBox.Text);
         GeminiStatus.Text = GeminiApiKey is null
-            ? "No key stored in memory for this session."
-            : "Key stored in memory for this session. It is not written to disk.";
+            ? "No key in Credential Locker."
+            : "Key stored in Windows Credential Locker.";
     }
 
     private static string OnOff(bool value) => value ? "on" : "off";
@@ -84,3 +84,4 @@ public sealed partial class SettingsPage : Page
         }
     }
 }
+
