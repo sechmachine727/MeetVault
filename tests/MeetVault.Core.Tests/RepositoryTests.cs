@@ -43,4 +43,18 @@ public sealed class RepositoryTests : IDisposable
         Assert.Equal("v1", _repo.LoadSegments("m3").Single().Text);
     }
 
+
+    [Fact]
+    public void RenameSpeaker_PropagatesToSpeakers_KeepsSegmentJoin()
+    {
+        var m = new Meeting("m4", "Planning", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, MeetingStatus.Ready, null, null);
+        _repo.Save(m, new[] { new Speaker("spk_1", "Male 1", Gender.Male, 1) }, new[] { new Segment("s1", "spk_1", 0, 500, "hi", true), new Segment("s2", "spk_1", 500, 900, "yo", true) });
+        _repo.RenameSpeaker("m4", "spk_1", "Bob");
+        // Every row resolves to the new name through the stable id.
+        var speakers = _repo.LoadSpeakers("m4").ToDictionary(s => s.Id);
+        Assert.Equal("Bob", speakers["spk_1"].DisplayName);
+        foreach (var seg in _repo.LoadSegments("m4"))
+            Assert.Equal("Bob", speakers[seg.SpeakerId].DisplayName);
+    }
+
 }
