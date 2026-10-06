@@ -27,6 +27,7 @@ public sealed class MeetingSession : IDisposable
 
     public async Task StartAsync(string micId, string appSource, CancellationToken ct = default)
     {
+if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is required.", "micId");
         if (_meeting is { Status: MeetingStatus.Recording or MeetingStatus.Paused }) throw new InvalidOperationException("Already started.");
         _meeting = new Meeting(Guid.NewGuid().ToString("n"), "Meeting " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"), DateTimeOffset.Now, null, MeetingStatus.Recording, null, null);
         _paused = false;
@@ -103,6 +104,7 @@ public sealed class MeetingSession : IDisposable
 
     private void EnsureActive() { if (_meeting is null) throw new InvalidOperationException("No active meeting."); }
 }
+
 
 
 

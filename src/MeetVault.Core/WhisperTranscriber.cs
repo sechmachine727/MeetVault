@@ -15,8 +15,11 @@ public sealed class WhisperTranscriber : ISpeechTranscriber, IDisposable
     private WhisperFactory? _factory;
     private CancellationTokenSource? _cts;
 
+private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnoreCase) { "auto", "en", "ja", "vi" };
+
     public WhisperTranscriber(string modelPath, string language = "auto")
     {
+        if (!Known.Contains(language) && language.Length != 2) throw new ArgumentException("Unsupported language: " + language + ". Use auto, en, ja, vi, or a valid ISO code.", "language");
         _modelPath = modelPath;
         _language = language;
     }
@@ -88,6 +91,8 @@ public sealed class WhisperTranscriber : ISpeechTranscriber, IDisposable
         _factory?.Dispose();
     }
 }
+
+
 
 
 
