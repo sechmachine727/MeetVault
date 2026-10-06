@@ -143,7 +143,7 @@
                         <TextBlock Text="Folder where exported transcripts are written." Opacity="0.7" TextWrapping="Wrap" />
                     </StackPanel>
                     <TextBox x:Name="StoragePathBox" Grid.Column="1" Width="420" HorizontalAlignment="Left"
-                             TextChanged="TextBox_TextChanged" LostFocus="Refresh_Storage"
+                             LostFocus="Refresh_Storage"
                              AutomationProperties.Name="Storage location" />
                 </Grid>
                 <TextBlock x:Name="StorageStatus" Opacity="0.7" TextWrapping="Wrap" />

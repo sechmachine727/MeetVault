@@ -42,7 +42,11 @@ public sealed partial class LivePage : Page
     {
         _checkpoint?.Stop();
         LiveBridge.RenameByName = null;
-        try { if (_started && _session is not null) await _session.StopAsync(); } catch { }
+        // Pause, not stop: navigating away must not silently finalize the meeting.
+        // The draft stays recoverable and Dashboard offers it again.
+        try { if (_started && _session is not null) await _session.PauseAsync(); } catch { }
+        // Drain the in-flight window before the native model is freed.
+        try { await _transcribeGate.WaitAsync(); _transcribeGate.Release(); } catch { }
         try { _capture?.Dispose(); } catch { }
         try { _whisper?.Dispose(); } catch { }
         try { _windowDiarizer?.Dispose(); } catch { }
@@ -189,6 +193,10 @@ public sealed partial class LivePage : Page
         lock (_window) { window = _window.ToArray(); _window.Clear(); }
         // Advance the timeline by the samples actually consumed, not a fixed guess.
         var windowMs = window.Length / 32; // 16000 samples/s * 2 bytes = 32 bytes/ms
+        // OnPcm is serialized by NAudio, so the timeline advances on the capture thread;
+        // a dropped window still consumes audio time, keeping labels aligned to the WAV.
+        var start = _windowOffsetMs;
+        _windowOffsetMs = start + windowMs;
         // One window in flight at a time, and never queue: with a slower-than-realtime
         // model a queue would grow for the whole session and the transcript would fall
         // ever further behind (NFR2). Dropping the newest window keeps it live; the WAV
@@ -196,12 +204,10 @@ public sealed partial class LivePage : Page
         if (!await _transcribeGate.WaitAsync(0)) return;
         try
         {
-            // Read the offset inside the gate so two windows can never share a start.
-            var start = _windowOffsetMs;
             _windowDiarizer?.AssignWindowSamples(window);
             DispatcherQueue.TryEnqueue(() => PartialLine.Text = "Transcribing\u2026");
-            await _whisper.TranscribeWindowAsync(window, start, "live");
-            _windowOffsetMs = start + windowMs;
+            // Segment ids are namespaced by the real meeting id (the table's PK is global).
+            await _whisper.TranscribeWindowAsync(window, start, _session.MeetingId ?? "live");
         }
         catch { /* next window retries; audio file keeps everything */ }
         finally

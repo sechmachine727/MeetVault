@@ -59,10 +59,10 @@ public sealed class GeminiUploader
             File.Move(tmp, path, overwrite: true);
             return job with { State = GeminiJobState.Succeeded, ResultPath = path };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // Plain sentence for the user; the exception type stays out of the UI.
-            return job with { State = GeminiJobState.Failed, LastError = "The upload failed (" + ex.GetType().Name + "). Check your network and the Gemini API key, then try again." }; // originals untouched; retry is manual
+            return job with { State = GeminiJobState.Failed, LastError = "The upload could not finish. Check your network and the Gemini API key, then try again." }; // originals untouched; retry is manual
         }
     }
 }

@@ -99,14 +99,23 @@ public sealed partial class DetailsPage : Page
         var job = AppStore.Repo.LoadJob(meeting.Id);
         if (job is null) return;
         GeminiExpander.IsExpanded = true;
-        JobState.Text = $"Last result: {job.State} \u00b7 {job.Attempts} attempt(s)";
+        JobState.Text = $"Last result: {GeminiStateLabel(job.State)} \u00b7 {job.Attempts} attempt(s)";
         if (job.State == GeminiJobState.Succeeded && job.ResultPath is not null)
         {
             try { JobResult.Text = File.ReadAllText(job.ResultPath); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { JobResult.Text = $"Result file unreadable: {ex.Message}"; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { JobResult.Text = "The saved result could not be read."; }
         }
         else JobResult.Text = job.LastError ?? "The job finished without a result.";
     }
+
+    private static string GeminiStateLabel(GeminiJobState state) => state switch
+    {
+        GeminiJobState.Queued => "Queued",
+        GeminiJobState.Uploading => "Uploading",
+        GeminiJobState.Succeeded => "Succeeded",
+        GeminiJobState.Failed => "Failed",
+        _ => "Unknown",
+    };
 
     private void SpeakerPicker_Loaded(object sender, RoutedEventArgs e)
     {
@@ -199,8 +208,13 @@ public sealed partial class DetailsPage : Page
         }
         try
         {
+            Directory.CreateDirectory(folder); // the configured folder may not exist yet
             File.WriteAllText(path, text);
             Status(InfoBarSeverity.Success, $"Saved {Lines.Count} line(s) to {path}.");
+        }
+        catch (DirectoryNotFoundException)
+        {
+            Status(InfoBarSeverity.Error, "The export folder does not exist and could not be created. Check the storage location in Settings.");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -240,7 +254,7 @@ public sealed partial class DetailsPage : Page
             var job = await uploader.SendMeetingAsync(_meeting, JsonSerializer.Serialize(Lines.ToList(), TranscriptJsonContext.Default.ListTranscriptLine), ResultDirectory);
             AppStore.Repo.SaveJob(job);
 
-            JobState.Text = $"Last result: {job.State} \u00b7 {job.Attempts} attempt(s)";
+            JobState.Text = $"Last result: {GeminiStateLabel(job.State)} \u00b7 {job.Attempts} attempt(s)";
             if (job.State == GeminiJobState.Succeeded && job.ResultPath is not null)
             {
                 JobResult.Text = File.ReadAllText(job.ResultPath);

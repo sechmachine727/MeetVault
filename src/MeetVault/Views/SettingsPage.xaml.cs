@@ -142,7 +142,7 @@ public sealed partial class SettingsPage : Page
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return $"Usage: unavailable \u2014 {ex.Message}";
+            return "Usage: unavailable.";
         }
     }
 }

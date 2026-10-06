@@ -47,4 +47,14 @@ public sealed class MediaLinkTests
         Assert.Equal("/tmp/rec.wav", store.Saved!.MediaPath);
         Assert.Equal("audio/wav", store.Saved.MediaMime);
     }
+
+    // Segment ids are namespaced by the meeting id; it must be set so two meetings
+    // never mint the same transcript_segments.id (a global primary key).
+    [Fact]
+    public async Task MeetingId_IsSetAfterStart()
+    {
+        var session = new MeetingSession(new AudioWithFile(), new T(), new D(), new G(), new RecordingStore());
+        await session.StartAsync("0", "");
+        Assert.False(string.IsNullOrEmpty(session.MeetingId));
+    }
 }

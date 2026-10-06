@@ -19,6 +19,7 @@ public sealed class MeetingSession : IDisposable
 
     public IReadOnlyList<Segment> Segments => _segments;
     public IReadOnlyList<Speaker> Speakers => _speakers;
+    public string? MeetingId => _meeting?.Id;
     public event Action<Segment>? LiveSegment;
 
     public MeetingSession(IAudioCapture audio, ISpeechTranscriber transcriber, ISpeakerDiarizer diarizer, IGenderLabeler gender, IMeetingStore store)
