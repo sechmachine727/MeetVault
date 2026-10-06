@@ -25,6 +25,7 @@ public sealed partial class DetailsPage : Page
     };
 
     private readonly List<string> _originalText = new();
+    private MeetVault.Core.Meeting? _meeting;
 
     private const string DemoMediaPath = "demo://quarterly-roadmap-sync/audio.wav";
     private const string DemoMime = "audio/wav";
@@ -68,6 +69,7 @@ public sealed partial class DetailsPage : Page
             }
         }
 
+        _meeting = first;
         var card = AppStore.Cards().FirstOrDefault() ?? DemoMeetings.Cards[0];
         ShowPriorJob(first);
         MeetingTitle.Text = card.Title;
@@ -133,7 +135,7 @@ public sealed partial class DetailsPage : Page
     private async void Export_Click(object sender, RoutedEventArgs e)
     {
         if (!TryTranscript(out var text)) return;
-        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), FileNameFor(DemoMeetings.Cards[0].Title));
+        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), FileNameFor((_meeting?.Title) ?? DemoMeetings.Cards[0].Title));
         if (File.Exists(path))
         {
             var confirm = new ContentDialog { Title = "Overwrite export?", Content = $"{path} already exists. Replace it?", PrimaryButtonText = "Overwrite", CloseButtonText = "Cancel", XamlRoot = XamlRoot };
@@ -166,8 +168,9 @@ public sealed partial class DetailsPage : Page
         try
         {
             var uploader = new GeminiUploader(new CredentialLockerSecretStore(), new DemoFileReader(), new DemoTransport());
-            var meeting = DemoMeetings.All[0] with { MediaPath = DemoMediaPath, MediaMime = DemoMime };
+            var meeting = (_meeting ?? DemoMeetings.All[0]) with { MediaPath = DemoMediaPath, MediaMime = DemoMime };
             var job = await uploader.SendMeetingAsync(meeting, JsonSerializer.Serialize(Lines), ResultDirectory);
+            AppStore.Repo.SaveJob(job);
 
             JobState.Text = $"Job {job.Id} \u00b7 {job.State} \u00b7 {job.Attempts} attempt(s)" + (job.ResultPath is null ? "" : $" \u00b7 {job.ResultPath}");
             if (job.State == GeminiJobState.Succeeded && job.ResultPath is not null)
@@ -245,6 +248,7 @@ public sealed partial class DetailsPage : Page
             => Task.FromResult(CannedResult);
     }
 }
+
 
 
 
