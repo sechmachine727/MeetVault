@@ -4,9 +4,10 @@
 
 ## Active (needs you physically present)
 
-### 1. UI walkthrough after install (open)
-- Observed: 43/43 tests green, solution builds 0 warn/0 err, dev cert created+trusted (CN=AppPublisher, CurrentUser Root). Signed-MSIX repack lane running (Newton); portable exe at publish/win-x64/MeetVault.exe with 271MB models staged.
-- Next: you install (signed MSIX or portable exe) and walk Dashboard/Live/Meetings/Details/Settings + overlay pin, light/dark, small/large window.
+### 1. One admin command, then install + UI walkthrough (open)
+- Observed: MSIX signed in place (self-signed AppPublisher, SHA256, thumb BBD1..., verifies clean) and portable exe refreshed (publish/win-x64/MeetVault.exe + 271MB models). Per-user Root trust is in place but the installer demands machine scope: Add-AppxPackage fails 0x800B0109 until then. Machine-trust workaround was rejected by auto-review (correctly — broader than your per-user approval), so this one is yours.
+- Your single command (elevated PowerShell): find the cert by thumb BBD1DFCFC1F34E14A603110858C4CD019A7B70DD in Cert:\CurrentUser\My, export, then certutil -addstore Root. After that: Add-AppxPackage 'src/MeetVault/AppPackages/MeetVault_1.0.0.0_x64_Test/MeetVault_1.0.0.0_x64.msix', then walk Dashboard/Live/Meetings/Details/Settings + overlay pin, light/dark, small/large window.
+- No-tust alternative: run publish/win-x64/MeetVault.exe directly (self-contained, models alongside) — packaged-identity features may behave differently than installed MSIX.
 
 ### 2. Spoken JA/VI accuracy (open, narrowed)
 - Observed: your Recording.m4a validated (13.74 s; base 5 segs RTF 1.73, tiny 3 segs RTF 1.10; all windows lang en at low prob). The non-English portion is sung, not spoken JA/VI — ja/vi path still unexercised. See docs/TRILINGUAL-AUDIO-NOTES.md.
