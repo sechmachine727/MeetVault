@@ -174,7 +174,8 @@ public sealed partial class DetailsPage : Page
             var uploader = new GeminiUploader(store, new DemoFileReader(), transport);
             var meeting = (_meeting ?? DemoMeetings.All[0]) with { MediaPath = DemoMediaPath, MediaMime = DemoMime };
             var job = await uploader.SendMeetingAsync(meeting, JsonSerializer.Serialize(Lines.ToList(), TranscriptJsonContext.Default.ListTranscriptLine), ResultDirectory);
-            AppStore.Repo.SaveJob(job);
+            // R2-1: demo runs never persist — a canned Succeeded row would pose as a real prior result.
+            if (transport is not DemoTransport) AppStore.Repo.SaveJob(job);
             (transport as IDisposable)?.Dispose();
 
             JobState.Text = $"Job {job.Id} \u00b7 {job.State} \u00b7 {job.Attempts} attempt(s)" + (job.ResultPath is null ? "" : $" \u00b7 {job.ResultPath}");

@@ -108,11 +108,13 @@ private MeetingSession _session = null!;
 
     private async void Pause_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
+        // R2-2: drop the partial window; offset re-anchors at Resume so timings never span the gap.
+        lock (_window) _window.Clear();
         try { if (_session is null) Status("Nothing to pause: session never started."); else { await _session.PauseAsync(); Status("Paused: capture halted with a gap."); } }
         catch (InvalidOperationException) { Status("Nothing to pause: session never started."); }
     }
 
-    private async void Resume_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e){ try { if (_session is null) Status("Nothing to resume: session never started."); else { await _session.ResumeAsync(); Status("Resumed: capture continues after the gap."); } } catch (InvalidOperationException) { Status("Nothing to resume: session never started."); } }
+    private async void Resume_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e){ try { if (_session is null) Status("Nothing to resume: session never started."); else { await _session.ResumeAsync(); _windowOffsetMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs); Status("Resumed: capture continues after the gap."); } } catch (InvalidOperationException) { Status("Nothing to resume: session never started."); } }
     private void Overlay_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) { OverlayWindow.ShowOrActivate(); }
 
     private async void Stop_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
