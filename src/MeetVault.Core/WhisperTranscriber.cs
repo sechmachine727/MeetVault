@@ -16,6 +16,14 @@ public sealed class WhisperTranscriber : ISpeechTranscriber, IDisposable
     public bool UseGpu { get; }
     public GpuBackend Backend { get; }
     public int GpuDevice { get; }
+    // What the runtime actually loaded (valid after StartAsync). Lets the UI warn when a
+    // requested GPU fell back to CPU, instead of silently showing the requested backend.
+    public GpuBackend LoadedBackend => RuntimeOptions.LoadedLibrary switch
+    {
+        RuntimeLibrary.Cuda or RuntimeLibrary.Cuda12 => GpuBackend.Cuda,
+        RuntimeLibrary.Vulkan => GpuBackend.Vulkan,
+        _ => GpuBackend.Cpu,
+    };
     private WhisperFactory? _factory;
     private CancellationTokenSource? _cts;
 

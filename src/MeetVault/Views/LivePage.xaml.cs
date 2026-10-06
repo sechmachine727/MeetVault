@@ -24,6 +24,7 @@ public sealed partial class LivePage : Page
     private long _windowOffsetMs;
     private readonly Dictionary<string, string> _speakerNames = new();
     private string _micLabel = "not started";
+    private string _modelLabel = "tiny";
     private readonly SemaphoreSlim _transcribeGate = new(1, 1);
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _checkpoint;
     private LiveState _state = LiveState.Idle;
@@ -78,9 +79,8 @@ public sealed partial class LivePage : Page
             _whisper = whisper; _capture = capture; _windowDiarizer = windowDiarizer;
             _transcriber = whisper; _audio = capture; _diarizer = (ISpeakerDiarizer?)windowDiarizer ?? diarizer;
             capture.PcmReady += OnPcm;
-            var engine = modelFile.Replace("ggml-", "").Replace(".bin", "");
-            var accel = backend == GpuBackend.Cpu ? "CPU" : backend.ToString();
-            _engineMode = "live: whisper " + engine + " + " + accel + (windowDiarizer is null ? ", single speaker" : " + sherpa diarizer");
+            _modelLabel = modelFile.Replace("ggml-", "").Replace(".bin", "");
+            _engineMode = "live: whisper " + _modelLabel + (windowDiarizer is null ? ", single speaker" : " + sherpa diarizer");
             return;
         }
         catch
@@ -97,7 +97,7 @@ public sealed partial class LivePage : Page
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         ResolveEngines();
-        EngineStatus.Text = _engineMode;
+        UpdateEngineStatus(actual: false);
         _micLabel = NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == MicId).Name
             ?? (MicId == "0" ? "Windows default" : "device " + MicId);
         var id = PendingRecovery.MeetingId;
@@ -115,6 +115,7 @@ public sealed partial class LivePage : Page
             WireSession(clearOverlay: true);
             _windowOffsetMs = 0;
             SetState(LiveState.Recording);
+            UpdateEngineStatus(actual: true);
             RebuildSpeakers();
             Status(_engineMode.StartsWith("live") ? "Recording. Speaker turns appear below as they are recognized." : "Demo mode: add Whisper and diarizer models to models/ for live transcription.");
         }
@@ -137,6 +138,7 @@ public sealed partial class LivePage : Page
             WireSession(clearOverlay: false); // keep the recovered backlog for a late-opened overlay
             _windowOffsetMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
             SetState(_session.IsPaused ? LiveState.Paused : LiveState.Recording);
+            UpdateEngineStatus(actual: true);
             RebuildSpeakers();
             Status($"Resumed '{id}'. {_session.Segments.Count} line(s) restored.");
         }
@@ -180,6 +182,19 @@ public sealed partial class LivePage : Page
         => AudioStatus.Text = _state == LiveState.Idle
             ? $"Mic: {_micLabel}. Not recording."
             : _state == LiveState.Paused ? $"Paused. Mic: {_micLabel}." : $"Recording from {_micLabel}.";
+
+    // Shows the accelerator that actually loaded once recording has begun, so a GPU that
+    // silently fell back to CPU is called out rather than shown as if it were used.
+    private void UpdateEngineStatus(bool actual)
+    {
+        if (_whisper is null) { EngineStatus.Text = _engineMode; return; }
+        var backend = actual ? _whisper.LoadedBackend : _whisper.Backend;
+        var accel = backend == GpuBackend.Cpu ? "CPU" : backend.ToString();
+        var note = actual && _whisper.Backend != GpuBackend.Cpu && backend == GpuBackend.Cpu
+            ? $" (requested {_whisper.Backend}, not available on this PC)"
+            : "";
+        EngineStatus.Text = "live: whisper " + _modelLabel + " + " + accel + note + (_windowDiarizer is null ? ", single speaker" : " + sherpa diarizer");
+    }
 
     private void RebuildSpeakers()
     {
