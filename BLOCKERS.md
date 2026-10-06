@@ -4,7 +4,12 @@
 
 ## Active (needs you physically present)
 
-### 1. One admin command, then install + UI walkthrough (open)
+### 1. Start-meeting crash + Live/Details/Settings navigation failures (open, under diagnosis)
+- Your screenshots: bare NRE opening Live, XamlParseException on ToggleSwitch.IsOn opening Settings. Settings cause found (XAML parse fires control events before all fields exist; init guard fixed in 24e5693, only in the fresh build, untested by you). Live NRE not isolated: engine construction is fully try/caught so the throw comes from inside InitializeComponent; Dashboard/Meetings use the same store paths fine.
+- Current build (3c4a10e, publish/win-x64-fresh): settings guard + deferred live start + stack-bearing nav dialog + nav-errors.log + crash.log + tiny-first model pick + vault-never-throws.
+- Next: run the fresh exe, paste the dialog text or the two log files under TEMP/MeetVault on any failure.
+
+### 2. One admin command, then install + UI walkthrough (open)
 - Observed: MSIX signed in place (self-signed AppPublisher, SHA256, thumb BBD1..., verifies clean) and portable exe refreshed (publish/win-x64/MeetVault.exe + 271MB models). Per-user Root trust is in place but the installer demands machine scope: Add-AppxPackage fails 0x800B0109 until then. Machine-trust workaround was rejected by auto-review (correctly — broader than your per-user approval), so this one is yours.
 - Your single command (elevated PowerShell): find the cert by thumb BBD1DFCFC1F34E14A603110858C4CD019A7B70DD in Cert:\CurrentUser\My, export, then certutil -addstore Root. After that: Add-AppxPackage 'src/MeetVault/AppPackages/MeetVault_1.0.0.0_x64_Test/MeetVault_1.0.0.0_x64.msix', then walk Dashboard/Live/Meetings/Details/Settings + overlay pin, light/dark, small/large window.
 - No-tust alternative: run publish/win-x64/MeetVault.exe directly (self-contained, models alongside) — packaged-identity features may behave differently than installed MSIX.
