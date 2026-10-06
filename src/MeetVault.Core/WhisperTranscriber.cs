@@ -19,6 +19,7 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
 
     public WhisperTranscriber(string modelPath, string language = "auto")
     {
+        if (language is null) throw new ArgumentException("Language is required. Use auto, en, ja, vi, or a valid ISO code.", "language");
         if (!Known.Contains(language) && language.Length != 2) throw new ArgumentException("Unsupported language: " + language + ". Use auto, en, ja, vi, or a valid ISO code.", "language");
         _modelPath = modelPath;
         _language = language;

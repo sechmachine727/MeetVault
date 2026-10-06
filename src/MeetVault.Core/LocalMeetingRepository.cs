@@ -73,11 +73,12 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         c.Parameters.AddWithValue("$m", meetingId);
         using var r = c.ExecuteReader();
         if (!r.Read()) return null;
-        return new Meeting(r.GetString(0), r.GetString(1), DateTimeOffset.Parse(r.GetString(2)), r.IsDBNull(3) ? null : DateTimeOffset.Parse(r.GetString(3)), Enum.Parse<MeetingStatus>(r.GetString(4)), r.IsDBNull(5) ? null : r.GetString(5), r.IsDBNull(6) ? null : r.GetString(6));
+        return new Meeting(r.GetString(0), r.GetString(1), DateTimeOffset.Parse(r.GetString(2)), r.IsDBNull(3) ? null : DateTimeOffset.Parse(r.GetString(3)), Enum.TryParse<MeetingStatus>(r.GetString(4), out var st) ? st : MeetingStatus.Failed, r.IsDBNull(5) ? null : r.GetString(5), r.IsDBNull(6) ? null : r.GetString(6));
     }
 
     public void RenameSpeaker(string meetingId, string speakerId, string displayName)
     {
+        if (string.IsNullOrWhiteSpace(displayName)) throw new ArgumentException("Display name is required.", "displayName");
         using var c = _db.CreateCommand();
         c.CommandText = "UPDATE speakers SET display_name=$d WHERE meeting_id=$m AND speaker_id=$s";
         c.Parameters.AddWithValue("$d", displayName); c.Parameters.AddWithValue("$m", meetingId); c.Parameters.AddWithValue("$s", speakerId);
@@ -103,7 +104,7 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         c.Parameters.AddWithValue("$m", meetingId);
         using var r = c.ExecuteReader();
         var list = new List<Speaker>();
-        while (r.Read()) list.Add(new Speaker(r.GetString(0), r.GetString(1), Enum.Parse<Gender>(r.GetString(2)), r.GetInt32(3)));
+        while (r.Read()) list.Add(new Speaker(r.GetString(0), r.GetString(1), Enum.TryParse<Gender>(r.GetString(2), out var g) ? g : Gender.Unknown, r.GetInt32(3)));
         return list;
     }
 
@@ -145,10 +146,11 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         c.Parameters.AddWithValue("$m", meetingId);
         using var r = c.ExecuteReader();
         if (!r.Read()) return null;
-        return new GeminiJob(r.GetString(0), meetingId, Enum.Parse<GeminiJobState>(r.GetString(1)), r.GetInt32(2), r.IsDBNull(3) ? null : r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4));
+        return new GeminiJob(r.GetString(0), meetingId, Enum.TryParse<GeminiJobState>(r.GetString(1), out var js) ? js : GeminiJobState.Failed, r.GetInt32(2), r.IsDBNull(3) ? null : r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4));
     }
 
-    private static Meeting ReadMeeting(SqliteDataReader r) => new(r.GetString(0), r.GetString(1), DateTimeOffset.Parse(r.GetString(2)), r.IsDBNull(3) ? null : DateTimeOffset.Parse(r.GetString(3)), Enum.Parse<MeetingStatus>(r.GetString(4)), r.IsDBNull(5) ? null : r.GetString(5), r.IsDBNull(6) ? null : r.GetString(6));
+    // ponytail: unknown enum text falls back to Failed, never throws; surfaces in UI instead of breaking list/load.
+    private static Meeting ReadMeeting(SqliteDataReader r) => new(r.GetString(0), r.GetString(1), DateTimeOffset.Parse(r.GetString(2)), r.IsDBNull(3) ? null : DateTimeOffset.Parse(r.GetString(3)), Enum.TryParse<MeetingStatus>(r.GetString(4), out var st) ? st : MeetingStatus.Failed, r.IsDBNull(5) ? null : r.GetString(5), r.IsDBNull(6) ? null : r.GetString(6));
 
 
     public string? GetSetting(string key)

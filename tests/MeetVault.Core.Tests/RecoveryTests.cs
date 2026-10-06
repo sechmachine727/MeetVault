@@ -19,7 +19,7 @@ public sealed class RecoveryTests : IDisposable
         await session.CheckpointAsync(); // simulate crash: no StopAsync, process dies here
         var unfinished = _repo.LoadUnfinished();
         Assert.Single(unfinished);
-        var recovered = await MeetingSession.RecoverAsync(unfinished[0].Id, new FakeAudio(), tx, new FakeDiarizer(), new FakeGender(), _repo);
+        var recovered = await MeetingSession.RecoverAsync(unfinished[0].Id, new FakeAudio(), tx, new FakeDiarizer(), new FakeGender(), _repo, "mic", "app");
         Assert.Equal("before-crash", recovered.Segments.Single().Text);
         tx.Emit(new Segment("b", "spk_1", 1000, 2000, "after-restart", true));
         await recovered.StopAsync();
@@ -37,7 +37,7 @@ public sealed class RecoveryTests : IDisposable
         await session.PauseAsync();
         await session.CheckpointAsync();
         var id = _repo.LoadUnfinished().Single().Id;
-        var recovered = await MeetingSession.RecoverAsync(id, new FakeAudio(), tx, new FakeDiarizer(), new FakeGender(), _repo);
+        var recovered = await MeetingSession.RecoverAsync(id, new FakeAudio(), tx, new FakeDiarizer(), new FakeGender(), _repo, "mic", "app");
         tx.Emit(new Segment("g", "spk_1", 0, 500, "ghost-while-paused", true));
         Assert.Empty(recovered.Segments);
         await recovered.ResumeAsync();

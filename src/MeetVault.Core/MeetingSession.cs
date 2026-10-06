@@ -32,6 +32,7 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         _meeting = new Meeting(Guid.NewGuid().ToString("n"), "Meeting " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"), DateTimeOffset.Now, null, MeetingStatus.Recording, null, null);
         _paused = false;
         _micId = micId; _appSource = appSource; // retained so Resume restarts the same sources
+        _store.Save(_meeting, _speakers, _segments); // durability: draft exists before any crash
         await _audio.StartAsync(micId, appSource, ct);
         await _transcriber.StartAsync(ct);
     }
@@ -73,6 +74,7 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         session._micId = micId; session._appSource = appSource;
         if (!wasPaused)
         {
+            if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is required to resume capture.", "micId");
             await audio.StartAsync(micId, appSource, ct);
             await transcriber.StartAsync(ct);
         }
