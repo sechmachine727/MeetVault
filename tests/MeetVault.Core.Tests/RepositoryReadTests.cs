@@ -54,5 +54,16 @@ public sealed class RepositoryReadTests : IDisposable
     }
 
     public void Dispose() { _repo.Dispose(); try { File.Delete(_path); } catch { } }
-}
 
+    [Fact]
+    public void ListMeetings_OrdersAcrossOffsets()
+    {
+        // Same instant-adjacent wall times in different offsets: later UTC instant must sort first.
+        var earlier = new Meeting("e", "Earlier", new DateTimeOffset(2026, 10, 6, 16, 0, 0, TimeSpan.FromHours(7)), DateTimeOffset.UtcNow, MeetingStatus.Ready, null, null);
+        var later = new Meeting("l", "Later", new DateTimeOffset(2026, 10, 6, 10, 30, 0, TimeSpan.FromHours(0)), DateTimeOffset.UtcNow, MeetingStatus.Ready, null, null);
+        _repo.Save(earlier, Array.Empty<Speaker>(), Array.Empty<Segment>());
+        _repo.Save(later, Array.Empty<Speaker>(), Array.Empty<Segment>());
+        Assert.Equal(new[] { "l", "e" }, _repo.ListMeetings().Select(m => m.Id));
+    }
+
+}

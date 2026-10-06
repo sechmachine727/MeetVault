@@ -31,7 +31,7 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         {
             up.CommandText = "INSERT INTO meetings(id,title,started_at,ended_at,duration_ms,status,media_path,media_mime,created_at,updated_at) VALUES($id,$t,$s,$e,$d,$st,$mp,$mm,$now,$now) ON CONFLICT(id) DO UPDATE SET title=$t,ended_at=$e,duration_ms=$d,status=$st,media_path=$mp,media_mime=$mm,updated_at=$now";
             up.Parameters.AddWithValue("$id", meeting.Id); up.Parameters.AddWithValue("$t", meeting.Title);
-            up.Parameters.AddWithValue("$s", meeting.StartedAt.ToString("o")); up.Parameters.AddWithValue("$e", (object?)meeting.EndedAt?.ToString("o") ?? DBNull.Value);
+            up.Parameters.AddWithValue("$s", meeting.StartedAt.ToUniversalTime().ToString("o")); up.Parameters.AddWithValue("$e", (object?)(meeting.EndedAt?.ToUniversalTime().ToString("o")) ?? DBNull.Value); // UTC: lexicographic TEXT order == chronological
             up.Parameters.AddWithValue("$d", meeting.EndedAt.HasValue ? (long)(meeting.EndedAt.Value - meeting.StartedAt).TotalMilliseconds : 0);
             up.Parameters.AddWithValue("$st", meeting.Status.ToString()); up.Parameters.AddWithValue("$mp", (object?)meeting.MediaPath ?? DBNull.Value);
             up.Parameters.AddWithValue("$mm", (object?)meeting.MediaMime ?? DBNull.Value); up.Parameters.AddWithValue("$now", now);
@@ -169,6 +169,7 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
 
     public void Dispose() => _db.Dispose();
 }
+
 
 
 
