@@ -11,6 +11,8 @@ public sealed class SherpaDiarizer : ISpeakerDiarizer, IDisposable
 
     public SherpaDiarizer(string segmentationModel, string embeddingModel, int numThreads = 1)
     {
+        if (!File.Exists(segmentationModel)) throw new FileNotFoundException($"Diarization segmentation model not found: {segmentationModel}.", segmentationModel);
+        if (!File.Exists(embeddingModel)) throw new FileNotFoundException($"Diarization embedding model not found: {embeddingModel}.", embeddingModel);
         var config = new OfflineSpeakerDiarizationConfig
         {
             Segmentation = new OfflineSpeakerSegmentationModelConfig
@@ -37,4 +39,5 @@ public sealed class SherpaDiarizer : ISpeakerDiarizer, IDisposable
 
     public void Dispose() => _diar.Dispose();
 }
+
 

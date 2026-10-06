@@ -31,6 +31,7 @@ public sealed class WhisperTranscriber : ISpeechTranscriber, IDisposable
 
     public Task StartAsync(CancellationToken ct)
     {
+        if (!File.Exists(_modelPath)) throw new FileNotFoundException($"Whisper model not found: {_modelPath}. Download the multilingual base model to models/ggml-base.bin.", _modelPath);
         _factory ??= WhisperFactory.FromPath(_modelPath);
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         IsRunning = true;
@@ -87,6 +88,7 @@ public sealed class WhisperTranscriber : ISpeechTranscriber, IDisposable
         _factory?.Dispose();
     }
 }
+
 
 
 
