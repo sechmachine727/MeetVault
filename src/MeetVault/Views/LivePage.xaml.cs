@@ -18,6 +18,9 @@ private MeetingSession _session = null!;
     private readonly IAudioCapture _audio;
     private readonly ISpeakerDiarizer _diarizer;
     private static readonly string ModelDir = Path.Combine(AppContext.BaseDirectory, "models");
+    // ponytail: single persisted mic id; device picker UI add when >1 mic matters.
+    private static string MicId => AppStore.Repo.GetSetting("audio.mic") ?? "0";
+    private static string AppSource => AppStore.Repo.GetSetting("audio.source") ?? "";
 
     public LivePage()
     {
@@ -62,7 +65,7 @@ private MeetingSession _session = null!;
             PendingRecovery.MeetingId = null;
             if (id is not null)
             {
-                _session = await MeetingSession.RecoverAsync(id, _audio, _transcriber, _diarizer, new CounterGenderLabeler(), AppStore.Repo);
+                _session = await MeetingSession.RecoverAsync(id, _audio, _transcriber, _diarizer, new CounterGenderLabeler(), AppStore.Repo, MicId, AppSource);
                 foreach (var s in _session.Segments) AddLine(s.SpeakerId, s.Text);
                 foreach (var sp in _session.Speakers) Speakers.Add(sp.DisplayName);
                 Status($"Recovered {_session.Segments.Count} segment(s) from the interrupted meeting.");
@@ -70,7 +73,7 @@ private MeetingSession _session = null!;
             else
             {
                 _session = new MeetingSession(_audio, _transcriber, _diarizer, new CounterGenderLabeler(), AppStore.Repo);
-                await _session.StartAsync("0", "", CancellationToken.None);
+                await _session.StartAsync(MicId, AppSource, CancellationToken.None);
             }
             _session.LiveSegment += OnLiveSegment;
         }
