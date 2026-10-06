@@ -13,6 +13,7 @@ private MeetingSession _session = null!;
     private readonly WhisperTranscriber? _whisper;
     private readonly NAudioCapture? _capture;
     private readonly List<byte> _window = new();
+    private WindowDiarizer? _windowDiarizer;
     private readonly ISpeechTranscriber _transcriber;
     private readonly IAudioCapture _audio;
     private readonly ISpeakerDiarizer _diarizer;
@@ -39,7 +40,7 @@ private MeetingSession _session = null!;
                 var dz = new SherpaDiarizer(Path.Combine(ModelDir, "sherpa-seg.onnx"), Path.Combine(ModelDir, "sherpa-emb.onnx"));
                 transcriber = _whisper;
                 audio = _capture;
-                diarizer = new WindowDiarizer(dz);
+                _windowDiarizer = new WindowDiarizer(dz); diarizer = _windowDiarizer;
                 _capture.PcmReady += OnPcm;
                 _mode = "live: whisper tiny + sherpa diarizer (base reserved for refinement)";
             }
@@ -84,6 +85,7 @@ private MeetingSession _session = null!;
         if (_window.Count < 16000 * 2 * 10) return;
         byte[] window;
         lock (_window) { window = _window.ToArray(); _window.Clear(); }
+        _windowDiarizer?.AssignWindowSamples(window);
         try { await _whisper.TranscribeWindowAsync(window, 0, "live"); }
         catch { /* next window retries; audio file keeps everything */ }
     }
@@ -138,10 +140,11 @@ private MeetingSession _session = null!;
         private readonly SherpaDiarizer _inner;
         private string _current = "spk_1";
         public WindowDiarizer(SherpaDiarizer inner) { _inner = inner; }
-        public void AssignWindow(float[] samples) { try { _current = _inner.AssignWindow(samples); } catch { } }
+        public void AssignWindowSamples(byte[] pcm16) { try { var f = new float[pcm16.Length / 2]; for (var i = 0; i < f.Length; i++) f[i] = System.BitConverter.ToInt16(pcm16, 2 * i) / 32768f; _current = _inner.AssignWindow(f); } catch { } }
         public string AssignTurn(Segment segment) => _current;
     }
 }
+
 
 
 
