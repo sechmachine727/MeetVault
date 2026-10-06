@@ -10,6 +10,7 @@ public static class LiveBridge
 
     public static event Action<string, string>? LineAdded;
     public static event Action? Cleared;
+    public static event Action<string, string>? Renamed;      // oldName, newName (page -> overlay)
     public static Func<string, string, bool>? RenameByName;   // oldName, newName -> handled
 
     public static void Publish(string speaker, string text)
@@ -34,5 +35,7 @@ public static class LiveBridge
     }
 
     public static bool Rename(string oldName, string newName) => RenameByName?.Invoke(oldName, newName) ?? false;
-}
 
+    // Fired after the page renames a speaker so an open overlay reflects it (FR3 both ways).
+    public static void NotifyRenamed(string oldName, string newName) => Renamed?.Invoke(oldName, newName);
+}

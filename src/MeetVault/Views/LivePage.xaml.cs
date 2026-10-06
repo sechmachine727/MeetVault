@@ -223,6 +223,7 @@ public sealed partial class LivePage : Page
         for (var i = 0; i < Lines.Count; i++)
             if (Lines[i].Speaker == old) Lines[i].Speaker = trimmed;
         TranscriptList.ItemsSource = Lines.ToArray();
+        LiveBridge.NotifyRenamed(old, trimmed); // keep an open overlay in sync
     }
 
     private async void OnPcm(byte[] chunk)

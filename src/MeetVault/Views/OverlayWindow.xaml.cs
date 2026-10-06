@@ -42,7 +42,8 @@ public sealed partial class OverlayWindow : Window
         ((INotifyCollectionChanged)Vm.Lines).CollectionChanged += OnLinesChanged;
         LiveBridge.LineAdded += OnLiveLine;
         LiveBridge.Cleared += OnLiveCleared;
-        Closed += (_, _) => { LiveBridge.LineAdded -= OnLiveLine; LiveBridge.Cleared -= OnLiveCleared; };
+        LiveBridge.Renamed += OnRenamed;
+        Closed += (_, _) => { LiveBridge.LineAdded -= OnLiveLine; LiveBridge.Cleared -= OnLiveCleared; LiveBridge.Renamed -= OnRenamed; };
         foreach (var (speaker, text) in LiveBridge.Recent()) Vm.AddLine(speaker, text); // catch up mid-meeting
         RefreshListState();
     }
@@ -66,6 +67,9 @@ public sealed partial class OverlayWindow : Window
 
     private void OnLiveCleared()
         => DispatcherQueue.TryEnqueue(() => Vm.Lines.Clear());
+
+    private void OnRenamed(string oldName, string newName)
+        => DispatcherQueue.TryEnqueue(() => Vm.RenameSpeaker(oldName, newName));
 
     public OverlayViewModel Vm { get; }
 
