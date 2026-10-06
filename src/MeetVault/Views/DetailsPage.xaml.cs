@@ -26,6 +26,11 @@ public sealed partial class DetailsPage : Page
 
     private readonly List<string> _originalText = new();
     private MeetVault.Core.Meeting? _meeting;
+    // M8: parallel maps so UI edits round-trip to the repo. Empty when showing demo seed (no save).
+    private readonly List<string> _segmentIds = new();
+    private readonly List<(string Id, long StartMs, long EndMs)> _timings = new();
+    private readonly Dictionary<string, string> _speakerIdByName = new();
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _saveTimer;
 
     private const string DemoMediaPath = "demo://quarterly-roadmap-sync/audio.wav";
     private const string DemoMime = "audio/wav";
@@ -54,8 +59,9 @@ public sealed partial class DetailsPage : Page
         if (repoSegs.Count > 0)
         {
             var names = repoSpks.ToDictionary(s => s.Id, s => s.DisplayName);
+            foreach (var s in repoSpks) _speakerIdByName[s.DisplayName] = s.Id;
             foreach (var s in repoSpks) Speakers.Add(s.DisplayName);
-            foreach (var s in repoSegs) { Lines.Add(new TranscriptLine(names.TryGetValue(s.SpeakerId, out var n) ? n : s.SpeakerId, s.Text)); _originalText.Add(s.Text); }
+            foreach (var s in repoSegs) { Lines.Add(new TranscriptLine(names.TryGetValue(s.SpeakerId, out var n) ? n : s.SpeakerId, s.Text)); _originalText.Add(s.Text); _segmentIds.Add(s.Id); _timings.Add((s.Id, s.StartMs, s.EndMs)); }
         }
         else
         {
@@ -103,16 +109,53 @@ public sealed partial class DetailsPage : Page
     private void SpeakerPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is ComboBox box && box.DataContext is TranscriptLine line && box.SelectedItem is string speaker)
+        {
             line.Speaker = speaker;
+            ScheduleSave();
+        }
     }
 
-    private void LineText_TextChanged(object sender, TextChangedEventArgs e) => UpdateLineStatus();
+    private void LineText_TextChanged(object sender, TextChangedEventArgs e) { UpdateLineStatus(); ScheduleSave(); }
+
+    // Debounced persist: per-keystroke SQLite rewrites would churn; 800 ms of quiet saves once.
+    private void ScheduleSave()
+    {
+        if (_meeting is null || _segmentIds.Count != Lines.Count) return; // demo seed: memory only.
+        _saveTimer ??= DispatcherQueue.CreateTimer();
+        _saveTimer.Interval = TimeSpan.FromMilliseconds(800);
+        _saveTimer.Tick -= PersistEdits;
+        _saveTimer.Tick += PersistEdits;
+        _saveTimer.Stop();
+        _saveTimer.Start();
+    }
+
+    private void PersistEdits(object? sender, object e)
+    {
+        _saveTimer?.Stop();
+        if (_meeting is null || _segmentIds.Count != Lines.Count) return;
+        try
+        {
+            var speakers = AppStore.Repo.LoadSpeakers(_meeting.Id);
+            var segments = new List<Segment>(Lines.Count);
+            for (var i = 0; i < Lines.Count; i++)
+            {
+                var speakerId = _speakerIdByName.TryGetValue(Lines[i].Speaker, out var sid) ? sid : speakers.FirstOrDefault(s => s.DisplayName == Lines[i].Speaker)?.Id ?? "spk_1";
+                segments.Add(new Segment(_segmentIds[i], speakerId, _timings[i].StartMs, _timings[i].EndMs, Lines[i].Text, true));
+            }
+            AppStore.Repo.Save(_meeting, speakers, segments);
+            _originalText.Clear();
+            _originalText.AddRange(Lines.Select(l => l.Text));
+            UpdateLineStatus();
+        }
+        catch (Exception ex) { Status(InfoBarSeverity.Warning, $"Edit kept in memory; save failed: {ex.Message}"); }
+    }
 
     private void UpdateLineStatus()
     {
         var edited = Lines.Where((line, i) => i < _originalText.Count && line.Text != _originalText[i]).Count();
+        var demo = _meeting is null ? " (demo, not saved)" : "";
         LineStatus.Text = Lines.Count == 0
-            ? "No lines"
+            ? "No lines" + demo
             : edited == 0 ? $"{Lines.Count} line(s)" : $"{Lines.Count} line(s) \u00b7 {edited} edited";
         EmptyState.Visibility = Lines.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
