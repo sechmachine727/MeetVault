@@ -68,9 +68,23 @@ public sealed partial class DetailsPage : Page
         }
 
         var card = AppStore.Cards().FirstOrDefault() ?? DemoMeetings.Cards[0];
+        ShowPriorJob(first);
         MeetingTitle.Text = card.Title;
         MeetingMeta.Text = $"{card.When}  \u00b7  {card.Duration}  \u00b7  {card.Status}";
         UpdateLineStatus();
+    }
+
+    // Prior Gemini result survives restarts via the persisted job row.
+    private void ShowPriorJob(MeetVault.Core.Meeting? meeting)
+    {
+        if (meeting is null) return;
+        var job = AppStore.Repo.LoadJob(meeting.Id);
+        if (job is null) return;
+        GeminiExpander.IsExpanded = true;
+        JobState.Text = $"Job {job.Id} · {job.State} · {job.Attempts} attempt(s)" + (job.ResultPath is null ? "" : $" · {job.ResultPath}");
+        JobResult.Text = job.State == MeetVault.Core.GeminiJobState.Succeeded && job.ResultPath is not null && File.Exists(job.ResultPath)
+            ? File.ReadAllText(job.ResultPath)
+            : job.LastError ?? "The job finished without a result.";
     }
 
     private void SpeakerPicker_Loaded(object sender, RoutedEventArgs e)
@@ -227,6 +241,7 @@ public sealed partial class DetailsPage : Page
             => Task.FromResult(CannedResult);
     }
 }
+
 
 
 
