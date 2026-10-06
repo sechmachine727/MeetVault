@@ -62,6 +62,9 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
     public async Task TranscribeWindowAsync(byte[] pcm16kMono, long windowStartMs, string meetingId, CancellationToken ct = default)
     {
         if (_factory is null) throw new InvalidOperationException("Transcriber not started.");
+        // Link the caller's token with Stop's CTS so a paused/stopped session cancels
+        // an in-flight window instead of finishing it after the gap.
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _cts?.Token ?? default);
         using var processor = _factory.CreateBuilder().WithLanguage(_language).Build();
         var floats = new float[pcm16kMono.Length / 2];
         for (var i = 0; i < floats.Length; i++) floats[i] = BitConverter.ToInt16(pcm16kMono, 2 * i) / 32768f;
@@ -69,7 +72,7 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
         LanguageDetected?.Invoke(lang ?? "unknown", prob);
         using var stream = new MemoryStream(ToWav16kMono(pcm16kMono));
         var index = 0;
-        await foreach (var result in processor.ProcessAsync(stream, ct))
+        await foreach (var result in processor.ProcessAsync(stream, linked.Token))
         {
             var text = result.Text.Trim();
             if (IsNonSpeech(text)) continue; // silence tokens must not become transcript lines

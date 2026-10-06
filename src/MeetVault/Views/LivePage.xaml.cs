@@ -161,15 +161,18 @@ public sealed partial class LivePage : Page
     {
         if (_whisper is null || !_whisper.IsRunning) return;
         lock (_window) _window.AddRange(chunk);
-        if (_window.Count < 16000 * 2 * 10) return;
+        // 6 s windows: shorter first-line latency than the old 10 s while keeping enough context.
+        if (_window.Count < 16000 * 2 * 6) return;
         byte[] window;
         lock (_window) { window = _window.ToArray(); _window.Clear(); }
         _windowDiarizer?.AssignWindowSamples(window);
-        const long WindowMs = 10_000;
+        const long WindowMs = 6_000;
         var start = _windowOffsetMs;
         _windowOffsetMs += WindowMs;
+        PartialLine.Text = "Transcribing\u2026";
         try { await _whisper.TranscribeWindowAsync(window, start, "live"); }
         catch { /* next window retries; audio file keeps everything */ }
+        finally { PartialLine.Text = _audio.IsCapturing ? "Listening\u2026" : ""; }
     }
 
     private void OnLiveSegment(Segment segment)
