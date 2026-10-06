@@ -7,13 +7,15 @@ namespace MeetVault.Views;
 public sealed class CredentialLockerSecretStore : ISecretStore
 {
     private const string Resource = "MeetVault";
-    private readonly PasswordVault _vault = new();
+    // ponytail: lazy so unpackaged runs without identity construct fine; every op already swallows.
+    private PasswordVault? _vault;
+    private PasswordVault Vault => _vault ??= new();
 
     public string? Get(string key)
     {
         try
         {
-            return _vault.Retrieve(Resource, key).Password;
+            return Vault.Retrieve(Resource, key).Password;
         }
         catch
         {
@@ -23,18 +25,17 @@ public sealed class CredentialLockerSecretStore : ISecretStore
 
     public void Set(string key, string value)
     {
-        try { _vault.Add(new PasswordCredential(Resource, key, value)); }
+        try { Vault.Add(new PasswordCredential(Resource, key, value)); }
         catch (Exception ex) when (ex.HResult == unchecked((int)0x80070490))
         {
             // Already stored: replace it.
-            _vault.Remove(_vault.Retrieve(Resource, key));
-            _vault.Add(new PasswordCredential(Resource, key, value));
+            Vault.Remove(Vault.Retrieve(Resource, key));
+            Vault.Add(new PasswordCredential(Resource, key, value));
         }
     }
 
     public void Clear(string key)
     {
-        try { _vault.Remove(_vault.Retrieve(Resource, key)); } catch { }
+        try { Vault.Remove(Vault.Retrieve(Resource, key)); } catch { }
     }
 }
-

@@ -38,12 +38,20 @@ public sealed partial class MainWindow : Window
                 _ => typeof(DashboardPage),
             });
         }
-        catch (Exception ex)
+        catch (Exception ex) { _ = ShowNavErrorAsync(tag, ex); }
+    }
+    // ponytail: dialog names the failing page + cause; Dashboard fallback keeps the app alive.
+    private async Task ShowNavErrorAsync(string? tag, Exception ex)
+    {
+        var detail = ex.GetType().Name + ": " + ex.Message;
+        if (ex.InnerException is not null) detail += " | Inner: " + ex.InnerException.Message;
+        try
         {
-            // Navigation must never kill the app: stay put and let the user retry.
-            System.Diagnostics.Debug.WriteLine($"Navigate to {tag} failed: {ex.Message}");
-            sender.SelectedItem = sender.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (i.Tag as string) == "dashboard");
-            RootFrame.Navigate(typeof(DashboardPage));
+            var dialog = new ContentDialog { Title = "Could not open " + (tag ?? "page"), Content = detail, CloseButtonText = "Back to Dashboard", XamlRoot = RootFrame.XamlRoot };
+            await dialog.ShowAsync();
         }
+        catch { }
+        Nav.SelectedItem = Nav.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (i.Tag as string) == "dashboard");
+        RootFrame.Navigate(typeof(DashboardPage));
     }
 }
