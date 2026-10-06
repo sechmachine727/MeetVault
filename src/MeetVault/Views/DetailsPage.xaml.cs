@@ -169,7 +169,7 @@ public sealed partial class DetailsPage : Page
         {
             var uploader = new GeminiUploader(new CredentialLockerSecretStore(), new DemoFileReader(), new DemoTransport());
             var meeting = (_meeting ?? DemoMeetings.All[0]) with { MediaPath = DemoMediaPath, MediaMime = DemoMime };
-            var job = await uploader.SendMeetingAsync(meeting, JsonSerializer.Serialize(Lines), ResultDirectory);
+            var job = await uploader.SendMeetingAsync(meeting, JsonSerializer.Serialize(Lines.ToList(), TranscriptJsonContext.Default.ListTranscriptLine), ResultDirectory);
             AppStore.Repo.SaveJob(job);
 
             JobState.Text = $"Job {job.Id} \u00b7 {job.State} \u00b7 {job.Attempts} attempt(s)" + (job.ResultPath is null ? "" : $" \u00b7 {job.ResultPath}");
@@ -248,6 +248,7 @@ public sealed partial class DetailsPage : Page
             => Task.FromResult(CannedResult);
     }
 }
+
 
 
 

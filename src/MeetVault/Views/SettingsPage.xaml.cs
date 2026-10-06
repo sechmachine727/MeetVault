@@ -14,7 +14,7 @@ public sealed partial class SettingsPage : Page
         InitializeComponent();
 
         MicPicker.ItemsSource = new[] { "Demo microphone (Windows default)" };
-        ModelPicker.ItemsSource = new[] { "base.en-q5_1" };
+        ModelPicker.ItemsSource = new[] { "base (multilingual, EN/JA/VI)" };
         DevicePicker.ItemsSource = new[] { "CPU" };
         MicPicker.SelectedIndex = 0;
         ModelPicker.SelectedIndex = 0;
@@ -107,5 +107,6 @@ public sealed partial class SettingsPage : Page
         }
     }
 }
+
 
 
