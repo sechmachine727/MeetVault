@@ -99,3 +99,12 @@
 - Cert (approved Create-trust-install): CN=AppPublisher CodeSigningCert to 2031-10-06, trusted in CurrentUser Root (machine Root denied without admin). Signed-MSIX repack lane (Newton) in flight; portable exe publish/win-x64/MeetVault.exe refreshed with models staged.
 - Suite: 43/43 green, solution 0 warn/0 err. Pushed through 0f2a221.
 
+
+## Portable-exe launch fix (2026-10-06, your crash events, runtime evidence)
+
+- Your events: both publish/msix and publish/win-x64 exes died REGDB_E_CLASSNOTREG — first in DeploymentManager.AutoInitialize, then (after disabling it) in WinUI XAML Application.Start.
+- Root cause: EnableMsixTooling forces WindowsPackageType=MSIX even for portable publish, so DeploymentManager auto-init (packaged-identity only) fired; and Bootstrap DDLM was off (it defaults on only for WindowsPackageType=None), leaving no framework resolution.
+- Fix (src/MeetVault/MeetVault.csproj): WindowsAppSdkDeploymentManagerInitialize=false + WindowsAppSdkBootstrapInitialize=true. MSIX packaging unaffected (identity path intact).
+- Verified: republished exe launched, PID 23412 responding=True, zero fresh 1000/1026 events. Pushed as ac379be.
+- Note: publish/msix/MeetVault.exe is a stale copy from the earlier MSIX-layout publish — use publish/win-x64/MeetVault.exe.
+
