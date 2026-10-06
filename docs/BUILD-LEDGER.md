@@ -50,3 +50,10 @@
 - JA/VI accuracy NOT validated (no local voices); needs your review with real audio.
 - Fixes landed: Whisper.net.Runtime package; WAV-header wrap (ProcessAsync needs RIFF); LanguageDetected event; trim-safe JSON already in place.
 
+
+## Diarization validation (2026-10-06, runtime evidence)
+
+- Models: sherpa-seg.onnx (6MB pyannote) + sherpa-emb.onnx (40MB eres2net), loaded OK, Process() runs without crash.
+- Two-tone smoke (220Hz vs 440Hz): both assigned spk_1 — segmentation trained on speech, tones carry no speaker cues. Pipeline proven, separation quality NOT proven.
+- Needs: real two-speaker EN/JA/VI audio for accuracy validation before shipping claims.
+
