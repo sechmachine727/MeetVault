@@ -20,9 +20,17 @@ public sealed partial class DashboardPage : Page
             RecoveryBar.Message = $"'{_recoverable.Title}' ({_recoverable.Status}) was interrupted. Resume it in Live or leave it; starting a new meeting keeps it as a draft.";
             RecoveryBar.IsOpen = true;
         }
+        var hour = DateTime.Now.Hour;
+        GreetingTitle.Text = hour < 12 ? "Good morning — ready to capture" : hour < 18 ? "Good afternoon — ready to capture" : "Good evening — ready to capture";
+        var mic = AppStore.Repo.GetSetting("audio.mic") ?? "Windows default";
+        var source = AppStore.Repo.GetSetting("audio.source");
+        MicStatus.Text = string.IsNullOrWhiteSpace(mic) ? "Not started" : mic;
+        SourceStatus.Text = string.IsNullOrWhiteSpace(source) ? "Not picked" : source;
+        var model = AppStore.Repo.GetSetting("transcription.model") == "base" ? "base" : "tiny";
+        EngineStatus.Text = model == "base" ? "base (refinement)" : "tiny (live)";
         ModelStatus.Text = EngineModels.Available
-            ? "Speech model: multilingual base + diarizer ready."
-            : "Speech model: not downloaded. Live runs in demo mode until models arrive.";
+            ? $"Multilingual {model} + diarizer ready. Live transcription runs on-device."
+            : "Speech model not downloaded. Live runs in demo mode until models arrive.";
     }
 
     private void Start_Click(object sender, RoutedEventArgs e)
@@ -45,4 +53,3 @@ public sealed partial class DashboardPage : Page
         Start_Click(sender, e);
     }
 }
-

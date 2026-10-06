@@ -21,10 +21,8 @@
                 <NavigationViewItem Content="Live" Tag="live" Icon="Microphone" />
                 <NavigationViewItem Content="Meetings" Tag="meetings" Icon="Library" />
                 <NavigationViewItem Content="Details" Tag="details" Icon="Document" />
-                <NavigationViewItem Content="Settings" Tag="settings" Icon="Setting" />
             </NavigationView.MenuItems>
             <Frame x:Name="RootFrame" />
         </NavigationView>
     </Grid>
 </Window>
-

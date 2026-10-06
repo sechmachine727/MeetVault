@@ -25,15 +25,25 @@ public sealed partial class MainWindow : Window
 
     private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
-        var tag = (args.SelectedItem as NavigationViewItem)?.Tag as string;
-        RootFrame.Navigate(tag switch
+        // Built-in Settings item has no Tag: IsSettingsSelected covers it (single Settings entry).
+        var tag = args.IsSettingsSelected ? "settings" : (args.SelectedItem as NavigationViewItem)?.Tag as string;
+        try
         {
-            "live" => typeof(LivePage),
-            "meetings" => typeof(MeetingsPage),
-            "details" => typeof(DetailsPage),
-            "settings" => typeof(SettingsPage),
-            _ => typeof(DashboardPage),
-        });
+            RootFrame.Navigate(tag switch
+            {
+                "live" => typeof(LivePage),
+                "meetings" => typeof(MeetingsPage),
+                "details" => typeof(DetailsPage),
+                "settings" => typeof(SettingsPage),
+                _ => typeof(DashboardPage),
+            });
+        }
+        catch (Exception ex)
+        {
+            // Navigation must never kill the app: stay put and let the user retry.
+            System.Diagnostics.Debug.WriteLine($"Navigate to {tag} failed: {ex.Message}");
+            sender.SelectedItem = sender.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (i.Tag as string) == "dashboard");
+            RootFrame.Navigate(typeof(DashboardPage));
+        }
     }
 }
-

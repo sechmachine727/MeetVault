@@ -33,9 +33,10 @@ private MeetingSession _session = null!;
         IAudioCapture audio = new FakeAudioCapture();
         ISpeakerDiarizer diarizer = new FakeDiarizer();
         _mode = "demo (no models)";
-        if (EngineModels.Available)
+        // Engine construction (ONNX load) stays inside the guard: any throw keeps fakes.
+        try
         {
-            try
+            if (EngineModels.Available)
             {
                 var modelFile = AppStore.Repo.GetSetting("transcription.model") == "base" ? "ggml-base.bin" : "ggml-tiny.bin";
                 _whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile));
@@ -47,8 +48,8 @@ private MeetingSession _session = null!;
                 _capture.PcmReady += OnPcm;
                 _mode = "live: whisper tiny + sherpa diarizer (base reserved for refinement)";
             }
-            catch { /* fall through to fakes */ }
         }
+        catch { /* fall through to fakes */ }
         _transcriber = transcriber; _audio = audio; _diarizer = diarizer;
 
         Loaded += OnLoaded;
