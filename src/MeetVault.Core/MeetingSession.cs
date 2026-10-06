@@ -1,7 +1,7 @@
 namespace MeetVault.Core;
 
 // ponytail: single-threaded session; thread-safety add when real engines stream concurrently.
-public sealed class MeetingSession
+public sealed class MeetingSession : IDisposable
 {
     private readonly IAudioCapture _audio;
     private readonly ISpeechTranscriber _transcriber;
@@ -64,12 +64,17 @@ public sealed class MeetingSession
     {
         var unfinished = store.LoadUnfinished().FirstOrDefault(m => m.Id == meetingId) ?? throw new InvalidOperationException("No recoverable draft for this meeting.");
         var session = new MeetingSession(audio, transcriber, diarizer, gender, store);
-        session._meeting = unfinished with { Status = MeetingStatus.Recording };
+        var wasPaused = unfinished.Status == MeetingStatus.Paused;
+        session._meeting = unfinished with { Status = wasPaused ? MeetingStatus.Paused : MeetingStatus.Recording };
+        session._paused = wasPaused;
         session._speakers.AddRange(store.LoadSpeakers(meetingId));
         session._segments.AddRange(store.LoadSegments(meetingId));
         session._micId = micId; session._appSource = appSource;
-        await audio.StartAsync(micId, appSource, ct);
-        await transcriber.StartAsync(ct);
+        if (!wasPaused)
+        {
+            await audio.StartAsync(micId, appSource, ct);
+            await transcriber.StartAsync(ct);
+        }
         return session;
     }
 
@@ -94,8 +99,11 @@ public sealed class MeetingSession
         LiveSegment?.Invoke(seg);
     }
 
+    public void Dispose() => _transcriber.SegmentReady -= OnSegment;
+
     private void EnsureActive() { if (_meeting is null) throw new InvalidOperationException("No active meeting."); }
 }
+
 
 
 

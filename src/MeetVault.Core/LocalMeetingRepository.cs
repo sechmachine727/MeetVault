@@ -120,7 +120,7 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
     public IReadOnlyList<Meeting> LoadUnfinished()
     {
         using var c = _db.CreateCommand();
-        c.CommandText = "SELECT id,title,started_at,ended_at,status,media_path,media_mime FROM meetings WHERE status IN ('Recording','Paused') ORDER BY started_at DESC";
+        c.CommandText = "SELECT id,title,started_at,ended_at,status,media_path,media_mime FROM meetings WHERE status IN ('" + nameof(MeetingStatus.Recording) + "','" + nameof(MeetingStatus.Paused) + "') ORDER BY started_at DESC";
         using var r = c.ExecuteReader();
         var list = new List<Meeting>();
         while (r.Read()) list.Add(ReadMeeting(r));
@@ -169,6 +169,9 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
 
     public void Dispose() => _db.Dispose();
 }
+
+
+
 
 
 

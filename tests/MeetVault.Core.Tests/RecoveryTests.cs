@@ -27,5 +27,23 @@ public sealed class RecoveryTests : IDisposable
     }
 
     public void Dispose() { _repo.Dispose(); try { File.Delete(_path); } catch { } }
-}
 
+    [Fact]
+    public async Task Recover_Paused_StaysPaused()
+    {
+        var tx = new RawTranscriber();
+        var session = new MeetingSession(new FakeAudio(), tx, new FakeDiarizer(), new FakeGender(), _repo);
+        await session.StartAsync("mic", "app");
+        await session.PauseAsync();
+        await session.CheckpointAsync();
+        var id = _repo.LoadUnfinished().Single().Id;
+        var recovered = await MeetingSession.RecoverAsync(id, new FakeAudio(), tx, new FakeDiarizer(), new FakeGender(), _repo);
+        tx.Emit(new Segment("g", "spk_1", 0, 500, "ghost-while-paused", true));
+        Assert.Empty(recovered.Segments);
+        await recovered.ResumeAsync();
+        tx.Emit(new Segment("h", "spk_1", 500, 1000, "after-resume", true));
+        Assert.Single(recovered.Segments);
+        await recovered.StopAsync();
+    }
+
+}
