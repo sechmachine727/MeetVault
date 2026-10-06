@@ -22,7 +22,7 @@ public static class DemoMeetings
             MeetingStatus.Ready, null, null),
         new Meeting("demo-standup", "Team standup",
             new DateTimeOffset(2026, 10, 6, 9, 0, 0, TimeSpan.FromHours(7)),
-            null, MeetingStatus.Recording, null, null),
+            null, MeetingStatus.Ready, null, null),
     };
 
     public static IReadOnlyList<MeetingCard> Cards { get; } = All.Select(Card).ToArray();
@@ -97,3 +97,4 @@ public sealed partial class MeetingsPage : Page
                 : $"No meetings match \"{term}\".";
     }
 }
+

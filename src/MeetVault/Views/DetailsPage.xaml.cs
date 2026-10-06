@@ -52,8 +52,9 @@ public sealed partial class DetailsPage : Page
         var repoSpks = first is null ? new List<Speaker>() : AppStore.Repo.LoadSpeakers(first.Id).ToList();
         if (repoSegs.Count > 0)
         {
+            var names = repoSpks.ToDictionary(s => s.Id, s => s.DisplayName);
             foreach (var s in repoSpks) Speakers.Add(s.DisplayName);
-            foreach (var s in repoSegs) { Lines.Add(new TranscriptLine(s.SpeakerId, s.Text)); _originalText.Add(s.Text); }
+            foreach (var s in repoSegs) { Lines.Add(new TranscriptLine(names.TryGetValue(s.SpeakerId, out var n) ? n : s.SpeakerId, s.Text)); _originalText.Add(s.Text); }
         }
         else
         {
@@ -82,9 +83,12 @@ public sealed partial class DetailsPage : Page
         if (job is null) return;
         GeminiExpander.IsExpanded = true;
         JobState.Text = $"Job {job.Id} · {job.State} · {job.Attempts} attempt(s)" + (job.ResultPath is null ? "" : $" · {job.ResultPath}");
-        JobResult.Text = job.State == MeetVault.Core.GeminiJobState.Succeeded && job.ResultPath is not null && File.Exists(job.ResultPath)
-            ? File.ReadAllText(job.ResultPath)
-            : job.LastError ?? "The job finished without a result.";
+        if (job.State == MeetVault.Core.GeminiJobState.Succeeded && job.ResultPath is not null)
+        {
+            try { JobResult.Text = File.ReadAllText(job.ResultPath); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { JobResult.Text = $"Result file unreadable: {ex.Message}"; }
+        }
+        else JobResult.Text = job.LastError ?? "The job finished without a result.";
     }
 
     private void SpeakerPicker_Loaded(object sender, RoutedEventArgs e)
@@ -241,6 +245,7 @@ public sealed partial class DetailsPage : Page
             => Task.FromResult(CannedResult);
     }
 }
+
 
 
 
