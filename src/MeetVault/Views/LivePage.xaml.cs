@@ -47,10 +47,14 @@ private MeetingSession _session = null!;
                 try { _whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile), "auto", wantGpu); }
                 catch { _whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile)); }
                 _capture = new NAudioCapture();
-                var dz = new SherpaDiarizer(Path.Combine(ModelDir, "sherpa-seg.onnx"), Path.Combine(ModelDir, "sherpa-emb.onnx"));
                 transcriber = _whisper;
                 audio = _capture;
-                _windowDiarizer = new WindowDiarizer(dz); diarizer = _windowDiarizer;
+                // Diarization off = single-speaker mode; skip the ONNX load entirely.
+                if (AppStore.Repo.GetSetting("transcription.diarization") != "off")
+                {
+                    var dz = new SherpaDiarizer(Path.Combine(ModelDir, "sherpa-seg.onnx"), Path.Combine(ModelDir, "sherpa-emb.onnx"));
+                    _windowDiarizer = new WindowDiarizer(dz); diarizer = _windowDiarizer;
+                }
                 _capture.PcmReady += OnPcm;
                 _mode = "live: whisper " + modelFile.Replace("ggml-", "").Replace(".bin", "") + (_whisper.UseGpu ? " + CUDA" : "") + " + sherpa diarizer (CPU)";
             }
@@ -79,7 +83,11 @@ private MeetingSession _session = null!;
             }
             else
             {
-                _session = new MeetingSession(_audio, _transcriber, _diarizer, new CounterGenderLabeler(), AppStore.Repo);
+                // FR9: toggles gate real behavior. Diarization off = single-speaker mode; gender off = neutral names.
+                var labeler = AppStore.Repo.GetSetting("transcription.gender") == "off"
+                    ? (IGenderLabeler)new NeutralSpeakerLabeler()
+                    : new CounterGenderLabeler();
+                _session = new MeetingSession(_audio, _transcriber, _diarizer, labeler, AppStore.Repo);
                 await _session.StartAsync(MicId, AppSource, CancellationToken.None);
             }
             _session.LiveSegment += OnLiveSegment;

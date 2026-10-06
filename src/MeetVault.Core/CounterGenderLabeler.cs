@@ -21,3 +21,17 @@ public sealed class CounterGenderLabeler : IGenderLabeler
     }
 }
 
+// Gender labels off: stable neutral names, no estimates consumed.
+public sealed class NeutralSpeakerLabeler : IGenderLabeler
+{
+    private readonly Dictionary<string, string> _names = new();
+    private int _count;
+
+    public string Label(string speakerId, Gender estimate)
+    {
+        if (_names.TryGetValue(speakerId, out var existing)) return existing;
+        var name = "Speaker " + (++_count);
+        _names[speakerId] = name;
+        return name;
+    }
+}
