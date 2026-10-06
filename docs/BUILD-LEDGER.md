@@ -31,3 +31,13 @@
 - Consequence: model choice changes — `base.en-q5_1` (English-only) is OUT; multilingual `base` (~142 MiB) or larger becomes the default candidate.
 - Open: whisper.cpp language detection per segment vs fixed multi-language mode; diarization/gender validation on JA/VI audio; model-size vs real-time CPU tradeoff.
 - Status: requirement recorded; engine selection (P4) must validate JA/VI before locking the bundled model.
+
+## P4 engine-selection brief (verified 2026-10-06 via nuget.org)
+
+- Whisper.net 1.9.1 stable confirmed latest stable (1.9.2-preview1 prerelease exists, do NOT take). Spec 07 pin holds.
+- sherpa-onnx (org.k2fsa.sherpa.onnx) 1.13.8 confirmed latest. Spec pin holds.
+- Google.GenAI 1.24.0 confirmed latest. Spec pin holds.
+- Microsoft.ML.OnnxRuntime now at 1.30.0; spec 07 says 1.28.2 — re-verify compat with sherpa-onnx 1.13.8 at P4 time, prefer sherpa's pinned dependency.
+- Multilingual requirement (EN/JA/VI) OVERRIDES spec 07 model pick: base.en-q5_1 is English-only, default to multilingual base (~142 MiB); validate JA/VI + mid-conversation switching before locking bundle.
+- Net8 compat: Whisper.net targets net8 (verify at restore); sherpa-onnx .NET 6+ (fine); Google.GenAI targets net8 / netstandard2.0 (fine).
+
