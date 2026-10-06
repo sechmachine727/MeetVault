@@ -8,6 +8,18 @@
             <InfoBar x:Name="StatusBar" IsOpen="False" Severity="Informational" />
             <AutoSuggestBox x:Name="SearchBox" PlaceholderText="Search meetings" MinWidth="240" MaxWidth="420" HorizontalAlignment="Left" TextChanged="Search_TextChanged" />
             <TextBlock x:Name="EmptyState" Text="No meetings yet. Start one to populate this list." Visibility="Collapsed" TextWrapping="Wrap" />
+            <Grid Padding="0,0,0,4" ColumnSpacing="16" Opacity="0.7">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Title" FontSize="12" />
+                <TextBlock Grid.Column="1" Text="When" FontSize="12" />
+                <TextBlock Grid.Column="2" Text="Duration" FontSize="12" MinWidth="90" />
+                <TextBlock Grid.Column="3" Text="Status" FontSize="12" MinWidth="80" />
+            </Grid>
             <ItemsControl x:Name="MeetingList">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>

@@ -29,7 +29,19 @@
                 <Button Content="Start new meeting" Click="Start_Click" Style="{StaticResource AccentButtonStyle}" VerticalAlignment="Top" Margin="0,0,0,12" AutomationProperties.Name="Start new meeting" />
             </VariableSizedWrapGrid>
             <TextBlock Text="Recent meetings" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,8,0,8" />
-            <!-- One shared template: header is the first row, so columns align by construction at any width. -->
+            <!-- Header shares the row template metrics so columns align at any width. -->
+            <Grid Padding="0,0,0,4" ColumnSpacing="16" Opacity="0.7">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Title" FontSize="12" />
+                <TextBlock Grid.Column="1" Text="When" FontSize="12" />
+                <TextBlock Grid.Column="2" Text="Duration" FontSize="12" MinWidth="90" />
+                <TextBlock Grid.Column="3" Text="Status" FontSize="12" MinWidth="80" />
+            </Grid>
             <ItemsControl x:Name="RecentMeetings">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
