@@ -19,12 +19,18 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
         if (!int.TryParse(micId, out var dev)) throw new ArgumentException($"Mic id must be a device number, got '{micId}'. Available: {DescribeDevices()}.", nameof(micId));
         if (dev < 0 || dev >= WaveInEvent.DeviceCount) throw new ArgumentException($"Mic device {dev} out of range. Available: {DescribeDevices()}.", nameof(micId));
         if (IsCapturing) return Task.CompletedTask; // after validation: bad mic id errors even when capturing.
-        var dir = Path.Combine(Path.GetTempPath(), "MeetVault", "media");
-        Directory.CreateDirectory(dir);
-        MediaPath = Path.Combine(dir, DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".wav");
+        // One WAV per session (not per start): pause/resume reopens the mic but keeps
+        // writing the same file, so the meeting's audio is never split or orphaned.
+        // Stored beside the database, not in %TEMP%, so cleanup cannot delete it.
+        if (_writer is null)
+        {
+            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MeetVault", "media");
+            Directory.CreateDirectory(dir);
+            MediaPath = Path.Combine(dir, DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".wav");
+            _writer = new WaveFileWriter(MediaPath, new WaveFormat(16000, 16, 1));
+        }
         _mic = new WaveInEvent { WaveFormat = new WaveFormat(16000, 16, 1) };
         _mic.DeviceNumber = dev;
-        _writer = new WaveFileWriter(MediaPath, _mic.WaveFormat);
         _mic.DataAvailable += (_, e) =>
         {
             var chunk = new byte[e.BytesRecorded];
@@ -42,8 +48,6 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
         if (!IsCapturing) return Task.CompletedTask;
         _mic?.StopRecording();
         _mic?.Dispose(); _mic = null;
-        lock (_writer!) { _writer.Dispose(); }
-        _writer = null;
         IsCapturing = false;
         return Task.CompletedTask;
     }
@@ -73,7 +77,9 @@ private static string DescribeDevices()
     public void Dispose()
     {
         _mic?.Dispose();
-        _writer?.Dispose();
+        if (_writer is null) return;
+        lock (_writer) { _writer.Dispose(); } // finalize the WAV header
+        _writer = null;
     }
 }
 

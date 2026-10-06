@@ -204,10 +204,12 @@ public sealed partial class LivePage : Page
         if (!await _transcribeGate.WaitAsync(0)) return;
         try
         {
+            // No meeting id (stopped/ended): skip rather than mint a shared "live-" id.
+            if (_session.MeetingId is not { Length: > 0 } meetingId) return;
             _windowDiarizer?.AssignWindowSamples(window);
             DispatcherQueue.TryEnqueue(() => PartialLine.Text = "Transcribing\u2026");
             // Segment ids are namespaced by the real meeting id (the table's PK is global).
-            await _whisper.TranscribeWindowAsync(window, start, _session.MeetingId ?? "live");
+            await _whisper.TranscribeWindowAsync(window, start, meetingId);
         }
         catch { /* next window retries; audio file keeps everything */ }
         finally

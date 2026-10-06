@@ -34,8 +34,6 @@ public sealed partial class SettingsPage : Page
 
     private void Picker_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (_ready) Refresh(); }
 
-    private void TextBox_TextChanged(object sender, TextChangedEventArgs e) { if (_ready) Refresh(); }
-
     private void Diarization_Toggled(object sender, RoutedEventArgs e) { if (_ready) Refresh(); }
 
     private void Pin_Toggled(object sender, RoutedEventArgs e) { if (_ready) Refresh(); }

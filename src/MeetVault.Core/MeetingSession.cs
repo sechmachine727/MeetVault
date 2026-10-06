@@ -85,7 +85,9 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
     private void Persist()
     {
         if (_meeting is null) return;
-        if (_meeting.MediaPath is null && _audio.MediaPath is { } path)
+        // Link the capture's current file. Pause/resume keeps one file; a recovered
+        // session opens a new one, so the link follows the audio being recorded now.
+        if (_audio.MediaPath is { } path && path != _meeting.MediaPath)
             _meeting = _meeting with { MediaPath = path, MediaMime = "audio/wav" };
         _store.Save(_meeting, _speakers, _segments);
     }

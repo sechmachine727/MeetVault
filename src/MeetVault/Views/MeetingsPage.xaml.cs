@@ -70,13 +70,21 @@ public sealed partial class MeetingsPage : Page
     private void Search_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
         => ApplyFilter(sender.Text);
 
-    // Click a row to open that meeting in Details.
+    // Click a row: an unfinished draft resumes in Live, a finished meeting opens in Details.
     private void OpenMeeting_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { DataContext: MeetingCard card })
         {
-            PendingDetails.MeetingId = card.Id;
-            (App.Window as MainWindow)?.NavigateToDetails();
+            if (card.Status is "Recording" or "Paused")
+            {
+                PendingRecovery.MeetingId = card.Id;
+                (App.Window as MainWindow)?.NavigateToLive();
+            }
+            else
+            {
+                PendingDetails.MeetingId = card.Id;
+                (App.Window as MainWindow)?.NavigateToDetails();
+            }
         }
     }
 
