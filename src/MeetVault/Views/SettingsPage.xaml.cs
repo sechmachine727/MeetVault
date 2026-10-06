@@ -14,7 +14,7 @@ public sealed partial class SettingsPage : Page
         InitializeComponent();
 
         MicPicker.ItemsSource = new[] { "Demo microphone (Windows default)" };
-        ModelPicker.ItemsSource = new[] { "base (multilingual, EN/JA/VI)" };
+        ModelPicker.ItemsSource = new[] { "tiny (live, fast)", "base (refinement, accurate)" };
         DevicePicker.ItemsSource = new[] { "CPU" };
         MicPicker.SelectedIndex = 0;
         ModelPicker.SelectedIndex = 0;
@@ -67,6 +67,7 @@ public sealed partial class SettingsPage : Page
         if (double.TryParse(repo.GetSetting("overlay.font"), out var font)) FontSizeBox.Value = font;
         if (double.TryParse(repo.GetSetting("overlay.lines"), out var lines)) LinesBox.Value = lines;
         StoragePathBox.Text = repo.GetSetting("storage.path") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "MeetVault");
+        ModelPicker.SelectedIndex = repo.GetSetting("transcription.model") == "base" ? 1 : 0;
     }
 
     // One place that turns control values into the visible summary, so a section can never drift from its controls.
@@ -81,6 +82,7 @@ public sealed partial class SettingsPage : Page
         repo.SetSetting("overlay.font", FontSizeBox.Value.ToString());
         repo.SetSetting("overlay.lines", LinesBox.Value.ToString());
         repo.SetSetting("storage.path", StoragePathBox.Text);
+        repo.SetSetting("transcription.model", ModelPicker.SelectedIndex == 1 ? "base" : "tiny");
         AudioStatus.Text = $"Capturing from {MicPicker.SelectedItem} via {AppSourceBox.Text}.";
         TranscriptionStatus.Text = $"{ModelPicker.SelectedItem} on {DevicePicker.SelectedItem} \u00b7 diarization {OnOff(DiarizationSwitch.IsOn)} \u00b7 gender labels {OnOff(GenderSwitch.IsOn)}";
         OverlayStatus.Text = $"Keep on top {OnOff(PinSwitch.IsOn)} \u00b7 opacity {OpacitySlider.Value:P0} \u00b7 font {FontSizeBox.Value} pt \u00b7 {LinesBox.Value} line(s)";
@@ -107,6 +109,9 @@ public sealed partial class SettingsPage : Page
         }
     }
 }
+
+
+
 
 
 

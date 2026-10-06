@@ -33,14 +33,15 @@ private MeetingSession _session = null!;
         {
             try
             {
-                _whisper = new WhisperTranscriber(Path.Combine(ModelDir, "ggml-base.bin"));
+                var modelFile = AppStore.Repo.GetSetting("transcription.model") == "base" ? "ggml-base.bin" : "ggml-tiny.bin";
+                _whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile));
                 _capture = new NAudioCapture();
                 var dz = new SherpaDiarizer(Path.Combine(ModelDir, "sherpa-seg.onnx"), Path.Combine(ModelDir, "sherpa-emb.onnx"));
                 transcriber = _whisper;
                 audio = _capture;
                 diarizer = new WindowDiarizer(dz);
                 _capture.PcmReady += OnPcm;
-                _mode = "live: whisper base + sherpa diarizer";
+                _mode = "live: whisper tiny + sherpa diarizer (base reserved for refinement)";
             }
             catch { /* fall through to fakes */ }
         }
@@ -141,5 +142,8 @@ private MeetingSession _session = null!;
         public string AssignTurn(Segment segment) => _current;
     }
 }
+
+
+
 
 
