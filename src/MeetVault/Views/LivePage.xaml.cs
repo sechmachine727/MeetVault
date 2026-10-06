@@ -10,13 +10,14 @@ public sealed partial class LivePage : Page
     public ObservableCollection<string> Speakers { get; } = new();
 
 private MeetingSession _session = null!;
-    private readonly WhisperTranscriber? _whisper;
-    private readonly NAudioCapture? _capture;
+    private WhisperTranscriber? _whisper;
+    private NAudioCapture? _capture;
     private readonly List<byte> _window = new();
     private WindowDiarizer? _windowDiarizer;
-    private readonly ISpeechTranscriber _transcriber;
-    private readonly IAudioCapture _audio;
-    private readonly ISpeakerDiarizer _diarizer;
+    private ISpeechTranscriber _transcriber = null!;
+    private IAudioCapture _audio = null!;
+    private ISpeakerDiarizer _diarizer = null!;
+    private string _engineMode = "demo (no models)";
     private static readonly string ModelDir = Path.Combine(AppContext.BaseDirectory, "models");
     private long _windowOffsetMs; // M1: accumulate so window N segments carry meeting-relative timings.
     // ponytail: single persisted mic id; device picker UI add when >1 mic matters.
@@ -33,47 +34,46 @@ private MeetingSession _session = null!;
         Lines.CollectionChanged += (_, _) => { TranscriptList.ItemsSource = Lines.ToArray(); TranscriptScroll.ChangeView(null, TranscriptScroll.ScrollableHeight, null); };
         Speakers.CollectionChanged += (_, _) => { SpeakerList.ItemsSource = Speakers.ToArray(); };
 
-        // Real engines when models exist; fakes otherwise (status line says which).
+        Loaded += OnLoaded;
+    }
+
+    // Real engines resolve at load, not navigate. The sherpa native diarizer
+    // access-violates in the trimmed exe; that must never run inside Navigate.
+    private void ResolveEngines()
+    {
         ISpeechTranscriber transcriber = new FakeTranscriber();
         IAudioCapture audio = new FakeAudioCapture();
         ISpeakerDiarizer diarizer = new FakeDiarizer();
-        _mode = "demo (no models)";
-        // Engine construction (ONNX load) stays inside the guard: any throw keeps fakes.
+        _engineMode = "demo (no models)";
         try
         {
             if (EngineModels.Available)
             {
-                // Prefer the persisted pick when its file exists; else use whatever whisper model is on disk.
                 var picked = AppStore.Repo.GetSetting("transcription.model") == "base" ? "ggml-base.bin" : "ggml-tiny.bin";
                 var modelFile = System.IO.File.Exists(System.IO.Path.Combine(ModelDir, picked)) ? picked : EngineModels.WhisperModel!;
-                // GPU requested in Settings; CUDA absence throws and falls back to CPU in the outer catch.
                 var wantGpu = AppStore.Repo.GetSetting("transcription.device") == "gpu";
                 try { _whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile), "auto", wantGpu); }
                 catch { _whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile)); }
                 _capture = new NAudioCapture();
                 transcriber = _whisper;
                 audio = _capture;
-                // Diarization off = single-speaker mode; skip the ONNX load entirely.
                 if (AppStore.Repo.GetSetting("transcription.diarization") != "off")
                 {
                     var dz = new SherpaDiarizer(Path.Combine(ModelDir, "sherpa-seg.onnx"), Path.Combine(ModelDir, "sherpa-emb.onnx"));
                     _windowDiarizer = new WindowDiarizer(dz); diarizer = _windowDiarizer;
                 }
                 _capture.PcmReady += OnPcm;
-                _mode = "live: whisper " + modelFile.Replace("ggml-", "").Replace(".bin", "") + (_whisper.UseGpu ? " + CUDA" : "") + " + sherpa diarizer (CPU)";
+                _engineMode = "live: whisper " + modelFile.Replace("ggml-", "").Replace(".bin", "") + (_whisper.UseGpu ? " + CUDA" : "") + " + sherpa diarizer (CPU)";
             }
         }
-        catch (Exception ex) { _mode = "demo (engine init failed: " + ex.GetType().Name + ")"; }
+        catch (Exception ex) { _engineMode = "demo (engine init failed: " + ex.GetType().Name + ")"; }
         _transcriber = transcriber; _audio = audio; _diarizer = diarizer;
-
-        Loaded += OnLoaded;
     }
-
-    private readonly string _mode;
 
     private async void OnLoaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        EngineStatus.Text = _mode;
+        ResolveEngines();
+        EngineStatus.Text = _engineMode;
         try
         {
             var id = PendingRecovery.MeetingId;

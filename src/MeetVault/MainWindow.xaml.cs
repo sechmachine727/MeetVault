@@ -18,9 +18,13 @@ public sealed partial class MainWindow : Window
 
     public void NavigateToLive()
     {
-        RootFrame.Navigate(typeof(LivePage));
-        foreach (var item in Nav.MenuItems.OfType<NavigationViewItem>())
-            if ((item.Tag as string) == "live") Nav.SelectedItem = item;
+        try
+        {
+            RootFrame.Navigate(typeof(LivePage));
+            foreach (var item in Nav.MenuItems.OfType<NavigationViewItem>())
+                if ((item.Tag as string) == "live") Nav.SelectedItem = item;
+        }
+        catch (Exception ex) { _ = ShowNavErrorAsync("live", ex); }
     }
 
     private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)

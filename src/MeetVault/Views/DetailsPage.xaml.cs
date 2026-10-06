@@ -104,7 +104,7 @@ public sealed partial class DetailsPage : Page
     private void SpeakerPicker_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is not ComboBox box || box.DataContext is not TranscriptLine line) return;
-        box.ItemsSource = Speakers;
+        box.ItemsSource = Speakers.ToArray(); // ABI rule: never hand the live collection across.
         box.SelectedItem = line.Speaker;
     }
 

@@ -81,4 +81,11 @@
     <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
     <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
   </PropertyGroup>
+  <!-- sherpa-onnx / whisper.net native interop is not trim-safe: the trimmed
+       portable exe access-violates inside SherpaOnnxCreateOfflineSpeakerDiarization.
+       Preserve their managed glue (native libs ship via runtimes/). -->
+  <ItemGroup>
+    <TrimmerRootAssembly Include="SherpaOnnx" />
+    <TrimmerRootAssembly Include="Whisper.net" />
+  </ItemGroup>
 </Project>
