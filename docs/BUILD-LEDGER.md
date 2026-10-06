@@ -41,3 +41,12 @@
 - Multilingual requirement (EN/JA/VI) OVERRIDES spec 07 model pick: base.en-q5_1 is English-only, default to multilingual base (~142 MiB); validate JA/VI + mid-conversation switching before locking bundle.
 - Net8 compat: Whisper.net targets net8 (verify at restore); sherpa-onnx .NET 6+ (fine); Google.GenAI targets net8 / netstandard2.0 (fine).
 
+
+## Speech validation (2026-10-06, runtime evidence)
+
+- Model: multilingual ggml-base.bin (147,951,465 bytes, HuggingFace via WhisperGgmlDownloader).
+- EN TTS sample (System.Speech Zira): transcribed near-perfect with correct timestamps.
+- Language detection constrained to [en, ja, vi]: EN sample -> en p=1.00.
+- JA/VI accuracy NOT validated (no local voices); needs your review with real audio.
+- Fixes landed: Whisper.net.Runtime package; WAV-header wrap (ProcessAsync needs RIFF); LanguageDetected event; trim-safe JSON already in place.
+

@@ -44,11 +44,17 @@ public sealed class WhisperTranscriber : ISpeechTranscriber, IDisposable
         return Task.CompletedTask;
     }
 
+    public event Action<string, float>? LanguageDetected; // per-window detected language + probability (EN/JA/VI switching)
+
     // Transcribe one finalized 16 kHz mono PCM window; emits one Segment per whisper segment.
     public async Task TranscribeWindowAsync(byte[] pcm16kMono, long windowStartMs, string meetingId, CancellationToken ct = default)
     {
         if (_factory is null) throw new InvalidOperationException("Transcriber not started.");
         using var processor = _factory.CreateBuilder().WithLanguage(_language).Build();
+        var floats = new float[pcm16kMono.Length / 2];
+        for (var i = 0; i < floats.Length; i++) floats[i] = BitConverter.ToInt16(pcm16kMono, 2 * i) / 32768f;
+        var (lang, prob) = processor.DetectLanguageWithProbability(floats, ["en", "ja", "vi"]);
+        LanguageDetected?.Invoke(lang ?? "unknown", prob);
         using var stream = new MemoryStream(ToWav16kMono(pcm16kMono));
         var index = 0;
         await foreach (var result in processor.ProcessAsync(stream, ct))
@@ -81,5 +87,7 @@ public sealed class WhisperTranscriber : ISpeechTranscriber, IDisposable
         _factory?.Dispose();
     }
 }
+
+
 
 
