@@ -64,3 +64,9 @@
 - This machine: 0 mic devices (headless). Enumeration proven, recording path unverified here — needs your machine with a mic.
 - Per-app conference capture (WASAPI process loopback) still needs the native helper; mic-only for now.
 
+
+## End-to-end pipeline (2026-10-06, runtime evidence)
+
+- TTS speech -> Whisper (2 segments, near-perfect) -> sherpa diarizer (spk_1) -> CounterGenderLabeler (Male 1) -> MeetingSession -> SQLite (1 Ready meeting, segments + speaker persisted). PIPELINE OK.
+- Uses real adapters throughout except mic (NullAudio; no mic on this machine) and per-segment diarizer bridge (window-level assignment).
+
