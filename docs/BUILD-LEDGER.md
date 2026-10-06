@@ -70,3 +70,10 @@
 - TTS speech -> Whisper (2 segments, near-perfect) -> sherpa diarizer (spk_1) -> CounterGenderLabeler (Male 1) -> MeetingSession -> SQLite (1 Ready meeting, segments + speaker persisted). PIPELINE OK.
 - Uses real adapters throughout except mic (NullAudio; no mic on this machine) and per-segment diarizer bridge (window-level assignment).
 
+
+## Smoke test attempt (2026-10-06, runtime evidence)
+
+- Direct exe launch: managed crash REGDB_E_CLASSNOTREG in DeploymentManager.AutoInitialize — packaged app has no identity outside MSIX. NOT an app bug.
+- MSIX builds: src/MeetVault/AppPackages/MeetVault_1.0.0.0_x64_Test/MeetVault_1.0.0.0_x64.msix.
+- Install blocked: package unsigned (0x800B0100). Needs self-signed dev cert + trust + Add-AppxPackage — awaiting your explicit go-ahead (machine trust change).
+
