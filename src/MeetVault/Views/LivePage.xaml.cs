@@ -189,7 +189,7 @@ public sealed partial class LivePage : Page
         {
             _speakerNames[sp.Id] = sp.DisplayName;
             var id = sp.Id;
-            var box = new TextBox { Text = sp.DisplayName, Header = sp.Id, TextWrapping = TextWrapping.NoWrap };
+            var box = new TextBox { Text = sp.DisplayName, TextWrapping = TextWrapping.NoWrap, PlaceholderText = "Speaker name" };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(box, "Rename " + sp.DisplayName);
             void Commit() { Rename(id, box.Text); }
             box.LostFocus += (_, _) => Commit();
