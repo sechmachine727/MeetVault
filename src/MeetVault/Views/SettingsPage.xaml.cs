@@ -8,6 +8,9 @@ public sealed partial class SettingsPage : Page
 {
     private static CredentialLockerSecretStore Locker => AppStore.Secrets;
     public static string? GeminiApiKey => Locker.Get("GeminiApiKey");
+    // XAML parse fires Toggled/SelectionChanged before all fields exist.
+    // Handlers stay silent until init completes.
+    private bool _ready;
 
     public SettingsPage()
     {
@@ -21,25 +24,26 @@ public sealed partial class SettingsPage : Page
         DevicePicker.SelectedIndex = 0;
 
         LoadPersisted();
+        _ready = true;
         Refresh();
     }
 
-    private void Picker_SelectionChanged(object sender, SelectionChangedEventArgs e) => Refresh();
+    private void Picker_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (_ready) Refresh(); }
 
-    private void TextBox_TextChanged(object sender, TextChangedEventArgs e) => Refresh();
+    private void TextBox_TextChanged(object sender, TextChangedEventArgs e) { if (_ready) Refresh(); }
 
-    private void Diarization_Toggled(object sender, RoutedEventArgs e) => Refresh();
+    private void Diarization_Toggled(object sender, RoutedEventArgs e) { if (_ready) Refresh(); }
 
-    private void Gender_Toggled(object sender, RoutedEventArgs e) => Refresh();
+    private void Gender_Toggled(object sender, RoutedEventArgs e) { if (_ready) Refresh(); }
 
-    private void Pin_Toggled(object sender, RoutedEventArgs e) => Refresh();
+    private void Pin_Toggled(object sender, RoutedEventArgs e) { if (_ready) Refresh(); }
 
-    private void Opacity_ValueChanged(object sender, RangeBaseValueChangedEventArgs e) => Refresh();
+    private void Opacity_ValueChanged(object sender, RangeBaseValueChangedEventArgs e) { if (_ready) Refresh(); }
 
-    private void Number_ValueChanged(object sender, NumberBoxValueChangedEventArgs e) => Refresh();
+    private void Number_ValueChanged(object sender, NumberBoxValueChangedEventArgs e) { if (_ready) Refresh(); }
 
     // LostFocus rather than TextChanged: usage walks the folder, and a per-keystroke scan would stall the UI thread.
-    private void Refresh_Storage(object sender, RoutedEventArgs e) => Refresh();
+    private void Refresh_Storage(object sender, RoutedEventArgs e) { if (_ready) Refresh(); }
 
     private void SaveKey_Click(object sender, RoutedEventArgs e)
     {
@@ -73,6 +77,12 @@ public sealed partial class SettingsPage : Page
     // One place that turns control values into the visible summary, so a section can never drift from its controls.
     private void Refresh()
     {
+        if (!_ready) return;
+        if (MicPicker is null || AppSourceBox is null || ModelPicker is null || DevicePicker is null
+            || DiarizationSwitch is null || GenderSwitch is null || PinSwitch is null
+            || OpacitySlider is null || FontSizeBox is null || LinesBox is null || StoragePathBox is null
+            || AudioStatus is null || TranscriptionStatus is null || OverlayStatus is null
+            || StorageStatus is null || UsageText is null || GeminiStatus is null) return;
         var repo = AppStore.Repo;
         repo.SetSetting("audio.source", AppSourceBox.Text);
         repo.SetSetting("transcription.diarization", OnOff(DiarizationSwitch.IsOn));

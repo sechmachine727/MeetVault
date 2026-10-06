@@ -45,9 +45,18 @@ public sealed partial class MainWindow : Window
     {
         var detail = ex.GetType().Name + ": " + ex.Message;
         if (ex.InnerException is not null) detail += " | Inner: " + ex.InnerException.Message;
+        var stack = (ex.StackTrace ?? string.Empty).Replace((char)13, ' ').Replace((char)10, ' ');
+        if (stack.Length > 900) stack = stack.Substring(0, 900);
         try
         {
-            var dialog = new ContentDialog { Title = "Could not open " + (tag ?? "page"), Content = detail, CloseButtonText = "Back to Dashboard", XamlRoot = RootFrame.XamlRoot };
+            var dir = Path.Combine(Path.GetTempPath(), "MeetVault");
+            Directory.CreateDirectory(dir);
+            File.AppendAllText(Path.Combine(dir, "nav-errors.log"), DateTimeOffset.Now.ToString("o") + " page=" + (tag ?? "?") + " " + ex.GetType().Name + ": " + ex.Message + " STACK:" + (ex.StackTrace ?? string.Empty) + global::System.Environment.NewLine);
+        }
+        catch { }
+        try
+        {
+            var dialog = new ContentDialog { Title = "Could not open " + (tag ?? "page"), Content = detail + " [" + stack + "]", CloseButtonText = "Back to Dashboard", XamlRoot = RootFrame.XamlRoot };
             await dialog.ShowAsync();
         }
         catch { }
