@@ -39,7 +39,9 @@ private MeetingSession _session = null!;
         {
             if (EngineModels.Available)
             {
-                var modelFile = AppStore.Repo.GetSetting("transcription.model") == "base" ? "ggml-base.bin" : "ggml-tiny.bin";
+                // Prefer the persisted pick when its file exists; else use whatever whisper model is on disk.
+                var picked = AppStore.Repo.GetSetting("transcription.model") == "base" ? "ggml-base.bin" : "ggml-tiny.bin";
+                var modelFile = System.IO.File.Exists(System.IO.Path.Combine(ModelDir, picked)) ? picked : EngineModels.WhisperModel!;
                 _whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile));
                 _capture = new NAudioCapture();
                 var dz = new SherpaDiarizer(Path.Combine(ModelDir, "sherpa-seg.onnx"), Path.Combine(ModelDir, "sherpa-emb.onnx"));

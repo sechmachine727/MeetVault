@@ -42,6 +42,20 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
+        // ponytail: last-resort crash log. Unhandled UI exceptions otherwise vanish
+        // in the unpackaged exe with no debugger attached.
+        UnhandledException += (s, e) =>
+        {
+            try
+            {
+                var dir = Path.Combine(Path.GetTempPath(), "MeetVault");
+                Directory.CreateDirectory(dir);
+                File.AppendAllText(Path.Combine(dir, "crash.log"),
+                    DateTimeOffset.Now.ToString("o") + " " + e.Exception.GetType().Name + ": " + e.Exception.Message
+                    + " STACK:" + (e.Exception.StackTrace ?? string.Empty) + global::System.Environment.NewLine);
+            }
+            catch { }
+        };
     }
 
     /// <summary>
