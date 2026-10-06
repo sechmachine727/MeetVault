@@ -12,17 +12,19 @@ public sealed class WhisperTranscriber : ISpeechTranscriber, IDisposable
 
     private readonly string _modelPath;
     private readonly string _language; // "auto" lets whisper detect EN/JA/VI per segment, including mid-conversation switches
+    public bool UseGpu { get; }
     private WhisperFactory? _factory;
     private CancellationTokenSource? _cts;
 
 private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnoreCase) { "auto", "en", "ja", "vi" };
 
-    public WhisperTranscriber(string modelPath, string language = "auto")
+    public WhisperTranscriber(string modelPath, string language = "auto", bool useGpu = false)
     {
         if (language is null) throw new ArgumentException("Language is required. Use auto, en, ja, vi, or a valid ISO code.", "language");
         if (!Known.Contains(language) && language.Length != 2) throw new ArgumentException("Unsupported language: " + language + ". Use auto, en, ja, vi, or a valid ISO code.", "language");
         _modelPath = modelPath;
         _language = language;
+        UseGpu = useGpu;
     }
 
     public static async Task DownloadModelAsync(string destPath, GgmlType type, CancellationToken ct = default)
@@ -38,7 +40,10 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
     public Task StartAsync(CancellationToken ct)
     {
         if (!File.Exists(_modelPath)) throw new FileNotFoundException($"Whisper model not found: {_modelPath}. Download the multilingual base model to models/ggml-base.bin.", _modelPath);
-        _factory ??= WhisperFactory.FromPath(_modelPath);
+        // GPU needs the CUDA runtime + NVIDIA driver; failure falls back to CPU at the call site.
+        _factory ??= UseGpu
+            ? WhisperFactory.FromPath(_modelPath, new WhisperFactoryOptions { UseGpu = true })
+            : WhisperFactory.FromPath(_modelPath);
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         IsRunning = true;
         return Task.CompletedTask;

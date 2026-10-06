@@ -56,6 +56,20 @@ private static string DescribeDevices()
         return string.Join(", ", names);
     }
 
+    // Real capture devices for the Settings picker. Empty when headless.
+    public static IReadOnlyList<(int Id, string Name)> ListDevices()
+    {
+        var list = new List<(int, string)>();
+        for (var i = 0; i < WaveInEvent.DeviceCount; i++)
+        {
+            string name;
+            try { name = WaveInEvent.GetCapabilities(i).ProductName; }
+            catch { name = "Microphone " + i; }
+            list.Add((i, name));
+        }
+        return list;
+    }
+
     public void Dispose()
     {
         _mic?.Dispose();

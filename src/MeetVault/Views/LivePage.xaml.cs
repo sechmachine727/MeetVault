@@ -42,14 +42,17 @@ private MeetingSession _session = null!;
                 // Prefer the persisted pick when its file exists; else use whatever whisper model is on disk.
                 var picked = AppStore.Repo.GetSetting("transcription.model") == "base" ? "ggml-base.bin" : "ggml-tiny.bin";
                 var modelFile = System.IO.File.Exists(System.IO.Path.Combine(ModelDir, picked)) ? picked : EngineModels.WhisperModel!;
-                _whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile));
+                // GPU requested in Settings; CUDA absence throws and falls back to CPU in the outer catch.
+                var wantGpu = AppStore.Repo.GetSetting("transcription.device") == "gpu";
+                try { _whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile), "auto", wantGpu); }
+                catch { _whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile)); }
                 _capture = new NAudioCapture();
                 var dz = new SherpaDiarizer(Path.Combine(ModelDir, "sherpa-seg.onnx"), Path.Combine(ModelDir, "sherpa-emb.onnx"));
                 transcriber = _whisper;
                 audio = _capture;
                 _windowDiarizer = new WindowDiarizer(dz); diarizer = _windowDiarizer;
                 _capture.PcmReady += OnPcm;
-                _mode = "live: whisper tiny + sherpa diarizer (base reserved for refinement)";
+                _mode = "live: whisper " + modelFile.Replace("ggml-", "").Replace(".bin", "") + (_whisper.UseGpu ? " + CUDA" : "") + " + sherpa diarizer (CPU)";
             }
         }
         catch (Exception ex) { _mode = "demo (engine init failed: " + ex.GetType().Name + ")"; }

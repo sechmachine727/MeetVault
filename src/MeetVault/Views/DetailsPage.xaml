@@ -52,8 +52,8 @@
         </Grid>
 
         <Grid Grid.Row="6">
-            <ListView x:Name="TranscriptList" SelectionMode="None">
-                <ListView.ItemTemplate>
+            <ItemsControl x:Name="TranscriptList">
+                <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Grid Padding="0,6" ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
@@ -73,8 +73,8 @@
                                      ToolTipService.ToolTip="Edit this line" />
                         </Grid>
                     </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
             <TextBlock x:Name="EmptyState" Text="Nothing to show yet. Start a meeting to populate this transcript."
                        Opacity="0.7" TextWrapping="Wrap" VerticalAlignment="Center" HorizontalAlignment="Center"
                        MaxWidth="320" TextAlignment="Center" Visibility="Collapsed" />

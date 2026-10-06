@@ -22,7 +22,9 @@ public sealed partial class DashboardPage : Page
         }
         var hour = DateTime.Now.Hour;
         GreetingTitle.Text = hour < 12 ? "Good morning — ready to capture" : hour < 18 ? "Good afternoon — ready to capture" : "Good evening — ready to capture";
-        var mic = AppStore.Repo.GetSetting("audio.mic") ?? "Windows default";
+        // audio.mic stores the numeric device id; resolve to the live device name.
+        var micIdx = AppStore.Repo.GetSetting("audio.mic") ?? "";
+        var mic = MeetVault.Core.NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == micIdx).Name ?? "Windows default";
         var source = AppStore.Repo.GetSetting("audio.source");
         MicStatus.Text = string.IsNullOrWhiteSpace(mic) ? "Not started" : mic;
         SourceStatus.Text = string.IsNullOrWhiteSpace(source) ? "Not picked" : source;
