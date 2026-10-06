@@ -54,6 +54,13 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinApp" Version="0.3.1" />
   </ItemGroup>
+  <!-- Unpackaged portable exe has no package identity: DeploymentManager.Initialize
+       dies REGDB_E_CLASSNOTREG. The installed MSIX keeps identity and is unaffected.
+       Bootstrap (DDLM) auto-init stays on so framework resolution still works. -->
+  <PropertyGroup>
+    <WindowsAppSdkDeploymentManagerInitialize>false</WindowsAppSdkDeploymentManagerInitialize>
+    <WindowsAppSdkBootstrapInitialize>true</WindowsAppSdkBootstrapInitialize>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\MeetVault.Core\MeetVault.Core.csproj" />
   </ItemGroup>
