@@ -24,6 +24,7 @@ public sealed partial class LivePage : Page
     private string _micLabel = "not started";
     private readonly SemaphoreSlim _transcribeGate = new(1, 1);
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _checkpoint;
+    private bool _started;
     private static string MicId => AppStore.Repo.GetSetting("audio.mic") ?? "0";
 
     public LivePage()
@@ -41,7 +42,7 @@ public sealed partial class LivePage : Page
     {
         _checkpoint?.Stop();
         LiveBridge.RenameByName = null;
-        try { if (_session is not null) await _session.StopAsync(); } catch { }
+        try { if (_started && _session is not null) await _session.StopAsync(); } catch { }
         try { _capture?.Dispose(); } catch { }
         try { _whisper?.Dispose(); } catch { }
         try { _windowDiarizer?.Dispose(); } catch { }
@@ -113,11 +114,12 @@ public sealed partial class LivePage : Page
                 await _session.StartAsync(MicId, "", CancellationToken.None);
             }
             _session.LiveSegment += OnLiveSegment;
-            LiveBridge.Clear();
+            if (id is null) LiveBridge.Clear(); // keep the recovered backlog for a late-opened overlay
             LiveBridge.RenameByName = RenameByDisplayName;
             // Recovery continues an existing timeline; without this the new windows
             // restart at 0 ms and their ids collide with the recovered segments.
             _windowOffsetMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
+            _started = true;
             StartCheckpointTimer();
             _micLabel = NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == MicId).Name
                 ?? (MicId == "0" ? "Windows default" : "device " + MicId);
@@ -127,7 +129,11 @@ public sealed partial class LivePage : Page
         }
         catch (Exception ex)
         {
+            // A draft row was persisted before capture started; mark it failed so it
+            // never lingers as a finalizable empty meeting.
+            try { if (_session is not null) { _session.MarkFailed(); _session = null!; } } catch { }
             Status("Could not start capture. Check the microphone in Settings, then reopen Live. (" + Short(ex) + ")");
+            RefreshAudioStatus();
         }
     }
 
@@ -183,13 +189,15 @@ public sealed partial class LivePage : Page
         lock (_window) { window = _window.ToArray(); _window.Clear(); }
         // Advance the timeline by the samples actually consumed, not a fixed guess.
         var windowMs = window.Length / 32; // 16000 samples/s * 2 bytes = 32 bytes/ms
-        var start = _windowOffsetMs;
-
-        // One window in flight at a time: the base model is slower than real time and
-        // overlapping windows would reorder lines and stack native inference.
-        await _transcribeGate.WaitAsync();
+        // One window in flight at a time, and never queue: with a slower-than-realtime
+        // model a queue would grow for the whole session and the transcript would fall
+        // ever further behind (NFR2). Dropping the newest window keeps it live; the WAV
+        // on disk still holds every sample.
+        if (!await _transcribeGate.WaitAsync(0)) return;
         try
         {
+            // Read the offset inside the gate so two windows can never share a start.
+            var start = _windowOffsetMs;
             _windowDiarizer?.AssignWindowSamples(window);
             DispatcherQueue.TryEnqueue(() => PartialLine.Text = "Transcribing\u2026");
             await _whisper.TranscribeWindowAsync(window, start, "live");

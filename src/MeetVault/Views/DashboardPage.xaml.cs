@@ -17,7 +17,7 @@ public sealed partial class DashboardPage : Page
         if (unfinished.Count > 0)
         {
             _recoverable = unfinished[0];
-            RecoveryBar.Message = $"'{_recoverable.Title}' ({_recoverable.Status}) was interrupted. Resume it in Live or leave it; starting a new meeting keeps it as a draft.";
+            RecoveryBar.Message = $"'{_recoverable.Title}' was interrupted. Resume it in Live to keep recording, or start a new meeting; this one stays as a draft.";
             RecoveryBar.IsOpen = true;
         }
         var hour = DateTime.Now.Hour;

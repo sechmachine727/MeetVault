@@ -36,7 +36,7 @@
             <TextBlock x:Name="SpeakerEmpty" Text="Speakers appear here once the first turn is recognized." Opacity="0.7" TextWrapping="Wrap" />
             <StackPanel x:Name="SpeakerPanel" Spacing="6" />
             <TextBlock Text="Audio sources" Style="{StaticResource SubtitleTextBlockStyle}" />
-            <TextBlock x:Name="AudioStatus" Text="Mic: not started. App source: not picked." TextWrapping="Wrap" />
+            <TextBlock x:Name="AudioStatus" Text="Mic: not started." TextWrapping="Wrap" />
             <TextBlock Text="Engine status" Style="{StaticResource SubtitleTextBlockStyle}" />
             <TextBlock x:Name="EngineStatus" Text="Checking engines..." TextWrapping="Wrap" />
         </StackPanel>

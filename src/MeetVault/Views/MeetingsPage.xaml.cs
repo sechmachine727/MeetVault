@@ -9,7 +9,18 @@ public sealed record MeetingCard(string Id, string Title, string When, string Du
 
 public static class MeetingCards
 {
-    public static MeetingCard ToCard(Meeting m) => new(m.Id, m.Title, m.StartedAt.ToString("g"), Duration(m), m.Status.ToString());
+    public static MeetingCard ToCard(Meeting m) => new(m.Id, m.Title, m.StartedAt.ToString("g"), Duration(m), StatusLabel(m.Status));
+
+    // Plain label for the raw enum.
+    public static string StatusLabel(MeetingStatus status) => status switch
+    {
+        MeetingStatus.Recording => "Recording",
+        MeetingStatus.Paused => "Paused",
+        MeetingStatus.Processing => "Processing",
+        MeetingStatus.Ready => "Ready",
+        MeetingStatus.Failed => "Did not finish",
+        _ => "Unknown",
+    };
 
     private static string Duration(Meeting m)
     {

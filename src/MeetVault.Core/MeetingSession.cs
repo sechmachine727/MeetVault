@@ -143,6 +143,16 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
 
     public void Dispose() => _transcriber.SegmentReady -= OnSegment;
 
+    // Start failed after the draft row was written: mark it failed so it never shows
+    // as a finalizable empty meeting.
+    public void MarkFailed()
+    {
+        if (_meeting is null) return;
+        _meeting = _meeting with { Status = MeetingStatus.Failed, EndedAt = DateTimeOffset.Now };
+        Persist();
+        _meeting = null;
+    }
+
     private void EnsureActive() { if (_meeting is null) throw new InvalidOperationException("No active meeting."); }
 }
 

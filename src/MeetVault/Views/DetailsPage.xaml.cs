@@ -42,8 +42,8 @@ public sealed partial class DetailsPage : Page
 
         MeetingTitle.Text = _meeting.Title;
         MeetingMeta.Text = _meeting.EndedAt is { } end
-            ? $"{_meeting.StartedAt:g}  \u00b7  {FormatDuration(_meeting)}  \u00b7  {_meeting.Status}"
-            : $"{_meeting.StartedAt:g}  \u00b7  in progress  \u00b7  {_meeting.Status}";
+            ? $"{_meeting.StartedAt:g}  \u00b7  {FormatDuration(_meeting)}  \u00b7  {MeetingCards.StatusLabel(_meeting.Status)}"
+            : $"{_meeting.StartedAt:g}  \u00b7  in progress  \u00b7  {MeetingCards.StatusLabel(_meeting.Status)}";
 
         var repoSegs = AppStore.Repo.LoadSegments(_meeting.Id).ToList();
         var repoSpks = AppStore.Repo.LoadSpeakers(_meeting.Id).ToList();
