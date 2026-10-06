@@ -147,7 +147,7 @@ public sealed partial class DetailsPage : Page
         JobResult.Text = "";
         try
         {
-            var uploader = new GeminiUploader(new DemoSecretStore(), new DemoFileReader(), new DemoTransport());
+            var uploader = new GeminiUploader(new CredentialLockerSecretStore(), new DemoFileReader(), new DemoTransport());
             var meeting = DemoMeetings.All[0] with { MediaPath = DemoMediaPath, MediaMime = DemoMime };
             var job = await uploader.SendMeetingAsync(meeting, JsonSerializer.Serialize(Lines), ResultDirectory);
 
@@ -210,14 +210,7 @@ public sealed partial class DetailsPage : Page
         StatusBar.IsOpen = true;
     }
 
-    // ponytail: demo seams for ISecretStore/IMeetingFileReader/IGeminiTransport so Core.GeminiUploader runs end to end without a key, a media file, or the network.
-    private sealed class DemoSecretStore : ISecretStore
-    {
-        private string? _value;
-        public DemoSecretStore() => _value = "demo-key-not-a-real-secret";
-        public string? Get(string key) => key == "GeminiApiKey" ? _value : null;
-        public void Set(string key, string value) => _value = value;
-    }
+    // ponytail: demo file-reader + transport until P4 engines land; key is real (Credential Locker) and jobs persist.
 
     private sealed class DemoFileReader : IMeetingFileReader
     {
@@ -234,6 +227,7 @@ public sealed partial class DetailsPage : Page
             => Task.FromResult(CannedResult);
     }
 }
+
 
 
 
