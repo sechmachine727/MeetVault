@@ -31,7 +31,7 @@ sealed class FakeGender : IGenderLabeler
 sealed class FakeStore : IMeetingStore
 {
     public Meeting? Saved; public int SegmentCount;
-    public void Save(Meeting m, IReadOnlyList<Speaker> sp, IReadOnlyList<Segment> se) { Saved = m; SegmentCount = se.Count; }
+    public void Save(Meeting m, IReadOnlyList<Speaker> sp, IReadOnlyList<Segment> se) { Saved = m; SegmentCount = se.Count; } public IReadOnlyList<Segment> LoadSegments(string id) => Array.Empty<Segment>(); public IReadOnlyList<Speaker> LoadSpeakers(string id) => Array.Empty<Speaker>(); public IReadOnlyList<Meeting> LoadUnfinished() => Array.Empty<Meeting>();
 }
 
 
@@ -120,6 +120,7 @@ public sealed class SessionTests
     }
 
 }
+
 
 
 

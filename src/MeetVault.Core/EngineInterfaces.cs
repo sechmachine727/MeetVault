@@ -28,5 +28,9 @@ public interface IGenderLabeler
 public interface IMeetingStore
 {
     void Save(Meeting meeting, IReadOnlyList<Speaker> speakers, IReadOnlyList<Segment> segments);
+    IReadOnlyList<Segment> LoadSegments(string meetingId);
+    IReadOnlyList<Speaker> LoadSpeakers(string meetingId);
+    IReadOnlyList<Meeting> LoadUnfinished();
 }
+
 

@@ -53,6 +53,26 @@ public sealed class MeetingSession
         _meeting = _meeting! with { Status = MeetingStatus.Recording };
     }
 
+    public Task CheckpointAsync(CancellationToken ct = default)
+    {
+        EnsureActive();
+        _store.Save(_meeting!, _speakers, _segments);
+        return Task.CompletedTask;
+    }
+
+    public static async Task<MeetingSession> RecoverAsync(string meetingId, IAudioCapture audio, ISpeechTranscriber transcriber, ISpeakerDiarizer diarizer, IGenderLabeler gender, IMeetingStore store, string micId = "", string appSource = "", CancellationToken ct = default)
+    {
+        var unfinished = store.LoadUnfinished().FirstOrDefault(m => m.Id == meetingId) ?? throw new InvalidOperationException("No recoverable draft for this meeting.");
+        var session = new MeetingSession(audio, transcriber, diarizer, gender, store);
+        session._meeting = unfinished with { Status = MeetingStatus.Recording };
+        session._speakers.AddRange(store.LoadSpeakers(meetingId));
+        session._segments.AddRange(store.LoadSegments(meetingId));
+        session._micId = micId; session._appSource = appSource;
+        await audio.StartAsync(micId, appSource, ct);
+        await transcriber.StartAsync(ct);
+        return session;
+    }
+
     public async Task StopAsync(CancellationToken ct = default)
     {
         EnsureActive();
@@ -76,6 +96,7 @@ public sealed class MeetingSession
 
     private void EnsureActive() { if (_meeting is null) throw new InvalidOperationException("No active meeting."); }
 }
+
 
 
 

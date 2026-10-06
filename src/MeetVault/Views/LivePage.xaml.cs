@@ -85,7 +85,8 @@ public sealed partial class LivePage : Page
     private sealed class FakeStore : IMeetingStore
     {
         public int SavedSegments { get; private set; }
-        public void Save(Meeting meeting, IReadOnlyList<Speaker> speakers, IReadOnlyList<Segment> segments) => SavedSegments = segments.Count;
+        public void Save(Meeting meeting, IReadOnlyList<Speaker> speakers, IReadOnlyList<Segment> segments) => SavedSegments = segments.Count; public IReadOnlyList<Segment> LoadSegments(string id) => Array.Empty<Segment>(); public IReadOnlyList<Speaker> LoadSpeakers(string id) => Array.Empty<Speaker>(); public IReadOnlyList<Meeting> LoadUnfinished() => Array.Empty<Meeting>();
     }
 }
+
 
