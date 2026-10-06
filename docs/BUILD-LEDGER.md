@@ -84,3 +84,10 @@
 - Implication: 10 s live windows would lag ~7 s per window cumulative. MVP options: (a) longer windows with explicit lag, (b) smaller/faster model for live + base for post-meeting refinement, (c) GPU/accelerated runtime. Decision needed before live-latency claims.
 - NFR2 status: finals-within-seconds NOT met on this hardware with base model.
 
+
+## Tiny-model measurement (2026-10-06, runtime evidence)
+
+- ggml-tiny.bin (78MB): 9.4 s audio -> 3.3 s transcribe (RTF 0.36x, ~3x faster than real-time), near-perfect transcript.
+- Two-tier story now evidence-backed: tiny for live windows (10 s audio ~= 3.6 s lag), multilingual base for post-meeting refinement.
+- Multilingual note: tiny sample was EN; JA/VI accuracy per-tier still needs real voices.
+
