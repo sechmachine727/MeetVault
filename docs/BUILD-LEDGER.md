@@ -91,3 +91,11 @@
 - Two-tier story now evidence-backed: tiny for live windows (10 s audio ~= 3.6 s lag), multilingual base for post-meeting refinement.
 - Multilingual note: tiny sample was EN; JA/VI accuracy per-tier still needs real voices.
 
+
+## Session 2026-10-06 late (runtime evidence)
+
+- Trilingual clip (Harvey): Recording.m4a 352,458 B -> 13.74 s PCM; base 5 segs RTF 1.73 (w0 en 0.426, w1 en 0.3288), tiny 3 segs RTF 1.10 (en 0.186/0.3929); diarizer scope-local labels (whole-clip spk_1 vs windows spk_2). Sung non-EN portion exercises no ja/vi path. Full notes: docs/TRILINGUAL-AUDIO-NOTES.md.
+- Independent review (Fermat, read-only): 5 material findings (empty-input diarizer collapse, crash-durability gap, recovery mic bypass, validation gaps, non-atomic download). All fixed TDD red->green: MeetingSession persists draft at Start; RecoverAsync requires mic id when restarting capture; LivePage passes persisted audio.mic/audio.source; enum-tolerant loads; RenameSpeaker/Whisper guards; SherpaDiarizer empty-window guard; DownloadModelAsync tmp+move.
+- Cert (approved Create-trust-install): CN=AppPublisher CodeSigningCert to 2031-10-06, trusted in CurrentUser Root (machine Root denied without admin). Signed-MSIX repack lane (Newton) in flight; portable exe publish/win-x64/MeetVault.exe refreshed with models staged.
+- Suite: 43/43 green, solution 0 warn/0 err. Pushed through 0f2a221.
+
