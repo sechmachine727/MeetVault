@@ -26,10 +26,12 @@ public sealed class SherpaDiarizer : ISpeakerDiarizer, IDisposable
     }
 
     // Assigns the dominant speaker of one finalized 16 kHz mono window as a stable spk_N id.
+    // ponytail: no audio by contract — callers must route window audio via AssignWindow first (LivePage WindowDiarizer does).
     public string AssignTurn(Segment segment) => AssignWindow(Array.Empty<float>());
 
     public string AssignWindow(float[] samples16kMono)
     {
+        if (samples16kMono is null || samples16kMono.Length == 0) throw new ArgumentException("No audio in this window.", "samples16kMono");
         var segments = _diar.Process(samples16kMono);
         if (segments.Length == 0) return "spk_1";
         var dominant = segments.OrderByDescending(s => s.End - s.Start).First().Speaker;

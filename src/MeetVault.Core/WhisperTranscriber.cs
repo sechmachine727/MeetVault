@@ -29,8 +29,10 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
     {
         Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
         using var modelStream = await WhisperGgmlDownloader.Default.GetGgmlModelAsync(type, QuantizationType.NoQuantization, ct);
-        using var fileWriter = File.OpenWrite(destPath);
+        var tmp = destPath + ".tmp"; // atomic: interrupted download never passes the File.Exists gate
+        using var fileWriter = File.OpenWrite(tmp);
         await modelStream.CopyToAsync(fileWriter, ct);
+        File.Move(tmp, destPath, overwrite: true);
     }
 
     public Task StartAsync(CancellationToken ct)
