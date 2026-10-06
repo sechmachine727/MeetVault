@@ -52,7 +52,6 @@ public sealed partial class DetailsPage : Page
     {
         InitializeComponent();
 
-        TranscriptList.ItemsSource = Lines;
         var first = AppStore.Repo.ListMeetings().FirstOrDefault();
         var repoSegs = first is null ? new List<Segment>() : AppStore.Repo.LoadSegments(first.Id).ToList();
         var repoSpks = first is null ? new List<Speaker>() : AppStore.Repo.LoadSpeakers(first.Id).ToList();
@@ -76,6 +75,9 @@ public sealed partial class DetailsPage : Page
         }
 
         _meeting = first;
+        // Same ABI rule as Live: array snapshot, not the live collection. Items mutate
+        // in place (TwoWay bindings edit the item), so no re-set is needed after load.
+        TranscriptList.ItemsSource = Lines.ToArray();
         var card = AppStore.Cards().FirstOrDefault() ?? DemoMeetings.Cards[0];
         ShowPriorJob(first);
         MeetingTitle.Text = card.Title;

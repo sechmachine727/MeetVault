@@ -28,6 +28,9 @@ public sealed partial class OverlayWindow : Window
     {
         Vm = new OverlayViewModel();
         InitializeComponent();
+        // Same ABI rule as Live/Details: ObservableCollection NREs in ComWrappers
+        // vtable computation in the trimmed exe. Array snapshot, refreshed on change.
+        TranscriptList.ItemsSource = Vm.Lines.ToArray();
         _renameFlyout = BuildRenameFlyout();
         var hwnd = Win32Interop.GetWindowFromWindowId(AppWindow.Id);
         var scale = GetDpiForWindow(hwnd) / 96.0;
@@ -79,7 +82,11 @@ public sealed partial class OverlayWindow : Window
         return new Flyout { Content = content };
     }
 
-    private void OnLinesChanged(object? sender, NotifyCollectionChangedEventArgs e) => RefreshListState();
+    private void OnLinesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        TranscriptList.ItemsSource = Vm.Lines.ToArray();
+        RefreshListState();
+    }
 
     private void RefreshListState()
     {
@@ -88,4 +95,3 @@ public sealed partial class OverlayWindow : Window
             TranscriptList.ScrollIntoView(TranscriptList.Items[TranscriptList.Items.Count - 1]);
     }
 }
-

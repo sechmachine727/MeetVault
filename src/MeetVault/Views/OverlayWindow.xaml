@@ -20,7 +20,7 @@
             <primitives:ToggleButton Grid.Column="1" Content="Pin" Click="Pin_Click" IsChecked="{x:Bind Vm.IsPinned, Mode=TwoWay}" ToolTipService.ToolTip="Keep the overlay above other windows" />
         </Grid>
         <Grid Grid.Row="1">
-            <ListView x:Name="TranscriptList" FontSize="{x:Bind Vm.FontSize, Mode=OneWay}" ItemsSource="{x:Bind Vm.Lines, Mode=OneWay}" SelectionMode="None" Padding="12,0">
+            <ListView x:Name="TranscriptList" FontSize="{x:Bind Vm.FontSize, Mode=OneWay}" SelectionMode="None" Padding="12,0">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="local:TranscriptLine">
                         <Grid ColumnSpacing="8" Padding="0,2">

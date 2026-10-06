@@ -26,8 +26,12 @@ private MeetingSession _session = null!;
     public LivePage()
     {
         InitializeComponent();
-        TranscriptList.ItemsSource = Lines;
-        SpeakerList.ItemsSource = Speakers;
+        // ObservableCollection cannot cross the ABI in the trimmed exe (ComWrappers vtable NRE):
+        // publish array snapshots, refresh on change.
+        TranscriptList.ItemsSource = Lines.ToArray();
+        SpeakerList.ItemsSource = Speakers.ToArray();
+        Lines.CollectionChanged += (_, _) => { TranscriptList.ItemsSource = Lines.ToArray(); TranscriptScroll.ChangeView(null, TranscriptScroll.ScrollableHeight, null); };
+        Speakers.CollectionChanged += (_, _) => { SpeakerList.ItemsSource = Speakers.ToArray(); };
 
         // Real engines when models exist; fakes otherwise (status line says which).
         ISpeechTranscriber transcriber = new FakeTranscriber();

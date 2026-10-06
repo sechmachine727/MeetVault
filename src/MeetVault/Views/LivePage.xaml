@@ -12,7 +12,7 @@
             <InfoBar x:Name="StatusBar" IsOpen="False" Severity="Informational" />
             <!-- ItemsControl, not ListView: ListView item templates with bound buttons NRE
                  inside ComWrappers vtable computation in the trimmed portable exe. -->
-            <ScrollViewer MaxHeight="320" VerticalScrollMode="Auto">
+            <ScrollViewer x:Name="TranscriptScroll" MaxHeight="320" VerticalScrollMode="Auto">
             <ItemsControl x:Name="TranscriptList">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
