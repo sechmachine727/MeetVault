@@ -7,7 +7,7 @@ public sealed class RepositoryReadTests : IDisposable
     private readonly string _path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".db");
     private readonly LocalMeetingRepository _repo;
     public RepositoryReadTests() { _repo = new LocalMeetingRepository(_path); }
-    private static Meeting M(string id, MeetingStatus st) => new(id, "T-" + id, DateTimeOffset.UtcNow.AddHours(-1), st == MeetingStatus.Ready ? DateTimeOffset.UtcNow : null, st, st == MeetingStatus.Ready ? "r.webm" : null, null);
+    private static Meeting M(string id, MeetingStatus st, int ageHours = 1) => new(id, "T-" + id, DateTimeOffset.UtcNow.AddHours(-ageHours), st == MeetingStatus.Ready ? DateTimeOffset.UtcNow : null, st, st == MeetingStatus.Ready ? "r.webm" : null, null);
 
     [Fact]
     public void LoadSegments_ReturnsInOrder()
@@ -28,18 +28,18 @@ public sealed class RepositoryReadTests : IDisposable
     [Fact]
     public void ListMeetings_ReturnsNewestFirst()
     {
-        _repo.Save(M("old", MeetingStatus.Ready), Array.Empty<Speaker>(), Array.Empty<Segment>());
-        _repo.Save(M("new", MeetingStatus.Recording), Array.Empty<Speaker>(), Array.Empty<Segment>());
+        _repo.Save(M("old", MeetingStatus.Ready, ageHours: 3), Array.Empty<Speaker>(), Array.Empty<Segment>());
+        _repo.Save(M("new", MeetingStatus.Recording, ageHours: 1), Array.Empty<Speaker>(), Array.Empty<Segment>());
         Assert.Equal(new[] { "new", "old" }, _repo.ListMeetings().Select(m => m.Id));
     }
 
     [Fact]
     public void LoadUnfinished_ReturnsRecordingAndPaused()
     {
-        _repo.Save(M("done", MeetingStatus.Ready), Array.Empty<Speaker>(), Array.Empty<Segment>());
-        _repo.Save(M("rec", MeetingStatus.Recording), Array.Empty<Speaker>(), Array.Empty<Segment>());
-        _repo.Save(M("pau", MeetingStatus.Paused), Array.Empty<Speaker>(), Array.Empty<Segment>());
-        Assert.Equal(new[] { "pau", "rec" }.OrderBy(x => x), _repo.LoadUnfinished().Select(m => m.Id).OrderBy(x => x));
+        _repo.Save(M("done", MeetingStatus.Ready, ageHours: 4), Array.Empty<Speaker>(), Array.Empty<Segment>());
+        _repo.Save(M("rec", MeetingStatus.Recording, ageHours: 3), Array.Empty<Speaker>(), Array.Empty<Segment>());
+        _repo.Save(M("pau", MeetingStatus.Paused, ageHours: 1), Array.Empty<Speaker>(), Array.Empty<Segment>());
+        Assert.Equal(new[] { "pau", "rec" }, _repo.LoadUnfinished().Select(m => m.Id));
     }
 
     [Fact]
@@ -67,3 +67,4 @@ public sealed class RepositoryReadTests : IDisposable
     }
 
 }
+
