@@ -1,0 +1,64 @@
+using Whisper.net;
+using Whisper.net.Ggml;
+
+namespace MeetVault.Core;
+
+// Real transcription behind ISpeechTranscriber: whisper.cpp v1.9.4 via Whisper.net 1.9.1.
+// ponytail: file-based finalized windows; streaming partials arrive with the VAD sliding-window upgrade.
+public sealed class WhisperTranscriber : ISpeechTranscriber, IDisposable
+{
+    public event Action<Segment>? SegmentReady;
+    public bool IsRunning { get; private set; }
+
+    private readonly string _modelPath;
+    private readonly string _language; // "auto" lets whisper detect EN/JA/VI per segment, including mid-conversation switches
+    private WhisperFactory? _factory;
+    private CancellationTokenSource? _cts;
+
+    public WhisperTranscriber(string modelPath, string language = "auto")
+    {
+        _modelPath = modelPath;
+        _language = language;
+    }
+
+    public static async Task DownloadModelAsync(string destPath, GgmlType type, CancellationToken ct = default)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
+        using var modelStream = await WhisperGgmlDownloader.Default.GetGgmlModelAsync(type, QuantizationType.NoQuantization, ct);
+        using var fileWriter = File.OpenWrite(destPath);
+        await modelStream.CopyToAsync(fileWriter, ct);
+    }
+
+    public Task StartAsync(CancellationToken ct)
+    {
+        _factory ??= WhisperFactory.FromPath(_modelPath);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        IsRunning = true;
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync(CancellationToken ct)
+    {
+        _cts?.Cancel();
+        IsRunning = false;
+        return Task.CompletedTask;
+    }
+
+    // Transcribe one finalized 16 kHz mono PCM window; emits one Segment per whisper segment.
+    public async Task TranscribeWindowAsync(byte[] pcm16kMono, long windowStartMs, string meetingId, CancellationToken ct = default)
+    {
+        if (_factory is null) throw new InvalidOperationException("Transcriber not started.");
+        using var processor = _factory.CreateBuilder().WithLanguage(_language).Build();
+        using var stream = new MemoryStream(pcm16kMono);
+        var index = 0;
+        await foreach (var result in processor.ProcessAsync(stream, ct))
+            SegmentReady?.Invoke(new Segment($"{meetingId}-w{windowStartMs}-{index++}", "", windowStartMs + (long)result.Start.TotalMilliseconds, windowStartMs + (long)result.End.TotalMilliseconds, result.Text.Trim(), true));
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _factory?.Dispose();
+    }
+}
+
