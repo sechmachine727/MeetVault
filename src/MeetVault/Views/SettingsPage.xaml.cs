@@ -6,7 +6,7 @@ namespace MeetVault.Views;
 
 public sealed partial class SettingsPage : Page
 {
-    private static readonly CredentialLockerSecretStore Locker = new();
+    private static CredentialLockerSecretStore Locker => AppStore.Secrets;
     public static string? GeminiApiKey => Locker.Get("GeminiApiKey");
 
     public SettingsPage()

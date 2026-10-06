@@ -44,6 +44,10 @@ public static class AppStore
 {
     private static LocalMeetingRepository? _repo;
 
+    // M7: single shared secret store; Settings/Details/uploader all use this, never new().
+    private static CredentialLockerSecretStore? _secrets;
+    public static CredentialLockerSecretStore Secrets => _secrets ??= new();
+
     public static LocalMeetingRepository Repo
     {
         get

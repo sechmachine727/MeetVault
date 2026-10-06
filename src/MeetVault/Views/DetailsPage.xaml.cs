@@ -13,7 +13,7 @@ public sealed partial class DetailsPage : Page
     public ObservableCollection<TranscriptLine> Lines { get; } = new();
     public ObservableCollection<string> Speakers { get; } = new();
 
-    // ponytail: demo transcript so edit/copy/export/Gemini have something to act on; swap for LocalMeetingRepository segments in P4.
+    // ponytail: demo transcript so edit/copy/export/Gemini have something to act on. Edits stay in memory until debounce-save lands (M8); copy/export use the edited lines.
     private static readonly (string Speaker, string Text)[] Seed =
     {
         ("Speaker 1", "Let's start with the October milestones. We shipped the recorder, the overlay is still in review."),
@@ -167,7 +167,7 @@ public sealed partial class DetailsPage : Page
         JobResult.Text = "";
         try
         {
-            var store = new CredentialLockerSecretStore();
+            var store = AppStore.Secrets;
             var transport = store.Get("GeminiApiKey") is { Length: > 0 } key
                 ? (IGeminiTransport)new GeminiHttpTransport(key)
                 : new DemoTransport(); // no key: demo transport shows the flow; uploader still demands a key for real uploads
@@ -181,7 +181,7 @@ public sealed partial class DetailsPage : Page
             if (job.State == GeminiJobState.Succeeded && job.ResultPath is not null)
             {
                 JobResult.Text = File.ReadAllText(job.ResultPath);
-                Status(InfoBarSeverity.Success, "Gemini job succeeded against the demo transport: no network call, no media uploaded.");
+                Status(InfoBarSeverity.Success, "Demo result shown: no network call, no media uploaded. Add a Gemini key in Settings for a real job.");
             }
             else
             {

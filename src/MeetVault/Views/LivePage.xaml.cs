@@ -18,6 +18,7 @@ private MeetingSession _session = null!;
     private readonly IAudioCapture _audio;
     private readonly ISpeakerDiarizer _diarizer;
     private static readonly string ModelDir = Path.Combine(AppContext.BaseDirectory, "models");
+    private long _windowOffsetMs; // M1: accumulate so window N segments carry meeting-relative timings.
     // ponytail: single persisted mic id; device picker UI add when >1 mic matters.
     private static string MicId => AppStore.Repo.GetSetting("audio.mic") ?? "0";
     private static string AppSource => AppStore.Repo.GetSetting("audio.source") ?? "";
@@ -49,7 +50,7 @@ private MeetingSession _session = null!;
                 _mode = "live: whisper tiny + sherpa diarizer (base reserved for refinement)";
             }
         }
-        catch { /* fall through to fakes */ }
+        catch (Exception ex) { _mode = "demo (engine init failed: " + ex.GetType().Name + ")"; }
         _transcriber = transcriber; _audio = audio; _diarizer = diarizer;
 
         Loaded += OnLoaded;
@@ -90,7 +91,11 @@ private MeetingSession _session = null!;
         byte[] window;
         lock (_window) { window = _window.ToArray(); _window.Clear(); }
         _windowDiarizer?.AssignWindowSamples(window);
-        try { await _whisper.TranscribeWindowAsync(window, 0, "live"); }
+        // WindowMs matches the 10 s accumulation gate above; offset advances per finalized window.
+        const long WindowMs = 10_000;
+        var start = _windowOffsetMs;
+        _windowOffsetMs += WindowMs;
+        try { await _whisper.TranscribeWindowAsync(window, start, "live"); }
         catch { /* next window retries; audio file keeps everything */ }
     }
 
@@ -103,16 +108,16 @@ private MeetingSession _session = null!;
 
     private async void Pause_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        try { await _session.PauseAsync(); Status("Paused: capture halted with a gap."); }
+        try { if (_session is null) Status("Nothing to pause: session never started."); else { await _session.PauseAsync(); Status("Paused: capture halted with a gap."); } }
         catch (InvalidOperationException) { Status("Nothing to pause: session never started."); }
     }
 
-    private async void Resume_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e){ try { await _session.ResumeAsync(); Status("Resumed: capture continues after the gap."); } catch (InvalidOperationException) { Status("Nothing to resume: session never started."); } }
+    private async void Resume_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e){ try { if (_session is null) Status("Nothing to resume: session never started."); else { await _session.ResumeAsync(); Status("Resumed: capture continues after the gap."); } } catch (InvalidOperationException) { Status("Nothing to resume: session never started."); } }
     private void Overlay_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) { OverlayWindow.ShowOrActivate(); }
 
     private async void Stop_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        try { await _session.StopAsync(); Status($"Stopped: {_session.Segments.Count} segment(s) saved to the local repository."); }
+        try { if (_session is null) Status("Nothing to stop: session never started."); else { await _session.StopAsync(); Status($"Stopped: {_session.Segments.Count} segment(s) saved to the local repository."); } }
         catch (InvalidOperationException) { Status("Nothing to stop: session never started."); }
     }
 

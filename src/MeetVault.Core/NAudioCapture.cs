@@ -16,10 +16,9 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
 
     public Task StartAsync(string micId, string appSource, CancellationToken ct)
     {
-if (IsCapturing) return Task.CompletedTask;
         if (!int.TryParse(micId, out var dev)) throw new ArgumentException($"Mic id must be a device number, got '{micId}'. Available: {DescribeDevices()}.", nameof(micId));
         if (dev < 0 || dev >= WaveInEvent.DeviceCount) throw new ArgumentException($"Mic device {dev} out of range. Available: {DescribeDevices()}.", nameof(micId));
-        if (IsCapturing) return Task.CompletedTask;
+        if (IsCapturing) return Task.CompletedTask; // after validation: bad mic id errors even when capturing.
         var dir = Path.Combine(Path.GetTempPath(), "MeetVault", "media");
         Directory.CreateDirectory(dir);
         MediaPath = Path.Combine(dir, DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".wav");
