@@ -43,6 +43,9 @@ appsettings.*.json
 secrets.json
 
 # ML model binaries (fetched or bundled at build time)
+/models/
+/modelharness/
+/publish/
 *.onnx
 *.onnx_data
 *.gguf
@@ -71,3 +74,4 @@ Desktop.ini
 # Local scratch
 /scratch/
 /tmp/
+

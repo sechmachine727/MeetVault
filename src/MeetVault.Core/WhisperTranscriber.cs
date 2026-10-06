@@ -49,10 +49,30 @@ public sealed class WhisperTranscriber : ISpeechTranscriber, IDisposable
     {
         if (_factory is null) throw new InvalidOperationException("Transcriber not started.");
         using var processor = _factory.CreateBuilder().WithLanguage(_language).Build();
-        using var stream = new MemoryStream(pcm16kMono);
+        using var stream = new MemoryStream(ToWav16kMono(pcm16kMono));
         var index = 0;
         await foreach (var result in processor.ProcessAsync(stream, ct))
             SegmentReady?.Invoke(new Segment($"{meetingId}-w{windowStartMs}-{index++}", "", windowStartMs + (long)result.Start.TotalMilliseconds, windowStartMs + (long)result.End.TotalMilliseconds, result.Text.Trim(), true));
+    }
+
+    // whisper.net consumes WAV files; capture pipelines hand us raw PCM.
+    private static byte[] ToWav16kMono(byte[] pcm)
+    {
+        var wav = new byte[44 + pcm.Length];
+        System.Text.Encoding.ASCII.GetBytes("RIFF").CopyTo(wav, 0);
+        BitConverter.GetBytes(36 + pcm.Length).CopyTo(wav, 4);
+        System.Text.Encoding.ASCII.GetBytes("WAVEfmt ").CopyTo(wav, 8);
+        BitConverter.GetBytes(16).CopyTo(wav, 16);
+        BitConverter.GetBytes((short)1).CopyTo(wav, 20);
+        BitConverter.GetBytes((short)1).CopyTo(wav, 22);
+        BitConverter.GetBytes(16000).CopyTo(wav, 24);
+        BitConverter.GetBytes(32000).CopyTo(wav, 28);
+        BitConverter.GetBytes((short)2).CopyTo(wav, 32);
+        BitConverter.GetBytes((short)16).CopyTo(wav, 34);
+        System.Text.Encoding.ASCII.GetBytes("data").CopyTo(wav, 36);
+        BitConverter.GetBytes(pcm.Length).CopyTo(wav, 40);
+        pcm.CopyTo(wav, 44);
+        return wav;
     }
 
     public void Dispose()
@@ -61,4 +81,5 @@ public sealed class WhisperTranscriber : ISpeechTranscriber, IDisposable
         _factory?.Dispose();
     }
 }
+
 
