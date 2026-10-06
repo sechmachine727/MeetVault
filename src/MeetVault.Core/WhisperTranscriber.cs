@@ -1,5 +1,6 @@
 using Whisper.net;
 using Whisper.net.Ggml;
+using Whisper.net.LibraryLoader;
 
 namespace MeetVault.Core;
 
@@ -13,18 +14,22 @@ public sealed class WhisperTranscriber : ISpeechTranscriber, IDisposable
     private readonly string _modelPath;
     private readonly string _language; // "auto" lets whisper detect EN/JA/VI per segment, including mid-conversation switches
     public bool UseGpu { get; }
+    public GpuBackend Backend { get; }
+    public int GpuDevice { get; }
     private WhisperFactory? _factory;
     private CancellationTokenSource? _cts;
 
 private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnoreCase) { "auto", "en", "ja", "vi" };
 
-    public WhisperTranscriber(string modelPath, string language = "auto", bool useGpu = false)
+    public WhisperTranscriber(string modelPath, string language = "auto", GpuBackend backend = GpuBackend.Cpu, int gpuDevice = 0)
     {
         if (language is null) throw new ArgumentException("Language is required. Use auto, en, ja, vi, or a valid ISO code.", "language");
         if (!Known.Contains(language) && language.Length != 2) throw new ArgumentException("Unsupported language: " + language + ". Use auto, en, ja, vi, or a valid ISO code.", "language");
         _modelPath = modelPath;
         _language = language;
-        UseGpu = useGpu;
+        Backend = backend;
+        GpuDevice = gpuDevice;
+        UseGpu = backend != GpuBackend.Cpu;
     }
 
     public static async Task DownloadModelAsync(string destPath, GgmlType type, CancellationToken ct = default)
@@ -40,13 +45,28 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
     public Task StartAsync(CancellationToken ct)
     {
         if (!File.Exists(_modelPath)) throw new FileNotFoundException($"Whisper model not found: {_modelPath}. Download the multilingual base model to models/ggml-base.bin.", _modelPath);
-        // GPU needs the CUDA runtime + NVIDIA driver; failure falls back to CPU at the call site.
-        _factory ??= UseGpu
-            ? WhisperFactory.FromPath(_modelPath, new WhisperFactoryOptions { UseGpu = true })
-            : WhisperFactory.FromPath(_modelPath);
+        _factory ??= CreateFactory();
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         IsRunning = true;
         return Task.CompletedTask;
+    }
+
+    // Picks the concrete runtime. Vulkan is forced when chosen (so a non-CUDA GPU is
+    // actually used); CUDA keeps whisper's default order, which already prefers it.
+    // Any GPU-init failure falls back to CPU rather than failing the meeting.
+    private WhisperFactory CreateFactory()
+    {
+        if (Backend == GpuBackend.Cpu) return WhisperFactory.FromPath(_modelPath);
+        try
+        {
+            if (Backend == GpuBackend.Vulkan)
+                RuntimeOptions.RuntimeLibraryOrder = [RuntimeLibrary.Vulkan, RuntimeLibrary.Cpu, RuntimeLibrary.CpuNoAvx];
+            return WhisperFactory.FromPath(_modelPath, new WhisperFactoryOptions { UseGpu = true, GpuDevice = GpuDevice });
+        }
+        catch
+        {
+            return WhisperFactory.FromPath(_modelPath);
+        }
     }
 
     public Task StopAsync(CancellationToken ct)

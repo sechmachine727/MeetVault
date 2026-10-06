@@ -20,7 +20,6 @@
                 <NavigationViewItem Content="Dashboard" Tag="dashboard" Icon="Home" />
                 <NavigationViewItem Content="Live" Tag="live" Icon="Microphone" />
                 <NavigationViewItem Content="Meetings" Tag="meetings" Icon="Library" />
-                <NavigationViewItem Content="Details" Tag="details" Icon="Document" />
             </NavigationView.MenuItems>
             <Frame x:Name="RootFrame" />
         </NavigationView>

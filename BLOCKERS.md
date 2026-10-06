@@ -11,7 +11,7 @@
 
 ### 1. Mic-present recording
 - This machine reports a microphone now ("0: Microphone Array (MacBook Pro M)"), but unattended synthetic testing of a real recording is not something I can validate for you.
-- Next: run `publish/win-x64-fresh/MeetVault.exe`, Start a meeting, speak, Stop, then open the meeting in Details and press play. Report anything that looks wrong.
+- Next: run `publish/win-x64/MeetVault.exe`, press Start recording, speak, Stop, then open the meeting in Meetings and press play. Report anything that looks wrong.
 
 ### 2. Spoken JA/VI accuracy + two-speaker separation
 - `Recording.m4a` validated (EN detected; the non-English portion is sung, not spoken, so ja/vi stays unexercised). Diarizer proves single-voice only.
@@ -30,4 +30,3 @@
 - Per-app WASAPI conference capture not implemented: the app-source control was removed rather than left inert (FR9). Add when the native helper lands.
 - No local gender classifier ships: labels are neutral `Speaker N`; the gender toggle was removed rather than left inert.
 - `storage.path` governs export only; the transcript database stays in `%APPDATA%\MeetVault`.
-

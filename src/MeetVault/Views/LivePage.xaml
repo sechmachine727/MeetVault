@@ -26,9 +26,11 @@
             </ScrollViewer>
             <TextBlock x:Name="PartialLine" Opacity="0.6" />
             <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button Content="Pause" Click="Pause_Click" /><Button Content="Resume" Click="Resume_Click" />
-                <Button Content="Show overlay" Click="Overlay_Click" />
-                <Button Content="Stop" Click="Stop_Click" />
+                <Button x:Name="StartButton" Content="Start recording" Click="Start_Click" Style="{StaticResource AccentButtonStyle}" AutomationProperties.Name="Start recording" />
+                <Button x:Name="PauseButton" Content="Pause" Click="Pause_Click" IsEnabled="False" />
+                <Button x:Name="ResumeButton" Content="Resume" Click="Resume_Click" IsEnabled="False" />
+                <Button x:Name="OverlayButton" Content="Show overlay" Click="Overlay_Click" />
+                <Button x:Name="StopButton" Content="Stop" Click="Stop_Click" IsEnabled="False" />
             </StackPanel>
         </StackPanel>
         <StackPanel Grid.Column="1" Spacing="8">

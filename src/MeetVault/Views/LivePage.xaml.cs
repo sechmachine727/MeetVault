@@ -7,9 +7,11 @@ namespace MeetVault.Views;
 
 public sealed partial class LivePage : Page
 {
+    private enum LiveState { Idle, Recording, Paused }
+
     public ObservableCollection<TranscriptLine> Lines { get; } = new();
 
-    private MeetingSession _session = null!;
+    private MeetingSession? _session;
     private WhisperTranscriber? _whisper;
     private NAudioCapture? _capture;
     private readonly List<byte> _window = new();
@@ -24,35 +26,32 @@ public sealed partial class LivePage : Page
     private string _micLabel = "not started";
     private readonly SemaphoreSlim _transcribeGate = new(1, 1);
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _checkpoint;
-    private bool _started;
+    private LiveState _state = LiveState.Idle;
+
     private static string MicId => AppStore.Repo.GetSetting("audio.mic") ?? "0";
 
     public LivePage()
     {
         InitializeComponent();
-        // Array snapshots cross the ABI cleanly; refresh on change.
         TranscriptList.ItemsSource = Lines.ToArray();
         Lines.CollectionChanged += (_, _) => { TranscriptList.ItemsSource = Lines.ToArray(); TranscriptScroll.ChangeView(null, TranscriptScroll.ScrollableHeight, null); };
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
 
-    // Leaving Live must stop capture: otherwise the mic and transcriber keep running invisibly.
+    // Leaving Live pauses an active meeting; a draft stays recoverable on the Dashboard.
     private async void OnUnloaded(object sender, RoutedEventArgs e)
     {
         _checkpoint?.Stop();
         LiveBridge.RenameByName = null;
-        // Pause, not stop: navigating away must not silently finalize the meeting.
-        // The draft stays recoverable and Dashboard offers it again.
-        try { if (_started && _session is not null) await _session.PauseAsync(); } catch { }
-        // Drain the in-flight window before the native model is freed.
-        try { await _transcribeGate.WaitAsync(); _transcribeGate.Release(); } catch { }
+        try { if (_state != LiveState.Idle && _session is not null) await _session.PauseAsync(); } catch { }
+        try { await _transcribeGate.WaitAsync(); _transcribeGate.Release(); } catch { } // drain in-flight window
         try { _capture?.Dispose(); } catch { }
         try { _whisper?.Dispose(); } catch { }
         try { _windowDiarizer?.Dispose(); } catch { }
     }
 
-    // Engines resolve at load, not navigate: a native fault here must not break navigation.
+    // Engines resolve at load; recording starts only on an explicit action or a resume.
     private void ResolveEngines()
     {
         ISpeechTranscriber transcriber = new FakeTranscriber();
@@ -68,21 +67,20 @@ public sealed partial class LivePage : Page
         {
             var picked = AppStore.Repo.GetSetting("transcription.model") == "base" ? "ggml-base.bin" : "ggml-tiny.bin";
             var modelFile = File.Exists(Path.Combine(ModelDir, picked)) ? picked : EngineModels.WhisperModel!;
-            var wantGpu = AppStore.Repo.GetSetting("transcription.device") == "gpu";
-            try { whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile), "auto", wantGpu); }
-            catch { whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile)); }
+            var (backend, deviceIndex) = TranscriptionDevice.Parse(AppStore.Repo.GetSetting("transcription.device"));
+            whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile), "auto", backend, deviceIndex);
             capture = new NAudioCapture();
             if (AppStore.Repo.GetSetting("transcription.diarization") != "off")
             {
                 var dz = new SherpaDiarizer(Path.Combine(ModelDir, "sherpa-seg.onnx"), Path.Combine(ModelDir, "sherpa-emb.onnx"));
                 windowDiarizer = new WindowDiarizer(dz);
             }
-            // Publish only once every component is up, so a late throw cannot leave a
-            // recording mic with no transcription pipeline.
             _whisper = whisper; _capture = capture; _windowDiarizer = windowDiarizer;
             _transcriber = whisper; _audio = capture; _diarizer = (ISpeakerDiarizer?)windowDiarizer ?? diarizer;
             capture.PcmReady += OnPcm;
-            _engineMode = "live: whisper " + modelFile.Replace("ggml-", "").Replace(".bin", "") + (whisper.UseGpu ? " + CUDA" : "") + (windowDiarizer is null ? ", single speaker" : " + sherpa diarizer");
+            var engine = modelFile.Replace("ggml-", "").Replace(".bin", "");
+            var accel = backend == GpuBackend.Cpu ? "CPU" : backend.ToString();
+            _engineMode = "live: whisper " + engine + " + " + accel + (windowDiarizer is null ? ", single speaker" : " + sherpa diarizer");
             return;
         }
         catch
@@ -100,65 +98,92 @@ public sealed partial class LivePage : Page
     {
         ResolveEngines();
         EngineStatus.Text = _engineMode;
+        _micLabel = NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == MicId).Name
+            ?? (MicId == "0" ? "Windows default" : "device " + MicId);
+        var id = PendingRecovery.MeetingId;
+        PendingRecovery.MeetingId = null;
+        if (id is not null) await RecoverAsync(id);
+        else SetState(LiveState.Idle); // do not start on navigation; the user presses Start
+    }
+
+    private async void Start_Click(object sender, RoutedEventArgs e)
+    {
         try
         {
-            var id = PendingRecovery.MeetingId;
-            PendingRecovery.MeetingId = null;
-            if (id is not null)
-            {
-                // Continue the draft's existing WAV instead of starting a second file.
-                if (AppStore.Repo.Load(id)?.MediaPath is { Length: > 0 } mediaPath && _capture is not null) _capture.ReuseFile(mediaPath);
-                _session = await MeetingSession.RecoverAsync(id, _audio, _transcriber, _diarizer, new NeutralSpeakerLabeler(), AppStore.Repo, MicId, "");
-                foreach (var sp in _session.Speakers) _speakerNames[sp.Id] = sp.DisplayName;
-                foreach (var s in _session.Segments) AddLine(s.SpeakerId, s.Text);
-                Status($"Recovered {_session.Segments.Count} line(s) from the interrupted meeting.");
-            }
-            else
-            {
-                // No local gender classifier ships, so labels are neutral "Speaker N" (FR9: no fake estimate).
-                _session = new MeetingSession(_audio, _transcriber, _diarizer, new NeutralSpeakerLabeler(), AppStore.Repo);
-                await _session.StartAsync(MicId, "", CancellationToken.None);
-            }
-            _session.LiveSegment += OnLiveSegment;
-            if (id is null) LiveBridge.Clear(); // keep the recovered backlog for a late-opened overlay
-            LiveBridge.RenameByName = RenameByDisplayName;
-            // Recovery continues an existing timeline; without this the new windows
-            // restart at 0 ms and their ids collide with the recovered segments.
-            _windowOffsetMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
-            _started = true;
-            StartCheckpointTimer();
-            _micLabel = NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == MicId).Name
-                ?? (MicId == "0" ? "Windows default" : "device " + MicId);
+            _session = new MeetingSession(_audio, _transcriber, _diarizer, new NeutralSpeakerLabeler(), AppStore.Repo);
+            await _session.StartAsync(MicId, "", CancellationToken.None);
+            WireSession(clearOverlay: true);
+            _windowOffsetMs = 0;
+            SetState(LiveState.Recording);
             RebuildSpeakers();
-            RefreshAudioStatus();
-            Status(_engineMode.StartsWith("live") ? "Recording. Speaks turns appear below as they are recognized." : "Demo mode: add Whisper and diarizer models to models/ for live transcription.");
+            Status(_engineMode.StartsWith("live") ? "Recording. Speaker turns appear below as they are recognized." : "Demo mode: add Whisper and diarizer models to models/ for live transcription.");
         }
         catch (Exception ex)
         {
-            // A draft row was persisted before capture started; mark it failed so it
-            // never lingers as a finalizable empty meeting.
-            try { if (_session is not null) { _session.MarkFailed(); _session = null!; } } catch { }
-            Status("Could not start capture. Check the microphone in Settings, then reopen Live. (" + Short(ex) + ")");
-            RefreshAudioStatus();
+            try { if (_session is not null) { _session.MarkFailed(); _session = null; } } catch { }
+            SetState(LiveState.Idle);
+            Status("Could not start capture. Check the microphone in Settings. (" + Short(ex) + ")");
         }
     }
 
-    // FR6: persist accrued lines periodically so a crash loses at most one interval.
+    private async Task RecoverAsync(string id)
+    {
+        try
+        {
+            if (AppStore.Repo.Load(id)?.MediaPath is { Length: > 0 } mediaPath && _capture is not null) _capture.ReuseFile(mediaPath);
+            _session = await MeetingSession.RecoverAsync(id, _audio, _transcriber, _diarizer, new NeutralSpeakerLabeler(), AppStore.Repo, MicId, "");
+            foreach (var sp in _session.Speakers) _speakerNames[sp.Id] = sp.DisplayName;
+            foreach (var s in _session.Segments) AddLine(s.SpeakerId, s.Text);
+            WireSession(clearOverlay: false); // keep the recovered backlog for a late-opened overlay
+            _windowOffsetMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
+            SetState(_session.IsPaused ? LiveState.Paused : LiveState.Recording);
+            RebuildSpeakers();
+            Status($"Resumed '{id}'. {_session.Segments.Count} line(s) restored.");
+        }
+        catch (Exception ex)
+        {
+            SetState(LiveState.Idle);
+            Status("Could not resume this meeting. (" + Short(ex) + ")");
+        }
+    }
+
+    private void WireSession(bool clearOverlay)
+    {
+        _session!.LiveSegment += OnLiveSegment;
+        if (clearOverlay) LiveBridge.Clear();
+        LiveBridge.RenameByName = RenameByDisplayName;
+        StartCheckpointTimer();
+    }
+
+    // Single place that maps state to which actions are available.
+    private void SetState(LiveState state)
+    {
+        _state = state;
+        StartButton.Visibility = state == LiveState.Idle ? Visibility.Visible : Visibility.Collapsed;
+        StartButton.IsEnabled = state == LiveState.Idle;
+        PauseButton.IsEnabled = state == LiveState.Recording;
+        ResumeButton.IsEnabled = state == LiveState.Paused;
+        StopButton.IsEnabled = state is LiveState.Recording or LiveState.Paused;
+        RefreshAudioStatus();
+    }
+
     private void StartCheckpointTimer()
     {
         _checkpoint ??= DispatcherQueue.CreateTimer();
         _checkpoint.Interval = TimeSpan.FromSeconds(15);
-        _checkpoint.Tick += async (_, _) => { try { await _session.CheckpointAsync(); } catch { } };
+        _checkpoint.Tick += async (_, _) => { try { if (_session is not null) await _session.CheckpointAsync(); } catch { } };
         _checkpoint.Start();
     }
 
     private void RefreshAudioStatus()
-        => AudioStatus.Text = _audio.IsCapturing ? $"Recording from {_micLabel}." : $"Mic: {_micLabel}.";
+        => AudioStatus.Text = _state == LiveState.Idle
+            ? $"Mic: {_micLabel}. Not recording."
+            : _state == LiveState.Paused ? $"Paused. Mic: {_micLabel}." : $"Recording from {_micLabel}.";
 
-    // Speakers side panel: one editable row per speaker; Enter or focus-out renames everywhere.
     private void RebuildSpeakers()
     {
         SpeakerPanel.Children.Clear();
+        if (_session is null) { SpeakerEmpty.Visibility = Visibility.Visible; return; }
         foreach (var sp in _session.Speakers)
         {
             _speakerNames[sp.Id] = sp.DisplayName;
@@ -176,7 +201,7 @@ public sealed partial class LivePage : Page
     private void Rename(string speakerId, string newName)
     {
         var trimmed = (newName ?? "").Trim();
-        if (trimmed.Length == 0 || !_speakerNames.TryGetValue(speakerId, out var old) || old == trimmed) return;
+        if (_session is null || trimmed.Length == 0 || !_speakerNames.TryGetValue(speakerId, out var old) || old == trimmed) return;
         _session.RenameSpeaker(speakerId, trimmed);
         _speakerNames[speakerId] = trimmed;
         for (var i = 0; i < Lines.Count; i++)
@@ -184,40 +209,29 @@ public sealed partial class LivePage : Page
         TranscriptList.ItemsSource = Lines.ToArray();
     }
 
-    // ~10 s windows of mic PCM transcribed as they finalize.
     private async void OnPcm(byte[] chunk)
     {
         if (_whisper is null || !_whisper.IsRunning) return;
         lock (_window) _window.AddRange(chunk);
-        // 6 s windows: shorter first-line latency than the old 10 s while keeping enough context.
         if (_window.Count < 16000 * 2 * 6) return;
         byte[] window;
         lock (_window) { window = _window.ToArray(); _window.Clear(); }
-        // Advance the timeline by the samples actually consumed, not a fixed guess.
-        var windowMs = window.Length / 32; // 16000 samples/s * 2 bytes = 32 bytes/ms
-        // OnPcm is serialized by NAudio, so the timeline advances on the capture thread;
-        // a dropped window still consumes audio time, keeping labels aligned to the WAV.
+        var windowMs = window.Length / 32;
         var start = _windowOffsetMs;
         _windowOffsetMs = start + windowMs;
-        // One window in flight at a time, and never queue: with a slower-than-realtime
-        // model a queue would grow for the whole session and the transcript would fall
-        // ever further behind (NFR2). Dropping the newest window keeps it live; the WAV
-        // on disk still holds every sample.
         if (!await _transcribeGate.WaitAsync(0)) return;
         try
         {
-            // No meeting id (stopped/ended): skip rather than mint a shared "live-" id.
-            if (_session.MeetingId is not { Length: > 0 } meetingId) return;
+            if (_session?.MeetingId is not { Length: > 0 } meetingId) return;
             _windowDiarizer?.AssignWindowSamples(window);
             DispatcherQueue.TryEnqueue(() => PartialLine.Text = "Transcribing\u2026");
-            // Segment ids are namespaced by the real meeting id (the table's PK is global).
             await _whisper.TranscribeWindowAsync(window, start, meetingId);
         }
-        catch { /* next window retries; audio file keeps everything */ }
+        catch { }
         finally
         {
             _transcribeGate.Release();
-            DispatcherQueue.TryEnqueue(() => PartialLine.Text = _audio.IsCapturing ? "Listening\u2026" : "");
+            DispatcherQueue.TryEnqueue(() => PartialLine.Text = _state != LiveState.Idle ? "Listening\u2026" : "");
         }
     }
 
@@ -235,7 +249,6 @@ public sealed partial class LivePage : Page
         LiveBridge.Publish(name, text);
     }
 
-    // A rename coming from the overlay: resolve the display name back to a speaker id.
     private bool RenameByDisplayName(string oldName, string newName)
     {
         var id = _speakerNames.FirstOrDefault(kv => kv.Value == oldName).Key;
@@ -248,30 +261,32 @@ public sealed partial class LivePage : Page
 
     private async void Pause_Click(object sender, RoutedEventArgs e)
     {
+        if (_state != LiveState.Recording || _session is null) return;
         lock (_window) _window.Clear();
-        try { await _session.PauseAsync(); Status("Paused. Audio in the gap is not recorded and will not reappear on resume."); }
-        catch (Exception ex) { Status("Nothing to pause: " + Short(ex)); }
+        try { await _session.PauseAsync(); SetState(LiveState.Paused); Status("Paused. Audio in the gap is not recorded and will not reappear on resume."); }
+        catch (Exception ex) { Status("Could not pause: " + Short(ex)); }
     }
 
     private async void Resume_Click(object sender, RoutedEventArgs e)
     {
+        if (_state != LiveState.Paused || _session is null) return;
         try
         {
             await _session.ResumeAsync();
             _windowOffsetMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
-            RefreshAudioStatus();
+            SetState(LiveState.Recording);
             Status("Resumed. Capture continues after the gap.");
         }
-        catch (Exception ex) { Status("Nothing to resume: " + Short(ex)); }
+        catch (Exception ex) { Status("Could not resume: " + Short(ex)); }
     }
 
     private void Overlay_Click(object sender, RoutedEventArgs e) { OverlayWindow.ShowOrActivate(); }
 
     private async void Stop_Click(object sender, RoutedEventArgs e)
     {
+        if (_state == LiveState.Idle || _session is null) return;
         try
         {
-            if (_session is null) { Status("Nothing to stop."); return; }
             var confirm = new ContentDialog
             {
                 Title = "Stop and save this meeting?",
@@ -283,13 +298,15 @@ public sealed partial class LivePage : Page
             };
             if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
             await _session.StopAsync();
-            RefreshAudioStatus();
-            Status($"Saved. {_session.Segments.Count} line(s) written to the local repository.");
+            var count = _session.Segments.Count;
+            _session = null;
+            _checkpoint?.Stop();
+            SetState(LiveState.Idle);
+            Status($"Saved. {count} line(s) written to the local repository.");
         }
         catch (Exception ex) { Status("Could not stop: " + Short(ex)); }
     }
 
-    // One plain sentence for the user; the full exception stays out of the UI.
     private static string Short(Exception ex) => ex switch
     {
         InvalidOperationException => "the meeting is not active",
@@ -308,11 +325,11 @@ public sealed partial class LivePage : Page
 
     private sealed class FakeTranscriber : ISpeechTranscriber
     {
-#pragma warning disable CS0067 // interface contract; demo mode never raises it
+#pragma warning disable CS0067
         public event Action<Segment>? SegmentReady;
 #pragma warning restore CS0067
         public bool IsRunning { get; private set; }
-        public Task StartAsync(CancellationToken ct) { IsRunning = true; return Task.CompletedTask; } // no models: emit nothing, never a fake line into the record
+        public Task StartAsync(CancellationToken ct) { IsRunning = true; return Task.CompletedTask; }
         public Task StopAsync(CancellationToken ct) { IsRunning = false; return Task.CompletedTask; }
     }
 
@@ -321,7 +338,6 @@ public sealed partial class LivePage : Page
         public string AssignTurn(Segment segment) => "spk_1";
     }
 
-    // Bridges window-level sherpa assignment into the session's per-segment path.
     private sealed class WindowDiarizer : ISpeakerDiarizer
     {
         private readonly SherpaDiarizer _inner;

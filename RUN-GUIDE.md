@@ -1,27 +1,29 @@
-# Run guide (local, 2026-10-06 evening)
+# Run guide (local, 2026-10-07)
 
-Launch this build:
+Launch the single canonical portable release:
 
-    publish/win-x64-fresh/MeetVault.exe
+    publish/win-x64/MeetVault.exe
 
-- Self-contained, no dotnet needed. Models alongside in `publish/win-x64-fresh/models` (tiny 78MB, base 148MB, sherpa-seg 6MB, sherpa-emb 40MB) plus the staging natives `onnxruntime.dll` and `sherpa-onnx-c-api.dll` at the app root.
-- Do not copy a stale `publish/win-x64` over it: `publish/win-x64` (13:59) and `publish/msix` are old trimmed builds. Use `publish/win-x64-fresh`.
-- Live uses the Settings model (tiny for live, base for refinement) when its file exists; without models Live runs in demo mode and the status line says so.
-- With a mic, Live records + transcribes in ~6 s windows. Without models/mic it runs in demo mode.
-- Gemini key: Settings page. The portable exe has no Credential Locker, so a key may not persist; the installed MSIX has the full vault.
-- Data: `%APPDATA%\MeetVault\meetings.db` (SQLite) + `%APPDATA%\MeetVault\media` (WAV, beside the DB so temp cleanup cannot delete it). Gemini results: `%TEMP%\MeetVault\gemini`. Crash diagnostics: `%TEMP%\MeetVault\crash.log` + `nav-errors.log`.
-- Leaving the Live page pauses the recording and keeps the draft; Dashboard offers to resume it. Use Stop to finalize.
+- Self-contained, no dotnet needed. Natives (`onnxruntime.dll`, `sherpa-onnx-c-api.dll`) sit at the app root, models under `models/` (tiny 78MB, base 148MB, sherpa-seg 6MB, sherpa-emb 40MB).
+- This is the only portable build. Do not create extra publish folders; rebuild in place with the commands below.
+- Live starts only when you press Start recording; leaving Live pauses the meeting and keeps it as a recoverable draft on the Dashboard.
+- Hardware: Settings -> Transcription -> Device lists every GPU the machine actually exposes (query, not a vendor-name guess). CUDA is offered only when the NVIDIA driver reports a device; other GPUs are offered through Vulkan when the Vulkan loader and a hardware adapter are present. With no GPU, the GPU entry is greyed out.
+- Data: `%APPDATA%\MeetVault\meetings.db` (SQLite) + `%APPDATA%\MeetVault\media` (WAV). Gemini results: `%APPDATA%\MeetVault\gemini`. Crash diagnostics: `%TEMP%\MeetVault\crash.log` + `nav-errors.log`.
 
 Needs your ears: JA/VI accuracy, two-speaker separation, overlay feel, light/dark + small/large window pass.
 
-Build (developer):
+Build and test (developer):
 
     D:\dotnet\dotnet.exe build MeetVault.sln -c Release
-    D:\dotnet\dotnet.exe test tests\MeetVault.Core.Tests\MeetVault.Core.Tests.csproj -c Release --nologo -v q   # 53 green
+    D:\dotnet\dotnet.exe test tests\MeetVault.Core.Tests\MeetVault.Core.Tests.csproj -c Release --nologo -v q
 
-Publish portable (publish to a clean dir, then mirror, so stale files cannot linger):
+Rebuild the canonical portable release (publish to a clean folder so stale files cannot linger):
 
-    D:\dotnet\dotnet.exe publish src\MeetVault\MeetVault.csproj -c Release -r win-x64 --self-contained true -o publish\win-x64-new
-    copy /y publish\win-x64-fresh\sherpa-onnx-c-api.dll publish\win-x64-new\
-    copy /y publish\win-x64-fresh\onnxruntime.dll publish\win-x64-new\
-    robocopy publish\win-x64-new publish\win-x64-fresh /MIR /XD models
+    rmdir /s /q publish\win-x64
+    D:\dotnet\dotnet.exe publish src\MeetVault\MeetVault.csproj -c Release -r win-x64 --self-contained true -o publish\win-x64
+    rem stage the two natives + models/ from your kept copies into publish\win-x64
+
+MSIX package:
+
+    src\MeetVault\AppPackages\MeetVault_1.0.0.0_x64_Test\MeetVault_1.0.0.0_x64.msix
+

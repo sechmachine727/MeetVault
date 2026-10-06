@@ -43,7 +43,7 @@
 | NFR2 conversational latency | RUNTIME per-tier RTF: tiny 0.36x live-capable, base 1.66x too slow live (refinement only) | proven per-tier; live loop unmeasured end-to-end |
 | NFR3 bounded memory | TEST chunked writes; segments ~100B each | argued, unprofiled |
 | NFR4 timestamp stability | TEST 70-min run | proven |
-| NFR5 bundled offline installer | MSIX signed (needs machine trust for install); portable win-x64-fresh ships models alongside (271MB) | partial (install trust is user step) |
+| NFR5 bundled offline installer | MSIX signed (needs machine trust for install); single canonical portable release at publish/win-x64 ships models + natives alongside (271MB) | partial (install trust is user step) |
 
 ## What only you can close
 
