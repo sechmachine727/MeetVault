@@ -28,7 +28,7 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Button Content="{x:Bind Speaker}" Style="{StaticResource TextBlockButtonStyle}" Click="Rename_Click" ToolTipService.ToolTip="Rename this speaker on every line" />
+                            <Button Content="{x:Bind Speaker}" Background="Transparent" BorderThickness="0" Padding="0" Click="Rename_Click" ToolTipService.ToolTip="Rename this speaker on every line" />
                             <TextBlock Grid.Column="1" Text="{x:Bind Text}" TextWrapping="Wrap" />
                         </Grid>
                     </DataTemplate>
