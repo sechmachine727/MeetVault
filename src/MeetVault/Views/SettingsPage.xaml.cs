@@ -27,7 +27,7 @@ public sealed partial class SettingsPage : Page
         ModelPicker.SelectedIndex = 0;
         DevicePicker.SelectedIndex = 0;
 
-        LoadPersisted();
+        try { LoadPersisted(); } catch { }
         _ready = true;
         Refresh();
     }
@@ -37,8 +37,6 @@ public sealed partial class SettingsPage : Page
     private void TextBox_TextChanged(object sender, TextChangedEventArgs e) { if (_ready) Refresh(); }
 
     private void Diarization_Toggled(object sender, RoutedEventArgs e) { if (_ready) Refresh(); }
-
-    private void Gender_Toggled(object sender, RoutedEventArgs e) { if (_ready) Refresh(); }
 
     private void Pin_Toggled(object sender, RoutedEventArgs e) { if (_ready) Refresh(); }
 
@@ -67,9 +65,7 @@ public sealed partial class SettingsPage : Page
     private void LoadPersisted()
     {
         var repo = AppStore.Repo;
-        AppSourceBox.Text = repo.GetSetting("audio.source") ?? "";
         DiarizationSwitch.IsOn = repo.GetSetting("transcription.diarization") != "off";
-        GenderSwitch.IsOn = repo.GetSetting("transcription.gender") != "off";
         PinSwitch.IsOn = repo.GetSetting("overlay.pin") != "off";
         if (double.TryParse(repo.GetSetting("overlay.opacity"), out var op)) OpacitySlider.Value = op;
         if (double.TryParse(repo.GetSetting("overlay.font"), out var font)) FontSizeBox.Value = font;
@@ -85,34 +81,54 @@ public sealed partial class SettingsPage : Page
     private void Refresh()
     {
         if (!_ready) return;
-        if (MicPicker is null || AppSourceBox is null || ModelPicker is null || DevicePicker is null
-            || DiarizationSwitch is null || GenderSwitch is null || PinSwitch is null
+        if (MicPicker is null || ModelPicker is null || DevicePicker is null
+            || DiarizationSwitch is null || PinSwitch is null
             || OpacitySlider is null || FontSizeBox is null || LinesBox is null || StoragePathBox is null
             || AudioStatus is null || TranscriptionStatus is null || OverlayStatus is null
             || StorageStatus is null || UsageText is null || GeminiStatus is null) return;
-        var repo = AppStore.Repo;
-        repo.SetSetting("audio.source", AppSourceBox.Text);
-        repo.SetSetting("transcription.diarization", OnOff(DiarizationSwitch.IsOn));
-        repo.SetSetting("transcription.gender", OnOff(GenderSwitch.IsOn));
-        repo.SetSetting("overlay.pin", OnOff(PinSwitch.IsOn));
-        repo.SetSetting("overlay.opacity", OpacitySlider.Value.ToString());
-        repo.SetSetting("overlay.font", FontSizeBox.Value.ToString());
-        repo.SetSetting("overlay.lines", LinesBox.Value.ToString());
-        repo.SetSetting("storage.path", StoragePathBox.Text);
-        repo.SetSetting("transcription.model", ModelPicker.SelectedIndex == 1 ? "base" : "tiny");
-        var micLabel = MicPicker.SelectedItem as string ?? "0";
-        var micId = micLabel.Contains(":") ? micLabel.Substring(0, micLabel.IndexOf(':')).Trim() : "0";
-        repo.SetSetting("audio.mic", micId);
-        repo.SetSetting("transcription.device", DevicePicker.SelectedIndex == 1 ? "gpu" : "cpu");
-        AudioStatus.Text = $"Capturing from {MicPicker.SelectedItem} via {AppSourceBox.Text}.";
-        TranscriptionStatus.Text = $"{ModelPicker.SelectedItem} on {DevicePicker.SelectedItem} \u00b7 diarization {OnOff(DiarizationSwitch.IsOn)} \u00b7 gender labels {OnOff(GenderSwitch.IsOn)}";
+        AudioStatus.Text = $"Capturing from {MicPicker.SelectedItem}.";
+        TranscriptionStatus.Text = $"{ModelPicker.SelectedItem} on {DevicePicker.SelectedItem} \u00b7 diarization {OnOff(DiarizationSwitch.IsOn)}";
         OverlayStatus.Text = $"Keep on top {OnOff(PinSwitch.IsOn)} \u00b7 opacity {OpacitySlider.Value:P0} \u00b7 font {FontSizeBox.Value} pt \u00b7 {LinesBox.Value} line(s)";
         StorageStatus.Text = $"Transcripts will be written to {StoragePathBox.Text}.";
         UsageText.Text = DescribeUsage(StoragePathBox.Text);
         GeminiStatus.Text = GeminiApiKey is null
             ? "No key in Credential Locker."
             : "Key stored in Windows Credential Locker.";
+
+        // Persist after the summary renders so a storage failure degrades to a warning, never a dead page.
+        try
+        {
+            var repo = AppStore.Repo;
+            repo.SetSetting("transcription.diarization", OnOff(DiarizationSwitch.IsOn));
+            repo.SetSetting("overlay.pin", OnOff(PinSwitch.IsOn));
+            repo.SetSetting("overlay.opacity", OpacitySlider.Value.ToString());
+            repo.SetSetting("overlay.font", FontSizeBox.Value.ToString());
+            repo.SetSetting("overlay.lines", LinesBox.Value.ToString());
+            repo.SetSetting("storage.path", StoragePathBox.Text);
+            repo.SetSetting("transcription.model", ModelPicker.SelectedIndex == 1 ? "base" : "tiny");
+            var micLabel = MicPicker.SelectedItem as string ?? "0";
+            var micId = micLabel.Contains(":") ? micLabel.Substring(0, micLabel.IndexOf(':')).Trim() : "0";
+            repo.SetSetting("audio.mic", micId);
+            repo.SetSetting("transcription.device", DevicePicker.SelectedIndex == 1 ? "gpu" : "cpu");
+            _saveFailed = false;
+        }
+        catch (Exception ex) when (!_saveFailed)
+        {
+            _saveFailed = true; // report once, not on every keystroke
+            StatusBar.Severity = InfoBarSeverity.Warning;
+            StatusBar.Message = "Settings could not be saved to disk (" + DescribeStorage(ex) + "). Changes apply this session and are not persisted.";
+            StatusBar.IsOpen = true;
+        }
     }
+
+    private bool _saveFailed;
+
+    private static string DescribeStorage(Exception ex) => ex switch
+    {
+        Microsoft.Data.Sqlite.SqliteException { SqliteErrorCode: 8 } => "the data folder is read-only",
+        UnauthorizedAccessException => "the data folder is not writable",
+        _ => ex.GetType().Name,
+    };
 
     private static string OnOff(bool value) => value ? "on" : "off";
 

@@ -14,6 +14,8 @@ public sealed class MeetingSession : IDisposable
     private bool _paused;
     private string _micId = "";
     private string _appSource = "";
+    // Captured at construction (UI thread in the app); null in tests, where we run inline.
+    private readonly SynchronizationContext? _ui = SynchronizationContext.Current;
 
     public IReadOnlyList<Segment> Segments => _segments;
     public IReadOnlyList<Speaker> Speakers => _speakers;
@@ -32,9 +34,10 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         _meeting = new Meeting(Guid.NewGuid().ToString("n"), "Meeting " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"), DateTimeOffset.Now, null, MeetingStatus.Recording, null, null);
         _paused = false;
         _micId = micId; _appSource = appSource; // retained so Resume restarts the same sources
-        _store.Save(_meeting, _speakers, _segments); // durability: draft exists before any crash
+        Persist(); // durability: draft exists before any crash
         await _audio.StartAsync(micId, appSource, ct);
         await _transcriber.StartAsync(ct);
+        Persist(); // capture path now exists
     }
 
     public async Task PauseAsync(CancellationToken ct = default)
@@ -44,6 +47,7 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         await _audio.StopAsync(ct);
         await _transcriber.StopAsync(ct);
         _meeting = _meeting! with { Status = MeetingStatus.Paused };
+        Persist();
     }
 
     public async Task ResumeAsync(CancellationToken ct = default)
@@ -53,13 +57,36 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         await _audio.StartAsync(_micId, _appSource, ct);
         await _transcriber.StartAsync(ct);
         _meeting = _meeting! with { Status = MeetingStatus.Recording };
+        Persist();
     }
 
     public Task CheckpointAsync(CancellationToken ct = default)
     {
         EnsureActive();
-        _store.Save(_meeting!, _speakers, _segments);
+        Persist();
         return Task.CompletedTask;
+    }
+
+    // FR2: renaming a speaker updates every row and persists with the draft.
+    public void RenameSpeaker(string speakerId, string displayName)
+    {
+        var next = displayName?.Trim() ?? "";
+        if (next.Length == 0) return;
+        var i = _speakers.FindIndex(s => s.Id == speakerId);
+        if (i < 0) return;
+        _speakers[i] = _speakers[i].Rename(next);
+        if (_meeting is not null) Persist();
+    }
+
+    // Stamps the capture's media path onto the meeting so the recording is linked,
+    // then saves. The draft is persisted before audio starts, so MediaPath fills in
+    // on the next save once the file exists.
+    private void Persist()
+    {
+        if (_meeting is null) return;
+        if (_meeting.MediaPath is null && _audio.MediaPath is { } path)
+            _meeting = _meeting with { MediaPath = path, MediaMime = "audio/wav" };
+        _store.Save(_meeting, _speakers, _segments);
     }
 
     public static async Task<MeetingSession> RecoverAsync(string meetingId, IAudioCapture audio, ISpeechTranscriber transcriber, ISpeakerDiarizer diarizer, IGenderLabeler gender, IMeetingStore store, string micId = "", string appSource = "", CancellationToken ct = default)
@@ -87,11 +114,23 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         await _audio.StopAsync(ct);
         await _transcriber.StopAsync(ct);
         _meeting = _meeting! with { Status = MeetingStatus.Ready, EndedAt = DateTimeOffset.Now };
-        _store.Save(_meeting, _speakers, _segments);
+        Persist();
         _meeting = null;
     }
 
     private void OnSegment(Segment raw)
+    {
+        // Whisper/diarizer callbacks arrive on a worker thread; marshal onto the UI
+        // thread so the collections are never mutated while the UI enumerates them.
+        if (_ui is not null && _ui != SynchronizationContext.Current)
+        {
+            _ui.Post(_ => HandleSegment(raw), null);
+            return;
+        }
+        HandleSegment(raw);
+    }
+
+    private void HandleSegment(Segment raw)
     {
         if (_paused || _meeting is null) return; // gap: paused audio never reappears
         var speakerId = _diarizer.AssignTurn(raw);

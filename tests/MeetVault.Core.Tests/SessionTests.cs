@@ -5,6 +5,7 @@ namespace MeetVault.Core.Tests;
 sealed class FakeAudio : IAudioCapture
 {
     public bool IsCapturing { get; private set; }
+    public string? MediaPath => null;
     public string LastMic { get; private set; } = ""; public string LastSource { get; private set; } = ""; public Task StartAsync(string micId, string appSource, CancellationToken ct) { IsCapturing = true; LastMic = micId; LastSource = appSource; return Task.CompletedTask; }
     public Task StopAsync(CancellationToken ct) { IsCapturing = false; return Task.CompletedTask; }
 }

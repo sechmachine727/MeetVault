@@ -23,19 +23,6 @@
                               SelectionChanged="Picker_SelectionChanged"
                               AutomationProperties.Name="Microphone" />
                 </Grid>
-                <Grid ColumnSpacing="24">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="200" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Spacing="2" VerticalAlignment="Top">
-                        <TextBlock Text="Application source" FontWeight="SemiBold" />
-                        <TextBlock Text="Desktop audio to mix alongside the microphone." Opacity="0.7" TextWrapping="Wrap" />
-                    </StackPanel>
-                    <TextBox x:Name="AppSourceBox" Grid.Column="1" Width="280" HorizontalAlignment="Left"
-                             PlaceholderText="Pick a conference app (e.g. Teams, Zoom)" TextChanged="TextBox_TextChanged"
-                             AutomationProperties.Name="Application source" />
-                </Grid>
                 <TextBlock x:Name="AudioStatus" Opacity="0.7" TextWrapping="Wrap" />
             </StackPanel>
 
@@ -79,19 +66,6 @@
                     <ToggleSwitch x:Name="DiarizationSwitch" Grid.Column="1" HorizontalAlignment="Left"
                                   IsOn="True" Toggled="Diarization_Toggled"
                                   AutomationProperties.Name="Speaker diarization" />
-                </Grid>
-                <Grid ColumnSpacing="24">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="200" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Spacing="2" VerticalAlignment="Top">
-                        <TextBlock Text="Gender labels" FontWeight="SemiBold" />
-                        <TextBlock Text="Attach an estimated label to each speaker turn." Opacity="0.7" TextWrapping="Wrap" />
-                    </StackPanel>
-                    <ToggleSwitch x:Name="GenderSwitch" Grid.Column="1" HorizontalAlignment="Left"
-                                  IsOn="False" Toggled="Gender_Toggled"
-                                  AutomationProperties.Name="Gender labels" />
                 </Grid>
                 <TextBlock x:Name="TranscriptionStatus" Opacity="0.7" TextWrapping="Wrap" />
             </StackPanel>
@@ -166,7 +140,7 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel Spacing="2" VerticalAlignment="Top">
                         <TextBlock Text="Location" FontWeight="SemiBold" />
-                        <TextBlock Text="Folder for recordings and transcripts." Opacity="0.7" TextWrapping="Wrap" />
+                        <TextBlock Text="Folder where exported transcripts are written." Opacity="0.7" TextWrapping="Wrap" />
                     </StackPanel>
                     <TextBox x:Name="StoragePathBox" Grid.Column="1" Width="420" HorizontalAlignment="Left"
                              TextChanged="TextBox_TextChanged" LostFocus="Refresh_Storage"
@@ -185,7 +159,7 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel Spacing="2" VerticalAlignment="Top">
                         <TextBlock Text="API key" FontWeight="SemiBold" />
-                        <TextBlock Text="Held in memory for this session only. Never written to disk." Opacity="0.7" TextWrapping="Wrap" />
+                        <TextBlock Text="Stored in Windows Credential Locker, never in a plain file." Opacity="0.7" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Spacing="8" Orientation="Horizontal">
                         <PasswordBox x:Name="ApiKeyBox" Width="280" PlaceholderText="Paste the Gemini API key"

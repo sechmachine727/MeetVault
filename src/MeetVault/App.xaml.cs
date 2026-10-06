@@ -36,11 +36,35 @@ public partial class App : Application
     public static nint WindowHandle =>
         WinRT.Interop.WindowNative.GetWindowHandle(Window);
 
+    // Startup diagnostics go to the same log the nav errors use.
+    private static void LogStartup(string message)
+    {
+        try
+        {
+            var dir = Path.Combine(Path.GetTempPath(), "MeetVault");
+            Directory.CreateDirectory(dir);
+            File.AppendAllText(Path.Combine(dir, "nav-errors.log"), DateTimeOffset.Now.ToString("o") + " startup: " + message + global::System.Environment.NewLine);
+        }
+        catch { }
+    }
+
     /// <summary>
     /// Initializes the singleton application object.
     /// </summary>
     public App()
     {
+        // Pin the app's own onnxruntime before the WindowsAppRuntime framework copy
+        // hijacks the "onnxruntime.dll" base name: sherpa-onnx binds by name and
+        // access-violates against the mismatched WASDK build.
+        try
+        {
+            var nativeOnnx = System.IO.Path.Combine(AppContext.BaseDirectory, "onnxruntime.dll");
+            if (System.IO.File.Exists(nativeOnnx))
+                System.Runtime.InteropServices.NativeLibrary.Load(nativeOnnx);
+            else
+                LogStartup("onnxruntime.dll not found beside the exe; sherpa may fail at engine init.");
+        }
+        catch (Exception ex) { LogStartup("onnxruntime pin failed: " + ex.Message); }
         InitializeComponent();
         // ponytail: last-resort crash log. Unhandled UI exceptions otherwise vanish
         // in the unpackaged exe with no debugger attached.

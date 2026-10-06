@@ -70,7 +70,19 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
         using var stream = new MemoryStream(ToWav16kMono(pcm16kMono));
         var index = 0;
         await foreach (var result in processor.ProcessAsync(stream, ct))
-            SegmentReady?.Invoke(new Segment($"{meetingId}-w{windowStartMs}-{index++}", "", windowStartMs + (long)result.Start.TotalMilliseconds, windowStartMs + (long)result.End.TotalMilliseconds, result.Text.Trim(), true));
+        {
+            var text = result.Text.Trim();
+            if (IsNonSpeech(text)) continue; // silence tokens must not become transcript lines
+            SegmentReady?.Invoke(new Segment($"{meetingId}-w{windowStartMs}-{index++}", "", windowStartMs + (long)result.Start.TotalMilliseconds, windowStartMs + (long)result.End.TotalMilliseconds, text, true));
+        }
+    }
+
+    // whisper.cpp emits bracketed silence markers on quiet windows; they are not speech.
+    private static bool IsNonSpeech(string text)
+    {
+        if (text.Length == 0) return true;
+        var normalized = new string(text.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+        return normalized is "blankaudio" or "silence" or "inaudible";
     }
 
     // whisper.net consumes WAV files; capture pipelines hand us raw PCM.

@@ -54,4 +54,14 @@ public sealed partial class DashboardPage : Page
         RecoveryBar.IsOpen = false;
         Start_Click(sender, e);
     }
+
+    // Click a recent meeting to open it in Details.
+    private void OpenMeeting_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: MeetingCard card })
+        {
+            PendingDetails.MeetingId = card.Id;
+            (App.Window as MainWindow)?.NavigateToDetails();
+        }
+    }
 }

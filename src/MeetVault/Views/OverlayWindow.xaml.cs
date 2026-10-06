@@ -28,6 +28,7 @@ public sealed partial class OverlayWindow : Window
     {
         Vm = new OverlayViewModel();
         InitializeComponent();
+        SeedFromSettings();
         // Same ABI rule as Live/Details: ObservableCollection NREs in ComWrappers
         // vtable computation in the trimmed exe. Array snapshot, refreshed on change.
         TranscriptList.ItemsSource = Vm.Lines.ToArray();
@@ -39,8 +40,31 @@ public sealed partial class OverlayWindow : Window
         _presenter = (OverlappedPresenter)AppWindow.Presenter;
         _presenter.IsAlwaysOnTop = Vm.IsPinned;
         ((INotifyCollectionChanged)Vm.Lines).CollectionChanged += OnLinesChanged;
+        LiveBridge.LineAdded += OnLiveLine;
+        LiveBridge.Cleared += OnLiveCleared;
+        Closed += (_, _) => { LiveBridge.LineAdded -= OnLiveLine; LiveBridge.Cleared -= OnLiveCleared; };
         RefreshListState();
     }
+
+    // Settings -> Overlay: the controls persist these, so the window must honor them.
+    private void SeedFromSettings()
+    {
+        try
+        {
+            var repo = AppStore.Repo;
+            Vm.IsPinned = repo.GetSetting("overlay.pin") != "off";
+            if (double.TryParse(repo.GetSetting("overlay.opacity"), out var op)) Vm.Opacity = op;
+            if (double.TryParse(repo.GetSetting("overlay.font"), out var font)) Vm.FontSize = font;
+            if (double.TryParse(repo.GetSetting("overlay.lines"), out var lines)) Vm.LineCount = lines;
+        }
+        catch { }
+    }
+
+    private void OnLiveLine(string speaker, string text)
+        => DispatcherQueue.TryEnqueue(() => Vm.AddLine(speaker, text));
+
+    private void OnLiveCleared()
+        => DispatcherQueue.TryEnqueue(() => Vm.Lines.Clear());
 
     public OverlayViewModel Vm { get; }
 
@@ -59,7 +83,11 @@ public sealed partial class OverlayWindow : Window
     private void CommitRename()
     {
         if (_renaming is not null)
+        {
+            // Route to the live session first (syncs Live + storage), then reflect locally.
+            LiveBridge.Rename(_renaming.Speaker, _renameBox.Text);
             Vm.RenameSpeaker(_renaming.Speaker, _renameBox.Text);
+        }
         _renaming = null;
         _renameFlyout.Hide();
     }

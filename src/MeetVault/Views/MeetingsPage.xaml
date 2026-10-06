@@ -23,18 +23,23 @@
             <ItemsControl x:Name="MeetingList">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Grid Padding="0,10" ColumnSpacing="16">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="2*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1" Text="{Binding When}" Opacity="0.7" VerticalAlignment="Center" TextWrapping="Wrap" />
-                            <TextBlock Grid.Column="2" Text="{Binding Duration}" Opacity="0.7" VerticalAlignment="Center" MinWidth="90" />
-                            <TextBlock Grid.Column="3" Text="{Binding Status}" Opacity="0.7" VerticalAlignment="Center" MinWidth="80" />
-                        </Grid>
+                        <Button Click="OpenMeeting_Click" Background="Transparent" BorderThickness="0" Padding="0"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                AutomationProperties.Name="{Binding Title}"
+                                ToolTipService.ToolTip="Open this meeting in Details">
+                            <Grid Padding="0,10" ColumnSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{Binding When}" Opacity="0.7" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                <TextBlock Grid.Column="2" Text="{Binding Duration}" Opacity="0.7" VerticalAlignment="Center" MinWidth="90" />
+                                <TextBlock Grid.Column="3" Text="{Binding Status}" Opacity="0.7" VerticalAlignment="Center" MinWidth="80" />
+                            </Grid>
+                        </Button>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>

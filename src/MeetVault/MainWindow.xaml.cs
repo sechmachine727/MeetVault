@@ -16,15 +16,18 @@ public sealed partial class MainWindow : Window
         Nav.SelectedItem = Nav.MenuItems[0];
     }
 
-    public void NavigateToLive()
+    public void NavigateToLive() => NavigateTo(typeof(LivePage), "live");
+
+    public void NavigateToDetails() => NavigateTo(typeof(DetailsPage), "details");
+
+    // Select the nav item (SelectionChanged navigates); if it is already selected,
+    // navigate directly so the page still reloads with fresh Pending* state.
+    private void NavigateTo(Type page, string tag)
     {
-        try
-        {
-            RootFrame.Navigate(typeof(LivePage));
-            foreach (var item in Nav.MenuItems.OfType<NavigationViewItem>())
-                if ((item.Tag as string) == "live") Nav.SelectedItem = item;
-        }
-        catch (Exception ex) { _ = ShowNavErrorAsync("live", ex); }
+        var item = Nav.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (i.Tag as string) == tag);
+        if (item is not null && !ReferenceEquals(Nav.SelectedItem, item)) { Nav.SelectedItem = item; return; }
+        try { RootFrame.Navigate(page); }
+        catch (Exception ex) { _ = ShowNavErrorAsync(tag, ex); }
     }
 
     private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
@@ -47,10 +50,7 @@ public sealed partial class MainWindow : Window
     // ponytail: dialog names the failing page + cause; Dashboard fallback keeps the app alive.
     private async Task ShowNavErrorAsync(string? tag, Exception ex)
     {
-        var detail = ex.GetType().Name + ": " + ex.Message;
-        if (ex.InnerException is not null) detail += " | Inner: " + ex.InnerException.Message;
-        var stack = (ex.StackTrace ?? string.Empty).Replace((char)13, ' ').Replace((char)10, ' ');
-        if (stack.Length > 900) stack = stack.Substring(0, 900);
+        // Users get a plain sentence; the diagnostic detail goes to the log, never the screen.
         try
         {
             var dir = Path.Combine(Path.GetTempPath(), "MeetVault");
@@ -60,7 +60,13 @@ public sealed partial class MainWindow : Window
         catch { }
         try
         {
-            var dialog = new ContentDialog { Title = "Could not open " + (tag ?? "page"), Content = detail + " [" + stack + "]", CloseButtonText = "Back to Dashboard", XamlRoot = RootFrame.XamlRoot };
+            var dialog = new ContentDialog
+            {
+                Title = "Could not open " + (tag ?? "that page"),
+                Content = "Something went wrong loading this page. You are back on the dashboard; the details were logged under " + Path.Combine(Path.GetTempPath(), "MeetVault") + ".",
+                CloseButtonText = "Back to Dashboard",
+                XamlRoot = RootFrame.XamlRoot,
+            };
             await dialog.ShowAsync();
         }
         catch { }

@@ -5,31 +5,11 @@ using Microsoft.UI.Xaml;
 namespace MeetVault.Views;
 
 /// <summary>Display projection of a <see cref="Meeting"/>; keeps formatted text out of the XAML.</summary>
-public sealed record MeetingCard(string Title, string When, string Duration, string Status);
+public sealed record MeetingCard(string Id, string Title, string When, string Duration, string Status);
 
-// Demo rows double as the first-run seed; AppStore inserts them when the repo is empty.
-public static class DemoMeetings
+public static class MeetingCards
 {
-    public static IReadOnlyList<Meeting> All { get; } = new[]
-    {
-        new Meeting("demo-roadmap", "Quarterly roadmap sync",
-            new DateTimeOffset(2026, 10, 2, 9, 30, 0, TimeSpan.FromHours(7)),
-            new DateTimeOffset(2026, 10, 2, 10, 18, 0, TimeSpan.FromHours(7)),
-            MeetingStatus.Ready, null, null),
-        new Meeting("demo-interview", "Customer interview: Northwind",
-            new DateTimeOffset(2026, 10, 5, 14, 0, 0, TimeSpan.FromHours(7)),
-            new DateTimeOffset(2026, 10, 5, 14, 27, 0, TimeSpan.FromHours(7)),
-            MeetingStatus.Ready, null, null),
-        new Meeting("demo-standup", "Team standup",
-            new DateTimeOffset(2026, 10, 6, 9, 0, 0, TimeSpan.FromHours(7)),
-            null, MeetingStatus.Ready, null, null),
-    };
-
-    public static IReadOnlyList<MeetingCard> Cards { get; } = All.Select(Card).ToArray();
-
-    public static MeetingCard ToCard(Meeting m) => Card(m);
-
-    private static MeetingCard Card(Meeting m) => new(m.Title, m.StartedAt.ToString("g"), Duration(m), m.Status.ToString());
+    public static MeetingCard ToCard(Meeting m) => new(m.Id, m.Title, m.StartedAt.ToString("g"), Duration(m), m.Status.ToString());
 
     private static string Duration(Meeting m)
     {
@@ -57,21 +37,13 @@ public static class AppStore
                 var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MeetVault");
                 Directory.CreateDirectory(dir);
                 _repo = new LocalMeetingRepository(Path.Combine(dir, "meetings.db"));
-                SeedDemoData();
             }
             return _repo;
         }
     }
 
-    private static void SeedDemoData()
-    {
-        if (_repo!.ListMeetings().Count != 0) return;
-        foreach (var m in DemoMeetings.All)
-            _repo.Save(m, Array.Empty<Speaker>(), Array.Empty<Segment>());
-    }
-
     public static IReadOnlyList<MeetingCard> Cards()
-        => Repo.ListMeetings().Select(DemoMeetings.ToCard).ToArray();
+        => Repo.ListMeetings().Select(MeetingCards.ToCard).ToArray();
 }
 
 public sealed partial class MeetingsPage : Page
@@ -86,6 +58,16 @@ public sealed partial class MeetingsPage : Page
 
     private void Search_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
         => ApplyFilter(sender.Text);
+
+    // Click a row to open that meeting in Details.
+    private void OpenMeeting_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: MeetingCard card })
+        {
+            PendingDetails.MeetingId = card.Id;
+            (App.Window as MainWindow)?.NavigateToDetails();
+        }
+    }
 
     private void ApplyFilter(string query)
     {

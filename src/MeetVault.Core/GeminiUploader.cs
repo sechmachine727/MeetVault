@@ -12,6 +12,13 @@ public interface IMeetingFileReader
     Stream OpenRead(string path);
 }
 
+// Real reader for the uploader; the test seam stays an interface.
+public sealed class LocalMeetingFileReader : IMeetingFileReader
+{
+    public long SizeOf(string path) => new FileInfo(path).Length;
+    public Stream OpenRead(string path) => File.OpenRead(path);
+}
+
 public interface IGeminiTransport
 {
     Task<string> UploadFileAsync(string path, Stream content, string mime, CancellationToken ct);
@@ -58,4 +65,3 @@ public sealed class GeminiUploader
         }
     }
 }
-

@@ -5,6 +5,7 @@ public interface IAudioCapture
     Task StartAsync(string micId, string appSource, CancellationToken ct);
     Task StopAsync(CancellationToken ct);
     bool IsCapturing { get; }
+    string? MediaPath { get; }
 }
 
 public interface ISpeechTranscriber

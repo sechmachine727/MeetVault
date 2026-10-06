@@ -7,6 +7,7 @@ public sealed class CounterGenderLabeler : IGenderLabeler
     private readonly SpeakerLabeler _counters = new();
     private readonly Dictionary<string, string> _names = new();
     private readonly Func<string, Gender> _estimate;
+    private int _neutral;
 
     public CounterGenderLabeler(Func<string, Gender>? estimate = null) => _estimate = estimate ?? (_ => Gender.Unknown);
 
@@ -15,7 +16,10 @@ public sealed class CounterGenderLabeler : IGenderLabeler
         if (_names.TryGetValue(speakerId, out var existing)) return existing;
         var decided = _estimate(speakerId);
         if (decided == Gender.Unknown) decided = estimate;
-        var name = _counters.Assign(decided);
+        // No classifier decided (or low confidence): use a distinct neutral name so
+        // two speakers never both read "Unknown". Male/Female counters apply once an
+        // estimator lands.
+        var name = decided == Gender.Unknown ? "Speaker " + (++_neutral) : _counters.Assign(decided);
         _names[speakerId] = name;
         return name;
     }

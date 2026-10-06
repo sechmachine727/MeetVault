@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using MeetVault.Core;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
 namespace MeetVault.Views;
@@ -7,9 +8,8 @@ namespace MeetVault.Views;
 public sealed partial class LivePage : Page
 {
     public ObservableCollection<TranscriptLine> Lines { get; } = new();
-    public ObservableCollection<string> Speakers { get; } = new();
 
-private MeetingSession _session = null!;
+    private MeetingSession _session = null!;
     private WhisperTranscriber? _whisper;
     private NAudioCapture? _capture;
     private readonly List<byte> _window = new();
@@ -19,58 +19,76 @@ private MeetingSession _session = null!;
     private ISpeakerDiarizer _diarizer = null!;
     private string _engineMode = "demo (no models)";
     private static readonly string ModelDir = Path.Combine(AppContext.BaseDirectory, "models");
-    private long _windowOffsetMs; // M1: accumulate so window N segments carry meeting-relative timings.
-    // ponytail: single persisted mic id; device picker UI add when >1 mic matters.
+    private long _windowOffsetMs;
+    private readonly Dictionary<string, string> _speakerNames = new();
+    private string _micLabel = "not started";
     private static string MicId => AppStore.Repo.GetSetting("audio.mic") ?? "0";
-    private static string AppSource => AppStore.Repo.GetSetting("audio.source") ?? "";
 
     public LivePage()
     {
         InitializeComponent();
-        // ObservableCollection cannot cross the ABI in the trimmed exe (ComWrappers vtable NRE):
-        // publish array snapshots, refresh on change.
+        // Array snapshots cross the ABI cleanly; refresh on change.
         TranscriptList.ItemsSource = Lines.ToArray();
-        SpeakerList.ItemsSource = Speakers.ToArray();
         Lines.CollectionChanged += (_, _) => { TranscriptList.ItemsSource = Lines.ToArray(); TranscriptScroll.ChangeView(null, TranscriptScroll.ScrollableHeight, null); };
-        Speakers.CollectionChanged += (_, _) => { SpeakerList.ItemsSource = Speakers.ToArray(); };
-
         Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
     }
 
-    // Real engines resolve at load, not navigate. The sherpa native diarizer
-    // access-violates in the trimmed exe; that must never run inside Navigate.
+    // Leaving Live must stop capture: otherwise the mic and transcriber keep running invisibly.
+    private async void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        LiveBridge.RenameByName = null;
+        try { if (_session is not null) await _session.StopAsync(); } catch { }
+        try { _capture?.Dispose(); } catch { }
+        try { _whisper?.Dispose(); } catch { }
+        try { _windowDiarizer?.Dispose(); } catch { }
+    }
+
+    // Engines resolve at load, not navigate: a native fault here must not break navigation.
     private void ResolveEngines()
     {
         ISpeechTranscriber transcriber = new FakeTranscriber();
         IAudioCapture audio = new FakeAudioCapture();
         ISpeakerDiarizer diarizer = new FakeDiarizer();
-        _engineMode = "demo (no models)";
+        _engineMode = "demo (add models to run live)";
+        if (!EngineModels.Available) { _transcriber = transcriber; _audio = audio; _diarizer = diarizer; return; }
+
+        WhisperTranscriber? whisper = null;
+        NAudioCapture? capture = null;
+        WindowDiarizer? windowDiarizer = null;
         try
         {
-            if (EngineModels.Available)
+            var picked = AppStore.Repo.GetSetting("transcription.model") == "base" ? "ggml-base.bin" : "ggml-tiny.bin";
+            var modelFile = File.Exists(Path.Combine(ModelDir, picked)) ? picked : EngineModels.WhisperModel!;
+            var wantGpu = AppStore.Repo.GetSetting("transcription.device") == "gpu";
+            try { whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile), "auto", wantGpu); }
+            catch { whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile)); }
+            capture = new NAudioCapture();
+            if (AppStore.Repo.GetSetting("transcription.diarization") != "off")
             {
-                var picked = AppStore.Repo.GetSetting("transcription.model") == "base" ? "ggml-base.bin" : "ggml-tiny.bin";
-                var modelFile = System.IO.File.Exists(System.IO.Path.Combine(ModelDir, picked)) ? picked : EngineModels.WhisperModel!;
-                var wantGpu = AppStore.Repo.GetSetting("transcription.device") == "gpu";
-                try { _whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile), "auto", wantGpu); }
-                catch { _whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile)); }
-                _capture = new NAudioCapture();
-                transcriber = _whisper;
-                audio = _capture;
-                if (AppStore.Repo.GetSetting("transcription.diarization") != "off")
-                {
-                    var dz = new SherpaDiarizer(Path.Combine(ModelDir, "sherpa-seg.onnx"), Path.Combine(ModelDir, "sherpa-emb.onnx"));
-                    _windowDiarizer = new WindowDiarizer(dz); diarizer = _windowDiarizer;
-                }
-                _capture.PcmReady += OnPcm;
-                _engineMode = "live: whisper " + modelFile.Replace("ggml-", "").Replace(".bin", "") + (_whisper.UseGpu ? " + CUDA" : "") + " + sherpa diarizer (CPU)";
+                var dz = new SherpaDiarizer(Path.Combine(ModelDir, "sherpa-seg.onnx"), Path.Combine(ModelDir, "sherpa-emb.onnx"));
+                windowDiarizer = new WindowDiarizer(dz);
             }
+            // Publish only once every component is up, so a late throw cannot leave a
+            // recording mic with no transcription pipeline.
+            _whisper = whisper; _capture = capture; _windowDiarizer = windowDiarizer;
+            _transcriber = whisper; _audio = capture; _diarizer = (ISpeakerDiarizer?)windowDiarizer ?? diarizer;
+            capture.PcmReady += OnPcm;
+            _engineMode = "live: whisper " + modelFile.Replace("ggml-", "").Replace(".bin", "") + (whisper.UseGpu ? " + CUDA" : "") + (windowDiarizer is null ? ", single speaker" : " + sherpa diarizer");
+            return;
         }
-        catch (Exception ex) { _engineMode = "demo (engine init failed: " + ex.GetType().Name + ")"; }
+        catch
+        {
+            try { capture?.Dispose(); } catch { }
+            try { whisper?.Dispose(); } catch { }
+            try { windowDiarizer?.Dispose(); } catch { }
+            _whisper = null; _capture = null; _windowDiarizer = null;
+            _engineMode = "demo (engine init failed)";
+        }
         _transcriber = transcriber; _audio = audio; _diarizer = diarizer;
     }
 
-    private async void OnLoaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         ResolveEngines();
         EngineStatus.Text = _engineMode;
@@ -80,26 +98,65 @@ private MeetingSession _session = null!;
             PendingRecovery.MeetingId = null;
             if (id is not null)
             {
-                _session = await MeetingSession.RecoverAsync(id, _audio, _transcriber, _diarizer, new CounterGenderLabeler(), AppStore.Repo, MicId, AppSource);
+                _session = await MeetingSession.RecoverAsync(id, _audio, _transcriber, _diarizer, new NeutralSpeakerLabeler(), AppStore.Repo, MicId, "");
+                foreach (var sp in _session.Speakers) _speakerNames[sp.Id] = sp.DisplayName;
                 foreach (var s in _session.Segments) AddLine(s.SpeakerId, s.Text);
-                foreach (var sp in _session.Speakers) Speakers.Add(sp.DisplayName);
-                Status($"Recovered {_session.Segments.Count} segment(s) from the interrupted meeting.");
+                Status($"Recovered {_session.Segments.Count} line(s) from the interrupted meeting.");
             }
             else
             {
-                // FR9: toggles gate real behavior. Diarization off = single-speaker mode; gender off = neutral names.
-                var labeler = AppStore.Repo.GetSetting("transcription.gender") == "off"
-                    ? (IGenderLabeler)new NeutralSpeakerLabeler()
-                    : new CounterGenderLabeler();
-                _session = new MeetingSession(_audio, _transcriber, _diarizer, labeler, AppStore.Repo);
-                await _session.StartAsync(MicId, AppSource, CancellationToken.None);
+                // No local gender classifier ships, so labels are neutral "Speaker N" (FR9: no fake estimate).
+                _session = new MeetingSession(_audio, _transcriber, _diarizer, new NeutralSpeakerLabeler(), AppStore.Repo);
+                await _session.StartAsync(MicId, "", CancellationToken.None);
             }
             _session.LiveSegment += OnLiveSegment;
+            LiveBridge.Clear();
+            LiveBridge.RenameByName = RenameByDisplayName;
+            _micLabel = NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == MicId).Name
+                ?? (MicId == "0" ? "Windows default" : "device " + MicId);
+            RebuildSpeakers();
+            RefreshAudioStatus();
+            Status(_engineMode.StartsWith("live") ? "Recording. Speaks turns appear below as they are recognized." : "Demo mode: add Whisper and diarizer models to models/ for live transcription.");
         }
-        catch (Exception ex) { Status($"Could not start capture: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            Status("Could not start capture. Check the microphone in Settings, then reopen Live. (" + Short(ex) + ")");
+        }
     }
 
-    // Accumulates mic PCM into ~10 s windows and transcribes each finalized window.
+    private void RefreshAudioStatus()
+        => AudioStatus.Text = _audio.IsCapturing ? $"Recording from {_micLabel}." : $"Mic: {_micLabel}.";
+
+    // Speakers side panel: one editable row per speaker; Enter or focus-out renames everywhere.
+    private void RebuildSpeakers()
+    {
+        SpeakerPanel.Children.Clear();
+        foreach (var sp in _session.Speakers)
+        {
+            _speakerNames[sp.Id] = sp.DisplayName;
+            var id = sp.Id;
+            var box = new TextBox { Text = sp.DisplayName, Header = sp.Id, TextWrapping = TextWrapping.NoWrap };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(box, "Rename " + sp.DisplayName);
+            void Commit() { Rename(id, box.Text); }
+            box.LostFocus += (_, _) => Commit();
+            box.KeyDown += (_, e) => { if (e.Key == Windows.System.VirtualKey.Enter) Commit(); };
+            SpeakerPanel.Children.Add(box);
+        }
+        SpeakerEmpty.Visibility = _session.Speakers.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void Rename(string speakerId, string newName)
+    {
+        var trimmed = (newName ?? "").Trim();
+        if (trimmed.Length == 0 || !_speakerNames.TryGetValue(speakerId, out var old) || old == trimmed) return;
+        _session.RenameSpeaker(speakerId, trimmed);
+        _speakerNames[speakerId] = trimmed;
+        for (var i = 0; i < Lines.Count; i++)
+            if (Lines[i].Speaker == old) Lines[i].Speaker = trimmed;
+        TranscriptList.ItemsSource = Lines.ToArray();
+    }
+
+    // ~10 s windows of mic PCM transcribed as they finalize.
     private async void OnPcm(byte[] chunk)
     {
         if (_whisper is null || !_whisper.IsRunning) return;
@@ -108,7 +165,6 @@ private MeetingSession _session = null!;
         byte[] window;
         lock (_window) { window = _window.ToArray(); _window.Clear(); }
         _windowDiarizer?.AssignWindowSamples(window);
-        // WindowMs matches the 10 s accumulation gate above; offset advances per finalized window.
         const long WindowMs = 10_000;
         var start = _windowOffsetMs;
         _windowOffsetMs += WindowMs;
@@ -117,43 +173,97 @@ private MeetingSession _session = null!;
     }
 
     private void OnLiveSegment(Segment segment)
-        => DispatcherQueue.TryEnqueue(() => AddLine(segment.SpeakerId, segment.Text));
+        => DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!_speakerNames.ContainsKey(segment.SpeakerId)) RebuildSpeakers();
+            AddLine(segment.SpeakerId, segment.Text);
+        });
 
-    private void AddLine(string speaker, string text) => Lines.Add(new TranscriptLine(speaker, text));
+    private void AddLine(string speakerId, string text)
+    {
+        var name = _speakerNames.TryGetValue(speakerId, out var n) ? n : speakerId;
+        Lines.Add(new TranscriptLine(name, text));
+        LiveBridge.Publish(name, text);
+    }
+
+    // A rename coming from the overlay: resolve the display name back to a speaker id.
+    private bool RenameByDisplayName(string oldName, string newName)
+    {
+        var id = _speakerNames.FirstOrDefault(kv => kv.Value == oldName).Key;
+        if (id is null) return false;
+        Rename(id, newName);
+        return true;
+    }
 
     private void Status(string message) { StatusBar.Message = message; StatusBar.IsOpen = true; }
 
-    private async void Pause_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    private async void Pause_Click(object sender, RoutedEventArgs e)
     {
-        // R2-2: drop the partial window; offset re-anchors at Resume so timings never span the gap.
         lock (_window) _window.Clear();
-        try { if (_session is null) Status("Nothing to pause: session never started."); else { await _session.PauseAsync(); Status("Paused: capture halted with a gap."); } }
-        catch (InvalidOperationException) { Status("Nothing to pause: session never started."); }
+        try { await _session.PauseAsync(); Status("Paused. Audio in the gap is not recorded and will not reappear on resume."); }
+        catch (Exception ex) { Status("Nothing to pause: " + Short(ex)); }
     }
 
-    private async void Resume_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e){ try { if (_session is null) Status("Nothing to resume: session never started."); else { await _session.ResumeAsync(); _windowOffsetMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs); Status("Resumed: capture continues after the gap."); } } catch (InvalidOperationException) { Status("Nothing to resume: session never started."); } }
-    private void Overlay_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) { OverlayWindow.ShowOrActivate(); }
-
-    private async void Stop_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    private async void Resume_Click(object sender, RoutedEventArgs e)
     {
-        try { if (_session is null) Status("Nothing to stop: session never started."); else { await _session.StopAsync(); Status($"Stopped: {_session.Segments.Count} segment(s) saved to the local repository."); } }
-        catch (InvalidOperationException) { Status("Nothing to stop: session never started."); }
+        try
+        {
+            await _session.ResumeAsync();
+            _windowOffsetMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
+            RefreshAudioStatus();
+            Status("Resumed. Capture continues after the gap.");
+        }
+        catch (Exception ex) { Status("Nothing to resume: " + Short(ex)); }
     }
 
-    private void Speaker_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) { Status("Rename: click-to-rename syncs both ways once the session binds (P4)."); }
+    private void Overlay_Click(object sender, RoutedEventArgs e) { OverlayWindow.ShowOrActivate(); }
+
+    private async void Stop_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (_session is null) { Status("Nothing to stop."); return; }
+            var confirm = new ContentDialog
+            {
+                Title = "Stop and save this meeting?",
+                Content = "Recording stops and the meeting is saved with " + _session.Segments.Count + " line(s). You cannot add more to it afterwards.",
+                PrimaryButtonText = "Stop and save",
+                CloseButtonText = "Keep recording",
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = XamlRoot,
+            };
+            if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+            await _session.StopAsync();
+            RefreshAudioStatus();
+            Status($"Saved. {_session.Segments.Count} line(s) written to the local repository.");
+        }
+        catch (Exception ex) { Status("Could not stop: " + Short(ex)); }
+    }
+
+    // One plain sentence for the user; the full exception stays out of the UI.
+    private static string Short(Exception ex) => ex switch
+    {
+        InvalidOperationException => "the meeting is not active",
+        ArgumentException => "the microphone is not available",
+        Microsoft.Data.Sqlite.SqliteException { SqliteErrorCode: 8 } => "the data folder is read-only",
+        _ => "something went wrong",
+    };
 
     private sealed class FakeAudioCapture : IAudioCapture
     {
         public bool IsCapturing { get; private set; }
+        public string? MediaPath => null;
         public Task StartAsync(string micId, string appSource, CancellationToken ct) { IsCapturing = true; return Task.CompletedTask; }
         public Task StopAsync(CancellationToken ct) { IsCapturing = false; return Task.CompletedTask; }
     }
 
     private sealed class FakeTranscriber : ISpeechTranscriber
     {
+#pragma warning disable CS0067 // interface contract; demo mode never raises it
         public event Action<Segment>? SegmentReady;
+#pragma warning restore CS0067
         public bool IsRunning { get; private set; }
-        public Task StartAsync(CancellationToken ct) { IsRunning = true; SegmentReady?.Invoke(new Segment("demo", "spk_1", 0, 1000, "Demo line: add models to models/ for live transcription.", true)); return Task.CompletedTask; }
+        public Task StartAsync(CancellationToken ct) { IsRunning = true; return Task.CompletedTask; } // no models: emit nothing, never a fake line into the record
         public Task StopAsync(CancellationToken ct) { IsRunning = false; return Task.CompletedTask; }
     }
 
@@ -168,13 +278,17 @@ private MeetingSession _session = null!;
         private readonly SherpaDiarizer _inner;
         private string _current = "spk_1";
         public WindowDiarizer(SherpaDiarizer inner) { _inner = inner; }
-        public void AssignWindowSamples(byte[] pcm16) { try { var f = new float[pcm16.Length / 2]; for (var i = 0; i < f.Length; i++) f[i] = System.BitConverter.ToInt16(pcm16, 2 * i) / 32768f; _current = _inner.AssignWindow(f); } catch { } }
+        public void Dispose() => _inner.Dispose();
+        public void AssignWindowSamples(byte[] pcm16)
+        {
+            try
+            {
+                var f = new float[pcm16.Length / 2];
+                for (var i = 0; i < f.Length; i++) f[i] = BitConverter.ToInt16(pcm16, 2 * i) / 32768f;
+                _current = _inner.AssignWindow(f);
+            }
+            catch { }
+        }
         public string AssignTurn(Segment segment) => _current;
     }
 }
-
-
-
-
-
-
