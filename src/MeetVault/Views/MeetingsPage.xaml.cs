@@ -5,11 +5,11 @@ using Microsoft.UI.Xaml;
 namespace MeetVault.Views;
 
 /// <summary>Display projection of a <see cref="Meeting"/>; keeps formatted text out of the XAML.</summary>
-public sealed record MeetingCard(string Id, string Title, string When, string Duration, string Status);
+public sealed record MeetingCard(string Id, string Title, string When, string Duration, string Status, bool IsDraft);
 
 public static class MeetingCards
 {
-    public static MeetingCard ToCard(Meeting m) => new(m.Id, m.Title, m.StartedAt.ToString("g"), Duration(m), StatusLabel(m.Status));
+    public static MeetingCard ToCard(Meeting m) => new(m.Id, m.Title, m.StartedAt.ToString("g"), Duration(m), StatusLabel(m.Status), m.Status is MeetingStatus.Recording or MeetingStatus.Paused);
 
     // Plain label for the raw enum.
     public static string StatusLabel(MeetingStatus status) => status switch
@@ -75,7 +75,7 @@ public sealed partial class MeetingsPage : Page
     {
         if (sender is FrameworkElement { DataContext: MeetingCard card })
         {
-            if (card.Status is "Recording" or "Paused")
+            if (card.IsDraft)
             {
                 PendingRecovery.MeetingId = card.Id;
                 (App.Window as MainWindow)?.NavigateToLive();

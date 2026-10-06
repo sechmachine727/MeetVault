@@ -289,7 +289,7 @@ public sealed partial class DetailsPage : Page
         Clipboard.SetContent(package);
     }
 
-    private static string ResultDirectory => Path.Combine(Path.GetTempPath(), "MeetVault", "gemini");
+    private static string ResultDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MeetVault", "gemini");
 
     private static string FileNameFor(string title)
     {

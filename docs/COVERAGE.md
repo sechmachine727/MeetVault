@@ -57,9 +57,10 @@
 
 - Root cause of the whole crash family found: the Release publish was IL-trimmed (PublishTrimmed=True), which stripped CsWinRT ABI glue (ItemsSource NRE) and halved the sherpa wrapper; separately, sherpa-onnx bound to the WindowsAppRuntime framework copy of onnxruntime.dll (base-name collision) and access-violated at engine init. Fixes: PublishTrimmed=False; App.xaml.cs pins the app's own onnxruntime.dll via NativeLibrary.Load before WinUI init.
 - Proof: clean untrimmed publish; module trace shows sherpa loads with NO WindowsAppRuntime onnxruntime and the process stays alive; UIA walk over Dashboard/Meetings/Details/Settings/Live all alive=True, Start-new-meeting no longer crashes.
-- Suite: 51/51 green (was 46); added RenameSpeakerTests + CounterGenderFallbackTests + MediaLinkTests.
+- Suite: 55/55 green (was 46); added RenameSpeakerTests + CounterGenderFallbackTests + MediaLinkTests + SettingsRoundTripTests + MultiMeetingIdTests.
 - UI cleanup: users get plain sentences, not stack traces (MainWindow nav dialog, Live, Settings). Settings no longer dies on a failed write (warns once). Live shows real speaker labels + rename and drops whisper silence tokens. Details loads the real selected meeting, plays its saved audio, and sends via the real Gemini transport (canned demo transports removed). Demo seed data removed from the store. Meeting rows in Dashboard/Meetings are clickable (with UIA names) and open the clicked meeting in Details.
-- Still unproven: multi-speaker separation, JA/VI accuracy, per-app WASAPI capture, live Gemini call. Settings write is read-only only under the Codex sandbox; normal runs persist.
+- Second review round (deepseek-v4.1-flash/max, read-only) fixed: cross-thread partial line, recovery timeline collision, in-recording checkpoint, per-meeting segment ids (a second meeting was unfinalizable), one WAV per session beside the DB, resume drafts from the Meetings list, plain user text. 55/55 green.
+- Still unproven: multi-speaker separation, JA/VI accuracy, per-app WASAPI capture, live Gemini call, MSIX install (needs admin trust). Settings write is read-only only under the Codex sandbox; normal runs persist.
 
 ## Deltas 2026-10-06 afternoon (Observed, commits 4042f34..89d6370)
 

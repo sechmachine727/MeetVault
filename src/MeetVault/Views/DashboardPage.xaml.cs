@@ -53,13 +53,21 @@ public sealed partial class DashboardPage : Page
         Start_Click(sender, e);
     }
 
-    // Click a recent meeting to open it in Details.
+    // Click a recent meeting: an unfinished draft resumes in Live, a finished meeting opens in Details.
     private void OpenMeeting_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { DataContext: MeetingCard card })
         {
-            PendingDetails.MeetingId = card.Id;
-            (App.Window as MainWindow)?.NavigateToDetails();
+            if (card.IsDraft)
+            {
+                PendingRecovery.MeetingId = card.Id;
+                (App.Window as MainWindow)?.NavigateToLive();
+            }
+            else
+            {
+                PendingDetails.MeetingId = card.Id;
+                (App.Window as MainWindow)?.NavigateToDetails();
+            }
         }
     }
 }

@@ -106,6 +106,8 @@ public sealed partial class LivePage : Page
             PendingRecovery.MeetingId = null;
             if (id is not null)
             {
+                // Continue the draft's existing WAV instead of starting a second file.
+                if (AppStore.Repo.Load(id)?.MediaPath is { Length: > 0 } mediaPath && _capture is not null) _capture.ReuseFile(mediaPath);
                 _session = await MeetingSession.RecoverAsync(id, _audio, _transcriber, _diarizer, new NeutralSpeakerLabeler(), AppStore.Repo, MicId, "");
                 foreach (var sp in _session.Speakers) _speakerNames[sp.Id] = sp.DisplayName;
                 foreach (var s in _session.Segments) AddLine(s.SpeakerId, s.Text);
