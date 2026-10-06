@@ -77,3 +77,10 @@
 - MSIX builds: src/MeetVault/AppPackages/MeetVault_1.0.0.0_x64_Test/MeetVault_1.0.0.0_x64.msix.
 - Install blocked: package unsigned (0x800B0100). Needs self-signed dev cert + trust + Add-AppxPackage — awaiting your explicit go-ahead (machine trust change).
 
+
+## Latency measurement (2026-10-06, this machine, runtime evidence)
+
+- Multilingual base model, CPU: 13.9 s audio -> 23.1 s transcribe (RTF 1.66x, slower than real-time).
+- Implication: 10 s live windows would lag ~7 s per window cumulative. MVP options: (a) longer windows with explicit lag, (b) smaller/faster model for live + base for post-meeting refinement, (c) GPU/accelerated runtime. Decision needed before live-latency claims.
+- NFR2 status: finals-within-seconds NOT met on this hardware with base model.
+
