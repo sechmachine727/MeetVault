@@ -108,3 +108,13 @@
 - Verified: republished exe launched, PID 23412 responding=True, zero fresh 1000/1026 events. Pushed as ac379be.
 - Note: publish/msix/MeetVault.exe is a stale copy from the earlier MSIX-layout publish — use publish/win-x64/MeetVault.exe.
 
+
+## Nav-crash fixes + dashboard redesign (2026-10-06, your screenshot + events, runtime evidence)
+
+- Your report: Live/Details/top-Settings crashed (native 0xc000027b in Microsoft.UI.Xaml.dll); bottom-Settings opened Dashboard; Settings appeared twice; dashboard looked bare.
+- Causes: NavigationView renders its own built-in Settings item alongside our explicit one (duplication); built-in item has no Tag so selection fell through (bottom-Settings -> Dashboard); Live constructed ONNX engines synchronously in ctor (any throw = nav crash); no nav failure barrier.
+- Fixes: removed explicit Settings item, route built-in IsSettingsSelected -> SettingsPage; try/catch around RootFrame.Navigate with Dashboard fallback; Live engine construction fully inside try (falls back to demo fakes).
+- Dashboard (Operate mode): greeting + engine line, readiness strip (mic/app-source/engine + accent Start button), column-header recent table (title/when/duration/status), teaching empty state. No new deps, same controls.
+- Verified: build 0/0, 43/43 green, republished to publish/win-x64 (needed you to close the running app: file lock). Pushed as 0619da1.
+- Computer-use UI debugging: unavailable this session (no MCP tools; node_repl sky init sandbox-blocked). Static analysis + crash-lane triangulation instead.
+
