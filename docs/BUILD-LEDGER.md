@@ -57,3 +57,10 @@
 - Two-tone smoke (220Hz vs 440Hz): both assigned spk_1 — segmentation trained on speech, tones carry no speaker cues. Pipeline proven, separation quality NOT proven.
 - Needs: real two-speaker EN/JA/VI audio for accuracy validation before shipping claims.
 
+
+## Capture validation (2026-10-06, runtime evidence)
+
+- NAudioCapture (WaveInEvent 16kHz mono, chunked WAV + PcmReady frames) compiles clean.
+- This machine: 0 mic devices (headless). Enumeration proven, recording path unverified here — needs your machine with a mic.
+- Per-app conference capture (WASAPI process loopback) still needs the native helper; mic-only for now.
+
