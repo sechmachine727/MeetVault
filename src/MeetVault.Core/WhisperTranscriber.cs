@@ -51,16 +51,21 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
         return Task.CompletedTask;
     }
 
-    // Picks the concrete runtime. Vulkan is forced when chosen (so a non-CUDA GPU is
-    // actually used); CUDA keeps whisper's default order, which already prefers it.
-    // Any GPU-init failure falls back to CPU rather than failing the meeting.
+    // Picks the concrete runtime. The order is set on every call (not just for Vulkan):
+    // RuntimeLibraryOrder is process-static, so leaving it at a previous GPU choice would
+    // keep loading that backend after the user switches back to CPU. A GPU-init failure
+    // falls back to CPU rather than failing the meeting.
     private WhisperFactory CreateFactory()
     {
+        RuntimeOptions.RuntimeLibraryOrder = Backend switch
+        {
+            GpuBackend.Vulkan => [RuntimeLibrary.Vulkan, RuntimeLibrary.Cpu, RuntimeLibrary.CpuNoAvx],
+            GpuBackend.Cuda => [RuntimeLibrary.Cuda, RuntimeLibrary.Cuda12, RuntimeLibrary.Cpu, RuntimeLibrary.CpuNoAvx],
+            _ => [RuntimeLibrary.Cpu, RuntimeLibrary.CpuNoAvx],
+        };
         if (Backend == GpuBackend.Cpu) return WhisperFactory.FromPath(_modelPath);
         try
         {
-            if (Backend == GpuBackend.Vulkan)
-                RuntimeOptions.RuntimeLibraryOrder = [RuntimeLibrary.Vulkan, RuntimeLibrary.Cpu, RuntimeLibrary.CpuNoAvx];
             return WhisperFactory.FromPath(_modelPath, new WhisperFactoryOptions { UseGpu = true, GpuDevice = GpuDevice });
         }
         catch
