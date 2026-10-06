@@ -57,4 +57,15 @@ public sealed class RepositoryTests : IDisposable
             Assert.Equal("Bob", speakers[seg.SpeakerId].DisplayName);
     }
 
+
+    [Fact]
+    public void Settings_GetSet_RoundTrip()
+    {
+        Assert.Null(_repo.GetSetting("overlay.pin"));
+        _repo.SetSetting("overlay.pin", "true");
+        Assert.Equal("true", _repo.GetSetting("overlay.pin"));
+        _repo.SetSetting("overlay.pin", "false");
+        Assert.Equal("false", _repo.GetSetting("overlay.pin"));
+    }
+
 }

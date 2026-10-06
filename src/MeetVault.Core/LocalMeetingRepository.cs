@@ -151,8 +151,25 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
     private static Meeting ReadMeeting(SqliteDataReader r) => new(r.GetString(0), r.GetString(1), DateTimeOffset.Parse(r.GetString(2)), r.IsDBNull(3) ? null : DateTimeOffset.Parse(r.GetString(3)), Enum.Parse<MeetingStatus>(r.GetString(4)), r.IsDBNull(5) ? null : r.GetString(5), r.IsDBNull(6) ? null : r.GetString(6));
 
 
+    public string? GetSetting(string key)
+    {
+        using var c = _db.CreateCommand();
+        c.CommandText = "SELECT value FROM settings WHERE key=$k";
+        c.Parameters.AddWithValue("$k", key);
+        return c.ExecuteScalar() as string;
+    }
+
+    public void SetSetting(string key, string value)
+    {
+        using var c = _db.CreateCommand();
+        c.CommandText = "INSERT INTO settings(key,value) VALUES($k,$v) ON CONFLICT(key) DO UPDATE SET value=$v";
+        c.Parameters.AddWithValue("$k", key); c.Parameters.AddWithValue("$v", value);
+        c.ExecuteNonQuery();
+    }
+
     public void Dispose() => _db.Dispose();
 }
+
 
 
 

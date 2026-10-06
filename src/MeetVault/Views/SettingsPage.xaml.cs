@@ -20,7 +20,7 @@ public sealed partial class SettingsPage : Page
         ModelPicker.SelectedIndex = 0;
         DevicePicker.SelectedIndex = 0;
 
-        StoragePathBox.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "MeetVault");
+        LoadPersisted();
         Refresh();
     }
 
@@ -55,9 +55,32 @@ public sealed partial class SettingsPage : Page
         StatusBar.IsOpen = true;
     }
 
+    // Persisted on every Refresh so a restart restores the exact controls; keys stay in Credential Locker, never here.
+    private void LoadPersisted()
+    {
+        var repo = AppStore.Repo;
+        AppSourceBox.Text = repo.GetSetting("audio.source") ?? "";
+        DiarizationSwitch.IsOn = repo.GetSetting("transcription.diarization") != "off";
+        GenderSwitch.IsOn = repo.GetSetting("transcription.gender") != "off";
+        PinSwitch.IsOn = repo.GetSetting("overlay.pin") != "off";
+        if (double.TryParse(repo.GetSetting("overlay.opacity"), out var op)) OpacitySlider.Value = op;
+        if (double.TryParse(repo.GetSetting("overlay.font"), out var font)) FontSizeBox.Value = font;
+        if (double.TryParse(repo.GetSetting("overlay.lines"), out var lines)) LinesBox.Value = lines;
+        StoragePathBox.Text = repo.GetSetting("storage.path") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "MeetVault");
+    }
+
     // One place that turns control values into the visible summary, so a section can never drift from its controls.
     private void Refresh()
     {
+        var repo = AppStore.Repo;
+        repo.SetSetting("audio.source", AppSourceBox.Text);
+        repo.SetSetting("transcription.diarization", OnOff(DiarizationSwitch.IsOn));
+        repo.SetSetting("transcription.gender", OnOff(GenderSwitch.IsOn));
+        repo.SetSetting("overlay.pin", OnOff(PinSwitch.IsOn));
+        repo.SetSetting("overlay.opacity", OpacitySlider.Value.ToString());
+        repo.SetSetting("overlay.font", FontSizeBox.Value.ToString());
+        repo.SetSetting("overlay.lines", LinesBox.Value.ToString());
+        repo.SetSetting("storage.path", StoragePathBox.Text);
         AudioStatus.Text = $"Capturing from {MicPicker.SelectedItem} via {AppSourceBox.Text}.";
         TranscriptionStatus.Text = $"{ModelPicker.SelectedItem} on {DevicePicker.SelectedItem} \u00b7 diarization {OnOff(DiarizationSwitch.IsOn)} \u00b7 gender labels {OnOff(GenderSwitch.IsOn)}";
         OverlayStatus.Text = $"Keep on top {OnOff(PinSwitch.IsOn)} \u00b7 opacity {OpacitySlider.Value:P0} \u00b7 font {FontSizeBox.Value} pt \u00b7 {LinesBox.Value} line(s)";
@@ -84,4 +107,5 @@ public sealed partial class SettingsPage : Page
         }
     }
 }
+
 
