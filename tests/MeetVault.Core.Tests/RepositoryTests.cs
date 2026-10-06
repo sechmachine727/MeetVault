@@ -62,10 +62,11 @@ public sealed class RepositoryTests : IDisposable
     public void Settings_GetSet_RoundTrip()
     {
         Assert.Null(_repo.GetSetting("overlay.pin"));
-        _repo.SetSetting("overlay.pin", "true");
-        Assert.Equal("true", _repo.GetSetting("overlay.pin"));
-        _repo.SetSetting("overlay.pin", "false");
-        Assert.Equal("false", _repo.GetSetting("overlay.pin"));
+        _repo.SetSetting("overlay.pin", "on");
+        Assert.Equal("on", _repo.GetSetting("overlay.pin"));
+        _repo.SetSetting("overlay.pin", "off");
+        Assert.Equal("off", _repo.GetSetting("overlay.pin"));
     }
 
 }
+
