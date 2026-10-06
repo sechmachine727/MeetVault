@@ -86,11 +86,10 @@ public sealed partial class MeetingsPage : Page
     private void ApplyFilter(string query)
     {
         var term = query.Trim();
-        MeetingList.ItemsSource = AppStore.Cards()
-            .Where(c => term.Length == 0 || c.Title.Contains(term, StringComparison.OrdinalIgnoreCase))
-            .ToArray();
+        var rows = AppStore.Cards().Where(c => term.Length == 0 || c.Title.Contains(term, StringComparison.OrdinalIgnoreCase)).ToArray();
+        MeetingList.ItemsSource = rows;
 
-        EmptyState.Visibility = MeetingList.Items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        EmptyState.Visibility = rows.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (EmptyState.Visibility == Visibility.Visible)
             EmptyState.Text = term.Length == 0
                 ? "No meetings yet. Start one to populate this list."
