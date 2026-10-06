@@ -9,13 +9,24 @@ public sealed class CredentialLockerSecretStore : ISecretStore
     private const string Resource = "MeetVault";
     // ponytail: lazy so unpackaged runs without identity construct fine; every op already swallows.
     private PasswordVault? _vault;
-    private PasswordVault Vault => _vault ??= new();
+    // Construction itself can throw without package identity; never let it escape.
+    private PasswordVault? Vault
+    {
+        get
+        {
+            if (_vault is not null) return _vault;
+            try { _vault = new(); return _vault; }
+            catch { return null; }
+        }
+    }
 
     public string? Get(string key)
     {
+        var vault = Vault;
+        if (vault is null) return null;
         try
         {
-            return Vault.Retrieve(Resource, key).Password;
+            return vault.Retrieve(Resource, key).Password;
         }
         catch
         {
@@ -25,17 +36,21 @@ public sealed class CredentialLockerSecretStore : ISecretStore
 
     public void Set(string key, string value)
     {
-        try { Vault.Add(new PasswordCredential(Resource, key, value)); }
+        var vault = Vault;
+        if (vault is null) return;
+        try { vault.Add(new PasswordCredential(Resource, key, value)); }
         catch (Exception ex) when (ex.HResult == unchecked((int)0x80070490))
         {
             // Already stored: replace it.
-            Vault.Remove(Vault.Retrieve(Resource, key));
-            Vault.Add(new PasswordCredential(Resource, key, value));
+            vault.Remove(vault.Retrieve(Resource, key));
+            vault.Add(new PasswordCredential(Resource, key, value));
         }
     }
 
     public void Clear(string key)
     {
-        try { Vault.Remove(Vault.Retrieve(Resource, key)); } catch { }
+        var vault = Vault;
+        if (vault is null) return;
+        try { vault.Remove(vault.Retrieve(Resource, key)); } catch { }
     }
 }
