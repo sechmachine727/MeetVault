@@ -37,6 +37,7 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         _micId = micId; _appSource = appSource; // retained so Resume restarts the same sources
         Persist(); // durability: draft exists before any crash
         await _audio.StartAsync(micId, appSource, ct);
+        Persist(); // link the WAV before the (slow) model load, so a crash still keeps it
         await _transcriber.StartAsync(ct);
         Persist(); // capture path now exists
     }

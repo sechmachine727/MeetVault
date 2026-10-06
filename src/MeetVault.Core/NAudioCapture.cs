@@ -92,7 +92,7 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
 
     // Append-safe 16 kHz mono WAV writer: the header's size fields are rewritten on
     // FinalizeHeader (after each stop), so the file is playable without closing it.
-    private sealed class WavSink : IDisposable
+    internal sealed class WavSink : IDisposable
     {
         private readonly FileStream _fs;
         private long _dataBytes;
@@ -148,4 +148,3 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
         }
     }
 }
-
