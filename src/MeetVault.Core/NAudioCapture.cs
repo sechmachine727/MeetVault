@@ -16,12 +16,15 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
 
     public Task StartAsync(string micId, string appSource, CancellationToken ct)
     {
+if (IsCapturing) return Task.CompletedTask;
+        if (!int.TryParse(micId, out var dev)) throw new ArgumentException($"Mic id must be a device number, got '{micId}'. Available: {DescribeDevices()}.", nameof(micId));
+        if (dev < 0 || dev >= WaveInEvent.DeviceCount) throw new ArgumentException($"Mic device {dev} out of range. Available: {DescribeDevices()}.", nameof(micId));
         if (IsCapturing) return Task.CompletedTask;
         var dir = Path.Combine(Path.GetTempPath(), "MeetVault", "media");
         Directory.CreateDirectory(dir);
         MediaPath = Path.Combine(dir, DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".wav");
         _mic = new WaveInEvent { WaveFormat = new WaveFormat(16000, 16, 1) };
-        if (int.TryParse(micId, out var dev)) _mic.DeviceNumber = dev;
+        _mic.DeviceNumber = dev;
         _writer = new WaveFileWriter(MediaPath, _mic.WaveFormat);
         _mic.DataAvailable += (_, e) =>
         {
@@ -46,10 +49,19 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
         return Task.CompletedTask;
     }
 
+private static string DescribeDevices()
+    {
+        if (WaveInEvent.DeviceCount == 0) return "none (no microphone found)";
+        var names = new List<string>();
+        for (var i = 0; i < WaveInEvent.DeviceCount; i++) names.Add($"{i}={WaveInEvent.GetCapabilities(i).ProductName}");
+        return string.Join(", ", names);
+    }
+
     public void Dispose()
     {
         _mic?.Dispose();
         _writer?.Dispose();
     }
 }
+
 
