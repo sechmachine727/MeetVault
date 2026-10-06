@@ -53,6 +53,15 @@
 
 ## Deltas this session (Observed)
 
+### Deltas 2026-10-07 (Observed, commits d6446b9..1128195)
+
+- Nav: Details removed from the sidebar; it opens from a meeting row in Meetings/Dashboard.
+- Live: recording starts only on an explicit Start recording press; Pause/Resume/Stop enable only in the matching state (verified via UIA in both states).
+- Dashboard: Start new meeting moved top-right; Recent and Meetings tables wrapped in a card container with a "select to open details" tooltip.
+- GPU (FR9): real capability detection (GpuProbe queries the CUDA device count and enumerates display adapters, no vendor-name guess). Settings lists each GPU and greys out the GPU entry when none is present; added the Whisper.net.Runtime.Vulkan backend so non-CUDA GPUs work; the runtime library order is set per backend so the choice sticks. On this host (no CUDA export, zero adapters in a remote session) only CPU is offered, which is the expected result.
+- Packaging: single canonical portable at publish/win-x64 (duplicate folders removed); a csproj target trims the linux/macos/arm runtime payload from both the portable and the MSIX.
+- Suite: 63/63 green (adds GPU probe + device-setting encode/parse).
+
 ## Deltas 2026-10-06 evening (Observed, working tree)
 
 - Root cause of the whole crash family found: the Release publish was IL-trimmed (PublishTrimmed=True), which stripped CsWinRT ABI glue (ItemsSource NRE) and halved the sherpa wrapper; separately, sherpa-onnx bound to the WindowsAppRuntime framework copy of onnxruntime.dll (base-name collision) and access-violated at engine init. Fixes: PublishTrimmed=False; App.xaml.cs pins the app's own onnxruntime.dll via NativeLibrary.Load before WinUI init.
