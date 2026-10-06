@@ -1,6 +1,6 @@
 # BLOCKERS.md — genuine blockers for user review
 
-> Updated 2026-10-06 (evening) by autonomous run. Only items that stop progress with no local alternative go here.
+> Updated 2026-10-07 by autonomous run. Only items that stop progress with no local alternative go here.
 
 ## Resolved this run (Observed)
 
@@ -24,6 +24,10 @@
 ### 4. MSIX install (needs an admin machine-root trust)
 - The MSIX builds unsigned (no `signtool` on this box) and install needs the AppPublisher cert trusted at machine scope, which needs admin.
 - Next: either install the signed MSIX after trusting the cert (thumb `BBD1DFCFC1F34E14A603110858C4CD019A7B70DD`), or keep using the portable exe.
+
+### 5. GPU inference confirmation (needs a machine with a GPU)
+- Detection is now a real query (CUDA device count + enumerated display adapters), a Vulkan backend is bundled for non-CUDA GPUs, and the Live engine line reports the accelerator that actually loaded. On this host (no CUDA export, zero adapters in a remote session) only CPU is offered.
+- Next: on your GPU machine, pick the GPU in Settings, Start recording, and read the Live engine line. If it says `+ CPU (requested Cuda, not available on this PC)`, the card was detected but the CUDA runtimes (or driver) are missing; if it says `+ Cuda`, GPU inference is engaged.
 
 ## Not blockers (tracked for completeness)
 
