@@ -169,7 +169,8 @@ public sealed partial class LivePage : Page
 
     private void StartCheckpointTimer()
     {
-        _checkpoint ??= DispatcherQueue.CreateTimer();
+        if (_checkpoint is not null) return; // one timer, one handler: never accumulate across start/recover
+        _checkpoint = DispatcherQueue.CreateTimer();
         _checkpoint.Interval = TimeSpan.FromSeconds(15);
         _checkpoint.Tick += async (_, _) => { try { if (_session is not null) await _session.CheckpointAsync(); } catch { } };
         _checkpoint.Start();
