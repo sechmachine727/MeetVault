@@ -6,12 +6,17 @@
         <StackPanel Padding="24" Spacing="12" MaxWidth="900" HorizontalAlignment="Left">
             <TextBlock Text="Dashboard" Style="{StaticResource TitleTextBlockStyle}" />
             <InfoBar x:Name="StatusBar" IsOpen="False" Severity="Informational" />
+            <InfoBar x:Name="RecoveryBar" IsOpen="False" Severity="Warning" Title="Unfinished meeting found" IsClosable="True">
+                <InfoBar.ActionButton>
+                    <Button Content="Resume in Live" Click="Resume_Click" />
+                </InfoBar.ActionButton>
+            </InfoBar>
 
             <TextBlock Text="Quick start" Style="{StaticResource SubtitleTextBlockStyle}" />
             <StackPanel Spacing="4">
                 <TextBlock Text="Microphone: not started" TextWrapping="Wrap" />
                 <TextBlock Text="Screen source: not picked" TextWrapping="Wrap" />
-                <TextBlock Text="Speech model: not loaded. Capture and transcription land with P4." TextWrapping="Wrap" />
+                <TextBlock x:Name="ModelStatus" Text="Speech model: checking..." TextWrapping="Wrap" />
             </StackPanel>
             <Button Content="Start new meeting" Click="Start_Click" HorizontalAlignment="Left" />
 
@@ -31,3 +36,4 @@
         </StackPanel>
     </ScrollViewer>
 </Page>
+

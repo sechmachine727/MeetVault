@@ -9,10 +9,13 @@ public sealed partial class LivePage : Page
     public ObservableCollection<TranscriptLine> Lines { get; } = new();
     public ObservableCollection<string> Speakers { get; } = new();
 
-    private readonly MeetingSession _session;
+private MeetingSession _session = null!;
     private readonly WhisperTranscriber? _whisper;
     private readonly NAudioCapture? _capture;
     private readonly List<byte> _window = new();
+    private readonly ISpeechTranscriber _transcriber;
+    private readonly IAudioCapture _audio;
+    private readonly ISpeakerDiarizer _diarizer;
     private static readonly string ModelDir = Path.Combine(AppContext.BaseDirectory, "models");
 
     public LivePage()
@@ -21,39 +24,55 @@ public sealed partial class LivePage : Page
         TranscriptList.ItemsSource = Lines;
         SpeakerList.ItemsSource = Speakers;
 
-        // Real engines when models + mic exist; fakes otherwise (status line says which).
-        var whisperPath = Path.Combine(ModelDir, "ggml-base.bin");
-        var segPath = Path.Combine(ModelDir, "sherpa-seg.onnx");
-        var embPath = Path.Combine(ModelDir, "sherpa-emb.onnx");
+        // Real engines when models exist; fakes otherwise (status line says which).
         ISpeechTranscriber transcriber = new FakeTranscriber();
         IAudioCapture audio = new FakeAudioCapture();
         ISpeakerDiarizer diarizer = new FakeDiarizer();
-        var mode = "demo (no models)";
-        if (File.Exists(whisperPath) && File.Exists(segPath) && File.Exists(embPath))
+        _mode = "demo (no models)";
+        if (EngineModels.Available)
         {
             try
             {
-                _whisper = new WhisperTranscriber(whisperPath);
+                _whisper = new WhisperTranscriber(Path.Combine(ModelDir, "ggml-base.bin"));
                 _capture = new NAudioCapture();
-                var dz = new SherpaDiarizer(segPath, embPath);
+                var dz = new SherpaDiarizer(Path.Combine(ModelDir, "sherpa-seg.onnx"), Path.Combine(ModelDir, "sherpa-emb.onnx"));
                 transcriber = _whisper;
                 audio = _capture;
                 diarizer = new WindowDiarizer(dz);
                 _capture.PcmReady += OnPcm;
-                mode = "live: whisper base + sherpa diarizer";
+                _mode = "live: whisper base + sherpa diarizer";
             }
             catch { /* fall through to fakes */ }
         }
-        _session = new MeetingSession(audio, transcriber, diarizer, new CounterGenderLabeler(), AppStore.Repo);
-        _session.LiveSegment += OnLiveSegment;
+        _transcriber = transcriber; _audio = audio; _diarizer = diarizer;
 
-        var m = mode;
-        Loaded += async (_, _) =>
+        Loaded += OnLoaded;
+    }
+
+    private readonly string _mode;
+
+    private async void OnLoaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        EngineStatus.Text = _mode;
+        try
         {
-            EngineStatus.Text = m;
-            try { await _session.StartAsync("0", "", CancellationToken.None); }
-            catch (Exception ex) { Status($"Could not start capture: {ex.Message}"); }
-        };
+            var id = PendingRecovery.MeetingId;
+            PendingRecovery.MeetingId = null;
+            if (id is not null)
+            {
+                _session = await MeetingSession.RecoverAsync(id, _audio, _transcriber, _diarizer, new CounterGenderLabeler(), AppStore.Repo);
+                foreach (var s in _session.Segments) AddLine(s.SpeakerId, s.Text);
+                foreach (var sp in _session.Speakers) Speakers.Add(sp.DisplayName);
+                Status($"Recovered {_session.Segments.Count} segment(s) from the interrupted meeting.");
+            }
+            else
+            {
+                _session = new MeetingSession(_audio, _transcriber, _diarizer, new CounterGenderLabeler(), AppStore.Repo);
+                await _session.StartAsync("0", "", CancellationToken.None);
+            }
+            _session.LiveSegment += OnLiveSegment;
+        }
+        catch (Exception ex) { Status($"Could not start capture: {ex.Message}"); }
     }
 
     // Accumulates mic PCM into ~10 s windows and transcribes each finalized window.
@@ -122,4 +141,5 @@ public sealed partial class LivePage : Page
         public string AssignTurn(Segment segment) => _current;
     }
 }
+
 
