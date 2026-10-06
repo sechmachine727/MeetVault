@@ -52,12 +52,12 @@ public sealed partial class SettingsPage : Page
         var key = ApiKeyBox.Password.Trim();
         ApiKeyBox.Password = "";
         if (key.Length == 0) Locker.Clear("GeminiApiKey"); else Locker.Set("GeminiApiKey", key);
+        var stored = Locker.Get("GeminiApiKey") is { Length: > 0 };
         Refresh();
 
-        StatusBar.Severity = key.Length == 0 ? InfoBarSeverity.Warning : InfoBarSeverity.Success;
-        StatusBar.Message = key.Length == 0
-            ? "No key entered, so the in-memory key was cleared."
-            : "Key stored in Windows Credential Locker.";
+        if (key.Length == 0) { StatusBar.Severity = InfoBarSeverity.Warning; StatusBar.Message = "The key was cleared."; }
+        else if (stored) { StatusBar.Severity = InfoBarSeverity.Success; StatusBar.Message = "Key stored in Windows Credential Locker."; }
+        else { StatusBar.Severity = InfoBarSeverity.Warning; StatusBar.Message = "The key could not be stored. The portable build has no Credential Locker; install the MSIX to save a key."; }
         StatusBar.IsOpen = true;
     }
 
@@ -127,7 +127,7 @@ public sealed partial class SettingsPage : Page
     {
         Microsoft.Data.Sqlite.SqliteException { SqliteErrorCode: 8 } => "the data folder is read-only",
         UnauthorizedAccessException => "the data folder is not writable",
-        _ => ex.GetType().Name,
+        _ => "the data folder could not be written",
     };
 
     private static string OnOff(bool value) => value ? "on" : "off";

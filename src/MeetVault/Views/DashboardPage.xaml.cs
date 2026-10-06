@@ -25,9 +25,7 @@ public sealed partial class DashboardPage : Page
         // audio.mic stores the numeric device id; resolve to the live device name.
         var micIdx = AppStore.Repo.GetSetting("audio.mic") ?? "";
         var mic = MeetVault.Core.NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == micIdx).Name ?? "Windows default";
-        var source = AppStore.Repo.GetSetting("audio.source");
         MicStatus.Text = string.IsNullOrWhiteSpace(mic) ? "Not started" : mic;
-        SourceStatus.Text = string.IsNullOrWhiteSpace(source) ? "Not picked" : source;
         var model = AppStore.Repo.GetSetting("transcription.model") == "base" ? "base" : "tiny";
         EngineStatus.Text = model == "base" ? "base (refinement)" : "tiny (live)";
         ModelStatus.Text = EngineModels.Available

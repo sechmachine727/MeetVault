@@ -43,6 +43,7 @@ public sealed partial class OverlayWindow : Window
         LiveBridge.LineAdded += OnLiveLine;
         LiveBridge.Cleared += OnLiveCleared;
         Closed += (_, _) => { LiveBridge.LineAdded -= OnLiveLine; LiveBridge.Cleared -= OnLiveCleared; };
+        foreach (var (speaker, text) in LiveBridge.Recent()) Vm.AddLine(speaker, text); // catch up mid-meeting
         RefreshListState();
     }
 

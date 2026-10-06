@@ -22,6 +22,8 @@ public sealed partial class LivePage : Page
     private long _windowOffsetMs;
     private readonly Dictionary<string, string> _speakerNames = new();
     private string _micLabel = "not started";
+    private readonly SemaphoreSlim _transcribeGate = new(1, 1);
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _checkpoint;
     private static string MicId => AppStore.Repo.GetSetting("audio.mic") ?? "0";
 
     public LivePage()
@@ -37,6 +39,7 @@ public sealed partial class LivePage : Page
     // Leaving Live must stop capture: otherwise the mic and transcriber keep running invisibly.
     private async void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        _checkpoint?.Stop();
         LiveBridge.RenameByName = null;
         try { if (_session is not null) await _session.StopAsync(); } catch { }
         try { _capture?.Dispose(); } catch { }
@@ -112,6 +115,10 @@ public sealed partial class LivePage : Page
             _session.LiveSegment += OnLiveSegment;
             LiveBridge.Clear();
             LiveBridge.RenameByName = RenameByDisplayName;
+            // Recovery continues an existing timeline; without this the new windows
+            // restart at 0 ms and their ids collide with the recovered segments.
+            _windowOffsetMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
+            StartCheckpointTimer();
             _micLabel = NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == MicId).Name
                 ?? (MicId == "0" ? "Windows default" : "device " + MicId);
             RebuildSpeakers();
@@ -122,6 +129,15 @@ public sealed partial class LivePage : Page
         {
             Status("Could not start capture. Check the microphone in Settings, then reopen Live. (" + Short(ex) + ")");
         }
+    }
+
+    // FR6: persist accrued lines periodically so a crash loses at most one interval.
+    private void StartCheckpointTimer()
+    {
+        _checkpoint ??= DispatcherQueue.CreateTimer();
+        _checkpoint.Interval = TimeSpan.FromSeconds(15);
+        _checkpoint.Tick += async (_, _) => { try { await _session.CheckpointAsync(); } catch { } };
+        _checkpoint.Start();
     }
 
     private void RefreshAudioStatus()
@@ -165,14 +181,26 @@ public sealed partial class LivePage : Page
         if (_window.Count < 16000 * 2 * 6) return;
         byte[] window;
         lock (_window) { window = _window.ToArray(); _window.Clear(); }
-        _windowDiarizer?.AssignWindowSamples(window);
-        const long WindowMs = 6_000;
+        // Advance the timeline by the samples actually consumed, not a fixed guess.
+        var windowMs = window.Length / 32; // 16000 samples/s * 2 bytes = 32 bytes/ms
         var start = _windowOffsetMs;
-        _windowOffsetMs += WindowMs;
-        PartialLine.Text = "Transcribing\u2026";
-        try { await _whisper.TranscribeWindowAsync(window, start, "live"); }
+
+        // One window in flight at a time: the base model is slower than real time and
+        // overlapping windows would reorder lines and stack native inference.
+        await _transcribeGate.WaitAsync();
+        try
+        {
+            _windowDiarizer?.AssignWindowSamples(window);
+            DispatcherQueue.TryEnqueue(() => PartialLine.Text = "Transcribing\u2026");
+            await _whisper.TranscribeWindowAsync(window, start, "live");
+            _windowOffsetMs = start + windowMs;
+        }
         catch { /* next window retries; audio file keeps everything */ }
-        finally { PartialLine.Text = _audio.IsCapturing ? "Listening\u2026" : ""; }
+        finally
+        {
+            _transcribeGate.Release();
+            DispatcherQueue.TryEnqueue(() => PartialLine.Text = _audio.IsCapturing ? "Listening\u2026" : "");
+        }
     }
 
     private void OnLiveSegment(Segment segment)

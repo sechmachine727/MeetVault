@@ -33,7 +33,7 @@
 | FR6 local save + restart recovery | TEST recovery round-trip + UI wiring | proven (logic); UI flow unlaunched |
 | FR7 manual Gemini upload | TEST stubs + real transport code; no live call | partial (needs key) |
 | FR8 key in Credential Locker | BUILD (PasswordVault adapter wired) | code-complete, runtime unproven |
-| FR9 every setting wired | mic/device/model/diarization/gender/overlay/storage all gate behavior (6bc2b1c); app-source persists preference only (WASAPI helper missing) | proven except app capture |
+| FR9 every setting wired | mic/device/model/diarization/overlay/storage all gate behavior; app source + gender controls removed until their features exist (WASAPI loopback helper, gender classifier) | proven |
 
 ## NFRs
 
@@ -57,14 +57,14 @@
 
 - Root cause of the whole crash family found: the Release publish was IL-trimmed (PublishTrimmed=True), which stripped CsWinRT ABI glue (ItemsSource NRE) and halved the sherpa wrapper; separately, sherpa-onnx bound to the WindowsAppRuntime framework copy of onnxruntime.dll (base-name collision) and access-violated at engine init. Fixes: PublishTrimmed=False; App.xaml.cs pins the app's own onnxruntime.dll via NativeLibrary.Load before WinUI init.
 - Proof: clean untrimmed publish; module trace shows sherpa loads with NO WindowsAppRuntime onnxruntime and the process stays alive; UIA walk over Dashboard/Meetings/Details/Settings/Live all alive=True, Start-new-meeting no longer crashes.
-- Suite: 50/50 green (was 46); added RenameSpeakerTests + CounterGenderFallbackTests.
+- Suite: 51/51 green (was 46); added RenameSpeakerTests + CounterGenderFallbackTests + MediaLinkTests.
 - UI cleanup: users get plain sentences, not stack traces (MainWindow nav dialog, Live, Settings). Settings no longer dies on a failed write (warns once). Live shows real speaker labels + rename and drops whisper silence tokens. Details loads the real selected meeting, plays its saved audio, and sends via the real Gemini transport (canned demo transports removed). Demo seed data removed from the store. Meeting rows in Dashboard/Meetings are clickable (with UIA names) and open the clicked meeting in Details.
 - Still unproven: multi-speaker separation, JA/VI accuracy, per-app WASAPI capture, live Gemini call. Settings write is read-only only under the Codex sandbox; normal runs persist.
 
 ## Deltas 2026-10-06 afternoon (Observed, commits 4042f34..89d6370)
 
 - UI crashes: Live NRE from missing TextBlockButtonStyle key (only Live+Overlay used it) fixed inline (b5133b3); Settings ToggleSwitch init-event crash guarded (24e5693); nav shows stack-bearing dialog + nav-errors.log; Live/Details lists converted ListView->ItemsControl after ComWrappers-vtable NRE stacks in your screenshots; vault never throws; all in publish/win-x64-fresh, awaiting your run.
-- FR9 closed except app capture: real mic picker (NAudioCapture.ListDevices, persisted id), GPU CUDA device option (WhisperFactoryOptions UseGpu, CPU fallback), diarization toggle gates ONNX load, gender toggle switches counter/neutral labeler (NeutralSpeakerLabeler + test). 46/46 green.
+- FR9 closed except app capture: real mic picker (NAudioCapture.ListDevices, persisted id), GPU CUDA device option (WhisperFactoryOptions UseGpu, CPU fallback), diarization toggle gates ONNX load. Gender toggle later removed (no classifier ships); labels are neutral Speaker N. 46/46 green at the time.
 - FR5 closed at logic level: Details edits debounce-save (800 ms) via Repo.Save with id/timing maps; demo seed stays memory-only and says so (89d6370).
 - Suite: 46/46 (was 42/42, 43/43). Fresh portable publish carries models alongside (tiny 78MB, base 148MB, sherpa 46MB).
 

@@ -61,7 +61,8 @@ public sealed class GeminiUploader
         }
         catch (Exception ex)
         {
-            return job with { State = GeminiJobState.Failed, LastError = ex.Message }; // originals untouched; retry is manual
+            // Plain sentence for the user; the exception type stays out of the UI.
+            return job with { State = GeminiJobState.Failed, LastError = "The upload failed (" + ex.GetType().Name + "). Check your network and the Gemini API key, then try again." }; // originals untouched; retry is manual
         }
     }
 }

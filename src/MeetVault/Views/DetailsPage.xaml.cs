@@ -99,7 +99,7 @@ public sealed partial class DetailsPage : Page
         var job = AppStore.Repo.LoadJob(meeting.Id);
         if (job is null) return;
         GeminiExpander.IsExpanded = true;
-        JobState.Text = $"Job {job.Id} \u00b7 {job.State} \u00b7 {job.Attempts} attempt(s)" + (job.ResultPath is null ? "" : $" \u00b7 {job.ResultPath}");
+        JobState.Text = $"Last result: {job.State} \u00b7 {job.Attempts} attempt(s)";
         if (job.State == GeminiJobState.Succeeded && job.ResultPath is not null)
         {
             try { JobResult.Text = File.ReadAllText(job.ResultPath); }
@@ -240,7 +240,7 @@ public sealed partial class DetailsPage : Page
             var job = await uploader.SendMeetingAsync(_meeting, JsonSerializer.Serialize(Lines.ToList(), TranscriptJsonContext.Default.ListTranscriptLine), ResultDirectory);
             AppStore.Repo.SaveJob(job);
 
-            JobState.Text = $"Job {job.Id} \u00b7 {job.State} \u00b7 {job.Attempts} attempt(s)" + (job.ResultPath is null ? "" : $" \u00b7 {job.ResultPath}");
+            JobState.Text = $"Last result: {job.State} \u00b7 {job.Attempts} attempt(s)";
             if (job.State == GeminiJobState.Succeeded && job.ResultPath is not null)
             {
                 JobResult.Text = File.ReadAllText(job.ResultPath);

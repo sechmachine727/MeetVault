@@ -19,10 +19,6 @@
                     <TextBlock x:Name="MicStatus" Text="Not started" Opacity="0.7" TextWrapping="Wrap" />
                 </StackPanel>
                 <StackPanel Spacing="2" Margin="0,0,24,12">
-                    <TextBlock Text="App source" FontWeight="SemiBold" />
-                    <TextBlock x:Name="SourceStatus" Text="Not picked" Opacity="0.7" TextWrapping="Wrap" />
-                </StackPanel>
-                <StackPanel Spacing="2" Margin="0,0,24,12">
                     <TextBlock Text="Engine" FontWeight="SemiBold" />
                     <TextBlock x:Name="EngineStatus" Text="Checking..." Opacity="0.7" TextWrapping="Wrap" />
                 </StackPanel>
