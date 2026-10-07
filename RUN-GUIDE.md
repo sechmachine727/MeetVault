@@ -8,6 +8,9 @@ Launch the single canonical portable release:
 - This is the only portable build. Do not create extra publish folders; rebuild in place with the commands below.
 - Live starts only when you press Start recording; leaving Live pauses the meeting and keeps it as a recoverable draft on the Dashboard.
 - Hardware: Settings -> Transcription -> Device lists every GPU the machine actually exposes (query, not a vendor-name guess). CUDA is offered only when the NVIDIA driver reports a device; other GPUs are offered through Vulkan when the Vulkan loader and a hardware adapter are present. With no GPU, the GPU entry is greyed out.
+- Audio source: Settings -> Audio -> Audio source picks the microphone or the system output (a conference app playing through your speakers). Captures the whole system mix, not one process.
+- Logging: Settings -> Logging sets the level (default debug) and opens or shows the log. App log: `%TEMP%\MeetVault\app.log`.
+- Delete: a Meetings row has a Delete button (confirm) that removes the meeting, its transcript, and its recording.
 - Data: `%APPDATA%\MeetVault\meetings.db` (SQLite) + `%APPDATA%\MeetVault\media` (WAV). Gemini results: `%APPDATA%\MeetVault\gemini`. Crash diagnostics: `%TEMP%\MeetVault\crash.log` + `nav-errors.log`.
 
 Needs your ears: JA/VI accuracy, two-speaker separation, overlay feel, light/dark + small/large window pass.
@@ -26,4 +29,3 @@ Rebuild the canonical portable release (publish to a clean folder so stale files
 MSIX package:
 
     src\MeetVault\AppPackages\MeetVault_1.0.0.0_x64_Test\MeetVault_1.0.0.0_x64.msix
-

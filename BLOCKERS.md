@@ -26,12 +26,14 @@
 - Next: either install the signed MSIX after trusting the cert (thumb `BBD1DFCFC1F34E14A603110858C4CD019A7B70DD`), or keep using the portable exe.
 
 ### 5. GPU inference confirmation (needs a machine with a GPU)
-- Detection now enumerates real GPUs through DXGI (excludes indirect/virtual display drivers and WARP) and reports the inference APIs probed on this PC. A non-CUDA GPU is offered through the bundled Vulkan backend. The Live engine line reports the accelerator that actually loaded. On this host (no CUDA export) the GPU is offered as Vulkan and the API line reads CPU, Vulkan, DirectML.
-- Next: on your GPU machine, pick the GPU in Settings, Start recording, and read the Live engine line. If it says `+ CPU (requested Vulkan, not available on this PC)`, the card was detected but the backend could not initialize; if it says `+ Vulkan` or `+ Cuda`, inference is engaged.
-- Documented gap: DXGI cannot guarantee exclusion of render-capable indirect display drivers (it has no IDD flag). The strict discriminator is D3DKMT_ADAPTERTYPE.IndirectDisplayDevice; a D3DKMT probe here did not return usable adapter-type data, so it was not shipped. If a virtual adapter ever shows in Settings, that D3DKMT path is the fix.
+- Detection enumerates real GPUs through DXGI (excludes indirect/virtual display drivers and WARP) and reports the inference APIs probed on this PC.
+- Observed on your test machine: a Hyper-V VM with a paravirtualized NVIDIA GPU (drivers injected from the host). DXGI correctly lists that card (GPU-P is usable for compute, so it should be listed), but choosing it and starting a recording fell back to CPU. Vulkan passthrough is often absent in a GPU-P guest, which is the likely cause; CUDA or DirectML is the path inside such a VM. On this host (no CUDA export) the API line reads CPU, Vulkan, DirectML and the GPU is offered as Vulkan.
+- Next: read the Live engine line and the log at %TEMP%\MeetVault\app.log after starting a recording with the GPU chosen. The log records the requested backend, the runtime order, and the accelerator that actually loaded (including a warning when the runtime loads CPU instead of the requested GPU), which tells us whether the failure is pairing, driver, or a missing CUDA runtime.
+- Documented gap: DXGI cannot guarantee exclusion of render-capable indirect display drivers (it has no IDD flag). The strict discriminator is D3DKMT_ADAPTERTYPE.IndirectDisplayDevice; a D3DKMT probe here did not return usable adapter-type data, so it was not shipped.
 
 ## Not blockers (tracked for completeness)
 
-- Per-app WASAPI conference capture not implemented: the app-source control was removed rather than left inert (FR9). Add when the native helper lands.
+- System-audio capture is implemented (WasapiLoopbackCapture -> 16 kHz mono), so a conference app playing through the speakers is recorded. Per-process capture (one app only, without the rest of the system mix) still needs the WASAPI process-loopback helper. Its audio content needs your machine to confirm.
+- App logging: on by default at debug level, configurable in Settings, written to %TEMP%\MeetVault\app.log.
 - No local gender classifier ships: labels are neutral `Speaker N`; the gender toggle was removed rather than left inert.
 - `storage.path` governs export only; the transcript database stays in `%APPDATA%\MeetVault`.

@@ -53,6 +53,13 @@
 
 ## Deltas this session (Observed)
 
+### Deltas 2026-10-07 later (Observed, commits 92df6cf..36ed183)
+
+- Delete: Meetings Delete button + LocalMeetingRepository.DeleteMeeting (meeting, segments, speakers, job, and the media file).
+- System audio: NAudioCapture captures the mic OR the system loopback (WasapiLoopbackCapture resampled to 16 kHz mono); Settings Audio source. Loopback device opens and records (verified); audio content and per-process capture still need your machine.
+- Logging: AppLog writes a level-filtered, size-rolled log to %TEMP%\MeetVault\app.log, set in Settings (default debug); covers repo, session, capture, diarizer, whisper backend, Gemini, nav, GPU, and page errors.
+- Suite: 74/74 green (adds AppLog + DeleteMeeting tests).
+
 ### Deltas 2026-10-07 (Observed, commits d6446b9..1128195)
 
 - Nav: Details removed from the sidebar; it opens from a meeting row in Meetings/Dashboard.
