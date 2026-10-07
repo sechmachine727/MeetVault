@@ -25,7 +25,9 @@ Rebuild the canonical portable release (publish to a clean folder so stale files
 
     rmdir /s /q publish\win-x64
     D:\dotnet\dotnet.exe publish src\MeetVault\MeetVault.csproj -c Release -r win-x64 --self-contained true -o publish\win-x64
-    rem stage the two natives + models/ from your kept copies into publish\win-x64
+    xcopy models publish\win-x64\models /E /I /Y
+
+The publish brings in the natives, and the CUDA and C++ runtimes when they are staged. Staging procedure: `docs\CUDA-SETUP.md`.
 
 MSIX package:
 

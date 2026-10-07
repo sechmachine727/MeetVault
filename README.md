@@ -6,7 +6,7 @@ Built with C# and WinUI 3 on .NET 8. There is no login, no subscription, and no 
 
 ## Status
 
-Working MVP, tested on Windows 11. The solution builds clean (0 warnings, 0 errors) and the Core test suite passes 74 tests. The portable build launches and records, transcribes, and saves meetings. See [BLOCKERS.md](BLOCKERS.md) for what still needs a specific machine to verify.
+Working MVP, tested on Windows 11. The solution builds with 0 errors; six pre-existing `CA1416` warnings remain in the GPU probe and the process-loopback capture. The Core test suite passes 95 tests. The portable build launches and records, transcribes, and saves meetings. See [BLOCKERS.md](BLOCKERS.md) for what still needs a specific machine to verify.
 
 Not implemented: per-process audio capture, a bundled gender classifier, and automatic Gemini upload. The app supports English, Japanese, and Vietnamese; JA/VI accuracy has not been verified with real speech.
 
@@ -25,6 +25,7 @@ Not implemented: per-process audio capture, a bundled gender classifier, and aut
 - Windows 10 version 2004 (build 19041) or later, or Windows 11.
 - The .NET 8 SDK to build. Running the published portable build needs no .NET install.
 - Speech models in `models/` for live transcription and diarization. They are not committed; see [Speech models](#speech-models).
+- Staged third-party runtimes in `cuda/` and `vcruntime/` to build a package that can use CUDA without the CUDA Toolkit or the Visual C++ Redistributable installed on the target machine. They are not committed; see [CUDA setup](docs/CUDA-SETUP.md).
 
 ## Layout
 
@@ -51,14 +52,16 @@ The test suite includes smoke tests that load the real Whisper model when `model
 
 ## Run
 
-Build the portable release into the canonical folder, then stage the native libraries and models:
+Build the portable release into the canonical folder, then copy in the speech models:
 
 ```powershell
 rmdir /s /q publish\win-x64
 dotnet publish src\MeetVault\MeetVault.csproj -c Release -r win-x64 --self-contained true -o publish\win-x64
-rem Stage onnxruntime.dll, sherpa-onnx-c-api.dll, and models/ into publish\win-x64
+Copy-Item -Recurse -Force models publish\win-x64\models
 publish\win-x64\MeetVault.exe
 ```
+
+The publish brings in the native libraries the app loads, including every Whisper backend. To add CUDA to the package, stage `cuda/` and `vcruntime/` as described in [CUDA setup](docs/CUDA-SETUP.md) before publishing.
 
 The portable build has no package identity, so Windows Credential Locker is unavailable and a Gemini key may not persist across runs. Install the MSIX for the full feature set.
 
@@ -104,6 +107,8 @@ The device picker offers the backends Whisper.net supports: CPU, CUDA, and Vulka
 
 Vulkan passthrough is often unavailable on a paravirtualized GPU (Hyper-V GPU-P), so the backend can load while the GPU stays idle. Use CUDA or a physical GPU there.
 
+To build a package that carries the CUDA runtime, so CUDA works without the CUDA Toolkit installed, see [CUDA setup](docs/CUDA-SETUP.md).
+
 ## Data and logs
 
 | Path | Contents |
@@ -119,6 +124,7 @@ Vulkan passthrough is often unavailable on a paravirtualized GPU (Hyper-V GPU-P)
 - [docs/mvp-winui](docs/mvp-winui/00-spec-index.md): the frozen MVP specification.
 - [docs/COVERAGE.md](docs/COVERAGE.md): requirement-to-evidence ledger and change history.
 - [docs/BUILD-LEDGER.md](docs/BUILD-LEDGER.md): historical build log with engine measurements.
+- [docs/CUDA-SETUP.md](docs/CUDA-SETUP.md): stage the CUDA and C++ runtimes and build them into the app.
 - [RUN-GUIDE.md](RUN-GUIDE.md): launch steps and location of data.
 - [BLOCKERS.md](BLOCKERS.md): open items that need a specific machine.
 
