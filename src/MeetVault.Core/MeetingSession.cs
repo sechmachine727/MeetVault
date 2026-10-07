@@ -37,6 +37,7 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         _meeting = new Meeting(Guid.NewGuid().ToString("n"), "Meeting " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"), DateTimeOffset.Now, null, MeetingStatus.Recording, null, null);
         _paused = false;
         _micId = micId; _appSource = appSource; // retained so Resume restarts the same sources
+        AppLog.Info("session: start " + _meeting.Id + " mic=" + micId);
         Persist(); // durability: draft exists before any crash
         await _audio.StartAsync(micId, appSource, ct);
         Persist(); // link the WAV before the (slow) model load, so a crash still keeps it
@@ -52,6 +53,7 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         await _transcriber.StopAsync(ct);
         _meeting = _meeting! with { Status = MeetingStatus.Paused };
         Persist();
+        AppLog.Info("session: pause " + _meeting.Id);
     }
 
     public async Task ResumeAsync(CancellationToken ct = default)
@@ -62,6 +64,7 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         await _transcriber.StartAsync(ct);
         _meeting = _meeting! with { Status = MeetingStatus.Recording };
         Persist();
+        AppLog.Info("session: resume " + _meeting.Id);
     }
 
     public Task CheckpointAsync(CancellationToken ct = default)
@@ -80,6 +83,7 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         if (i < 0) return;
         _speakers[i] = _speakers[i].Rename(next);
         if (_meeting is not null) Persist();
+        AppLog.Info("session: rename " + speakerId + " -> " + next);
     }
 
     // Stamps the capture's media path onto the meeting so the recording is linked,
@@ -105,6 +109,7 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         session._speakers.AddRange(store.LoadSpeakers(meetingId));
         session._segments.AddRange(store.LoadSegments(meetingId));
         session._micId = micId; session._appSource = appSource;
+        AppLog.Info("session: recover " + meetingId + " paused=" + wasPaused + " segments=" + session._segments.Count);
         if (!wasPaused)
         {
             if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is required to resume capture.", "micId");
@@ -121,6 +126,7 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         await _transcriber.StopAsync(ct);
         _meeting = _meeting! with { Status = MeetingStatus.Ready, EndedAt = DateTimeOffset.Now };
         Persist();
+        AppLog.Info("session: stop " + _meeting.Id + " segments=" + _segments.Count + " media=" + _meeting.MediaPath);
         _meeting = null;
     }
 
@@ -144,6 +150,7 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         if (speaker is null) { speaker = new Speaker(speakerId, _gender.Label(speakerId, Gender.Unknown), Gender.Unknown, 0); _speakers.Add(speaker); }
         var seg = raw with { SpeakerId = speakerId };
         _segments.Add(seg);
+        AppLog.Debug("session: segment " + speakerId + " [" + seg.StartMs + "-" + seg.EndMs + "] " + seg.Text);
         LiveSegment?.Invoke(seg);
     }
 
@@ -154,6 +161,7 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
     public void MarkFailed()
     {
         if (_meeting is null) return;
+        AppLog.Warn("session: mark failed " + _meeting.Id);
         _meeting = _meeting with { Status = MeetingStatus.Failed, EndedAt = DateTimeOffset.Now };
         Persist();
         _meeting = null;

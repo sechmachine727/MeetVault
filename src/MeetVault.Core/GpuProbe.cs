@@ -41,6 +41,12 @@ public static class TranscriptionDevice
 // returns "unavailable" on failure, never throws.
 public static class GpuProbe
 {
+    static GpuProbe()
+    {
+        AppLog.Info("gpu: cuda devices=" + CudaDeviceCount + " adapters=" + Adapters.Count + " vulkanLoader=" + VulkanLoaderPresent + " directml=" + DirectMlPresent + " apis=[" + ApiSummary() + "]");
+        foreach (var a in Adapters) AppLog.Info("gpu: adapter '" + a.Name + "' vendor=0x" + a.VendorId.ToString("X4") + " device=0x" + a.DeviceId.ToString("X4"));
+    }
+
     private const int DXGI_ADAPTER_FLAG_SOFTWARE = 2;
     private const uint VendorNvidia = 0x10DE;
     private const uint VendorMicrosoft = 0x1414; // Microsoft Basic Render Driver (WARP)

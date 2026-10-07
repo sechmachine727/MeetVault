@@ -12,6 +12,7 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
     {
         _db = new SqliteConnection($"Data Source={path}");
         _db.Open();
+        AppLog.Info("repo: opened " + path);
         using var cmd = _db.CreateCommand();
         cmd.CommandText = """
             CREATE TABLE IF NOT EXISTS meetings(id TEXT PRIMARY KEY, title TEXT NOT NULL, started_at TEXT NOT NULL, ended_at TEXT NULL, duration_ms INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL, media_path TEXT NULL, media_mime TEXT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
@@ -25,6 +26,7 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
 
     public void Save(Meeting meeting, IReadOnlyList<Speaker> speakers, IReadOnlyList<Segment> segments)
     {
+        AppLog.Debug($"repo: save meeting={meeting.Id} status={meeting.Status} speakers={speakers.Count} segments={segments.Count} media={meeting.MediaPath}");
         using var tx = _db.BeginTransaction();
         var now = DateTimeOffset.UtcNow.ToString("o");
         using (var up = _db.CreateCommand())
@@ -56,6 +58,7 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
             c.ExecuteNonQuery();
         }
         tx.Commit();
+        AppLog.Debug("repo: save committed " + meeting.Id);
     }
 
     public int CountSegments(string meetingId)
@@ -83,6 +86,31 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         c.CommandText = "UPDATE speakers SET display_name=$d WHERE meeting_id=$m AND speaker_id=$s";
         c.Parameters.AddWithValue("$d", displayName); c.Parameters.AddWithValue("$m", meetingId); c.Parameters.AddWithValue("$s", speakerId);
         c.ExecuteNonQuery();
+    }
+
+    // Deletes the meeting and everything that belongs to it, in one transaction.
+    // Returns the recording path (if any) so the caller can remove the audio file.
+    public string? DeleteMeeting(string meetingId)
+    {
+        string? media = null;
+        using (var q = _db.CreateCommand())
+        {
+            q.CommandText = "SELECT media_path FROM meetings WHERE id=$m";
+            q.Parameters.AddWithValue("$m", meetingId);
+            media = q.ExecuteScalar() as string;
+        }
+        using var tx = _db.BeginTransaction();
+        foreach (var table in new[] { "transcript_segments", "speakers", "gemini_jobs", "meetings" })
+        {
+            using var d = _db.CreateCommand();
+            d.Transaction = tx;
+            d.CommandText = "DELETE FROM " + table + " WHERE " + (table == "meetings" ? "id=$m" : "meeting_id=$m");
+            d.Parameters.AddWithValue("$m", meetingId);
+            d.ExecuteNonQuery();
+        }
+        tx.Commit();
+        AppLog.Info("repo: deleted meeting " + meetingId + (media is null ? "" : " media=" + media));
+        return media;
     }
 
 

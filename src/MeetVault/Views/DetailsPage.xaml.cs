@@ -168,7 +168,7 @@ public sealed partial class DetailsPage : Page
             _originalText.AddRange(Lines.Select(l => l.Text));
             UpdateLineStatus();
         }
-        catch (Exception ex) { Status(InfoBarSeverity.Warning, $"Edit kept in memory; save failed: {Short(ex)}"); }
+        catch (Exception ex) { MeetVault.Core.AppLog.Error("details: persist edits failed", ex); Status(InfoBarSeverity.Warning, $"Edit kept in memory; save failed: {Short(ex)}"); }
     }
 
     private void UpdateLineStatus()
@@ -211,6 +211,7 @@ public sealed partial class DetailsPage : Page
             Directory.CreateDirectory(folder); // the configured folder may not exist yet
             File.WriteAllText(path, text);
             Status(InfoBarSeverity.Success, $"Saved {Lines.Count} line(s) to {path}.");
+            MeetVault.Core.AppLog.Info("details: exported " + Lines.Count + " line(s) to " + path);
         }
         catch (DirectoryNotFoundException)
         {

@@ -56,6 +56,7 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
         _factory ??= CreateFactory();
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         IsRunning = true;
+        AppLog.Info("whisper: started model=" + Path.GetFileName(_modelPath) + " lang=" + _language + " loaded=" + LoadedBackend);
         return Task.CompletedTask;
     }
 
@@ -71,13 +72,18 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
             GpuBackend.Cuda => [RuntimeLibrary.Cuda, RuntimeLibrary.Cuda12, RuntimeLibrary.Cpu, RuntimeLibrary.CpuNoAvx],
             _ => [RuntimeLibrary.Cpu, RuntimeLibrary.CpuNoAvx],
         };
+        AppLog.Info("whisper: requested backend=" + Backend + " model=" + Path.GetFileName(_modelPath) + " order=" + string.Join(",", RuntimeOptions.RuntimeLibraryOrder));
         if (Backend == GpuBackend.Cpu) return WhisperFactory.FromPath(_modelPath);
         try
         {
-            return WhisperFactory.FromPath(_modelPath, new WhisperFactoryOptions { UseGpu = true, GpuDevice = GpuDevice });
+            var factory = WhisperFactory.FromPath(_modelPath, new WhisperFactoryOptions { UseGpu = true, GpuDevice = GpuDevice });
+            AppLog.Info("whisper: loaded=" + LoadedBackend);
+            if (LoadedBackend != Backend) AppLog.Warn("whisper: requested " + Backend + " but the runtime loaded " + LoadedBackend);
+            return factory;
         }
-        catch
+        catch (Exception ex)
         {
+            AppLog.Error("whisper: GPU init failed for " + Backend + ", falling back to CPU", ex);
             return WhisperFactory.FromPath(_modelPath);
         }
     }
@@ -86,6 +92,7 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
     {
         _cts?.Cancel();
         IsRunning = false;
+        AppLog.Info("whisper: stopped");
         return Task.CompletedTask;
     }
 

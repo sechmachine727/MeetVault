@@ -34,6 +34,7 @@ public sealed partial class MainWindow : Window
     {
         // Built-in Settings item has no Tag: IsSettingsSelected covers it (single Settings entry).
         var tag = args.IsSettingsSelected ? "settings" : (args.SelectedItem as NavigationViewItem)?.Tag as string;
+        MeetVault.Core.AppLog.Info("nav: " + tag);
         try
         {
             RootFrame.Navigate(tag switch
@@ -70,6 +71,7 @@ public sealed partial class MainWindow : Window
             await dialog.ShowAsync();
         }
         catch { }
+        MeetVault.Core.AppLog.Error("nav: '" + (tag ?? "?") + "' failed", ex);
         Nav.SelectedItem = Nav.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (i.Tag as string) == "dashboard");
         RootFrame.Navigate(typeof(DashboardPage));
     }

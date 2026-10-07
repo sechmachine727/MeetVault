@@ -45,6 +45,7 @@ public sealed class GeminiUploader
         if (_secrets.Get("GeminiApiKey") is not { Length: > 0 }) return job with { State = GeminiJobState.Failed, LastError = "Gemini API key missing. Add it in Settings." };
         if (_files.SizeOf(meeting.MediaPath) > MaxFileBytes) return job with { State = GeminiJobState.Failed, LastError = "File over 2 GB refused before upload." };
         job = job with { State = GeminiJobState.Uploading, Attempts = 1 };
+        AppLog.Info("gemini: upload start meeting=" + meeting.Id + " media=" + meeting.MediaPath + " size=" + _files.SizeOf(meeting.MediaPath));
         try
         {
             using var stream = _files.OpenRead(meeting.MediaPath);
@@ -57,10 +58,12 @@ public sealed class GeminiUploader
             var tmp = path + ".tmp";
             await File.WriteAllTextAsync(tmp, resultJson, ct); // atomic: crash leaves old result, never partial JSON
             File.Move(tmp, path, overwrite: true);
+            AppLog.Info("gemini: upload succeeded meeting=" + meeting.Id + " result=" + path);
             return job with { State = GeminiJobState.Succeeded, ResultPath = path };
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            AppLog.Error("gemini: upload failed meeting=" + meeting.Id, ex);
             // Plain sentence for the user; the exception type stays out of the UI.
             return job with { State = GeminiJobState.Failed, LastError = "The upload could not finish. Check your network and the Gemini API key, then try again." }; // originals untouched; retry is manual
         }

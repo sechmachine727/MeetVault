@@ -2,14 +2,22 @@ using NAudio.Wave;
 
 namespace MeetVault.Core;
 
-// Real mic capture behind IAudioCapture: 16 kHz mono WAV written chunked to disk.
-// ponytail: mic only; per-app conference capture needs the WASAPI process-loopback native helper (spec 07.4).
+// Real capture behind IAudioCapture. Source is the mic (WaveInEvent) or the system
+// render loopback (WasapiLoopbackCapture), which is how a conference app's audio is
+// captured. Loopback is resampled to 16 kHz mono with NAudio's resampler so both
+// sources feed the same 16 kHz mono WAV + transcription pipeline.
+// ponytail: system-wide loopback, not per-process; per-app needs the WASAPI process-loopback helper.
 public sealed class NAudioCapture : IAudioCapture, IDisposable
 {
     public bool IsCapturing { get; private set; }
     public event Action<byte[]>? PcmReady; // 16-bit mono frames for the transcription pipeline
 
     private WaveInEvent? _mic;
+    private WasapiLoopbackCapture? _loop;
+    private BufferedWaveProvider? _buffer;
+    private MediaFoundationResampler? _resampler;
+    private Thread? _pump;
+    private volatile bool _running;
     private WavSink? _sink;
     private string? _reusePath;
 
@@ -20,35 +28,82 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
 
     public Task StartAsync(string micId, string appSource, CancellationToken ct)
     {
-        if (!int.TryParse(micId, out var dev)) throw new ArgumentException($"Mic id must be a device number, got '{micId}'. Available: {DescribeDevices()}.", nameof(micId));
-        if (dev < 0 || dev >= WaveInEvent.DeviceCount) throw new ArgumentException($"Mic device {dev} out of range. Available: {DescribeDevices()}.", nameof(micId));
-        if (IsCapturing) return Task.CompletedTask; // after validation: bad mic id errors even when capturing.
-        // One WAV per meeting, kept open across pause/resume so the audio is never
-        // split. Moved out of %TEMP% so a cleanup cannot delete a saved recording.
+        if (IsCapturing) return Task.CompletedTask;
         _sink ??= new WavSink(_reusePath ?? NewMediaPath());
         _reusePath = null;
-        _mic = new WaveInEvent { WaveFormat = new WaveFormat(16000, 16, 1) };
-        _mic.DeviceNumber = dev;
+        IsCapturing = true;
+
+        if (string.Equals(appSource, "system", StringComparison.OrdinalIgnoreCase)) StartSystem();
+        else StartMic(micId);
+        return Task.CompletedTask;
+    }
+
+    private void StartMic(string micId)
+    {
+        if (!int.TryParse(micId, out var dev)) { IsCapturing = false; throw new ArgumentException($"Mic id must be a device number, got '{micId}'. Available: {DescribeDevices()}.", nameof(micId)); }
+        if (dev < 0 || dev >= WaveInEvent.DeviceCount) { IsCapturing = false; throw new ArgumentException($"Mic device {dev} out of range. Available: {DescribeDevices()}.", nameof(micId)); }
+        _mic = new WaveInEvent { WaveFormat = new WaveFormat(16000, 16, 1), DeviceNumber = dev };
         _mic.DataAvailable += (_, e) =>
         {
             var chunk = new byte[e.BytesRecorded];
             Buffer.BlockCopy(e.Buffer, 0, chunk, 0, e.BytesRecorded);
-            lock (_sink!) _sink.Write(chunk);
-            PcmReady?.Invoke(chunk);
+            WriteChunk(chunk);
         };
         _mic.StartRecording();
-        IsCapturing = true;
-        return Task.CompletedTask;
+        AppLog.Info("capture: mic device=" + dev + " '" + SafeName(dev) + "' file=" + MediaPath);
+    }
+
+    // Loopback captures whatever the speakers play - a Teams/Zoom call, a video, etc.
+    private void StartSystem()
+    {
+        _loop = new WasapiLoopbackCapture();
+        _buffer = new BufferedWaveProvider(_loop.WaveFormat) { DiscardOnBufferOverflow = true };
+        _loop.DataAvailable += (_, e) => { try { _buffer.AddSamples(e.Buffer, 0, e.BytesRecorded); } catch (Exception ex) { AppLog.Warn("capture: loopback buffer :: " + ex.Message); } };
+        _loop.RecordingStopped += (_, e) => { if (e.Exception is not null) AppLog.Error("capture: loopback stopped unexpectedly", e.Exception); };
+        // NAudio resampler handles the device format (often 48 kHz stereo float) -> 16 kHz mono.
+        _resampler = new MediaFoundationResampler(_buffer, new WaveFormat(16000, 16, 1)) { ResamplerQuality = 60 };
+        _running = true;
+        _pump = new Thread(PumpLoopback) { IsBackground = true, Name = "MeetVaultLoopback" };
+        _pump.Start();
+        _loop.StartRecording();
+        AppLog.Info("capture: system loopback device='" + (_loop.WaveFormat) + "' file=" + MediaPath);
+    }
+
+    private void PumpLoopback()
+    {
+        var buffer = new byte[3200]; // 100 ms of 16 kHz mono 16-bit
+        while (_running)
+        {
+            try
+            {
+                var read = _resampler!.Read(buffer, 0, buffer.Length);
+                if (read <= 0) { Thread.Sleep(20); continue; }
+                var chunk = new byte[read];
+                Buffer.BlockCopy(buffer, 0, chunk, 0, read);
+                WriteChunk(chunk);
+            }
+            catch (Exception ex) { AppLog.Warn("capture: loopback pump :: " + ex.Message); Thread.Sleep(50); }
+        }
+    }
+
+    private void WriteChunk(byte[] chunk)
+    {
+        lock (_sink!) _sink.Write(chunk);
+        PcmReady?.Invoke(chunk);
     }
 
     public Task StopAsync(CancellationToken ct)
     {
         if (!IsCapturing) return Task.CompletedTask;
-        _mic?.StopRecording();
-        _mic?.Dispose(); _mic = null;
-        // Finalize the WAV header now so the file is playable before the page unloads.
-        lock (_sink!) _sink.FinalizeHeader();
         IsCapturing = false;
+        _running = false;
+        if (_mic is not null) { try { _mic.StopRecording(); } catch { } _mic.Dispose(); _mic = null; }
+        if (_loop is not null) { try { _loop.StopRecording(); } catch { } _loop.Dispose(); _loop = null; }
+        _pump?.Join(1000); _pump = null;
+        _resampler?.Dispose(); _resampler = null;
+        _buffer = null;
+        lock (_sink!) _sink.FinalizeHeader();
+        AppLog.Info("capture: stopped file=" + MediaPath);
         return Task.CompletedTask;
     }
 
@@ -56,8 +111,12 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
     {
         var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MeetVault", "media");
         Directory.CreateDirectory(dir);
-        // Timestamp + short guid: second-resolution names could otherwise collide.
         return Path.Combine(dir, DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("n").Substring(0, 6) + ".wav");
+    }
+
+    private static string SafeName(int dev)
+    {
+        try { return WaveInEvent.GetCapabilities(dev).ProductName; } catch { return "device " + dev; }
     }
 
     private static string DescribeDevices()
@@ -68,7 +127,7 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
         return string.Join(", ", names);
     }
 
-    // Real capture devices for the Settings picker. Empty when headless.
+    // Capture devices for the Settings picker. Empty when headless.
     public static IReadOnlyList<(int Id, string Name)> ListDevices()
     {
         var list = new List<(int, string)>();
@@ -84,7 +143,10 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
 
     public void Dispose()
     {
+        if (IsCapturing) { try { StopAsync(CancellationToken.None).Wait(1500); } catch { } }
         _mic?.Dispose();
+        _loop?.Dispose();
+        _resampler?.Dispose();
         if (_sink is null) return;
         lock (_sink) { _sink.Dispose(); }
         _sink = null;
@@ -102,7 +164,7 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
         {
             Path = path;
             _fs = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
-            _dataBytes = Math.Max(0, _fs.Length - 44); // reuse: continue an existing file
+            _dataBytes = Math.Max(0, _fs.Length - 44);
             _fs.SetLength(Math.Max(44, _fs.Length));
             _fs.Seek(0, SeekOrigin.Begin);
             WriteHeader();
@@ -148,3 +210,4 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
         }
     }
 }
+

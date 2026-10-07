@@ -24,6 +24,19 @@
                               SelectionChanged="Picker_SelectionChanged"
                               AutomationProperties.Name="Microphone" />
                 </Grid>
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock Text="Audio source" FontWeight="SemiBold" />
+                        <TextBlock Text="Microphone, or the system output (a conference app playing through your speakers)." Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ComboBox x:Name="SourcePicker" Grid.Column="1" Width="320" HorizontalAlignment="Left"
+                              SelectionChanged="Picker_SelectionChanged"
+                              AutomationProperties.Name="Audio source" />
+                </Grid>
                 <TextBlock x:Name="AudioStatus" Opacity="0.7" TextWrapping="Wrap" />
             </StackPanel>
 
@@ -160,6 +173,28 @@
                 </Grid>
                 <TextBlock x:Name="StorageStatus" Opacity="0.7" TextWrapping="Wrap" />
                 <TextBlock x:Name="UsageText" FontWeight="SemiBold" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock Text="Logging" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock Text="Log level" FontWeight="SemiBold" />
+                        <TextBlock Text="How much the app writes to its log file." Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ComboBox x:Name="LogLevelPicker" Grid.Column="1" Width="200" HorizontalAlignment="Left"
+                              SelectionChanged="Picker_SelectionChanged"
+                              AutomationProperties.Name="Log level" />
+                </Grid>
+                <TextBlock x:Name="LogStatus" Opacity="0.7" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="Open log folder" Click="OpenLogFolder_Click" AutomationProperties.Name="Open log folder" />
+                    <Button Content="Show log" Click="ShowLog_Click" AutomationProperties.Name="Show log" />
+                </StackPanel>
             </StackPanel>
 
             <StackPanel Spacing="8">

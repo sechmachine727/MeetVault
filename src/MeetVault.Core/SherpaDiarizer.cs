@@ -23,6 +23,7 @@ public sealed class SherpaDiarizer : ISpeakerDiarizer, IDisposable
             Embedding = new SpeakerEmbeddingExtractorConfig { Model = embeddingModel, NumThreads = numThreads },
         };
         _diar = new OfflineSpeakerDiarization(config);
+        AppLog.Info("diarizer: loaded seg=" + System.IO.Path.GetFileName(segmentationModel) + " emb=" + System.IO.Path.GetFileName(embeddingModel) + " threads=" + numThreads);
     }
 
     // Assigns the dominant speaker of one finalized 16 kHz mono window as a stable spk_N id.
@@ -35,7 +36,7 @@ public sealed class SherpaDiarizer : ISpeakerDiarizer, IDisposable
         var segments = _diar.Process(samples16kMono);
         if (segments.Length == 0) return "spk_1";
         var dominant = segments.OrderByDescending(s => s.End - s.Start).First().Speaker;
-        if (!_ids.TryGetValue(dominant, out var id)) { id = $"spk_{_ids.Count + 1}"; _ids[dominant] = id; }
+        if (!_ids.TryGetValue(dominant, out var id)) { id = $"spk_{_ids.Count + 1}"; _ids[dominant] = id; AppLog.Debug("diarizer: speaker " + dominant + " -> " + id); }
         return id;
     }
 

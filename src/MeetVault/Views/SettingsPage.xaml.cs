@@ -27,6 +27,9 @@ public sealed partial class SettingsPage : Page
         ModelPicker.ItemsSource = new[] { "tiny (live, fast)", "base (refinement, accurate)" };
         _deviceOptions = BuildDeviceOptions();
         DevicePicker.ItemsSource = _deviceOptions;
+        _sourceOptions = new[] { "microphone", "system" };
+        SourcePicker.ItemsSource = new[] { "Microphone", "System audio (loopback)" };
+        LogLevelPicker.ItemsSource = new[] { "trace", "debug", "info", "warning", "error", "off" };
         MicPicker.SelectedIndex = 0;
         ModelPicker.SelectedIndex = 0;
         DevicePicker.SelectedIndex = 0;
@@ -37,6 +40,7 @@ public sealed partial class SettingsPage : Page
     }
 
     private readonly List<DeviceOption> _deviceOptions;
+    private readonly string[] _sourceOptions;
 
     // Real capability probe, not a vendor-name guess: CPU is always offered, then each
     // GPU the CUDA and Vulkan loaders actually expose. With no GPU, CUDA is shown
@@ -99,6 +103,41 @@ public sealed partial class SettingsPage : Page
         if (int.TryParse(repo.GetSetting("audio.mic"), out var micIdx) && micIdx >= 0 && micIdx < MicPicker.Items.Count) MicPicker.SelectedIndex = micIdx;
         var (backend, index) = MeetVault.Core.TranscriptionDevice.Parse(repo.GetSetting("transcription.device"));
         SelectDevice(MeetVault.Core.TranscriptionDevice.Encode(backend, index));
+        var logLevel = (repo.GetSetting("logging.level") ?? "debug").Trim().ToLowerInvariant();
+        LogLevelPicker.SelectedIndex = Array.IndexOf(new[] { "trace", "debug", "info", "warning", "error", "off" }, logLevel) is var li && li >= 0 ? li : 1;
+        SourcePicker.SelectedIndex = (repo.GetSetting("audio.source") == "system") ? 1 : 0;
+    }
+
+    private void OpenLogFolder_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(MeetVault.Core.AppLog.Path);
+            if (!string.IsNullOrEmpty(dir)) { Directory.CreateDirectory(dir); System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(dir) { UseShellExecute = true }); }
+        }
+        catch (Exception ex) { Warn("Could not open the log folder: " + DescribeStorage(ex)); }
+    }
+
+    private void ShowLog_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (File.Exists(MeetVault.Core.AppLog.Path))
+            {
+                var text = File.ReadAllText(MeetVault.Core.AppLog.Path);
+                var tail = text.Length > 4000 ? text[^4000..] : text;
+                LogStatus.Text = tail;
+            }
+            else LogStatus.Text = "No log yet. " + MeetVault.Core.AppLog.Path;
+        }
+        catch (Exception ex) { Warn("Could not read the log: " + DescribeStorage(ex)); }
+    }
+
+    private void Warn(string message)
+    {
+        StatusBar.Severity = InfoBarSeverity.Warning;
+        StatusBar.Message = message;
+        StatusBar.IsOpen = true;
     }
 
     // Selects the option with the given value, falling back to CPU when it is gone
@@ -120,10 +159,15 @@ public sealed partial class SettingsPage : Page
             || StorageStatus is null || UsageText is null || GeminiStatus is null) return;
         var device = DevicePicker.SelectedItem as DeviceOption;
         var deviceValue = device is { Enabled: true } ? device.Value : "cpu";
-        AudioStatus.Text = $"Capturing from {MicPicker.SelectedItem}.";
+        var sourceValue = _sourceOptions[Math.Max(0, SourcePicker.SelectedIndex)];
+        AudioStatus.Text = sourceValue == "system"
+            ? "Capturing the system output (conference app audio)."
+            : $"Capturing from {MicPicker.SelectedItem}.";
         // Show the graphics/inference APIs this PC actually exposes, probed not guessed.
         var gpuNote = " \u00b7 available: " + MeetVault.Core.GpuProbe.ApiSummary();
         TranscriptionStatus.Text = $"{ModelPicker.SelectedItem} on {device?.Label ?? "CPU"} \u00b7 diarization {OnOff(DiarizationSwitch.IsOn)}{gpuNote}";
+        var logLevel = LogLevelPicker.SelectedItem as string ?? "debug";
+        LogStatus.Text = $"Writing {logLevel} and above to {MeetVault.Core.AppLog.Path}";
         OverlayStatus.Text = $"Keep on top {OnOff(PinSwitch.IsOn)} \u00b7 opacity {OpacitySlider.Value:P0} \u00b7 font {FontSizeBox.Value} pt \u00b7 {LinesBox.Value} line(s)";
         StorageStatus.Text = $"Transcripts will be written to {StoragePathBox.Text}.";
         UsageText.Text = DescribeUsage(StoragePathBox.Text);
@@ -145,7 +189,10 @@ public sealed partial class SettingsPage : Page
             var micLabel = MicPicker.SelectedItem as string ?? "0";
             var micId = micLabel.Contains(":") ? micLabel.Substring(0, micLabel.IndexOf(':')).Trim() : "0";
             repo.SetSetting("audio.mic", micId);
+            repo.SetSetting("audio.source", sourceValue);
             repo.SetSetting("transcription.device", deviceValue);
+            repo.SetSetting("logging.level", logLevel);
+            MeetVault.Core.AppLog.Configure(logLevel);
             _saveFailed = false;
         }
         catch (Exception ex) when (!_saveFailed)

@@ -30,6 +30,7 @@ public sealed partial class LivePage : Page
     private LiveState _state = LiveState.Idle;
 
     private static string MicId => AppStore.Repo.GetSetting("audio.mic") ?? "0";
+    private static string AppSource => AppStore.Repo.GetSetting("audio.source") ?? "mic";
 
     public LivePage()
     {
@@ -90,8 +91,10 @@ public sealed partial class LivePage : Page
             try { windowDiarizer?.Dispose(); } catch { }
             _whisper = null; _capture = null; _windowDiarizer = null;
             _engineMode = "demo (engine init failed)";
+            MeetVault.Core.AppLog.Error("live: engine init failed; running demo");
         }
         _transcriber = transcriber; _audio = audio; _diarizer = diarizer;
+        MeetVault.Core.AppLog.Info("live: engines resolved -> " + _engineMode);
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
@@ -111,7 +114,7 @@ public sealed partial class LivePage : Page
         try
         {
             _session = new MeetingSession(_audio, _transcriber, _diarizer, new NeutralSpeakerLabeler(), AppStore.Repo);
-            await _session.StartAsync(MicId, "", CancellationToken.None);
+            await _session.StartAsync(MicId, AppSource, CancellationToken.None);
             WireSession(clearOverlay: true);
             _windowOffsetMs = 0;
             SetState(LiveState.Recording);
@@ -123,6 +126,7 @@ public sealed partial class LivePage : Page
         {
             try { if (_session is not null) { _session.MarkFailed(); _session = null; } } catch { }
             SetState(LiveState.Idle);
+            MeetVault.Core.AppLog.Error("live: start capture failed", ex);
             Status("Could not start capture. Check the microphone in Settings. (" + Short(ex) + ")");
         }
     }
@@ -132,7 +136,7 @@ public sealed partial class LivePage : Page
         try
         {
             if (AppStore.Repo.Load(id)?.MediaPath is { Length: > 0 } mediaPath && _capture is not null) _capture.ReuseFile(mediaPath);
-            _session = await MeetingSession.RecoverAsync(id, _audio, _transcriber, _diarizer, new NeutralSpeakerLabeler(), AppStore.Repo, MicId, "");
+            _session = await MeetingSession.RecoverAsync(id, _audio, _transcriber, _diarizer, new NeutralSpeakerLabeler(), AppStore.Repo, MicId, AppSource);
             foreach (var sp in _session.Speakers) _speakerNames[sp.Id] = sp.DisplayName;
             foreach (var s in _session.Segments) AddLine(s.SpeakerId, s.Text);
             WireSession(clearOverlay: false); // keep the recovered backlog for a late-opened overlay
@@ -145,6 +149,7 @@ public sealed partial class LivePage : Page
         catch (Exception ex)
         {
             SetState(LiveState.Idle);
+            MeetVault.Core.AppLog.Error("live: resume failed", ex);
             Status("Could not resume this meeting. (" + Short(ex) + ")");
         }
     }
@@ -167,6 +172,7 @@ public sealed partial class LivePage : Page
         ResumeButton.IsEnabled = state == LiveState.Paused;
         StopButton.IsEnabled = state is LiveState.Recording or LiveState.Paused;
         RefreshAudioStatus();
+        MeetVault.Core.AppLog.Info("live: state=" + state);
     }
 
     private void StartCheckpointTimer()
@@ -194,6 +200,7 @@ public sealed partial class LivePage : Page
             ? $" (requested {_whisper.Backend}, not available on this PC)"
             : "";
         EngineStatus.Text = "live: whisper " + _modelLabel + " + " + accel + note + (_windowDiarizer is null ? ", single speaker" : " + sherpa diarizer");
+        if (actual) MeetVault.Core.AppLog.Info("live: accelerator loaded=" + backend + " requested=" + _whisper.Backend);
     }
 
     private void RebuildSpeakers()

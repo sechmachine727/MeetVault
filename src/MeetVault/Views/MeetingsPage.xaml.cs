@@ -88,6 +88,42 @@ public sealed partial class MeetingsPage : Page
         }
     }
 
+    // Delete a meeting (and its recording) after an explicit confirmation.
+    private async void DeleteMeeting_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: MeetingCard card }) return;
+        var confirm = new ContentDialog
+        {
+            Title = "Delete this meeting?",
+            Content = $"'{card.Title}' and its transcript will be removed. The recording file is deleted too. This cannot be undone.",
+            PrimaryButtonText = "Delete",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = XamlRoot,
+        };
+        if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+        try
+        {
+            var media = AppStore.Repo.DeleteMeeting(card.Id);
+            if (media is { Length: > 0 })
+            {
+                try { if (File.Exists(media)) File.Delete(media); }
+                catch (Exception ex) { MeetVault.Core.AppLog.Warn("delete: could not remove media " + media + " :: " + ex.Message); }
+            }
+            ApplyFilter(SearchBox.Text);
+            StatusBar.Message = $"Deleted '{card.Title}'.";
+            StatusBar.Severity = InfoBarSeverity.Success;
+            StatusBar.IsOpen = true;
+        }
+        catch (Exception ex)
+        {
+            MeetVault.Core.AppLog.Error("delete: meeting " + card.Id + " failed", ex);
+            StatusBar.Message = "Could not delete the meeting.";
+            StatusBar.Severity = InfoBarSeverity.Error;
+            StatusBar.IsOpen = true;
+        }
+    }
+
     private void ApplyFilter(string query)
     {
         var term = query.Trim();

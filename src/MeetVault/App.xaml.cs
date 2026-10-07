@@ -65,6 +65,10 @@ public partial class App : Application
                 LogStartup("onnxruntime.dll not found beside the exe; sherpa may fail at engine init.");
         }
         catch (Exception ex) { LogStartup("onnxruntime pin failed: " + ex.Message); }
+        // Configure the app log from Settings (default level: debug) before anything logs.
+        try { MeetVault.Core.AppLog.Configure(Views.AppStore.Repo.GetSetting("logging.level") ?? "debug"); }
+        catch { MeetVault.Core.AppLog.Configure("debug"); }
+        MeetVault.Core.AppLog.Info("app start; log level=" + MeetVault.Core.AppLog.LevelName(MeetVault.Core.AppLog.Parse(Views.AppStore.Repo.GetSetting("logging.level"))));
         InitializeComponent();
         // ponytail: last-resort crash log. Unhandled UI exceptions otherwise vanish
         // in the unpackaged exe with no debugger attached.
@@ -79,6 +83,7 @@ public partial class App : Application
                     + " STACK:" + (e.Exception.StackTrace ?? string.Empty) + global::System.Environment.NewLine);
             }
             catch { }
+            MeetVault.Core.AppLog.Error("unhandled UI exception", e.Exception);
         };
     }
 
