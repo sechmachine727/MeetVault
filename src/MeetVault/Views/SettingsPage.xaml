@@ -18,7 +18,7 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel Spacing="2" VerticalAlignment="Top">
                         <TextBlock Text="Microphone" FontWeight="SemiBold" />
-                        <TextBlock Text="Capture device for the meeting audio track." Opacity="0.7" TextWrapping="Wrap" />
+                        <TextBlock Text="The device used when the microphone is recorded." Opacity="0.7" TextWrapping="Wrap" />
                     </StackPanel>
                     <ComboBox x:Name="MicPicker" Grid.Column="1" Width="280" HorizontalAlignment="Left"
                               SelectionChanged="Picker_SelectionChanged"
@@ -30,12 +30,36 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <StackPanel Spacing="2" VerticalAlignment="Top">
-                        <TextBlock Text="Audio source" FontWeight="SemiBold" />
-                        <TextBlock Text="Microphone, or the system output (a conference app playing through your speakers)." Opacity="0.7" TextWrapping="Wrap" />
+                        <TextBlock Text="Record microphone" FontWeight="SemiBold" />
+                        <TextBlock Text="Your own voice. Turn off to capture only system audio." Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ToggleSwitch x:Name="MicSwitch" Grid.Column="1" HorizontalAlignment="Left" IsOn="True"
+                                  Toggled="Audio_Toggled" AutomationProperties.Name="Record microphone" />
+                </Grid>
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock Text="Record system audio" FontWeight="SemiBold" />
+                        <TextBlock Text="What your speakers play, mixed with the microphone." Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ToggleSwitch x:Name="SystemSwitch" Grid.Column="1" HorizontalAlignment="Left" IsOn="True"
+                                  Toggled="Audio_Toggled" AutomationProperties.Name="Record system audio" />
+                </Grid>
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock Text="System audio source" FontWeight="SemiBold" />
+                        <TextBlock Text="All apps, or one running app such as a conference app." Opacity="0.7" TextWrapping="Wrap" />
                     </StackPanel>
                     <ComboBox x:Name="SourcePicker" Grid.Column="1" Width="320" HorizontalAlignment="Left"
                               SelectionChanged="Picker_SelectionChanged"
-                              AutomationProperties.Name="Audio source" />
+                              AutomationProperties.Name="System audio source" />
                 </Grid>
                 <TextBlock x:Name="AudioStatus" Opacity="0.7" TextWrapping="Wrap" />
             </StackPanel>

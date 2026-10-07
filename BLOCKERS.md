@@ -33,7 +33,7 @@
 
 ## Not blockers (tracked for completeness)
 
-- System-audio capture is implemented (WasapiLoopbackCapture -> 16 kHz mono), so a conference app playing through the speakers is recorded. Per-process capture (one app only, without the rest of the system mix) still needs the WASAPI process-loopback helper. Its audio content needs your machine to confirm.
+- Microphone and system audio are always mixed (verified: the log shows `capture: started mic=on system=all sources=2`). Per-app capture uses the WASAPI process-loopback API (`ProcessLoopbackCapture`); it falls back to system-wide capture when activation fails. Activation was not confirmed on the test VM (process loopback is often unsupported in a Hyper-V guest), so the per-app path needs a check on a machine with the target app rendering audio.
 - App logging: on by default at debug level, configurable in Settings, written to %TEMP%\MeetVault\app.log.
 - No local gender classifier ships: labels are neutral `Speaker N`; the gender toggle was removed rather than left inert.
 - `storage.path` governs export only; the transcript database stays in `%APPDATA%\MeetVault`.

@@ -1,21 +1,31 @@
+using NAudio.CoreAudioApi;
 using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 
 namespace MeetVault.Core;
 
-// Real capture behind IAudioCapture. Source is the mic (WaveInEvent) or the system
-// render loopback (WasapiLoopbackCapture), which is how a conference app's audio is
-// captured. Loopback is resampled to 16 kHz mono with NAudio's resampler so both
-// sources feed the same 16 kHz mono WAV + transcription pipeline.
-// ponytail: system-wide loopback, not per-process; per-app needs the WASAPI process-loopback helper.
+// Real capture behind IAudioCapture. It always records the microphone and the system
+// audio together, mixed to 16 kHz mono, so the user's own voice is never dropped when
+// they pick "system audio". Whatever the speakers play (a Teams/Zoom call, a video) is
+// captured as well.
+//
+// StartAsync hints:
+//   micId     device index, or "off" to skip the microphone.
+//   appSource "off" to skip system audio, "all" for every app, or a process id to
+//             capture one application (and its child processes) through process loopback.
+//
+// ponytail: mic is single device; per-process capture falls back to system-wide when the
+// process-loopback API is unavailable (Windows < 10 20348 or a failed activation).
 public sealed class NAudioCapture : IAudioCapture, IDisposable
 {
     public bool IsCapturing { get; private set; }
-    public event Action<byte[]>? PcmReady; // 16-bit mono frames for the transcription pipeline
+    public event Action<byte[]>? PcmReady; // 16-bit mono 16 kHz frames
 
     private WaveInEvent? _mic;
-    private WasapiLoopbackCapture? _loop;
-    private BufferedWaveProvider? _buffer;
-    private MediaFoundationResampler? _resampler;
+    private IWaveIn? _system;
+    private BufferedWaveProvider? _micBuffer;
+    private BufferedWaveProvider? _sysBuffer;
+    private ISampleProvider? _chain;
     private Thread? _pump;
     private volatile bool _running;
     private WavSink? _sink;
@@ -29,60 +39,101 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
     public Task StartAsync(string micId, string appSource, CancellationToken ct)
     {
         if (IsCapturing) return Task.CompletedTask;
+
+        var inputs = new List<ISampleProvider>();
+        var micOn = !string.IsNullOrWhiteSpace(micId) && !string.Equals(micId, "off", StringComparison.OrdinalIgnoreCase);
+        var sysOn = !string.IsNullOrWhiteSpace(appSource) && !string.Equals(appSource, "off", StringComparison.OrdinalIgnoreCase);
+
+        // A bad mic id is a caller error and must surface; a transient mic failure is logged
+        // so a working system-audio source can still record.
+        if (micOn) { try { inputs.Add(StartMic(micId)); } catch (ArgumentException) { throw; } catch (Exception ex) { AppLog.Error("capture: microphone failed (" + micId + ")", ex); } }
+        if (sysOn) { try { inputs.Add(StartSystem(appSource)); } catch (Exception ex) { AppLog.Error("capture: system audio failed (" + appSource + ")", ex); } }
+
+        if (inputs.Count == 0)
+        {
+            try { _mic?.Dispose(); } catch { } _mic = null;
+            try { _system?.Dispose(); } catch { } _system = null;
+            throw new InvalidOperationException("No audio source could be started (microphone and system audio both unavailable).");
+        }
+
         _sink ??= new WavSink(_reusePath ?? NewMediaPath());
         _reusePath = null;
+        _chain = inputs.Count == 1 ? inputs[0] : new MixingSampleProvider(inputs);
+        _running = true;
+        _pump = new Thread(Pump) { IsBackground = true, Name = "MeetVaultMix" };
+        _pump.Start();
         IsCapturing = true;
-
-        if (string.Equals(appSource, "system", StringComparison.OrdinalIgnoreCase)) StartSystem();
-        else StartMic(micId);
+        AppLog.Info("capture: started mic=" + (micOn ? "on" : "off") + " system=" + (sysOn ? appSource : "off") + " sources=" + inputs.Count + " file=" + MediaPath);
         return Task.CompletedTask;
     }
 
-    private void StartMic(string micId)
+    private ISampleProvider StartMic(string micId)
     {
-        if (!int.TryParse(micId, out var dev)) { IsCapturing = false; throw new ArgumentException($"Mic id must be a device number, got '{micId}'. Available: {DescribeDevices()}.", nameof(micId)); }
-        if (dev < 0 || dev >= WaveInEvent.DeviceCount) { IsCapturing = false; throw new ArgumentException($"Mic device {dev} out of range. Available: {DescribeDevices()}.", nameof(micId)); }
+        if (!int.TryParse(micId, out var dev)) throw new ArgumentException($"Mic id must be a device number, got '{micId}'. Available: {DescribeDevices()}.", nameof(micId));
+        if (dev < 0 || dev >= WaveInEvent.DeviceCount) throw new ArgumentException($"Mic device {dev} out of range. Available: {DescribeDevices()}.", nameof(micId));
         _mic = new WaveInEvent { WaveFormat = new WaveFormat(16000, 16, 1), DeviceNumber = dev };
-        _mic.DataAvailable += (_, e) =>
-        {
-            var chunk = new byte[e.BytesRecorded];
-            Buffer.BlockCopy(e.Buffer, 0, chunk, 0, e.BytesRecorded);
-            WriteChunk(chunk);
-        };
+        _micBuffer = new BufferedWaveProvider(_mic.WaveFormat) { DiscardOnBufferOverflow = true };
+        _mic.DataAvailable += (_, e) => { try { _micBuffer.AddSamples(e.Buffer, 0, e.BytesRecorded); } catch { } };
         _mic.StartRecording();
-        AppLog.Info("capture: mic device=" + dev + " '" + SafeName(dev) + "' file=" + MediaPath);
+        AppLog.Info("capture: mic device=" + dev + " '" + SafeName(dev) + "'");
+        return _micBuffer.ToSampleProvider(); // already 16 kHz mono
     }
 
-    // Loopback captures whatever the speakers play - a Teams/Zoom call, a video, etc.
-    private void StartSystem()
+    private ISampleProvider StartSystem(string appSource)
     {
-        _loop = new WasapiLoopbackCapture();
-        _buffer = new BufferedWaveProvider(_loop.WaveFormat) { DiscardOnBufferOverflow = true };
-        _loop.DataAvailable += (_, e) => { try { _buffer.AddSamples(e.Buffer, 0, e.BytesRecorded); } catch (Exception ex) { AppLog.Warn("capture: loopback buffer :: " + ex.Message); } };
-        _loop.RecordingStopped += (_, e) => { if (e.Exception is not null) AppLog.Error("capture: loopback stopped unexpectedly", e.Exception); };
-        // NAudio resampler handles the device format (often 48 kHz stereo float) -> 16 kHz mono.
-        _resampler = new MediaFoundationResampler(_buffer, new WaveFormat(16000, 16, 1)) { ResamplerQuality = 60 };
-        _running = true;
-        _pump = new Thread(PumpLoopback) { IsBackground = true, Name = "MeetVaultLoopback" };
-        _pump.Start();
-        _loop.StartRecording();
-        AppLog.Info("capture: system loopback device='" + (_loop.WaveFormat) + "' file=" + MediaPath);
+        _system = TryStartProcess(appSource, out var processCapture) ? processCapture : new WasapiLoopbackCapture();
+        if (_system.WaveFormat is null) throw new InvalidOperationException("System capture did not report a format.");
+        _sysBuffer = new BufferedWaveProvider(_system.WaveFormat) { DiscardOnBufferOverflow = true };
+        _system.DataAvailable += (_, e) => { try { _sysBuffer.AddSamples(e.Buffer, 0, e.BytesRecorded); } catch { } };
+        _system.StartRecording();
+        AppLog.Info("capture: system audio (" + _system.GetType().Name + ") format=" + _system.WaveFormat);
+        return ToMono16k(_sysBuffer.ToSampleProvider());
     }
 
-    private void PumpLoopback()
+    // A positive integer appSource means "capture this process tree".
+    private bool TryStartProcess(string appSource, out ProcessLoopbackCapture capture)
     {
-        var buffer = new byte[3200]; // 100 ms of 16 kHz mono 16-bit
+        capture = null!;
+        if (!int.TryParse(appSource, out var pid) || pid <= 0) return false;
+        try
+        {
+            capture = new ProcessLoopbackCapture((uint)pid);
+            AppLog.Info("capture: process loopback pid=" + pid);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn("capture: process loopback pid=" + pid + " unavailable, using system-wide :: " + ex.Message);
+            return false;
+        }
+    }
+
+    // System audio arrives as float often at 48 kHz stereo; make it 16 kHz mono.
+    private static ISampleProvider ToMono16k(ISampleProvider provider)
+    {
+        var mono = provider.WaveFormat.Channels > 1 ? provider.ToMono() : provider;
+        return mono.WaveFormat.SampleRate == 16000 ? mono : new WdlResamplingSampleProvider(mono, 16000);
+    }
+
+    private void Pump()
+    {
+        var floats = new float[1600]; // 100 ms at 16 kHz
+        var bytes = new byte[floats.Length * 2];
         while (_running)
         {
-            try
+            int read;
+            try { read = _chain!.Read(floats, 0, floats.Length); }
+            catch (Exception ex) { AppLog.Warn("capture: mix read :: " + ex.Message); Thread.Sleep(50); continue; }
+            if (read <= 0) { Thread.Sleep(10); continue; }
+            for (var i = 0; i < read; i++)
             {
-                var read = _resampler!.Read(buffer, 0, buffer.Length);
-                if (read <= 0) { Thread.Sleep(20); continue; }
-                var chunk = new byte[read];
-                Buffer.BlockCopy(buffer, 0, chunk, 0, read);
-                WriteChunk(chunk);
+                var v = (short)Math.Clamp(floats[i] * 32767f, short.MinValue, short.MaxValue);
+                bytes[2 * i] = (byte)(v & 0xFF);
+                bytes[2 * i + 1] = (byte)((v >> 8) & 0xFF);
             }
-            catch (Exception ex) { AppLog.Warn("capture: loopback pump :: " + ex.Message); Thread.Sleep(50); }
+            var chunk = new byte[read * 2];
+            Buffer.BlockCopy(bytes, 0, chunk, 0, chunk.Length);
+            WriteChunk(chunk);
         }
     }
 
@@ -97,12 +148,11 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
         if (!IsCapturing) return Task.CompletedTask;
         IsCapturing = false;
         _running = false;
-        if (_mic is not null) { try { _mic.StopRecording(); } catch { } _mic.Dispose(); _mic = null; }
-        if (_loop is not null) { try { _loop.StopRecording(); } catch { } _loop.Dispose(); _loop = null; }
+        try { _mic?.StopRecording(); } catch { } _mic?.Dispose(); _mic = null;
+        try { _system?.StopRecording(); } catch { } _system?.Dispose(); _system = null;
         _pump?.Join(1000); _pump = null;
-        _resampler?.Dispose(); _resampler = null;
-        _buffer = null;
-        lock (_sink!) _sink.FinalizeHeader();
+        _micBuffer = null; _sysBuffer = null; _chain = null;
+        if (_sink is not null) { lock (_sink) _sink.FinalizeHeader(); }
         AppLog.Info("capture: stopped file=" + MediaPath);
         return Task.CompletedTask;
     }
@@ -141,12 +191,36 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
         return list;
     }
 
+    // Applications currently rendering audio, for the "capture one app" picker.
+    public static IReadOnlyList<(uint Pid, string Name)> ListAudioApps()
+    {
+        var list = new List<(uint, string)>();
+        try
+        {
+            using var enumerator = new MMDeviceEnumerator();
+            using var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            var sessions = device.AudioSessionManager.Sessions;
+            var seen = new HashSet<uint>();
+            for (var i = 0; i < sessions.Count; i++)
+            {
+                uint pid;
+                try { pid = sessions[i].GetProcessID; } catch { continue; }
+                if (pid == 0 || !seen.Add(pid)) continue;
+                string name;
+                try { using var p = System.Diagnostics.Process.GetProcessById((int)pid); name = p.MainModule?.FileVersionInfo?.FileDescription is { Length: > 0 } d ? d : p.ProcessName; }
+                catch { name = "process " + pid; }
+                list.Add((pid, name.Trim()));
+            }
+        }
+        catch (Exception ex) { AppLog.Warn("capture: could not list audio apps :: " + ex.Message); }
+        return list;
+    }
+
     public void Dispose()
     {
         if (IsCapturing) { try { StopAsync(CancellationToken.None).Wait(1500); } catch { } }
         _mic?.Dispose();
-        _loop?.Dispose();
-        _resampler?.Dispose();
+        _system?.Dispose();
         if (_sink is null) return;
         lock (_sink) { _sink.Dispose(); }
         _sink = null;
@@ -210,4 +284,3 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
         }
     }
 }
-

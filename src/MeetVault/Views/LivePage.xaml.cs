@@ -29,8 +29,19 @@ public sealed partial class LivePage : Page
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _checkpoint;
     private LiveState _state = LiveState.Idle;
 
-    private static string MicId => AppStore.Repo.GetSetting("audio.mic") ?? "0";
-    private static string AppSource => AppStore.Repo.GetSetting("audio.source") ?? "mic";
+    // Microphone and system audio are recorded together unless switched off in Settings.
+    private static string MicId => AppStore.Repo.GetSetting("audio.mic.enabled") == "off"
+        ? "off"
+        : AppStore.Repo.GetSetting("audio.mic") ?? "0";
+    private static string AppSource
+    {
+        get
+        {
+            if (AppStore.Repo.GetSetting("audio.system.enabled") == "off") return "off";
+            var value = AppStore.Repo.GetSetting("audio.source");
+            return string.IsNullOrWhiteSpace(value) ? "all" : value;
+        }
+    }
 
     public LivePage()
     {

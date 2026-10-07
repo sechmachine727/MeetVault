@@ -12,7 +12,7 @@ Not implemented: per-process audio capture, a bundled gender classifier, and aut
 
 ## Features
 
-- Record the microphone or the system output. Choosing **System audio** captures a conference app (Teams, Zoom, and so on) playing through your speakers.
+- Record the microphone and system output together, mixed into one track, so your own voice is never lost. The system side can capture every app or a single chosen app (a conference call).
 - On-device transcription (whisper.cpp via Whisper.net), so transcription runs offline.
 - Speaker separation (sherpa-onnx diarization) with renameable speaker labels.
 - Live transcript view with a Pinnable, always-on-top overlay.
@@ -87,7 +87,7 @@ Place these under `models/`. They are gitignored and must be staged next to the 
 
 Settings persist in `%APPDATA%\MeetVault\meetings.db` (SQLite, `settings` table). The Settings screen covers:
 
-- **Audio**: microphone, audio source (microphone or system audio).
+- **Audio**: microphone device, record-microphone on/off, record-system-audio on/off, and the system-audio source (all apps, or one running app). Microphone and system audio are mixed; disabling one records the other alone.
 - **Transcription**: model (tiny or base), device (CPU, or a detected GPU), speaker diarization.
 - **Overlay**: keep on top, opacity, font size, lines shown.
 - **Storage**: export folder.
@@ -120,7 +120,7 @@ Vulkan passthrough is often unavailable inside a Hyper-V GPU-P virtual machine; 
 
 ## Known gaps
 
-- Audio capture is microphone or whole-system output. Capturing a single application without the rest of the system mix needs a WASAPI process-loopback helper.
+- Audio capture mixes the microphone and system output. Capturing one application uses the WASAPI process-loopback API (`ProcessLoopbackCapture`), which falls back to system-wide capture when the API is unavailable; the per-app path is not yet confirmed on a machine with the target app playing.
 - No gender classifier ships, so speaker labels are neutral (`Speaker 1`, `Speaker 2`).
 - Two-speaker separation and JA/VI accuracy need validation with real speech.
 - The Gemini call has been tested against stubs, not against the live API.
@@ -128,4 +128,3 @@ Vulkan passthrough is often unavailable inside a Hyper-V GPU-P virtual machine; 
 ## Links
 
 The **AGENTS.md** file at the repository root gives agent and contributor instructions for this repo.
-

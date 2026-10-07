@@ -46,6 +46,7 @@ These keep the published app from crashing. Each was found the hard way.
 - Persisted settings live in the `settings` table and are read with `LocalMeetingRepository.GetSetting`. Keep keys consistent between the writer and the reader.
 - Segment ids are namespaced by meeting id (`{meetingId}-w{start}-{index}`) because `transcript_segments.id` is a global primary key.
 - Media files are one WAV per meeting, kept open across pause and resume, under `%APPDATA%\MeetVault\media`. `StopAsync` finalizes the WAV header.
+- Capture always combines the microphone and system audio, mixed to 16 kHz mono. `IAudioCapture.StartAsync(micId, appSource)` hints select the parts: `micId` is a device index or `off`; `appSource` is `off`, `all`, or a process id for one app (process loopback, with a fallback to system-wide).
 
 ## Verification expectations
 
@@ -58,4 +59,3 @@ These keep the published app from crashing. Each was found the hard way.
 - `docs/COVERAGE.md` — requirement-to-evidence ledger and change history.
 - `docs/BUILD-LEDGER.md` — historical build log with engine measurements (past tense; not current status).
 - `BLOCKERS.md` — open items that need a specific machine or the user.
-

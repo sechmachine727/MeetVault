@@ -27,8 +27,9 @@ public sealed partial class SettingsPage : Page
         ModelPicker.ItemsSource = new[] { "tiny (live, fast)", "base (refinement, accurate)" };
         _deviceOptions = BuildDeviceOptions();
         DevicePicker.ItemsSource = _deviceOptions;
-        _sourceOptions = new[] { "microphone", "system" };
-        SourcePicker.ItemsSource = new[] { "Microphone", "System audio (loopback)" };
+        _sourceOptions.Add(("All apps", ""));
+        foreach (var (pid, name) in MeetVault.Core.NAudioCapture.ListAudioApps()) _sourceOptions.Add((name + " (" + pid + ")", pid.ToString()));
+        SourcePicker.ItemsSource = _sourceOptions.Select(o => o.Label).ToArray();
         LogLevelPicker.ItemsSource = new[] { "trace", "debug", "info", "warning", "error", "off" };
         MicPicker.SelectedIndex = 0;
         ModelPicker.SelectedIndex = 0;
@@ -40,7 +41,7 @@ public sealed partial class SettingsPage : Page
     }
 
     private readonly List<DeviceOption> _deviceOptions;
-    private readonly string[] _sourceOptions;
+    private readonly List<(string Label, string Value)> _sourceOptions = new();
 
     // Real capability probe, not a vendor-name guess: CPU is always offered, then each
     // GPU the CUDA and Vulkan loaders actually expose. With no GPU, CUDA is shown
@@ -64,6 +65,8 @@ public sealed partial class SettingsPage : Page
     private void Picker_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (_ready) Refresh(); }
 
     private void Diarization_Toggled(object sender, RoutedEventArgs e) { if (_ready) Refresh(); }
+
+    private void Audio_Toggled(object sender, RoutedEventArgs e) { if (_ready) Refresh(); }
 
     private void Pin_Toggled(object sender, RoutedEventArgs e) { if (_ready) Refresh(); }
 
@@ -105,7 +108,11 @@ public sealed partial class SettingsPage : Page
         SelectDevice(MeetVault.Core.TranscriptionDevice.Encode(backend, index));
         var logLevel = (repo.GetSetting("logging.level") ?? "debug").Trim().ToLowerInvariant();
         LogLevelPicker.SelectedIndex = Array.IndexOf(new[] { "trace", "debug", "info", "warning", "error", "off" }, logLevel) is var li && li >= 0 ? li : 1;
-        SourcePicker.SelectedIndex = (repo.GetSetting("audio.source") == "system") ? 1 : 0;
+        MicSwitch.IsOn = repo.GetSetting("audio.mic.enabled") != "off";
+        SystemSwitch.IsOn = repo.GetSetting("audio.system.enabled") != "off";
+        var app = repo.GetSetting("audio.system.app") ?? "";
+        var si = _sourceOptions.FindIndex(o => o.Value == app);
+        SourcePicker.SelectedIndex = si >= 0 ? si : 0;
     }
 
     private void OpenLogFolder_Click(object sender, RoutedEventArgs e)
@@ -159,10 +166,17 @@ public sealed partial class SettingsPage : Page
             || StorageStatus is null || UsageText is null || GeminiStatus is null) return;
         var device = DevicePicker.SelectedItem as DeviceOption;
         var deviceValue = device is { Enabled: true } ? device.Value : "cpu";
-        var sourceValue = _sourceOptions[Math.Max(0, SourcePicker.SelectedIndex)];
-        AudioStatus.Text = sourceValue == "system"
-            ? "Capturing the system output (conference app audio)."
-            : $"Capturing from {MicPicker.SelectedItem}.";
+        var micOn = MicSwitch.IsOn;
+        var sysOn = SystemSwitch.IsOn;
+        var sourceValue = SourcePicker.SelectedIndex >= 0 && SourcePicker.SelectedIndex < _sourceOptions.Count ? _sourceOptions[SourcePicker.SelectedIndex].Value : "";
+        var sourceLabel = SourcePicker.SelectedItem as string ?? "All apps";
+        AudioStatus.Text = (micOn, sysOn) switch
+        {
+            (true, true) => $"Recording {MicPicker.SelectedItem} and system audio ({sourceLabel}); mixed together.",
+            (true, false) => $"Recording {MicPicker.SelectedItem} only.",
+            (false, true) => $"Recording system audio ({sourceLabel}) only.",
+            _ => "No audio source enabled; nothing will be recorded.",
+        };
         // Show the graphics/inference APIs this PC actually exposes, probed not guessed.
         var gpuNote = " \u00b7 available: " + MeetVault.Core.GpuProbe.ApiSummary();
         TranscriptionStatus.Text = $"{ModelPicker.SelectedItem} on {device?.Label ?? "CPU"} \u00b7 diarization {OnOff(DiarizationSwitch.IsOn)}{gpuNote}";
@@ -189,7 +203,10 @@ public sealed partial class SettingsPage : Page
             var micLabel = MicPicker.SelectedItem as string ?? "0";
             var micId = micLabel.Contains(":") ? micLabel.Substring(0, micLabel.IndexOf(':')).Trim() : "0";
             repo.SetSetting("audio.mic", micId);
-            repo.SetSetting("audio.source", sourceValue);
+            repo.SetSetting("audio.source", sysOn ? (string.IsNullOrEmpty(sourceValue) ? "all" : sourceValue) : "off");
+            repo.SetSetting("audio.mic.enabled", OnOff(micOn));
+            repo.SetSetting("audio.system.enabled", OnOff(sysOn));
+            repo.SetSetting("audio.system.app", sourceValue);
             repo.SetSetting("transcription.device", deviceValue);
             repo.SetSetting("logging.level", logLevel);
             MeetVault.Core.AppLog.Configure(logLevel);

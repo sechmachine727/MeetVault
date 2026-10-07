@@ -55,6 +55,12 @@
 
 ### Deltas 2026-10-07 later (Observed, commits 92df6cf..36ed183)
 
+### Deltas 2026-10-07 (audio combination)
+
+- Capture always mixes the microphone and system audio (verified: `capture: started mic=on system=all sources=2`). The microphone/loopback either-or picker is gone; Settings has record-microphone and record-system-audio toggles plus a system-audio source list (all apps or one app).
+- Per-app capture adds `ProcessLoopbackCapture` (WASAPI process loopback) with a fallback to system-wide loopback; activation is unverified on the test VM.
+- Suite: 77/77 green (adds capture validation and a process-loopback probe).
+
 - Delete: Meetings Delete button + LocalMeetingRepository.DeleteMeeting (meeting, segments, speakers, job, and the media file).
 - System audio: NAudioCapture captures the mic OR the system loopback (WasapiLoopbackCapture resampled to 16 kHz mono); Settings Audio source. Loopback device opens and records (verified); audio content and per-process capture still need your machine.
 - Logging: AppLog writes a level-filtered, size-rolled log to %TEMP%\MeetVault\app.log, set in Settings (default debug); covers repo, session, capture, diarizer, whisper backend, Gemini, nav, GPU, and page errors.
