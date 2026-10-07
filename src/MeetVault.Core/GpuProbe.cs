@@ -311,6 +311,29 @@ public static class GpuProbe
     internal static bool VulkanDeviceUsable(int deviceType) =>
         deviceType == VkPhysicalDeviceTypeDiscreteGpu || deviceType == VkPhysicalDeviceTypeIntegratedGpu;
 
+    // ggml_vk_device_is_supported is exactly the storageBuffer16BitAccess flag. A device that
+    // fails it is dropped by ggml, so the picker must drop it too or the kept-device numbering
+    // shifts. When the feature query is unavailable the device is kept, matching ggml's own
+    // behaviour of having nothing to reject it on.
+    private static bool VulkanStorageBuffer16BitAccess(IntPtr device, VkGetPhysicalDeviceFeatures2Fn? getFeatures)
+    {
+        if (getFeatures is null) return true;
+        var buffer = Marshal.AllocHGlobal(VkFeaturesBufferBytes);
+        try
+        {
+            for (var b = 0; b < VkFeaturesBufferBytes; b++) Marshal.WriteByte(buffer, b, 0);
+            Marshal.WriteInt32(buffer, 0, unchecked((int)VkStructureTypePhysicalDeviceFeatures2));
+            Marshal.WriteInt32(buffer, 8, 0); // pNext = NULL
+            Marshal.WriteInt32(buffer, 12, 0); // first flags2 word = 0
+            var v11 = buffer + sizeof(int) + 2 * IntPtr.Size; // align(8) after sType+pNext on x64
+            Marshal.WriteInt32(v11, 0, unchecked((int)VkStructureTypePhysicalDeviceVulkan11Features));
+            Marshal.WriteInt32(v11 + 8, 0); // pNext = NULL
+            getFeatures(device, buffer);
+            return Marshal.ReadInt32(v11 + 16) != 0; // storageBuffer16BitAccess
+        }
+        finally { Marshal.FreeHGlobal(buffer); }
+    }
+
     private const uint VkStructureTypeApplicationInfo = 0;
     private const uint VkStructureTypeInstanceCreateInfo = 1;
     private const int VkSuccess = 0;
@@ -323,6 +346,21 @@ public static class GpuProbe
     private const int VkPhysicalDeviceTypeDiscreteGpu = 2;
     // VkPhysicalDeviceProperties is ~816 bytes; the call writes all of it into the buffer.
     private const int VkPropertiesBufferBytes = 2048;
+    private const uint VkStructureTypePhysicalDeviceFeatures2 = 1000059000;
+    private const uint VkStructureTypePhysicalDeviceVulkan11Features = 49;
+    private const int VkFeaturesBufferBytes = 1024;
+
+    // ggml keeps a device only when it is a GPU the ggml_vk_device_is_supported check accepts,
+    // so mirroring the type filter alone still counts a card ggml drops and shifts every index
+    // after it. Returns the ggml device index for each raw device, or -1 when ggml would not
+    // keep it. Pure, so the compaction is testable without a Vulkan device.
+    internal static int[] AssignVulkanIndices(IReadOnlyList<bool> kept)
+    {
+        var indices = new int[kept.Count];
+        var next = 0;
+        for (var i = 0; i < kept.Count; i++) indices[i] = kept[i] ? next++ : -1;
+        return indices;
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct VkApplicationInfo
@@ -347,9 +385,18 @@ public static class GpuProbe
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)] public string DeviceName;
     }
 
+    // Only the head is placed by hand; the trailing feature flags stay in the native buffer and
+    // are read by offset, so the marshalled size does not matter.
+    [StructLayout(LayoutKind.Sequential)]
+    private struct VkPhysicalDeviceFeatures2
+    {
+        public uint SType; public IntPtr PNext;
+    }
+
     [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate int VkCreateInstanceFn(IntPtr createInfo, IntPtr allocator, out IntPtr instance);
     [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate int VkEnumeratePhysicalDevicesFn(IntPtr instance, ref uint count, IntPtr devices);
     [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate void VkGetPhysicalDevicePropertiesFn(IntPtr physicalDevice, IntPtr properties);
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate void VkGetPhysicalDeviceFeatures2Fn(IntPtr physicalDevice, IntPtr features);
     [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate void VkDestroyInstanceFn(IntPtr instance, IntPtr allocator);
 
     private static IReadOnlyList<VulkanAdapter> ProbeVulkan()
@@ -371,6 +418,9 @@ public static class GpuProbe
             var create = Marshal.GetDelegateForFunctionPointer<VkCreateInstanceFn>(createPtr);
             var enumerate = Marshal.GetDelegateForFunctionPointer<VkEnumeratePhysicalDevicesFn>(enumPtr);
             var getProps = Marshal.GetDelegateForFunctionPointer<VkGetPhysicalDevicePropertiesFn>(propsPtr);
+            VkGetPhysicalDeviceFeatures2Fn? getFeatures = null;
+            if (NativeLibrary.TryGetExport(lib, "vkGetPhysicalDeviceFeatures2", out var featuresPtr))
+                getFeatures = Marshal.GetDelegateForFunctionPointer<VkGetPhysicalDeviceFeatures2Fn>(featuresPtr);
             if (NativeLibrary.TryGetExport(lib, "vkDestroyInstance", out var destroyPtr))
                 destroy = Marshal.GetDelegateForFunctionPointer<VkDestroyInstanceFn>(destroyPtr);
 
@@ -397,25 +447,29 @@ public static class GpuProbe
             result = enumerate(instance, ref count, devices);
             if (result != VkSuccess && result != VkIncomplete) return list;
             props = Marshal.AllocHGlobal(VkPropertiesBufferBytes);
-            var gpuIndex = 0;
+            var kept = new List<bool>(checked((int)count));
+            var raw = new List<(string Name, uint VendorId, uint DeviceId)>(checked((int)count));
             for (var i = 0; i < count; i++)
             {
                 var device = Marshal.ReadIntPtr(devices, i * IntPtr.Size);
                 getProps(device, props);
                 var head = Marshal.PtrToStructure<VkPhysicalDevicePropertiesHead>(props);
-                if (!VulkanDeviceUsable(head.DeviceType)) continue; // ggml keeps only discrete/integrated GPUs
                 var name = (head.DeviceName ?? "").Trim();
                 if (name.Length == 0) name = "Vulkan device " + i;
-                // Numbered over the devices ggml keeps, in loader order, because whisper.cpp's
-                // gpu_device counts GPU/IGPU entries in ggml's list, not physical-device indices.
-                // Without this an integrated GPU sitting behind a filtered-out adapter gets the
-                // wrong index, whisper finds no usable GPU, and the CPU does the work while the
-                // picker still shows the card as chosen.
-                list.Add(new VulkanAdapter(gpuIndex++, name, head.VendorId, head.DeviceId));
-                // ponytail: ggml also drops devices lacking storageBuffer16BitAccess and merges
-                // duplicate-driver entries; both are rare on Windows, so the count can still drift
-                // there. Query VkPhysicalDeviceVulkan11Features if that ever bites.
+                raw.Add((name, head.VendorId, head.DeviceId));
+                kept.Add(VulkanDeviceUsable(head.DeviceType) && VulkanStorageBuffer16BitAccess(device, getFeatures));
             }
+            // Numbered over the devices ggml keeps, in loader order, because whisper.cpp's
+            // gpu_device counts GPU/IGPU entries in ggml's list, not physical-device indices. A
+            // device ggml drops must not consume an index, or every device after it is off by one
+            // and the picker points whisper at the wrong card.
+            var indices = AssignVulkanIndices(kept);
+            for (var i = 0; i < indices.Length; i++)
+                if (indices[i] >= 0)
+                    list.Add(new VulkanAdapter(indices[i], raw[i].Name, raw[i].VendorId, raw[i].DeviceId));
+            // ponytail: ggml also merges duplicate-driver entries and, when nothing is kept, falls
+            // back to the first non-CPU device; both are rare on Windows, so the picker can still
+            // differ there. Mirror them if a machine ever shows it.
             return list;
         }
         catch (Exception ex)

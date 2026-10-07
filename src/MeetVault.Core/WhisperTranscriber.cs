@@ -31,8 +31,13 @@ public sealed class WhisperTranscriber : ISpeechTranscriber, IDisposable
     // ("using <name> backend", or "no GPU found" -> CPU). LoadedBackend only says which native
     // DLL loaded, which stays a GPU name even when whisper then finds no usable GPU and
     // computes on the CPU; this reports the compute device.
-    private static volatile string? _accelerator;
-    public string? AcceleratorInUse => _accelerator;
+    // The log is process-wide, so the reading is kept with a sequence number and each session
+    // only accepts a reading that arrived after it started; a second transcriber cannot clobber
+    // or clear the live one.
+    private static volatile string? _lastAccelerator;
+    private static long _acceleratorSequence;
+    private long _startSequence;
+    public string? AcceleratorInUse => Volatile.Read(ref _acceleratorSequence) > _startSequence ? _lastAccelerator : null;
 
 private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnoreCase) { "auto", "en", "ja", "vi" };
 
@@ -53,7 +58,7 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
     {
         var text = message ?? "";
         var accel = ParseAccelerator(text);
-        if (accel is not null) _accelerator = accel;
+        if (accel is not null) { _lastAccelerator = accel; Interlocked.Increment(ref _acceleratorSequence); }
         if (level == Whisper.net.Logger.WhisperLogLevel.Error) AppLog.Error("whisper-native: " + text);
         else if (level == Whisper.net.Logger.WhisperLogLevel.Warning) AppLog.Warn("whisper-native: " + text);
         else AppLog.Debug("whisper-native: " + text);
@@ -100,7 +105,7 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
     public Task StartAsync(CancellationToken ct)
     {
         if (!File.Exists(_modelPath)) throw new FileNotFoundException($"Whisper model not found: {_modelPath}. Download the multilingual base model to models/ggml-base.bin.", _modelPath);
-        _accelerator = null; // unknown until this session's first window initializes the context
+        _startSequence = Volatile.Read(ref _acceleratorSequence); // only later readings count for this session
         _factory ??= CreateFactory();
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         IsRunning = true;

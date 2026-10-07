@@ -62,6 +62,15 @@ public sealed class GpuProbeTests
     public void VulkanDeviceUsable_MatchesGgmlFilter(int deviceType, bool usable)
         => Assert.Equal(usable, GpuProbe.VulkanDeviceUsable(deviceType));
 
+    [Fact]
+    public void AssignVulkanIndices_SkipsFilteredDevices()
+    {
+        // A device ggml drops must not consume an index, or every later device is off by one.
+        Assert.Equal(new[] { 0, -1, 1 }, GpuProbe.AssignVulkanIndices(new[] { true, false, true }));
+        Assert.Equal(new[] { -1, -1 }, GpuProbe.AssignVulkanIndices(new[] { false, false }));
+        Assert.Equal(new[] { 0, 1, 2 }, GpuProbe.AssignVulkanIndices(new[] { true, true, true }));
+    }
+
     [Theory]
     [InlineData("whisper_backend_init_gpu: using Vulkan0 backend", "Vulkan0")]
     [InlineData("whisper_backend_init_gpu: using CUDA0 backend", "CUDA0")]
