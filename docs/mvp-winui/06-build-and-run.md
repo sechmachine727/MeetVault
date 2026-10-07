@@ -1,24 +1,51 @@
 # MeetVault WinUI 3 MVP — Build and Run (Windows)
 
-Audience: Windows implementer.
+Audience: Windows implementer. Pre-read: `01-requirements.md`.
 
-## 1. Prerequisites (Windows machine)
+This document describes the build and run workflow for the delivered app. For current status and open items, see [../../README.md](../../README.md) and [../../BLOCKERS.md](../../BLOCKERS.md).
 
-- Windows 10 2004+ or 11, Visual Studio with .NET and WinApp SDK workloads, `winapp` CLI 0.7+.
-- No Python required. Models bundle with the installer.
+## 1. Prerequisites
 
-## 2. Configure
+- Windows 10 version 2004 (build 19041) or later, or Windows 11.
+- .NET 8 SDK.
+- No Python required. Models are staged next to the executable; the installer bundles them.
 
-- Restore the solution; verify APIs with `winapp find-api` from the app project directory.
-- Discover control patterns with `winapp find-ui` before writing XAML.
-- Store the Gemini key via the Settings screen (Credential Locker); never in files.
-
-## 3. Build, package, verify
+## 2. Build and test
 
 ```powershell
-winapp package .\MeetVault.WinUI.csproj --arch x64 --cert .\devcert.pfx
+dotnet build MeetVault.sln -c Release
+dotnet test tests\MeetVault.Core.Tests\MeetVault.Core.Tests.csproj -c Release --nologo -v q
 ```
 
-- Unsigned multi-arch variant: repeat `--arch` with `--no-sign`; timestamp production signing via `winapp sign`.
-- Run the unit suite, scripted PCM integration, synthetic long-session test, then the manual acceptance pass in `05-test-plan.md`.
-- Reference behavior lives frozen at `Wireframes/Desktop/MeetVault-Desktop-Demo/`; port behavior, not code.
+Tests that load the real Whisper model skip when `models/ggml-tiny.bin` is absent.
+
+## 3. Publish the portable build
+
+`publish/win-x64` is the single canonical portable output.
+
+```powershell
+rmdir /s /q publish\win-x64
+dotnet publish src\MeetVault\MeetVault.csproj -c Release -r win-x64 --self-contained true -o publish\win-x64
+rem Stage onnxruntime.dll, sherpa-onnx-c-api.dll, and the models/ folder into publish\win-x64
+publish\win-x64\MeetVault.exe
+```
+
+The app project's `TrimForeignRuntimes` targets remove the linux, macOS, and non-x64 native payloads after build and publish.
+
+## 4. Package the MSIX
+
+```powershell
+dotnet build src\MeetVault\MeetVault.csproj -c Release -r win-x64 -p:Platform=x64 -p:GenerateAppxPackageOnBuild=true
+```
+
+The package is written to `src/MeetVault/AppPackages/MeetVault_1.0.0.0_x64_Test/MeetVault_1.0.0.0_x64.msix`. Installing it needs the signing certificate trusted at machine scope, which needs administrator rights; see [../../BLOCKERS.md](../../BLOCKERS.md).
+
+## 5. Verify
+
+Run the unit suite, then the manual acceptance pass in `05-test-plan.md` on a machine with a microphone. The event log and `%TEMP%\MeetVault\app.log` record runtime failures; `%TEMP%\MeetVault\crash.log` and `nav-errors.log` capture crashes and navigation errors.
+
+## 6. Constraints
+
+- Keep `PublishTrimmed` false. ILLink strips CsWinRT ABI glue and the sherpa-onnx wrapper, which crashes the app. See the repository `AGENTS.md`.
+- `App.xaml.cs` pins the app's own `onnxruntime.dll` before WinUI starts. Keep that pin.
+

@@ -1,5 +1,7 @@
 # MeetVault MVP Build Ledger
 
+> Historical build log. It records what was measured and decided during the MVP build, in the order it happened. It is not current status. For current behavior and open items, read [../README.md](../README.md), [COVERAGE.md](COVERAGE.md), and [../BLOCKERS.md](../BLOCKERS.md).
+
 > Goal: MeetVault WinUI 3 MVP initial implementation per docs/mvp-winui specs.
 > Done predicate: domain + session + repository + Gemini uploader units green, solution builds, smoke-tested UI, blockers recorded.
 
