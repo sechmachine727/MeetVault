@@ -121,7 +121,8 @@ public sealed partial class SettingsPage : Page
         var device = DevicePicker.SelectedItem as DeviceOption;
         var deviceValue = device is { Enabled: true } ? device.Value : "cpu";
         AudioStatus.Text = $"Capturing from {MicPicker.SelectedItem}.";
-        var gpuNote = MeetVault.Core.GpuProbe.Devices().Count == 0 ? " \u00b7 no GPU available, running on CPU" : "";
+        // Show the graphics/inference APIs this PC actually exposes, probed not guessed.
+        var gpuNote = " \u00b7 available: " + MeetVault.Core.GpuProbe.ApiSummary();
         TranscriptionStatus.Text = $"{ModelPicker.SelectedItem} on {device?.Label ?? "CPU"} \u00b7 diarization {OnOff(DiarizationSwitch.IsOn)}{gpuNote}";
         OverlayStatus.Text = $"Keep on top {OnOff(PinSwitch.IsOn)} \u00b7 opacity {OpacitySlider.Value:P0} \u00b7 font {FontSizeBox.Value} pt \u00b7 {LinesBox.Value} line(s)";
         StorageStatus.Text = $"Transcripts will be written to {StoragePathBox.Text}.";

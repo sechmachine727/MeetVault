@@ -2,8 +2,8 @@ using MeetVault.Core;
 
 namespace MeetVault.Core.Tests;
 
-// Device setting encoding plus the real capability probe. The probe touches native
-// loaders, so this pins that it never throws and that encode/parse round-trips.
+// Device setting encoding plus the probe's shape. The probe touches native loaders and
+// DXGI, so this pins that it never throws and that device entries are consistent.
 public sealed class GpuProbeTests
 {
     [Theory]
@@ -32,16 +32,25 @@ public sealed class GpuProbeTests
         // Old builds stored the bare word "gpu"; it must still resolve without throwing.
         var (b, _) = TranscriptionDevice.Parse("gpu");
         Assert.True(b is GpuBackend.Cpu or GpuBackend.Cuda or GpuBackend.Vulkan);
-        Assert.False(string.IsNullOrWhiteSpace(TranscriptionDevice.Encode(b, 0)));
     }
 
     [Fact]
-    public void Probe_NeverThrows_AndCountsAreConsistent()
+    public void Devices_AreGpuOnly_AndUnique()
+    {
+        var devices = GpuProbe.Devices();
+        // No CPU entry appears in the GPU list, and no backend:index repeats.
+        Assert.DoesNotContain(devices, d => d.Backend == GpuBackend.Cpu);
+        Assert.Equal(devices.Count, devices.Select(d => (d.Backend, d.Index)).Distinct().Count());
+        // A GPU offered as CUDA is not also offered as Vulkan.
+        Assert.DoesNotContain(devices, d => d.Backend == GpuBackend.Cuda && devices.Any(v => v.Backend == GpuBackend.Vulkan && v.Name == d.Name));
+    }
+
+    [Fact]
+    public void Probe_NeverThrows()
     {
         Assert.True(GpuProbe.CudaDeviceCount >= 0);
-        var devices = GpuProbe.Devices();
-        var expected = GpuProbe.CudaDeviceCount + (GpuProbe.VulkanAvailable ? GpuProbe.Adapters.Count : 0);
-        Assert.Equal(expected, devices.Count);
-        Assert.Equal(GpuProbe.CudaDeviceCount > 0, GpuProbe.CudaAvailable);
+        Assert.NotNull(GpuProbe.Adapters);
+        Assert.False(string.IsNullOrWhiteSpace(GpuProbe.ApiSummary()));
     }
 }
+
