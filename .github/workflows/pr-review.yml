@@ -1,0 +1,118 @@
+name: PR review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number to review
+        required: true
+        type: string
+
+concurrency:
+  group: pr-review-${{ github.event.pull_request.number || inputs.pr }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - name: Check router secrets
+        id: check
+        env:
+          ROUTER_URL: ${{ secrets.CODEX_ROUTER_URL }}
+          ROUTER_KEY: ${{ secrets.CODEX_ROUTER_API_KEY }}
+        run: |
+          if [ -n "$ROUTER_URL" ] && [ -n "$ROUTER_KEY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::CODEX_ROUTER_URL and CODEX_ROUTER_API_KEY must both be set; skipping the Codex review."
+          fi
+
+  review:
+    needs: preflight
+    if: needs.preflight.outputs.ready == 'true' && github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      message: ${{ steps.codex.outputs.final-message }}
+    steps:
+      - name: Resolve the pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
+        run: |
+          gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --json number,baseRefOid,headRefOid \
+            --jq '"number=\(.number)", "base=\(.baseRefOid)", "head=\(.headRefOid)"' >> "$GITHUB_OUTPUT"
+
+      - name: Check out the pull request merge commit
+        uses: actions/checkout@v5
+        with:
+          ref: refs/pull/${{ steps.pr.outputs.number }}/merge
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Run Codex review
+        id: codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.CODEX_ROUTER_API_KEY }}
+          responses-api-endpoint: ${{ secrets.CODEX_ROUTER_URL }}
+          model: 9router/ocg-deepseek-v4.1-flash
+          effort: max
+          permission-profile: ":workspace"
+          prompt: |
+            Review pull request #${{ steps.pr.outputs.number }} in ${{ github.repository }}.
+
+            Review only what this pull request changes:
+
+              git diff ${{ steps.pr.outputs.base }}...${{ steps.pr.outputs.head }}
+
+            Follow the rubric in .github/codex/pr-review-prompt.md. If that file is missing,
+            review for correctness, security, tests, and over-engineering instead.
+
+            Your final message is posted verbatim as the pull request review comment.
+
+  post:
+    needs: review
+    if: needs.review.outputs.message != ''
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Post or update the review comment
+        uses: actions/github-script@v7
+        env:
+          BODY: ${{ needs.review.outputs.message }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const marker = '<!-- codex-pr-review -->';
+            const limit = 65000;
+            let body = `${marker}\n${process.env.BODY}`;
+            if (body.length > limit) {
+              body = `${body.slice(0, limit)}\n\n_(review truncated to fit the comment limit)_`;
+            }
+            const issue_number = Number(process.env.PR_NUMBER);
+            const { owner, repo } = context.repo;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number, per_page: 100,
+            });
+            const existing = comments.find(
+              (c) => c.user?.login === 'github-actions[bot]' && c.body?.startsWith(marker),
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
