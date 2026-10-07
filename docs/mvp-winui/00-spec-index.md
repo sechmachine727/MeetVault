@@ -10,8 +10,9 @@ Divergences from this spec in the current build, recorded so the spec is not mis
 
 - Transcription is multilingual (English, Japanese, Vietnamese) with mid-conversation switching, per the user decision on 2026-10-06. The spec's English-only model choice does not apply.
 - Speaker labels are neutral (`Speaker N`). No gender classifier ships, so the Male/Female counters are unused in the app.
-- Audio capture is microphone or whole-system loopback. Per-process conference-app capture is not implemented.
+- Audio capture records the microphone and whole-system loopback together, mixed into one track, and can instead target a single process through WASAPI process loopback. That path is implemented in managed code (`ProcessLoopbackCapture`) rather than the native helper this spec proposed, and it has not been exercised against a machine with the target app playing.
+- Recordings are flat files under `%APPDATA%\MeetVault\media`, named by timestamp. Each is kept as a WAV while the meeting is open and compacted to AAC `.m4a` at 256 kbps on finish, with the WAV kept when encoding is unavailable. The spec's per-meeting `recording.webm` layout does not apply.
+- The `speakers` table's `gender` and `gender_index` columns round-trip but no consumer reads them.
 - Gemini upload is manual, as specified. It has been tested against stubs only.
 
-MVP test spine: counter assignment, rename propagation, edit plus reassign, finish-ordering transaction, pause gap, scripted-PCM protocol tests, Windows manual pass (capture, overlay, recovery, playback, Gemini success and failure), bundled-install smoke.
-
+MVP test spine: the spec's spine, and the current evidence status of each item, are tracked in [../COVERAGE.md](../COVERAGE.md).

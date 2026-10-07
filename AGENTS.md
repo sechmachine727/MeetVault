@@ -53,6 +53,10 @@ These keep the published app from crashing. Each was found the hard way.
   - `vcruntime\win-x64` -> each of `runtimes\win-x64`, `runtimes\cuda\win-x64` and `runtimes\vulkan\win-x64`: `msvcp140.dll`, `vcruntime140.dll`, `vcruntime140_1.dll`, `vcomp140.dll`. The whisper natives link these, and the loader searches the loaded DLL's own directory (not the app directory), so they must sit beside each native set. Without them whisper fails to load on a machine with no VC++ redistributable, on CPU as well as GPU.
 - CUDA also needs driver 580+ and a GPU the shipped native has code for, both queried with `cuDriverGetVersion` and `cuDeviceGetAttribute`, never assumed. The native is SASS-only for sm_86/sm_89/sm_120a/sm_121a, and a cubin runs on later minors of the same major, so the supported set is sm_8.6-8.9 and sm_120/121 (the Blackwell cubins are architecture-specific, so they do not widen); never write this as "X or newer", because sm_90 is newer than sm_86 and unsupported. Devices outside that set are filtered out of the picker. `nvcudart_hybrid64.dll` is a driver component (not redistributable, and not a load-time dependency) and `nvrtc64_130_0.dll` is optional (needed only for cuBLAS JIT kernels), so neither is bundled.
 
+### Progress log
+
+Record your work in `docs/progress/` as you go, so the next agent starts from evidence rather than rediscovering the session. Track one folder per contributor and one file per day, append new entries instead of rewriting old ones, and name the evidence for every claim. The rule and the required format are in [docs/progress/SKILL.md](docs/progress/SKILL.md); the section layout is in [docs/progress/TEMPLATE.md](docs/progress/TEMPLATE.md).
+
 ## Verification expectations
 
 - Build must stay at 0 errors; run the test suite before claiming a change works. Six pre-existing CA1416 warnings remain in GpuProbe.cs and ProcessLoopbackCapture.cs (Marshal.ReleaseComObject / GetObjectForIUnknown call sites); do not add more.
@@ -63,4 +67,5 @@ These keep the published app from crashing. Each was found the hard way.
 
 - `docs/COVERAGE.md` — requirement-to-evidence ledger and change history.
 - `docs/BUILD-LEDGER.md` — historical build log with engine measurements (past tense; not current status).
+- `docs/progress/` — per-contributor work log, one file per contributor per calendar day.
 - `BLOCKERS.md` — open items that need a specific machine or the user.

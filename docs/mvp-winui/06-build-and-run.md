@@ -26,9 +26,11 @@ Tests that load the real Whisper model skip when `models/ggml-tiny.bin` is absen
 ```powershell
 rmdir /s /q publish\win-x64
 dotnet publish src\MeetVault\MeetVault.csproj -c Release -r win-x64 --self-contained true -o publish\win-x64
-rem Stage onnxruntime.dll, sherpa-onnx-c-api.dll, and the models/ folder into publish\win-x64
+Copy-Item -Recurse -Force models publish\win-x64\models
 publish\win-x64\MeetVault.exe
 ```
+
+The native libraries and every Whisper backend come from the package references during publish. Only `models/` is copied by hand. To build a package that also carries the CUDA and C++ runtimes, stage `cuda\` and `vcruntime\` first; see [../CUDA-SETUP.md](../CUDA-SETUP.md).
 
 The app project's `TrimForeignRuntimes` targets remove the linux, macOS, and non-x64 native payloads after build and publish.
 
@@ -48,4 +50,3 @@ Run the unit suite, then the manual acceptance pass in `05-test-plan.md` on a ma
 
 - Keep `PublishTrimmed` false. ILLink strips CsWinRT ABI glue and the sherpa-onnx wrapper, which crashes the app. See the repository `AGENTS.md`.
 - `App.xaml.cs` pins the app's own `onnxruntime.dll` before WinUI starts. Keep that pin.
-

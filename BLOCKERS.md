@@ -1,6 +1,6 @@
 # BLOCKERS.md — genuine blockers for user review
 
-> Updated 2026-10-07 by autonomous run. Only items that stop progress with no local alternative go here.
+> Updated 2026-10-07 by autonomous run. Only items that stop progress with no local alternative go here. The code-cleanup items at the end are tracked for completeness and do not block anything.
 
 ## Resolved this run (Observed)
 
@@ -46,3 +46,8 @@
 - App logging: on by default at debug level, configurable in Settings, written to %TEMP%\MeetVault\app.log.
 - No local gender classifier ships: labels are neutral `Speaker N`; the gender toggle was removed rather than left inert.
 - `storage.path` governs export only; the transcript database stays in `%APPDATA%\MeetVault`.
+
+### Open code cleanup (recorded 2026-10-07, not fixed)
+
+- `Speaker.GenderIndex` and `Speaker.Gender` reach the `speakers` table but no production consumer reads either value. Declared at `src/MeetVault.Core/Domain.cs:3`, written at `src/MeetVault.Core/LocalMeetingRepository.cs:45` and `:47`, read back at `LocalMeetingRepository.cs:131` and `:135`, and constructed in production only with the literal `Gender.Unknown, 0` at `src/MeetVault.Core/MeetingSession.cs:176`. Non-zero values appear only in test fixtures. Speaker display names already carry the counter, so the two columns hold nothing the app uses. Minimal fix: drop both fields from the record, the `INSERT`, and the `SELECT`, and leave the columns at their defaults so databases already on disk keep opening.
+- `ISpeakerDiarizer.AssignTurn` cannot be satisfied by the real implementation. The interface declares it at `src/MeetVault.Core/EngineInterfaces.cs:25` and `MeetingSession.HandleSegment` calls it at `src/MeetVault.Core/MeetingSession.cs:174`, but `SherpaDiarizer.AssignTurn` forwards to `AssignWindow(Array.Empty<float>())` (`src/MeetVault.Core/SherpaDiarizer.cs:31`), which throws `ArgumentException` on empty input at `:35`. Live transcription works only because `LivePage` wraps the diarizer in a `WindowDiarizer` adapter whose `AssignTurn` returns the previous window's label (`src/MeetVault/Views/LivePage.xaml.cs:419`) while the real work happens in `AssignWindowSamples`. Minimal fix: carry the window audio in the interface so the contract matches what diarization needs, and delete the adapter.

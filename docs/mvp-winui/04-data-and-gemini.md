@@ -12,7 +12,7 @@ settings(key, value)
 gemini_jobs(id, meeting_id, state, attempts, last_error, result_paths, updated_at)
 ```
 
-Files: `meetings/{meeting_id}/recording.webm` (or per-source container), plus `exports/` for user exports. Transcript JSON is an export/interchange artifact, not a second database.
+Files: one recording per meeting under `%APPDATA%\MeetVault\media`, named `<yyyyMMdd-HHmmss>-<id>.wav` while the meeting is open and compacted on finish to the same name with an `.m4a` extension. When AAC encoding is unavailable the WAV is kept. Transcript JSON is an export/interchange artifact, not a second database.
 
 ## 2. Gemini upload contract — Gemini 3.8 Flash agentic video understanding (manual only)
 
@@ -24,4 +24,4 @@ Files: `meetings/{meeting_id}/recording.webm` (or per-source container), plus `e
 
 ## 3. Privacy and security
 
-- Capture is per-app plus mic; no broad loopback recording. Offline transcription and storage by default; network used only for the explicit Gemini upload. Key stays in Credential Locker. No secrets in source or config.
+- Capture records the microphone and whole-system loopback together by default, and can target a single process instead. Offline transcription and storage by default; network used only for the explicit Gemini upload. Key stays in Credential Locker. No secrets in source or config.

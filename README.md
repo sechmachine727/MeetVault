@@ -8,7 +8,7 @@ Built with C# and WinUI 3 on .NET 8. There is no login, no subscription, and no 
 
 Working MVP, tested on Windows 11. The solution builds with 0 errors; six pre-existing `CA1416` warnings remain in the GPU probe and the process-loopback capture. The Core test suite passes 95 tests. The portable build launches and records, transcribes, and saves meetings. See [BLOCKERS.md](BLOCKERS.md) for what still needs a specific machine to verify.
 
-Not implemented: per-process audio capture, a bundled gender classifier, and automatic Gemini upload. The app supports English, Japanese, and Vietnamese; JA/VI accuracy has not been verified with real speech.
+Per-process audio capture is implemented but has not been exercised against a machine with the target app playing. No gender classifier ships, so speaker labels stay neutral, and the Gemini upload is manual by design. The app supports English, Japanese, and Vietnamese; JA/VI accuracy has not been verified with real speech.
 
 ## Features
 
@@ -125,6 +125,7 @@ To build a package that carries the CUDA runtime, so CUDA works without the CUDA
 - [docs/COVERAGE.md](docs/COVERAGE.md): requirement-to-evidence ledger and change history.
 - [docs/BUILD-LEDGER.md](docs/BUILD-LEDGER.md): historical build log with engine measurements.
 - [docs/CUDA-SETUP.md](docs/CUDA-SETUP.md): stage the CUDA and C++ runtimes and build them into the app.
+- [docs/progress/](docs/progress/SKILL.md): per-contributor work log, one file per contributor per day.
 - [RUN-GUIDE.md](RUN-GUIDE.md): launch steps and location of data.
 - [BLOCKERS.md](BLOCKERS.md): open items that need a specific machine.
 

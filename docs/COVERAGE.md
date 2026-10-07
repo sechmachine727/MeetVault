@@ -2,6 +2,8 @@
 
 > Evidence key: TEST = unit/integration test green this session; RUNTIME = executed against real engines/models; BUILD = compiles clean; MISSING = no evidence.
 
+> Scope: this file is the requirement-to-evidence ledger. Per-session work history moved to [progress/](progress/) on 2026-10-07. The `Deltas` sections below are kept as archived history from before that move and are no longer appended to.
+
 ## 05-test-plan spine
 
 | Item | Evidence | Status |
@@ -51,7 +53,7 @@
 2. Mic-present recording: LivePage now passes persisted mic id to Start+Recover (was hardcoded/empty). Your Recording.m4a validated: 13.74 s, EN detected both windows, sung non-EN portion does NOT exercise ja/vi — spoken JA/VI sample still needed. Two-speaker loopback deferred to your other-machine test.
 3. Gemini key -> live upload call (still yours, manual with build exec).
 
-## Deltas this session (Observed)
+## Deltas (archived history, superseded by [progress/](progress/))
 
 ### Deltas 2026-10-07 night, review round 3 (CUDA architecture set)
 
