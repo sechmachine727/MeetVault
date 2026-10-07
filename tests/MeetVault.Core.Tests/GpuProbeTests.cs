@@ -53,6 +53,24 @@ public sealed class GpuProbeTests
         Assert.False(string.IsNullOrWhiteSpace(GpuProbe.ApiSummary()));
     }
 
+    [Theory]
+    [InlineData(1, true)]  // integrated GPU is kept: ggml includes discrete and integrated
+    [InlineData(2, true)]  // discrete GPU is kept
+    [InlineData(4, false)] // software rasterizer (VK_PHYSICAL_DEVICE_TYPE_CPU) is dropped
+    [InlineData(0, false)] // other (virtual adapter) is dropped
+    [InlineData(3, false)] // virtual GPU is dropped
+    public void VulkanDeviceUsable_MatchesGgmlFilter(int deviceType, bool usable)
+        => Assert.Equal(usable, GpuProbe.VulkanDeviceUsable(deviceType));
+
+    [Theory]
+    [InlineData("whisper_backend_init_gpu: using Vulkan0 backend", "Vulkan0")]
+    [InlineData("whisper_backend_init_gpu: using CUDA0 backend", "CUDA0")]
+    [InlineData("whisper_backend_init_gpu: no GPU found", "CPU")]
+    [InlineData("whisper_backend_init_gpu: device 0: CPU (type: 0)", null)]
+    [InlineData("some unrelated native line", null)]
+    public void ParseAccelerator_ReadsComputeDevice(string message, string? expected)
+        => Assert.Equal(expected, WhisperTranscriber.ParseAccelerator(message));
+
     [Fact]
     public void CudaOffer_MatchesRuntimeBareNameLoad()
     {

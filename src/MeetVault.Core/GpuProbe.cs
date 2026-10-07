@@ -305,11 +305,22 @@ public static class GpuProbe
 
     private sealed record VulkanAdapter(int Index, string Name, uint VendorId, uint DeviceId);
 
+    // Mirrors ggml-vulkan's own device filter: only discrete and integrated GPUs reach its
+    // device list, and therefore whisper.cpp's gpu_device index. Software rasterizers and
+    // virtual adapters are dropped before whisper can ever select them.
+    internal static bool VulkanDeviceUsable(int deviceType) =>
+        deviceType == VkPhysicalDeviceTypeDiscreteGpu || deviceType == VkPhysicalDeviceTypeIntegratedGpu;
+
     private const uint VkStructureTypeApplicationInfo = 0;
     private const uint VkStructureTypeInstanceCreateInfo = 1;
     private const int VkSuccess = 0;
     private const int VkIncomplete = 5;
-    private const int VkPhysicalDeviceTypeCpu = 4;
+    // ggml-vulkan builds its device list from these two types only (its own filter is
+    // "eDiscreteGpu || eIntegratedGpu"), so an index counted over the raw loader order points
+    // at the wrong card as soon as any other type (software rasterizer, virtual adapter) sits
+    // ahead of it.
+    private const int VkPhysicalDeviceTypeIntegratedGpu = 1;
+    private const int VkPhysicalDeviceTypeDiscreteGpu = 2;
     // VkPhysicalDeviceProperties is ~816 bytes; the call writes all of it into the buffer.
     private const int VkPropertiesBufferBytes = 2048;
 
@@ -386,19 +397,24 @@ public static class GpuProbe
             result = enumerate(instance, ref count, devices);
             if (result != VkSuccess && result != VkIncomplete) return list;
             props = Marshal.AllocHGlobal(VkPropertiesBufferBytes);
+            var gpuIndex = 0;
             for (var i = 0; i < count; i++)
             {
                 var device = Marshal.ReadIntPtr(devices, i * IntPtr.Size);
                 getProps(device, props);
                 var head = Marshal.PtrToStructure<VkPhysicalDevicePropertiesHead>(props);
-                if (head.DeviceType == VkPhysicalDeviceTypeCpu) continue; // software rasterizer (llvmpipe)
+                if (!VulkanDeviceUsable(head.DeviceType)) continue; // ggml keeps only discrete/integrated GPUs
                 var name = (head.DeviceName ?? "").Trim();
                 if (name.Length == 0) name = "Vulkan device " + i;
-                // The loader's own index is kept, because that is what whisper.net hands to
-                // ggml. Whether ggml filters devices before building its own list, and so
-                // expects a compacted index, is unverified until it runs on a machine with
-                // more than one GPU.
-                list.Add(new VulkanAdapter(i, name, head.VendorId, head.DeviceId));
+                // Numbered over the devices ggml keeps, in loader order, because whisper.cpp's
+                // gpu_device counts GPU/IGPU entries in ggml's list, not physical-device indices.
+                // Without this an integrated GPU sitting behind a filtered-out adapter gets the
+                // wrong index, whisper finds no usable GPU, and the CPU does the work while the
+                // picker still shows the card as chosen.
+                list.Add(new VulkanAdapter(gpuIndex++, name, head.VendorId, head.DeviceId));
+                // ponytail: ggml also drops devices lacking storageBuffer16BitAccess and merges
+                // duplicate-driver entries; both are rare on Windows, so the count can still drift
+                // there. Query VkPhysicalDeviceVulkan11Features if that ever bites.
             }
             return list;
         }

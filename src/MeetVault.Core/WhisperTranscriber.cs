@@ -27,6 +27,13 @@ public sealed class WhisperTranscriber : ISpeechTranscriber, IDisposable
     private WhisperFactory? _factory;
     private CancellationTokenSource? _cts;
 
+    // The accelerator whisper's native actually initialized, read from its own log line
+    // ("using <name> backend", or "no GPU found" -> CPU). LoadedBackend only says which native
+    // DLL loaded, which stays a GPU name even when whisper then finds no usable GPU and
+    // computes on the CPU; this reports the compute device.
+    private static volatile string? _accelerator;
+    public string? AcceleratorInUse => _accelerator;
+
 private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnoreCase) { "auto", "en", "ja", "vi" };
 
     // ggml/whisper report device selection and per-run timings through this logger
@@ -45,9 +52,28 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
     private static void OnNativeLog(Whisper.net.Logger.WhisperLogLevel level, string? message)
     {
         var text = message ?? "";
+        var accel = ParseAccelerator(text);
+        if (accel is not null) _accelerator = accel;
         if (level == Whisper.net.Logger.WhisperLogLevel.Error) AppLog.Error("whisper-native: " + text);
         else if (level == Whisper.net.Logger.WhisperLogLevel.Warning) AppLog.Warn("whisper-native: " + text);
         else AppLog.Debug("whisper-native: " + text);
+    }
+
+    // whisper.cpp prints "whisper_backend_init_gpu: using <name> backend" when it offloads,
+    // and "whisper_backend_init_gpu: no GPU found" when it does not. Null for every other line.
+    internal static string? ParseAccelerator(string message)
+    {
+        const string prefix = "whisper_backend_init_gpu: ";
+        var at = message.IndexOf(prefix, StringComparison.Ordinal);
+        if (at < 0) return null;
+        var rest = message[(at + prefix.Length)..].Trim();
+        if (rest.StartsWith("no GPU found", StringComparison.Ordinal)) return "CPU";
+        const string usingTag = "using ";
+        const string backendTag = " backend";
+        if (!rest.StartsWith(usingTag, StringComparison.Ordinal)) return null;
+        var end = rest.IndexOf(backendTag, StringComparison.Ordinal);
+        var name = end > usingTag.Length ? rest[usingTag.Length..end].Trim() : "";
+        return name.Length > 0 ? name : null;
     }
 
     public WhisperTranscriber(string modelPath, string language = "auto", GpuBackend backend = GpuBackend.Cpu, int gpuDevice = 0)
@@ -74,6 +100,7 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
     public Task StartAsync(CancellationToken ct)
     {
         if (!File.Exists(_modelPath)) throw new FileNotFoundException($"Whisper model not found: {_modelPath}. Download the multilingual base model to models/ggml-base.bin.", _modelPath);
+        _accelerator = null; // unknown until this session's first window initializes the context
         _factory ??= CreateFactory();
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         IsRunning = true;

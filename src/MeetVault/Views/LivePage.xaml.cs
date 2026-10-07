@@ -28,6 +28,7 @@ public sealed partial class LivePage : Page
     private string _modelLabel = "tiny";
     private readonly SemaphoreSlim _transcribeGate = new(1, 1);
     private int _droppedWindows;
+    private bool _acceleratorReported;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _checkpoint;
     private LiveState _state = LiveState.Idle;
 
@@ -131,6 +132,7 @@ public sealed partial class LivePage : Page
             await _session.StartAsync(MicId, AppSource, CancellationToken.None);
             WireSession(clearOverlay: true);
             _windowOffsetMs = 0;
+            _acceleratorReported = false;
             SetState(LiveState.Recording);
             UpdateEngineStatus(actual: true);
             RebuildSpeakers();
@@ -156,6 +158,7 @@ public sealed partial class LivePage : Page
             foreach (var s in _session.Segments) AddLine(s.SpeakerId, s.Text);
             WireSession(clearOverlay: false); // keep the recovered backlog for a late-opened overlay
             _windowOffsetMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
+            _acceleratorReported = false;
             SetState(_session.IsPaused ? LiveState.Paused : LiveState.Recording);
             UpdateEngineStatus(actual: true);
             RebuildSpeakers();
@@ -211,13 +214,18 @@ public sealed partial class LivePage : Page
     private void UpdateEngineStatus(bool actual)
     {
         if (_whisper is null) { EngineStatus.Text = _engineMode; return; }
-        var backend = actual ? _whisper.LoadedBackend : _whisper.Backend;
-        var accel = backend == GpuBackend.Cpu ? "CPU" : backend.ToString();
-        var note = actual && _whisper.Backend != GpuBackend.Cpu && backend == GpuBackend.Cpu
-            ? $" (requested {_whisper.Backend}, not available on this PC)"
+        var requested = _whisper.Backend;
+        var loaded = _whisper.LoadedBackend;
+        // The compute device the native actually initialized, not just which DLL loaded.
+        var compute = _whisper.AcceleratorInUse;
+        var accel = actual
+            ? compute ?? (loaded == GpuBackend.Cpu ? "CPU" : loaded.ToString())
+            : (requested == GpuBackend.Cpu ? "CPU" : requested.ToString());
+        var note = actual && requested != GpuBackend.Cpu && accel == "CPU"
+            ? " (requested " + requested + ", not usable here)"
             : "";
         EngineStatus.Text = "live: whisper " + _modelLabel + " + " + accel + note + (_windowDiarizer is null ? ", single speaker" : " + sherpa diarizer");
-        if (actual) MeetVault.Core.AppLog.Info("live: accelerator loaded=" + backend + " requested=" + _whisper.Backend);
+        if (actual) MeetVault.Core.AppLog.Info("live: accelerator=" + accel + " requested=" + requested + " native=" + loaded);
     }
 
     private void RebuildSpeakers()
@@ -282,6 +290,7 @@ public sealed partial class LivePage : Page
             _windowDiarizer?.AssignWindowSamples(window);
             DispatcherQueue.TryEnqueue(() => PartialLine.Text = "Transcribing\u2026");
             await _whisper.TranscribeWindowAsync(window, start, meetingId);
+            ReportAcceleratorOnce();
         }
         catch { }
         finally
@@ -329,11 +338,25 @@ public sealed partial class LivePage : Page
     {
         if (_whisper is null) return;
         var requested = _whisper.Backend;
-        if (requested == GpuBackend.Cpu || _whisper.LoadedBackend != GpuBackend.Cpu) return;
-        MeetVault.Core.AppLog.Warn("live: GPU fallback, requested " + requested + " but loaded CPU");
+        if (requested == GpuBackend.Cpu) return;
+        // A GPU request lands on the CPU two ways: the native DLL fell back (LoadedBackend), or
+        // the GPU native loaded but whisper found no usable GPU (its own "no GPU found" line).
+        var compute = _whisper.AcceleratorInUse;
+        var onCpu = compute == "CPU" || (compute is null && _whisper.LoadedBackend == GpuBackend.Cpu);
+        if (!onCpu) return;
+        MeetVault.Core.AppLog.Warn("live: GPU fallback, requested " + requested + " but compute is CPU");
         Status(InfoBarSeverity.Warning,
             "Transcription is running on the CPU: the requested " + requested + " GPU could not be used. "
             + "Recording continues. Check the graphics device in Settings, or see the log for the reason.");
+    }
+
+    // whisper reports the compute device on its first window, not at start, so the engine line
+    // and the fallback warning are refreshed once when that first report arrives.
+    private void ReportAcceleratorOnce()
+    {
+        if (_acceleratorReported || _whisper?.AcceleratorInUse is null) return;
+        _acceleratorReported = true;
+        DispatcherQueue.TryEnqueue(() => { UpdateEngineStatus(actual: true); WarnIfGpuFallback(); });
     }
 
     // Capture died on its own. The meeting is still open so the user can save what was
