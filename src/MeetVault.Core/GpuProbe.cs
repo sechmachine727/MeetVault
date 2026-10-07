@@ -275,8 +275,10 @@ public static class GpuProbe
         return FindOnPath("cudart64_13.dll") is not null;
     }
 
-    // Mirrors the default native search (app folder, then PATH) without loading the library,
-    // so startup does not map a half-gigabyte cuBLAS just to answer "is CUDA usable".
+    // Mirrors the default native search (app folder, then PATH, then the Windows system
+    // directory) without loading the library, so startup does not map a half-gigabyte cuBLAS
+    // just to answer "is CUDA usable". Kept a superset of the app-folder copy the app ships,
+    // so the picker is never stricter than the runtime's own bare-name load.
     private static string? FindOnPath(string fileName)
     {
         try
@@ -290,7 +292,11 @@ public static class GpuProbe
                 if (File.Exists(candidate)) return candidate;
             }
             var system = Path.Combine(Environment.SystemDirectory, fileName);
-            return File.Exists(system) ? system : null;
+            if (File.Exists(system)) return system;
+            var windows = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), fileName);
+            if (File.Exists(windows)) return windows;
+            var cwd = Path.Combine(Directory.GetCurrentDirectory(), fileName);
+            return File.Exists(cwd) ? cwd : null;
         }
         catch { return null; }
     }

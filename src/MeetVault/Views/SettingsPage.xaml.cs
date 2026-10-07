@@ -37,8 +37,10 @@ public sealed partial class SettingsPage : Page
 
         try { LoadPersisted(); } catch { }
         _ready = true;
-        Refresh();
         try { WarnIfSavedDeviceUnavailable(); } catch { }
+        // After the warning: Refresh persists the picker's current value, which SelectDevice may
+        // have already downgraded to CPU, so the warning must read the setting before that write.
+        Refresh();
     }
 
     private readonly List<DeviceOption> _deviceOptions;
