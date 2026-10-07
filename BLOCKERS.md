@@ -26,8 +26,9 @@
 - Next: either install the signed MSIX after trusting the cert (thumb `BBD1DFCFC1F34E14A603110858C4CD019A7B70DD`), or keep using the portable exe.
 
 ### 5. GPU inference confirmation (needs a machine with a GPU)
-- Detection is now a real query (CUDA device count + enumerated display adapters), a Vulkan backend is bundled for non-CUDA GPUs, and the Live engine line reports the accelerator that actually loaded. On this host (no CUDA export, zero adapters in a remote session) only CPU is offered.
-- Next: on your GPU machine, pick the GPU in Settings, Start recording, and read the Live engine line. If it says `+ CPU (requested Cuda, not available on this PC)`, the card was detected but the CUDA runtimes (or driver) are missing; if it says `+ Cuda`, GPU inference is engaged.
+- Detection now enumerates real GPUs through DXGI (excludes indirect/virtual display drivers and WARP) and reports the inference APIs probed on this PC. A non-CUDA GPU is offered through the bundled Vulkan backend. The Live engine line reports the accelerator that actually loaded. On this host (no CUDA export) the GPU is offered as Vulkan and the API line reads CPU, Vulkan, DirectML.
+- Next: on your GPU machine, pick the GPU in Settings, Start recording, and read the Live engine line. If it says `+ CPU (requested Vulkan, not available on this PC)`, the card was detected but the backend could not initialize; if it says `+ Vulkan` or `+ Cuda`, inference is engaged.
+- Documented gap: DXGI cannot guarantee exclusion of render-capable indirect display drivers (it has no IDD flag). The strict discriminator is D3DKMT_ADAPTERTYPE.IndirectDisplayDevice; a D3DKMT probe here did not return usable adapter-type data, so it was not shipped. If a virtual adapter ever shows in Settings, that D3DKMT path is the fix.
 
 ## Not blockers (tracked for completeness)
 

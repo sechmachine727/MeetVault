@@ -140,6 +140,9 @@ public static class GpuProbe
                         if (!seen.Add((d.VendorId, d.DeviceId))) continue; // DXGI can repeat one card per output
                         var name = (d.Description ?? "").Trim();
                         if (name.Length == 0) continue;
+                        // Documented fallback: the Basic Render Driver can appear without the
+                        // software flag, so reject it by name too.
+                        if (name.Contains("Basic Render", StringComparison.OrdinalIgnoreCase)) continue;
                         list.Add(new GpuAdapter(name, d.VendorId, d.DeviceId));
                     }
                     finally { Marshal.ReleaseComObject(adapter); }
@@ -199,4 +202,3 @@ public static class GpuProbe
         [PreserveSig] int IsCurrent();
     }
 }
-
