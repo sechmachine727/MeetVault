@@ -52,5 +52,17 @@ public sealed class GpuProbeTests
         Assert.NotNull(GpuProbe.Adapters);
         Assert.False(string.IsNullOrWhiteSpace(GpuProbe.ApiSummary()));
     }
-}
 
+    [Fact]
+    public void CudaOffer_RequiresCudartLoadableByBareName()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        // whisper.net selects CUDA only when cudart64_13 loads by bare name (app dir, System32,
+        // PATH). The picker must not offer CUDA when that load would fail, or the runtime falls
+        // back to CPU with nothing shown. If this asserts while CUDA is offered, the cudart copy
+        // beside the exe is missing (see MeetVault.csproj).
+        var loadable = System.Runtime.InteropServices.NativeLibrary.TryLoad("cudart64_13", out var handle);
+        if (handle != IntPtr.Zero) System.Runtime.InteropServices.NativeLibrary.Free(handle);
+        if (!loadable) Assert.False(GpuProbe.CudaAvailable);
+    }
+}

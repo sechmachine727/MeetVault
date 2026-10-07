@@ -253,6 +253,10 @@ public static class GpuProbe
     // resolves to the bundled copy. The system locations stay as a fallback for a machine
     // that has the CUDA toolkit installed. Both DLLs are required: cuBLAS 13 loads through
     // cuBLASLt, so a half-staged pair would pass a single-file check and then fail at init.
+    // cudart is checked last, and by bare name only, because that is exactly how whisper.net
+    // gates the CUDA runtime (CudaHelper -> NativeLibrary.TryLoad("cudart64_13")). If this
+    // probe finds cudart somewhere whisper.net will not, the picker would offer CUDA only for
+    // the runtime to fall back to CPU, which is the silent failure this check exists to stop.
     private static bool ProbeCudaRuntime()
     {
         foreach (var name in new[] { "cublas64_13.dll", "cublasLt64_13.dll" })
@@ -268,7 +272,7 @@ public static class GpuProbe
             }
             if (!found && FindOnPath(name) is null) return false;
         }
-        return true;
+        return FindOnPath("cudart64_13.dll") is not null;
     }
 
     // Mirrors the default native search (app folder, then PATH) without loading the library,

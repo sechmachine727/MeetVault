@@ -135,6 +135,7 @@ public sealed partial class LivePage : Page
             UpdateEngineStatus(actual: true);
             RebuildSpeakers();
             Status(_engineMode.StartsWith("live") ? "Recording. Speaker turns appear below as they are recognized." : "Demo mode: add Whisper and diarizer models to models/ for live transcription.");
+            WarnIfGpuFallback();
         }
         catch (Exception ex)
         {
@@ -159,6 +160,7 @@ public sealed partial class LivePage : Page
             UpdateEngineStatus(actual: true);
             RebuildSpeakers();
             Status($"Resumed '{id}'. {_session.Segments.Count} line(s) restored.");
+            WarnIfGpuFallback();
         }
         catch (Exception ex)
         {
@@ -311,7 +313,28 @@ public sealed partial class LivePage : Page
         return true;
     }
 
-    private void Status(string message) { StatusBar.Message = message; StatusBar.IsOpen = true; }
+    private void Status(string message) => Status(InfoBarSeverity.Informational, message);
+
+    private void Status(InfoBarSeverity severity, string message)
+    {
+        StatusBar.Severity = severity;
+        StatusBar.Message = message;
+        StatusBar.IsOpen = true;
+    }
+
+    // A requested GPU that did not load runs the whole meeting on the CPU. The engine line
+    // already records it, but that is a quiet note; raise it as a warning so the downgrade is
+    // never silent. Fires only once recording has begun, when the loaded backend is known.
+    private void WarnIfGpuFallback()
+    {
+        if (_whisper is null) return;
+        var requested = _whisper.Backend;
+        if (requested == GpuBackend.Cpu || _whisper.LoadedBackend != GpuBackend.Cpu) return;
+        MeetVault.Core.AppLog.Warn("live: GPU fallback, requested " + requested + " but loaded CPU");
+        Status(InfoBarSeverity.Warning,
+            "Transcription is running on the CPU: the requested " + requested + " GPU could not be used. "
+            + "Recording continues. Check the graphics device in Settings, or see the log for the reason.");
+    }
 
     // Capture died on its own. The meeting is still open so the user can save what was
     // recorded, but they must not be left believing the microphone is still live.
