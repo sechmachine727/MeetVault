@@ -57,6 +57,12 @@
 
 ### Deltas 2026-10-07 (audio combination)
 
+### Deltas 2026-10-07 (capture timing + GPU report)
+
+- Fixed empty transcripts from system-audio capture: the mixer pump ran unclocked and wrote ~100x too much audio (a 74 s recording produced a 339 MB WAV), time-shifting everything. Paced to 16 kHz real time (11.7 s -> 375 KB verified). The log warns when devices open but deliver no samples.
+- GPU: the API line now lists only Whisper.net backends (CPU, CUDA, Vulkan); DirectML removed as misleading. Observed: Vulkan backend loads on the GPU-P VM but the vGPU does not accelerate.
+- Per-app capture falls back to system-wide loopback when process-loopback activation fails.
+
 - Capture always mixes the microphone and system audio (verified: `capture: started mic=on system=all sources=2`). The microphone/loopback either-or picker is gone; Settings has record-microphone and record-system-audio toggles plus a system-audio source list (all apps or one app).
 - Per-app capture adds `ProcessLoopbackCapture` (WASAPI process loopback) with a fallback to system-wide loopback; activation is unverified on the test VM.
 - Suite: 77/77 green (adds capture validation and a process-loopback probe).

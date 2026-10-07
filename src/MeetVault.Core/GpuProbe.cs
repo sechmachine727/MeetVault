@@ -43,7 +43,7 @@ public static class GpuProbe
 {
     static GpuProbe()
     {
-        AppLog.Info("gpu: cuda devices=" + CudaDeviceCount + " adapters=" + Adapters.Count + " vulkanLoader=" + VulkanLoaderPresent + " directml=" + DirectMlPresent + " apis=[" + ApiSummary() + "]");
+        AppLog.Info("gpu: cuda devices=" + CudaDeviceCount + " adapters=" + Adapters.Count + " vulkanLoader=" + VulkanLoaderPresent + " apis=[" + ApiSummary() + "]");
         foreach (var a in Adapters) AppLog.Info("gpu: adapter '" + a.Name + "' vendor=0x" + a.VendorId.ToString("X4") + " device=0x" + a.DeviceId.ToString("X4"));
     }
 
@@ -54,18 +54,17 @@ public static class GpuProbe
     public static int CudaDeviceCount { get; } = ProbeCuda();
     public static IReadOnlyList<GpuAdapter> Adapters { get; } = ProbeAdapters();
     public static bool VulkanLoaderPresent { get; } = FileExists("vulkan-1.dll");
-    public static bool DirectMlPresent { get; } = FileExists("DirectML.dll");
-
     public static bool CudaAvailable => CudaDeviceCount > 0;
     public static bool VulkanAvailable => VulkanLoaderPresent && Adapters.Count > 0;
 
-    // One line for the UI: which graphics/inference APIs this PC can actually use.
+    // One line for the UI: which GPU backends this PC can actually use for transcription.
+    // Only the backends Whisper.net can load are listed, so the line matches the device
+    // picker (CPU, CUDA, Vulkan). DirectML is not a Whisper.net backend, so it is omitted.
     public static string ApiSummary()
     {
         var apis = new List<string> { "CPU" };
         if (CudaAvailable) apis.Add("CUDA");
         if (VulkanAvailable) apis.Add("Vulkan");
-        if (DirectMlPresent) apis.Add("DirectML");
         return string.Join(", ", apis);
     }
 

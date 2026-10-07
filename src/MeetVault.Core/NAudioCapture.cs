@@ -58,7 +58,10 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
 
         _sink ??= new WavSink(_reusePath ?? NewMediaPath());
         _reusePath = null;
-        _chain = inputs.Count == 1 ? inputs[0] : new MixingSampleProvider(inputs);
+        // ReadFully keeps the mix continuous: it pads silence for a starved source instead
+        // of returning 0, so the paced pump always emits a real-time stream.
+        _chain = inputs.Count == 1 ? inputs[0] : new MixingSampleProvider(inputs) { ReadFully = true };
+        AppLog.Info("capture: chain format=" + _chain.WaveFormat);
         _running = true;
         _pump = new Thread(Pump) { IsBackground = true, Name = "MeetVaultMix" };
         _pump.Start();
@@ -81,31 +84,34 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
 
     private ISampleProvider StartSystem(string appSource)
     {
-        _system = TryStartProcess(appSource, out var processCapture) ? processCapture : new WasapiLoopbackCapture();
-        if (_system.WaveFormat is null) throw new InvalidOperationException("System capture did not report a format.");
-        _sysBuffer = new BufferedWaveProvider(_system.WaveFormat) { DiscardOnBufferOverflow = true };
-        _system.DataAvailable += (_, e) => { try { _sysBuffer.AddSamples(e.Buffer, 0, e.BytesRecorded); } catch { } };
-        _system.StartRecording();
-        AppLog.Info("capture: system audio (" + _system.GetType().Name + ") format=" + _system.WaveFormat);
-        return ToMono16k(_sysBuffer.ToSampleProvider());
-    }
-
-    // A positive integer appSource means "capture this process tree".
-    private bool TryStartProcess(string appSource, out ProcessLoopbackCapture capture)
-    {
-        capture = null!;
-        if (!int.TryParse(appSource, out var pid) || pid <= 0) return false;
+        // A positive integer appSource means "capture this process tree" (one app).
+        var capture = int.TryParse(appSource, out var pid) && pid > 0
+            ? (IWaveIn)new ProcessLoopbackCapture((uint)pid)
+            : new WasapiLoopbackCapture();
+        WireSystem(capture);
         try
         {
-            capture = new ProcessLoopbackCapture((uint)pid);
-            AppLog.Info("capture: process loopback pid=" + pid);
-            return true;
+            capture.StartRecording();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (capture is ProcessLoopbackCapture)
         {
-            AppLog.Warn("capture: process loopback pid=" + pid + " unavailable, using system-wide :: " + ex.Message);
-            return false;
+            // Per-app capture is unavailable here (process loopback needs Windows 10
+            // 20348+ and is often unsupported in a VM). Fall back to system-wide loopback.
+            AppLog.Warn("capture: process loopback pid=" + pid + " failed, using system-wide :: " + ex.Message);
+            try { capture.Dispose(); } catch { }
+            capture = new WasapiLoopbackCapture();
+            WireSystem(capture);
+            capture.StartRecording();
         }
+        _system = capture;
+        AppLog.Info("capture: system audio (" + capture.GetType().Name + ") format=" + capture.WaveFormat);
+        return ToMono16k(_sysBuffer!.ToSampleProvider());
+    }
+
+    private void WireSystem(IWaveIn capture)
+    {
+        _sysBuffer = new BufferedWaveProvider(capture.WaveFormat) { DiscardOnBufferOverflow = true };
+        capture.DataAvailable += (_, e) => { try { _sysBuffer.AddSamples(e.Buffer, 0, e.BytesRecorded); } catch { } };
     }
 
     // System audio arrives as float often at 48 kHz stereo; make it 16 kHz mono.
@@ -115,16 +121,24 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
         return mono.WaveFormat.SampleRate == 16000 ? mono : new WdlResamplingSampleProvider(mono, 16000);
     }
 
+    // Reads the mixed 16 kHz stream and writes it paced to real time. Without the pace,
+    // WdlResamplingSampleProvider pads silence when its input is starved, so the loop
+    // would free-run and write ~100x too much data (and time-shift the transcript).
     private void Pump()
     {
-        var floats = new float[1600]; // 100 ms at 16 kHz
-        var bytes = new byte[floats.Length * 2];
+        const int samplesPerRead = 320; // 20 ms at 16 kHz
+        var floats = new float[samplesPerRead];
+        var bytes = new byte[samplesPerRead * 2];
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        long produced = 0;
+        var sawInput = false;
         while (_running)
         {
             int read;
             try { read = _chain!.Read(floats, 0, floats.Length); }
-            catch (Exception ex) { AppLog.Warn("capture: mix read :: " + ex.Message); Thread.Sleep(50); continue; }
-            if (read <= 0) { Thread.Sleep(10); continue; }
+            catch (Exception ex) { AppLog.Warn("capture: mix read :: " + ex.GetType().Name + ": " + ex.Message); Thread.Sleep(50); continue; }
+            if (!sawInput && ((_micBuffer?.BufferedBytes ?? 0) > 0 || (_sysBuffer?.BufferedBytes ?? 0) > 0)) sawInput = true;
+            if (read <= 0) { Thread.Sleep(5); continue; }
             for (var i = 0; i < read; i++)
             {
                 var v = (short)Math.Clamp(floats[i] * 32767f, short.MinValue, short.MaxValue);
@@ -134,7 +148,14 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
             var chunk = new byte[read * 2];
             Buffer.BlockCopy(bytes, 0, chunk, 0, chunk.Length);
             WriteChunk(chunk);
+            produced += read;
+            // Keep ~16 kHz in real time: sleep off any lead over the wall clock.
+            var ahead = produced * 1000.0 / 16000.0 - clock.Elapsed.TotalMilliseconds;
+            if (ahead > 1) Thread.Sleep((int)Math.Min(ahead, 40));
         }
+        // No input the whole run means the devices opened but delivered no samples. The
+        // transcript will be empty; the reason is usually a wrong/disconnected device.
+        if (!sawInput) AppLog.Warn("capture: no audio samples were captured (produced=" + produced + " output samples, all silence)");
     }
 
     private void WriteChunk(byte[] chunk)

@@ -98,7 +98,9 @@ Settings persist in `%APPDATA%\MeetVault\meetings.db` (SQLite, `settings` table)
 
 Transcription can run on a GPU. The Settings device picker lists the GPUs the machine exposes, queried through DXGI, which excludes indirect and virtual display adapters. Each GPU is offered through a backend it can use: CUDA when the NVIDIA driver and CUDA runtime are present, otherwise Vulkan. The Live screen reports the backend that actually loaded, so a requested GPU that falls back to CPU is visible in the status line. The log records the reason.
 
-Vulkan passthrough is often unavailable inside a Hyper-V GPU-P virtual machine; use CUDA or a physical GPU there.
+The device picker offers the backends Whisper.net supports: CPU, CUDA, and Vulkan. DirectML is not a Whisper.net backend and is not offered.
+
+Vulkan passthrough is often unavailable on a paravirtualized GPU (Hyper-V GPU-P), so the backend can load while the GPU stays idle. Use CUDA or a physical GPU there.
 
 ## Data and logs
 
