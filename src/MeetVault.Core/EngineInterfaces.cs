@@ -3,7 +3,11 @@ namespace MeetVault.Core;
 public interface IAudioCapture
 {
     Task StartAsync(string micId, string appSource, CancellationToken ct);
+    // Pauses capture. The recording stays resumable: StartAsync reopens the same file.
     Task StopAsync(CancellationToken ct);
+    // The meeting is over. Stops capture, releases the working file and compacts it to the
+    // stored format, so a paused meeting never masquerades as a finished one.
+    Task FinishAsync(CancellationToken ct);
     bool IsCapturing { get; }
     string? MediaPath { get; }
 }

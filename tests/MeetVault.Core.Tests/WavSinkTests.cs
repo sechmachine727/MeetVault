@@ -20,16 +20,18 @@ public sealed class WavSinkTests : IDisposable
     [Fact]
     public void FinalizeAndAppend_HeaderMatchesLength()
     {
-        using (var sink = new NAudioCapture.WavSink(_path))
+        using (var sink = new NAudioCapture.WavSink(_path, 48000))
         {
             sink.Write(new byte[64000]);
             sink.FinalizeHeader();
             var a = ReadShared(_path); // header must be correct before dispose
             Assert.Equal(a.Length - 8, BitConverter.ToInt32(a, 4));   // RIFF size
             Assert.Equal(a.Length - 44, BitConverter.ToInt32(a, 40)); // data size
+            Assert.Equal(48000, BitConverter.ToInt32(a, 24));         // the archive keeps 48 kHz
+            Assert.Equal(96000, BitConverter.ToInt32(a, 28));         // byte rate = rate * 2 for 16-bit mono
         }
 
-        using (var sink = new NAudioCapture.WavSink(_path)) // reopen: continue the same file
+        using (var sink = new NAudioCapture.WavSink(_path, 48000)) // reopen: continue the same file
         {
             sink.Write(new byte[32000]);
             sink.FinalizeHeader();
@@ -45,9 +47,8 @@ public sealed class WavSinkTests : IDisposable
     public void Reopen_RepairsZeroedHeader()
     {
         File.WriteAllBytes(_path, new byte[44 + 1000]); // crash: header sizes still zero
-        using (var sink = new NAudioCapture.WavSink(_path)) { sink.FinalizeHeader(); }
+        using (var sink = new NAudioCapture.WavSink(_path, 48000)) { sink.FinalizeHeader(); }
         var b = File.ReadAllBytes(_path);
         Assert.Equal(b.Length - 44, BitConverter.ToInt32(b, 40));
     }
 }
-

@@ -52,7 +52,7 @@ public sealed partial class SettingsPage : Page
         var devices = MeetVault.Core.GpuProbe.Devices();
         if (devices.Count == 0)
         {
-            list.Add(new DeviceOption("GPU — no compatible GPU detected", "", false));
+            list.Add(new DeviceOption(MeetVault.Core.GpuProbe.GpuUnavailableReason(), "", false));
         }
         else
         {

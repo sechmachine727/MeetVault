@@ -96,7 +96,9 @@ Settings persist in `%APPDATA%\MeetVault\meetings.db` (SQLite, `settings` table)
 
 ## GPU inference
 
-Transcription can run on a GPU. The Settings device picker lists the GPUs the machine exposes, queried through DXGI, which excludes indirect and virtual display adapters. Each GPU is offered through a backend it can use: CUDA when the NVIDIA driver and CUDA runtime are present, otherwise Vulkan. The Live screen reports the backend that actually loaded, so a requested GPU that falls back to CPU is visible in the status line. The log records the reason.
+Transcription can run on a GPU. The Settings device picker lists what each backend can actually drive, and every device index is that backend's own.
+
+CUDA needs no toolkit install: cuBLAS, cuBLASLt and the CUDA runtime ship with the app, next to the ggml CUDA native. What CUDA does need is an NVIDIA driver that supports CUDA 13 (driver 580 or newer) and a GPU the shipped CUDA native has code for: sm_8.6-8.9 (RTX 30 and 40 series) or sm_120/121 (RTX 50 series). The native is SASS-only with no PTX, so Turing (RTX 20 series), A100 and H100 are refused rather than offered and then silently run on CPU. Both are queried from the driver rather than guessed from the card's name, and the picker stays greyed out with the reason when they do not hold. Vulkan devices come from `vulkan-1.dll` in that loader's order. Whether the loader's index is the one ggml applies, or whether ggml compacts its device list first, is unverified on hosts with more than one Vulkan device. The Live screen reports the backend that actually loaded, so a requested GPU that falls back to CPU is visible in the status line, and the startup log records the driver version, the detected compute capability, and why a backend was rejected.
 
 The device picker offers the backends Whisper.net supports: CPU, CUDA, and Vulkan. DirectML is not a Whisper.net backend and is not offered.
 
@@ -107,7 +109,7 @@ Vulkan passthrough is often unavailable on a paravirtualized GPU (Hyper-V GPU-P)
 | Path | Contents |
 | --- | --- |
 | `%APPDATA%\MeetVault\meetings.db` | Meetings, transcripts, speakers, jobs, settings |
-| `%APPDATA%\MeetVault\media` | Recorded WAV files |
+| `%APPDATA%\MeetVault\media` | Recordings: `.m4a` (AAC 256 kbps), plus the working `.wav` when encoding was unavailable |
 | `%APPDATA%\MeetVault\gemini` | Saved Gemini results |
 | `%TEMP%\MeetVault\app.log` | Application log |
 | `%TEMP%\MeetVault\crash.log`, `nav-errors.log` | Crash and navigation diagnostics |

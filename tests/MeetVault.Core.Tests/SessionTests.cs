@@ -8,6 +8,7 @@ sealed class FakeAudio : IAudioCapture
     public string? MediaPath => null;
     public string LastMic { get; private set; } = ""; public string LastSource { get; private set; } = ""; public Task StartAsync(string micId, string appSource, CancellationToken ct) { IsCapturing = true; LastMic = micId; LastSource = appSource; return Task.CompletedTask; }
     public Task StopAsync(CancellationToken ct) { IsCapturing = false; return Task.CompletedTask; }
+    public Task FinishAsync(CancellationToken ct) { IsCapturing = false; return Task.CompletedTask; }
 }
 
 sealed class FakeTranscriber : ISpeechTranscriber

@@ -69,6 +69,9 @@ public partial class App : Application
         try { MeetVault.Core.AppLog.Configure(Views.AppStore.Repo.GetSetting("logging.level") ?? "debug"); }
         catch { MeetVault.Core.AppLog.Configure("debug"); }
         MeetVault.Core.AppLog.Info("app start; log level=" + MeetVault.Core.AppLog.LevelName(MeetVault.Core.AppLog.Parse(Views.AppStore.Repo.GetSetting("logging.level"))));
+        // Touch the GPU probe so its capability report is in the log from startup, not only
+        // once Settings is opened. First access runs the probe's static constructor.
+        _ = MeetVault.Core.GpuProbe.ApiSummary();
         InitializeComponent();
         // ponytail: last-resort crash log. Unhandled UI exceptions otherwise vanish
         // in the unpackaged exe with no debugger attached.

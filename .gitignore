@@ -44,6 +44,8 @@ secrets.json
 
 # ML model binaries (fetched or bundled at build time)
 /models/
+/cuda/
+/vcruntime/
 /modelharness/
 /publish/
 *.onnx

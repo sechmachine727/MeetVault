@@ -21,6 +21,7 @@ public sealed class RenameSpeakerTests
         public string? MediaPath => null;
         public Task StartAsync(string micId, string appSource, CancellationToken ct) { IsCapturing = true; return Task.CompletedTask; }
         public Task StopAsync(CancellationToken ct) { IsCapturing = false; return Task.CompletedTask; }
+        public Task FinishAsync(CancellationToken ct) { IsCapturing = false; return Task.CompletedTask; }
     }
 
     private sealed class EmittingTranscriber : ISpeechTranscriber

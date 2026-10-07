@@ -92,10 +92,12 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
     private void Persist()
     {
         if (_meeting is null) return;
-        // Link the capture's current file. Pause/resume keeps one file; a recovered
-        // session opens a new one, so the link follows the audio being recorded now.
-        if (_audio.MediaPath is { } path && path != _meeting.MediaPath)
-            _meeting = _meeting with { MediaPath = path, MediaMime = "audio/wav" };
+        // Link the capture's current file while the meeting is live. Pause/resume keeps one
+        // file; a recovered session opens a new one, so the link follows the audio being
+        // recorded now. A finished meeting is linked once, to its compacted file, by StopAsync.
+        if (_meeting.Status is MeetingStatus.Recording or MeetingStatus.Paused
+            && _audio.MediaPath is { } path && path != _meeting.MediaPath)
+            _meeting = _meeting with { MediaPath = path, MediaMime = NAudioCapture.ArchiveMime(path) };
         _store.Save(_meeting, _speakers, _segments);
     }
 
@@ -112,9 +114,24 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         AppLog.Info("session: recover " + meetingId + " paused=" + wasPaused + " segments=" + session._segments.Count);
         if (!wasPaused)
         {
-            if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is required to resume capture.", "micId");
-            await audio.StartAsync(micId, appSource, ct);
-            await transcriber.StartAsync(ct);
+            if (string.IsNullOrWhiteSpace(micId))
+            {
+                session.Dispose();
+                throw new ArgumentException("Mic id is required to resume capture.", "micId");
+            }
+            try
+            {
+                await audio.StartAsync(micId, appSource, ct);
+                await transcriber.StartAsync(ct);
+            }
+            catch
+            {
+                // A recovery that fails after capture opened would leave the crashed meeting's
+                // file open and still capturing, so release it before the caller gives up.
+                session.Dispose();
+                try { await audio.StopAsync(ct); } catch { }
+                throw;
+            }
         }
         return session;
     }
@@ -124,9 +141,18 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         EnsureActive();
         await _audio.StopAsync(ct);
         await _transcriber.StopAsync(ct);
+        await _audio.FinishAsync(ct); // release + compact the recording before it is linked
         _meeting = _meeting! with { Status = MeetingStatus.Ready, EndedAt = DateTimeOffset.Now };
+        var kept = _audio.MediaPath;
+        if (kept is { Length: > 0 }) _meeting = _meeting! with { MediaPath = kept, MediaMime = NAudioCapture.ArchiveMime(kept) };
         Persist();
-        AppLog.Info("session: stop " + _meeting.Id + " segments=" + _segments.Count + " media=" + _meeting.MediaPath);
+        // Remove the working WAV only now that the row points at the compacted file, so a
+        // failed save or a crash here still leaves the recording on disk and reachable. The
+        // path is derived from the kept file, so a working file that was never linked to the
+        // row is cleaned up too.
+        if (kept is { Length: > 0 } && kept.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase))
+            NAudioCapture.TryDeleteFile(Path.ChangeExtension(kept, ".wav"));
+        AppLog.Info("session: stop " + _meeting!.Id + " segments=" + _segments.Count + " media=" + _meeting.MediaPath);
         _meeting = null;
     }
 

@@ -29,6 +29,27 @@ public sealed class WhisperTranscriber : ISpeechTranscriber, IDisposable
 
 private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnoreCase) { "auto", "en", "ja", "vi" };
 
+    // ggml/whisper report device selection and per-run timings through this logger
+    // ("ggml_vulkan: Found 2 Vulkan devices", the chosen device, CUDA init errors). Routing
+    // it into AppLog is what makes "is it really using the GPU" answerable from a log
+    // instead of guesswork. Registered once per process; the subscription lives for the
+    // process lifetime.
+    private static readonly IDisposable? NativeLogSubscription = HookNativeLog();
+
+    private static IDisposable? HookNativeLog()
+    {
+        try { return Whisper.net.Logger.LogProvider.AddLogger(OnNativeLog); }
+        catch { return null; }
+    }
+
+    private static void OnNativeLog(Whisper.net.Logger.WhisperLogLevel level, string? message)
+    {
+        var text = message ?? "";
+        if (level == Whisper.net.Logger.WhisperLogLevel.Error) AppLog.Error("whisper-native: " + text);
+        else if (level == Whisper.net.Logger.WhisperLogLevel.Warning) AppLog.Warn("whisper-native: " + text);
+        else AppLog.Debug("whisper-native: " + text);
+    }
+
     public WhisperTranscriber(string modelPath, string language = "auto", GpuBackend backend = GpuBackend.Cpu, int gpuDevice = 0)
     {
         if (language is null) throw new ArgumentException("Language is required. Use auto, en, ja, vi, or a valid ISO code.", "language");
@@ -102,6 +123,7 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
     public async Task TranscribeWindowAsync(byte[] pcm16kMono, long windowStartMs, string meetingId, CancellationToken ct = default)
     {
         if (_factory is null) throw new InvalidOperationException("Transcriber not started.");
+        var startedTicks = System.Diagnostics.Stopwatch.GetTimestamp();
         // Link the caller's token with Stop's CTS so a paused/stopped session cancels
         // an in-flight window instead of finishing it after the gap.
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _cts?.Token ?? default);
@@ -118,6 +140,11 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
             if (IsNonSpeech(text)) continue; // silence tokens must not become transcript lines
             SegmentReady?.Invoke(new Segment($"{meetingId}-w{windowStartMs}-{index++}", "", windowStartMs + (long)result.Start.TotalMilliseconds, windowStartMs + (long)result.End.TotalMilliseconds, text, true));
         }
+        // Per-window cost on the loaded accelerator: the only way to tell a GPU that is
+        // really working from one that idles between short bursts.
+        AppLog.Debug("whisper: window " + (floats.Length / 16000.0).ToString("0.0") + "s on " + LoadedBackend
+            + " -> " + (long)System.Diagnostics.Stopwatch.GetElapsedTime(startedTicks).TotalMilliseconds + "ms lang="
+            + (lang ?? "?") + " " + prob.ToString("0.00") + " segments=" + index);
     }
 
     // whisper.cpp emits bracketed silence markers on quiet windows; they are not speech.

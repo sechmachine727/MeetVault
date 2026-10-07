@@ -53,6 +53,142 @@
 
 ## Deltas this session (Observed)
 
+### Deltas 2026-10-07 night, review round 3 (CUDA architecture set)
+
+- The capability gate was wrong, and the audit proved it by parsing the cubin metadata in the
+  published `ggml-cuda-whisper.dll`: the `.nv_fatb` section holds SASS for exactly sm_86 (x23),
+  sm_89 (x31), sm_120a (x32) and sm_121a (x33), with no sm_75/sm_80/sm_90 and no PTX at all.
+- The gate said "sm_7.5 or newer", which is unsound: sm_90 (H100) is newer than sm_86 yet has no
+  embedded code, so the picker would offer CUDA on Turing, A100 and H100 and then fall back to
+  CPU at init. Replaced with a predicate over the architectures the build actually carries:
+  sm_8.6-8.9 (a cubin runs on later minors of its major, so the sm_86 image covers 8.6-8.9) or
+  sm_120/121. Docs corrected in README, RUN-GUIDE, AGENTS.md, BLOCKERS.md and here; the old wording
+  promised A100/RTX-2060 support this build does not have.
+- RUNTIME here: `device capabilities [sm_6.1]`, refused, which is correct for both reasons.
+- Also deleted 2023 MB of stale CUDA copies that the removed Copy target had left in x86/x64
+  build outputs; the RID condition keeps them out of non-x64 outputs now.
+- Unverified: CUDA init and kernel launch on a real sm_86/89/12x card (none here), and whether
+  a future whisper.net build widens the architecture set, which would let the gate relax again.
+- The accepted set is now pinned by a test, `CudaCapabilityTests`: it asserts the predicate over
+  Maxwell/Pascal/Turing/Ampere/Ada/Hopper/Blackwell and over a future 12.2 and 13.x, so a
+  whisper.net bump that changes the shipped cubins fails loudly instead of silently
+  over-advertising CUDA. Writing that test caught the second-order error in the first fix, where
+  `major == 12` admitted a future 12.2 device; the predicate now bounds the Blackwell minor
+  explicitly, because its cubins are architecture-specific and get no forward-compatibility.
+  Suite: 95/95.
+
+
+### Deltas 2026-10-07 night, review round (bundled VC++ runtime)
+
+- The audit found a pre-existing gap that the CUDA bundling made visible: every whisper native
+  set (`runtimes\win-x64`, `runtimes\cuda\win-x64`, `runtimes\vulkan\win-x64`) imports
+  `MSVCP140.dll`, `VCRUNTIME140.dll` and `VCRUNTIME140_1.dll`, and the ggml base/cpu natives also
+  import `VCOMP140.DLL`. None were in the published output. On a machine with no VC++ 2015-2022
+  redistributable that fails `WhisperFactory` for CPU as well as GPU, so it was never a
+  CUDA-only problem. Verified independently by scanning the published natives.
+- Fixed by staging those four DLLs under `vcruntime/win-x64` (gitignored, 904 KB) and shipping
+  them beside each native set; the loader searches the loaded DLL's own directory because .NET
+  uses `LOAD_WITH_ALTERED_SEARCH_PATH`, so the app root is not sufficient.
+- The staging switched from a post-build `Copy` target to `Content` items with `Link` metadata.
+  Two reasons: `PublishDir` is always defined by the SDK, so the old target also wrote a duplicate
+  506 MB into `bin\...\publish` on every plain build; and the MSIX packaging reader uses the
+  project content list, not files a target dropped into the output, so the old shape would not
+  have been packaged.
+- CUDA gating tightened: the runtime check now requires both `cublas64_13.dll` and
+  `cublasLt64_13.dll` (cuBLAS 13 loads through cuBLASLt, so a single-file check passed a
+  half-staged set), and compute capability is queried per device so a device the native has no code for is
+  filtered out of the picker rather than offered and then rejected at init.
+- `docs/THIRD-PARTY-NOTICES.md` is now shipped inside the package, not just in the repo.
+- RUNTIME here after the change: `cudaDevices=1 cudaRuntime=present`,
+  `device capabilities [sm_6.1]`, and the gate rejecting it. Package 1.22 GB unpacked.
+- Known gap, not fixed: the MSIX has not been rebuilt for any of this and is stale (it still
+  carries foreign `runtimes\linux-*`/`macos-*` payloads that the trim targets delete). The
+  `Content` switch is what should let a future MSIX rebuild pick the payloads up, but that is
+  unverified. The portable exe is the artifact that carries CUDA and the VC++ runtime today.
+
+
+### Deltas 2026-10-07 night (CUDA runtime bundled)
+
+- The CUDA runtime is now shipped with the app instead of being a user install. The shipped
+  CUDA 13 native imports exactly three runtime DLLs; `ggml-cuda-whisper.dll` was load-tested
+  on this host and resolves with only those present:
+
+      cublas64_13.dll 49.4 MB + cublasLt64_13.dll 456 MB + cudart64_13.dll 0.4 MB
+
+  They are NVIDIA redistributables from the CUDA Toolkit redist archives (EULA Attachment A),
+  the same components PyTorch and onnxruntime-gpu redistribute. Staged under `cuda/win-x64`
+(gitignored, like `models/`) and shipped next to the native as `Content` items.
+- Two facts drove the design. `cuda_cudart`, `libcublas` and `libcublasLt` are separate
+  redistributables, so the bundle has to name the components, not a toolkit. And
+  `nvcudart_hybrid64.dll` is a *driver* component (found only under DriverStore), so it is
+  deliberately not bundled; the load test confirms it is not a load-time dependency of the
+  chain. `nvrtc64_130_0.dll` is likewise optional (JIT kernels only).
+- CUDA now needs no toolkit install but still cannot escape the driver, so both remaining
+  requirements are queried rather than assumed: `cuDriverGetVersion` (needs 13000 = CUDA 13.0)
+  and `cuDeviceGetAttribute` compute capability against the architectures the shipped native
+  carries (sm_8.6-8.9 and sm_120/121; it is SASS-only, so "or newer" is the wrong test). The picker states which one failed.
+- RUNTIME here: `cudaDevices=1 cudaRuntime=present`, no CUDA Toolkit installed, driver reports
+  max CUDA 13.0, and the capability gate rejected this GTX 1050 Ti with
+  "no CUDA device here has code in this build". The probe also runs and logs at app
+  startup now, not only when Settings is opened.
+- Package: the portable zip grew from 488 MB to 872 MB. The MSIX was not rebuilt.
+- Suite: 82/82; build 0 errors.
+
+
+### Deltas 2026-10-07 evening (Observed, working tree)
+
+Reported from a physical machine (RTX 4070 Laptop + Intel UHD): CUDA never detected, Vulkan
+slow with the discrete GPU idle, saved audio muffled, WAV storage heavy.
+
+- CUDA detection was structurally broken: `GpuProbe` called `cudaGetDeviceCount`, a CUDA
+  *runtime* API export that lives in cudart, not in `nvcuda.dll`. The driver exports the
+  driver API instead, so the export lookup always failed and CUDA read as zero devices.
+  Verified on this host: `cuInit`/`cuDeviceGetCount` exported = True, `cudaGetDeviceCount`
+  = False. Now uses `cuInit` + `cuDeviceGetCount` + `cuDeviceGetName`. RUNTIME here:
+  cudaDevices=1 (GTX 1050 Ti), previously always 0.
+- CUDA is offered only when the runtime whisper.net's CUDA build links against
+  (`cublas64_13.dll`) is installed; otherwise the picker greys it out and names the reason
+  rather than offering a backend that silently falls back to CPU.
+- Vulkan devices are enumerated from `vulkan-1.dll` (`vkEnumeratePhysicalDevices`) in the
+loader's own index order. The old list reused DXGI adapter indices, which is a different
+list, so the index handed to whisper.net could address another card (discrete GPU
+selected, integrated GPU doing the work and idling). RUNTIME here: no Vulkan devices,
+cross-checked against `vulkaninfo.exe` ("Failed to detect any valid GPUs").
+  Unverified: whether ggml compacts or filters the physical-device list before applying
+  `GpuDevice`, which would shift the index. Needs a host with more than one Vulkan device.
+- whisper.net's native logger (`LogProvider.AddLogger`) is routed into `AppLog`, so ggml
+  device-selection and CUDA/Vulkan init messages reach the app log, and each transcription
+  window logs size, loaded backend, duration, detected language, and segment count.
+- Audio fidelity: capture mixed everything to 16 kHz mono before writing, which is what made
+  recordings sound muffled. It now mixes at 48 kHz mono for the archive and derives a 16 kHz
+  mono copy (`InferenceDownmixer`) for Whisper and the diarizer. The microphone opens at
+  48 kHz with a documented 16 kHz fallback.
+- Storage: `FinishAsync` (new on `IAudioCapture`; `StopAsync` is now strictly pause) closes
+  the append-safe WAV and encodes it to AAC 256 kbps `.m4a` through Media Foundation; the
+  session deletes the WAV once the row points at the `.m4a`, and keeps it when the encoder
+  is unavailable. Playback and Gemini get
+  the MIME from the extension. RUNTIME here: a 2 s 48 kHz tone round-trips to `.m4a` within
+  0.3 s of the original duration and smaller than the WAV.
+- Suite: 80/80 green (was 77/77); added `ArchiveAndDownmixTests`. Build stays at the 6
+  pre-existing CA1416 warnings, 0 errors.
+- Still unproven: transcription time on a physical GPU, per-app WASAPI capture, two-speaker
+  separation, JA/VI accuracy, live Gemini call. The MSIX copy under `src/.../AppPackages`
+  was not rebuilt for this change.
+- Independent audit (9router/ocg-deepseek-v4.1-flash, max, read-only) reproduced the CUDA and
+  Vulkan interop findings and the 80/80 suite, and raised 12 findings; all 12 are fixed in the
+  same working tree. The material ones: the capture pump thread had no exception guard, and an
+  unhandled exception on a raw Thread terminates the process; the WAV encode ran on the UI
+  thread; a failed recovery leaked the reuse path, so the next meeting would record into the
+  crashed meeting's file; the WAV was deleted before the row was updated; the pump ran Whisper
+  and the diarizer inline, dropping archive audio and shortening the file; per-app capture read
+  bytes in the pre-start default format; and the single-source path could lose wall-clock
+  duration. Suite: 81/81 after the fixes.
+- The change was re-reviewed after every round (four passes). Round 2 confirmed all 12 fixes
+  and raised 6 more; round 3 confirmed those fixes and raised 4 (device teardown after a dead
+  pump, a throwing failure handler, a non-atomic flag, a reuse path left in the resume slot);
+  the final pass found no Medium, High, or Critical defect. Suite: 82/82.
+
+
 ### Deltas 2026-10-07 later (Observed, commits 92df6cf..36ed183)
 
 ### Deltas 2026-10-07 (audio combination)

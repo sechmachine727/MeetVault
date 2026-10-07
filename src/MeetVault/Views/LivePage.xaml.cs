@@ -15,6 +15,7 @@ public sealed partial class LivePage : Page
     private WhisperTranscriber? _whisper;
     private NAudioCapture? _capture;
     private readonly List<byte> _window = new();
+    private const int WindowBytes = 16000 * 2 * 6; // 6 s of 16 kHz mono
     private WindowDiarizer? _windowDiarizer;
     private ISpeechTranscriber _transcriber = null!;
     private IAudioCapture _audio = null!;
@@ -26,6 +27,7 @@ public sealed partial class LivePage : Page
     private string _micLabel = "not started";
     private string _modelLabel = "tiny";
     private readonly SemaphoreSlim _transcribeGate = new(1, 1);
+    private int _droppedWindows;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _checkpoint;
     private LiveState _state = LiveState.Idle;
 
@@ -91,6 +93,7 @@ public sealed partial class LivePage : Page
             _whisper = whisper; _capture = capture; _windowDiarizer = windowDiarizer;
             _transcriber = whisper; _audio = capture; _diarizer = (ISpeakerDiarizer?)windowDiarizer ?? diarizer;
             capture.PcmReady += OnPcm;
+            capture.CaptureFailed += OnCaptureFailed;
             _modelLabel = modelFile.Replace("ggml-", "").Replace(".bin", "");
             _engineMode = "live: whisper " + _modelLabel + (windowDiarizer is null ? ", single speaker" : " + sherpa diarizer");
             return;
@@ -135,7 +138,7 @@ public sealed partial class LivePage : Page
         }
         catch (Exception ex)
         {
-            try { if (_session is not null) { _session.MarkFailed(); _session = null; } } catch { }
+            try { if (_session is not null) { _session.MarkFailed(); _session.Dispose(); _session = null; } } catch { }
             SetState(LiveState.Idle);
             MeetVault.Core.AppLog.Error("live: start capture failed", ex);
             Status("Could not start capture. Check the microphone in Settings. (" + Short(ex) + ")");
@@ -160,6 +163,7 @@ public sealed partial class LivePage : Page
         catch (Exception ex)
         {
             SetState(LiveState.Idle);
+            _capture?.ClearReuse(); // a recovery that failed must not capture the next meeting into the old file
             MeetVault.Core.AppLog.Error("live: resume failed", ex);
             Status("Could not resume this meeting. (" + Short(ex) + ")");
         }
@@ -248,13 +252,28 @@ public sealed partial class LivePage : Page
     {
         if (_whisper is null || !_whisper.IsRunning) return;
         lock (_window) _window.AddRange(chunk);
-        if (_window.Count < 16000 * 2 * 6) return;
         byte[] window;
-        lock (_window) { window = _window.ToArray(); _window.Clear(); }
+        lock (_window)
+        {
+            if (_window.Count < WindowBytes) return;
+            window = _window.ToArray();
+            _window.Clear();
+        }
         var windowMs = window.Length / 32;
         var start = _windowOffsetMs;
         _windowOffsetMs = start + windowMs;
-        if (!await _transcribeGate.WaitAsync(0)) return;
+        // Leave the capture pump before the diarizer and whisper run: both are synchronous up
+        // to their first await, and running them here would stall the thread that writes the
+        // archive, which then drops source audio and loses wall-clock duration.
+        await Task.Yield();
+        if (!await _transcribeGate.WaitAsync(0))
+        {
+            // Transcription is behind real time and this window cannot wait. The recording
+            // still holds the audio; the transcript loses it, so it must be visible in the log.
+            var dropped = System.Threading.Interlocked.Increment(ref _droppedWindows);
+            MeetVault.Core.AppLog.Warn("live: transcription behind real time, dropped " + (windowMs / 1000.0).ToString("0.0") + "s window (total " + dropped + ")");
+            return;
+        }
         try
         {
             if (_session?.MeetingId is not { Length: > 0 } meetingId) return;
@@ -293,6 +312,11 @@ public sealed partial class LivePage : Page
     }
 
     private void Status(string message) { StatusBar.Message = message; StatusBar.IsOpen = true; }
+
+    // Capture died on its own. The meeting is still open so the user can save what was
+    // recorded, but they must not be left believing the microphone is still live.
+    private void OnCaptureFailed(string reason)
+        => DispatcherQueue.TryEnqueue(() => Status("Capture stopped unexpectedly (" + reason + "). Press Stop and save to keep what was recorded."));
 
     private async void Pause_Click(object sender, RoutedEventArgs e)
     {
@@ -334,6 +358,7 @@ public sealed partial class LivePage : Page
             if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
             await _session.StopAsync();
             var count = _session.Segments.Count;
+            _session.Dispose(); // unsubscribe from the shared transcriber before dropping it
             _session = null;
             _checkpoint?.Stop();
             SetState(LiveState.Idle);
@@ -356,6 +381,7 @@ public sealed partial class LivePage : Page
         public string? MediaPath => null;
         public Task StartAsync(string micId, string appSource, CancellationToken ct) { IsCapturing = true; return Task.CompletedTask; }
         public Task StopAsync(CancellationToken ct) { IsCapturing = false; return Task.CompletedTask; }
+        public Task FinishAsync(CancellationToken ct) { IsCapturing = false; return Task.CompletedTask; }
     }
 
     private sealed class FakeTranscriber : ISpeechTranscriber
@@ -376,7 +402,8 @@ public sealed partial class LivePage : Page
     private sealed class WindowDiarizer : ISpeakerDiarizer
     {
         private readonly SherpaDiarizer _inner;
-        private string _current = "spk_1";
+        // Written on the capture pump thread, read on the UI thread.
+        private volatile string _current = "spk_1";
         public WindowDiarizer(SherpaDiarizer inner) { _inner = inner; }
         public void Dispose() => _inner.Dispose();
         public void AssignWindowSamples(byte[] pcm16)

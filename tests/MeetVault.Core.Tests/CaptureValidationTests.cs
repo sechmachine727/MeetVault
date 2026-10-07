@@ -27,5 +27,21 @@ public sealed class CaptureValidationTests
         var apps = NAudioCapture.ListAudioApps();
         Assert.NotNull(apps);
     }
-}
 
+    // A recovery that fails after capture opened parks the crashed file in the resume path,
+    // not the reuse path. Clearing only the reuse path would send the next meeting there.
+    [Fact]
+    public void ClearReuse_ForgetsBothReusePaths()
+    {
+        using var cap = new NAudioCapture();
+        cap.ReuseFile(Path.Combine(Path.GetTempPath(), "crashed-meeting.wav"));
+        // A recovery that failed after capture opened parks the file in the resume path, which
+        // only StopCore sets, so put the instance in that state directly.
+        typeof(NAudioCapture)
+            .GetField("_resumePath", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .SetValue(cap, Path.Combine(Path.GetTempPath(), "resumed-meeting.wav"));
+        Assert.NotNull(cap.MediaPath);
+        cap.ClearReuse();
+        Assert.Null(cap.MediaPath);
+    }
+}
