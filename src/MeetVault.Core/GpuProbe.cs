@@ -311,25 +311,41 @@ public static class GpuProbe
     internal static bool VulkanDeviceUsable(int deviceType) =>
         deviceType == VkPhysicalDeviceTypeDiscreteGpu || deviceType == VkPhysicalDeviceTypeIntegratedGpu;
 
-    // ggml_vk_device_is_supported is exactly the storageBuffer16BitAccess flag. A device that
-    // fails it is dropped by ggml, so the picker must drop it too or the kept-device numbering
-    // shifts. When the feature query is unavailable the device is kept, matching ggml's own
-    // behaviour of having nothing to reject it on.
+    // ggml_vk_device_is_supported chains a VkPhysicalDeviceVulkan11Features off a
+    // VkPhysicalDeviceFeatures2 through pNext and reads storageBuffer16BitAccess
+    // (llama.cpp ggml/src/ggml-vulkan/ggml-vulkan.cpp). A device that fails the flag is dropped
+    // by ggml, so the picker must drop it too or every kept-device index after it shifts. When
+    // the feature query is unavailable the device is kept, matching ggml's own behaviour of
+    // having nothing to reject it on.
+    //
+    // The chained struct must be named by the outer pNext and placed after the outer
+    // VkPhysicalDeviceFeatures (55 VkBool32, 220 bytes at offset 16). Leave pNext NULL or overlap
+    // that struct and the driver fills the outer struct alone, so the flag read below returns an
+    // unrelated feature. Both offsets are exposed so a test can pin them without a GPU.
+    internal const int Vulkan11FeaturesOffset = (16 + 220 + 7) & ~7; // 8-aligned after sType+pNext+VkPhysicalDeviceFeatures
+    internal const int VulkanStorageBufferFlagOffset = Vulkan11FeaturesOffset + 16; // chained sType + pNext, then the flag
+
+    internal static void WriteVulkanFeatures2Query(IntPtr buffer)
+    {
+        Marshal.WriteInt32(buffer, 0, unchecked((int)VkStructureTypePhysicalDeviceFeatures2));
+        Marshal.WriteIntPtr(buffer, 8, buffer + Vulkan11FeaturesOffset); // pNext -> the chained struct
+        Marshal.WriteInt32(buffer, Vulkan11FeaturesOffset, unchecked((int)VkStructureTypePhysicalDeviceVulkan11Features));
+        Marshal.WriteIntPtr(buffer, Vulkan11FeaturesOffset + 8, IntPtr.Zero); // chained pNext = NULL
+    }
+
+    internal static bool ReadVulkanStorageBufferFlag(IntPtr buffer) => Marshal.ReadInt32(buffer, VulkanStorageBufferFlagOffset) != 0;
+
     private static bool VulkanStorageBuffer16BitAccess(IntPtr device, VkGetPhysicalDeviceFeatures2Fn? getFeatures)
     {
         if (getFeatures is null) return true;
-        var buffer = Marshal.AllocHGlobal(VkFeaturesBufferBytes);
+        var bytes = VulkanStorageBufferFlagOffset + sizeof(int);
+        var buffer = Marshal.AllocHGlobal(bytes);
         try
         {
-            for (var b = 0; b < VkFeaturesBufferBytes; b++) Marshal.WriteByte(buffer, b, 0);
-            Marshal.WriteInt32(buffer, 0, unchecked((int)VkStructureTypePhysicalDeviceFeatures2));
-            Marshal.WriteInt32(buffer, 8, 0); // pNext = NULL
-            Marshal.WriteInt32(buffer, 12, 0); // first flags2 word = 0
-            var v11 = buffer + sizeof(int) + 2 * IntPtr.Size; // align(8) after sType+pNext on x64
-            Marshal.WriteInt32(v11, 0, unchecked((int)VkStructureTypePhysicalDeviceVulkan11Features));
-            Marshal.WriteInt32(v11 + 8, 0); // pNext = NULL
+            for (var b = 0; b < bytes; b++) Marshal.WriteByte(buffer, b, 0);
+            WriteVulkanFeatures2Query(buffer);
             getFeatures(device, buffer);
-            return Marshal.ReadInt32(v11 + 16) != 0; // storageBuffer16BitAccess
+            return ReadVulkanStorageBufferFlag(buffer);
         }
         finally { Marshal.FreeHGlobal(buffer); }
     }
@@ -348,7 +364,6 @@ public static class GpuProbe
     private const int VkPropertiesBufferBytes = 2048;
     private const uint VkStructureTypePhysicalDeviceFeatures2 = 1000059000;
     private const uint VkStructureTypePhysicalDeviceVulkan11Features = 49;
-    private const int VkFeaturesBufferBytes = 1024;
 
     // ggml keeps a device only when it is a GPU the ggml_vk_device_is_supported check accepts,
     // so mirroring the type filter alone still counts a card ggml drops and shifts every index

@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using MeetVault.Core;
 
 namespace MeetVault.Core.Tests;
@@ -69,6 +70,29 @@ public sealed class GpuProbeTests
         Assert.Equal(new[] { 0, -1, 1 }, GpuProbe.AssignVulkanIndices(new[] { true, false, true }));
         Assert.Equal(new[] { -1, -1 }, GpuProbe.AssignVulkanIndices(new[] { false, false }));
         Assert.Equal(new[] { 0, 1, 2 }, GpuProbe.AssignVulkanIndices(new[] { true, true, true }));
+    }
+
+    [Fact]
+    public void VulkanFeaturesQuery_ChainsTheStorageBufferFlagStruct()
+    {
+        // ggml reads storageBuffer16BitAccess from a VkPhysicalDeviceVulkan11Features chained off
+        // a VkPhysicalDeviceFeatures2. If the outer pNext is NULL, or the chained struct overlaps
+        // the outer VkPhysicalDeviceFeatures (offset 16, 220 bytes), the driver fills the outer
+        // struct alone and the flag read lands on an unrelated feature (offset 36), so the filter
+        // passes devices ggml drops. This pins the layout the driver depends on.
+        var bytes = GpuProbe.VulkanStorageBufferFlagOffset + sizeof(int);
+        var buffer = Marshal.AllocHGlobal(bytes);
+        try
+        {
+            for (var b = 0; b < bytes; b++) Marshal.WriteByte(buffer, b, 0);
+            GpuProbe.WriteVulkanFeatures2Query(buffer);
+            Assert.Equal(GpuProbe.Vulkan11FeaturesOffset, (int)(Marshal.ReadIntPtr(buffer, 8).ToInt64() - buffer.ToInt64()));
+            Assert.True(GpuProbe.Vulkan11FeaturesOffset >= 16 + 220);
+            Assert.False(GpuProbe.ReadVulkanStorageBufferFlag(buffer));
+            Marshal.WriteInt32(buffer, GpuProbe.VulkanStorageBufferFlagOffset, 1);
+            Assert.True(GpuProbe.ReadVulkanStorageBufferFlag(buffer));
+        }
+        finally { Marshal.FreeHGlobal(buffer); }
     }
 
     [Theory]

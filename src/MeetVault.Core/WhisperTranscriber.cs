@@ -31,13 +31,15 @@ public sealed class WhisperTranscriber : ISpeechTranscriber, IDisposable
     // ("using <name> backend", or "no GPU found" -> CPU). LoadedBackend only says which native
     // DLL loaded, which stays a GPU name even when whisper then finds no usable GPU and
     // computes on the CPU; this reports the compute device.
-    // The log is process-wide, so the reading is kept with a sequence number and each session
-    // only accepts a reading that arrived after it started; a second transcriber cannot clobber
-    // or clear the live one.
+    // The log is process-wide, so a reading is bound to this instance's own factory: it counts
+    // when it arrived after that factory was created, which is when this transcriber's native
+    // context began logging. Reusing the cached factory across meetings keeps reporting the
+    // device it initialized, and an instance that never created a factory reports nothing, so a
+    // second transcriber neither inherits nor clears the live one's reading.
     private static volatile string? _lastAccelerator;
     private static long _acceleratorSequence;
-    private long _startSequence;
-    public string? AcceleratorInUse => Volatile.Read(ref _acceleratorSequence) > _startSequence ? _lastAccelerator : null;
+    private long _factorySequence;
+    public string? AcceleratorInUse => _factory is not null && Volatile.Read(ref _acceleratorSequence) > _factorySequence ? _lastAccelerator : null;
 
 private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnoreCase) { "auto", "en", "ja", "vi" };
 
@@ -105,8 +107,10 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
     public Task StartAsync(CancellationToken ct)
     {
         if (!File.Exists(_modelPath)) throw new FileNotFoundException($"Whisper model not found: {_modelPath}. Download the multilingual base model to models/ggml-base.bin.", _modelPath);
-        _startSequence = Volatile.Read(ref _acceleratorSequence); // only later readings count for this session
-        _factory ??= CreateFactory();
+        // The reading is bound to the factory, not the session: a second meeting reuses the
+        // cached factory, so requiring a fresh per-session reading would drop the device it
+        // already reported. Only the first creation snapshots the sequence.
+        if (_factory is null) { _factory = CreateFactory(); _factorySequence = Volatile.Read(ref _acceleratorSequence); }
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         IsRunning = true;
         AppLog.Info("whisper: started model=" + Path.GetFileName(_modelPath) + " lang=" + _language + " loaded=" + LoadedBackend);
