@@ -448,11 +448,17 @@ public static class GpuProbe
             // that cannot provide it. A 1.0 instance would leave the feature query undefined and
             // silently read "absent", dropping a usable GPU from the picker.
             var created = false;
+            var coreFeatureQuery = false; // vkGetPhysicalDeviceFeatures2 is defined only on a 1.1 instance
             foreach (var apiVersion in new[] { VkApiVersion11, VkApiVersion10 })
             {
                 var app = new VkApplicationInfo { SType = VkStructureTypeApplicationInfo, ApiVersion = apiVersion };
                 Marshal.StructureToPtr(app, appInfo, false);
-                if (create(createInfo, IntPtr.Zero, out instance) == VkSuccess && instance != IntPtr.Zero) { created = true; break; }
+                if (create(createInfo, IntPtr.Zero, out instance) == VkSuccess && instance != IntPtr.Zero)
+                {
+                    created = true;
+                    coreFeatureQuery = apiVersion == VkApiVersion11;
+                    break;
+                }
             }
             if (!created)
             {
@@ -481,7 +487,9 @@ public static class GpuProbe
                 var name = (head.DeviceName ?? "").Trim();
                 if (name.Length == 0) name = "Vulkan device " + i;
                 raw.Add((name, head.VendorId, head.DeviceId));
-                kept.Add(VulkanDeviceUsable(head.DeviceType) && VulkanStorageBuffer16BitAccess(device, getFeatures));
+                // On a 1.0 instance the feature query is undefined, so it is treated as unavailable and
+                // the device is kept, matching the "keep when the query is unavailable" policy above.
+                kept.Add(VulkanDeviceUsable(head.DeviceType) && VulkanStorageBuffer16BitAccess(device, coreFeatureQuery ? getFeatures : null));
             }
             // Numbered over the devices ggml keeps, in loader order, because whisper.cpp's
             // gpu_device counts GPU/IGPU entries in ggml's list, not physical-device indices. A

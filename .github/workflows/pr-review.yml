@@ -60,8 +60,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # The rubric must come from the base commit, not the pull request under review, so a PR
-      # cannot weaken the instructions that govern its own review by editing the file.
+      # The rubric must come from the base commit, not the pull request under review, so a PR cannot
+      # weaken the instructions that govern its own review by editing the file. The one allowance is
+      # the pull request that first introduces the file, where the base cannot supply it; the warning
+      # names that run, and it cannot recur once the file is on the base branch.
       - name: Pin the review rubric to the base commit
         env:
           BASE: ${{ steps.pr.outputs.base }}

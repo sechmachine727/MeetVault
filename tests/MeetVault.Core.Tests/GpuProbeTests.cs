@@ -114,7 +114,10 @@ public sealed class GpuProbeTests
         // The picker must agree with whisper.net's own gate (CudaHelper -> NativeLibrary
         // TryLoad("cudart64_13"), bare name). If CUDA is offered while that load fails, the
         // runtime skips CUDA and runs the CPU with nothing shown, which is the silent fallback
-        // this guards. A shorter probe search set than the loader's is the failure this catches.
+        // this guards. Only a probe that searches a looser set than the loader can fail it: a
+        // probe stricter than the loader returns here and passes, and CUDA is offered only for a
+        // supported GPU, so this cannot assert equality on machines whose GPU this build lacks
+        // code for.
         if (!GpuProbe.CudaAvailable) return;
         var loaded = System.Runtime.InteropServices.NativeLibrary.TryLoad("cudart64_13", out var handle);
         if (handle != IntPtr.Zero) System.Runtime.InteropServices.NativeLibrary.Free(handle);
