@@ -343,15 +343,21 @@ public sealed partial class LivePage : Page
         if (requested == GpuBackend.Cpu) return;
         var compute = _whisper.AcceleratorInUse;
         var loaded = _whisper.LoadedBackend;
-        // Called after the first window, so the compute device is known. Three ways a GPU request
-        // is not honoured: the runtime fell back (loaded is CPU), whisper found no usable GPU
-        // (its own "no GPU found" -> compute CPU), the report never arrived (compute null), or a
-        // different backend's native is loaded (switching without restart keeps the first native).
+        // A missing reading is not evidence of a fallback: the native log subscription is
+        // best-effort, so an absent report is logged and left to the engine line rather than
+        // shown as a downgrade.
+        if (compute is null && loaded != GpuBackend.Cpu)
+        {
+            MeetVault.Core.AppLog.Warn("live: whisper did not report a compute device; requested=" + requested + " native=" + loaded);
+            return;
+        }
+        // Called after the first window, so the compute device is known. Ways a GPU request is not
+        // honoured: the runtime did not load (loaded is CPU), whisper found no usable GPU (its own
+        // "no GPU found" -> compute CPU), or a different backend's native is loaded (switching
+        // without restart keeps the first native).
         string? problem = compute switch
         {
-            null => loaded == GpuBackend.Cpu
-                ? "the " + requested + " runtime did not load"
-                : "whisper did not report which device it used",
+            null => "the " + requested + " runtime did not load",
             "CPU" => "the requested " + requested + " GPU is not usable here",
             _ when requested == GpuBackend.Cuda && !compute.StartsWith("CUDA", StringComparison.OrdinalIgnoreCase)
                 => "the loaded native is " + compute + ", so CUDA is ignored until the app is restarted",

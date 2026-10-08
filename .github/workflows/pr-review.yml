@@ -68,6 +68,7 @@ jobs:
           RUBRIC: .github/codex/pr-review-prompt.md
         run: |
           if git cat-file -e "$BASE:$RUBRIC" 2>/dev/null; then
+            mkdir -p "$(dirname "$RUBRIC")"
             git show "$BASE:$RUBRIC" > "$RUBRIC"
             echo "Using the rubric from the base commit $BASE."
           else
