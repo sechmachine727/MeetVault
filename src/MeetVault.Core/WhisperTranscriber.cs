@@ -31,15 +31,13 @@ public sealed class WhisperTranscriber : ISpeechTranscriber, IDisposable
     // ("using <name> backend", or "no GPU found" -> CPU). LoadedBackend only says which native
     // DLL loaded, which stays a GPU name even when whisper then finds no usable GPU and
     // computes on the CPU; this reports the compute device.
-    // The log is process-wide, so a reading is bound to this instance's own factory: it counts
-    // when it arrived after that factory was created, which is when this transcriber's native
-    // context began logging. Reusing the cached factory across meetings keeps reporting the
-    // device it initialized, and an instance that never created a factory reports nothing, so a
-    // second transcriber neither inherits nor clears the live one's reading.
+    // The log is process-wide, so the reading is only reported once this instance has created its
+    // factory, which is when its native context began logging; reusing the cached factory across
+    // meetings keeps reporting the device it initialized. It is the last backend-init line any
+    // transcriber in the process emitted, which is correct while one runs at a time as the app
+    // does; two live transcribers could report each other's device.
     private static volatile string? _lastAccelerator;
-    private static long _acceleratorSequence;
-    private long _factorySequence;
-    public string? AcceleratorInUse => _factory is not null && Volatile.Read(ref _acceleratorSequence) > _factorySequence ? _lastAccelerator : null;
+    public string? AcceleratorInUse => _factory is null ? null : _lastAccelerator;
 
 private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnoreCase) { "auto", "en", "ja", "vi" };
 
@@ -60,7 +58,7 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
     {
         var text = message ?? "";
         var accel = ParseAccelerator(text);
-        if (accel is not null) { _lastAccelerator = accel; Interlocked.Increment(ref _acceleratorSequence); }
+        if (accel is not null) _lastAccelerator = accel;
         if (level == Whisper.net.Logger.WhisperLogLevel.Error) AppLog.Error("whisper-native: " + text);
         else if (level == Whisper.net.Logger.WhisperLogLevel.Warning) AppLog.Warn("whisper-native: " + text);
         else AppLog.Debug("whisper-native: " + text);
@@ -110,9 +108,7 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
         // The reading is bound to the factory, not the session: a second meeting reuses the
         // cached factory, so requiring a fresh per-session reading would drop the device it
         // already reported. Only the first creation snapshots the sequence.
-        // Snapshot before creating the factory: a backend-init line the native emits while the
-        // factory loads would otherwise be excluded and leave AcceleratorInUse null.
-        if (_factory is null) { _factorySequence = Volatile.Read(ref _acceleratorSequence); _factory = CreateFactory(); }
+        _factory ??= CreateFactory();
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         IsRunning = true;
         AppLog.Info("whisper: started model=" + Path.GetFileName(_modelPath) + " lang=" + _language + " loaded=" + LoadedBackend);
