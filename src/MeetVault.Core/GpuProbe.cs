@@ -368,6 +368,9 @@ public static class GpuProbe
     private const int VkPropertiesBufferBytes = 2048;
     private const uint VkStructureTypePhysicalDeviceFeatures2 = 1000059000;
     private const uint VkStructureTypePhysicalDeviceVulkan11Features = 49;
+    // VK_MAKE_VERSION(major, minor, patch) = major<<22 | minor<<12 | patch.
+    private const uint VkApiVersion10 = 1u << 22;
+    private const uint VkApiVersion11 = (1u << 22) | (1u << 12);
 
     // ggml keeps a device only when it is a GPU the ggml_vk_device_is_supported check accepts,
     // so mirroring the type filter alone still counts a card ggml drops and shifts every index
@@ -404,14 +407,6 @@ public static class GpuProbe
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)] public string DeviceName;
     }
 
-    // Only the head is placed by hand; the trailing feature flags stay in the native buffer and
-    // are read by offset, so the marshalled size does not matter.
-    [StructLayout(LayoutKind.Sequential)]
-    private struct VkPhysicalDeviceFeatures2
-    {
-        public uint SType; public IntPtr PNext;
-    }
-
     [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate int VkCreateInstanceFn(IntPtr createInfo, IntPtr allocator, out IntPtr instance);
     [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate int VkEnumeratePhysicalDevicesFn(IntPtr instance, ref uint count, IntPtr devices);
     [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate void VkGetPhysicalDevicePropertiesFn(IntPtr physicalDevice, IntPtr properties);
@@ -443,13 +438,23 @@ public static class GpuProbe
             if (NativeLibrary.TryGetExport(lib, "vkDestroyInstance", out var destroyPtr))
                 destroy = Marshal.GetDelegateForFunctionPointer<VkDestroyInstanceFn>(destroyPtr);
 
-            var app = new VkApplicationInfo { SType = VkStructureTypeApplicationInfo, ApiVersion = 1u << 22 }; // Vulkan 1.0
             appInfo = Marshal.AllocHGlobal(Marshal.SizeOf<VkApplicationInfo>());
-            Marshal.StructureToPtr(app, appInfo, false);
             var ci = new VkInstanceCreateInfo { SType = VkStructureTypeInstanceCreateInfo, PApplicationInfo = appInfo };
             createInfo = Marshal.AllocHGlobal(Marshal.SizeOf<VkInstanceCreateInfo>());
             Marshal.StructureToPtr(ci, createInfo, false);
-            if (create(createInfo, IntPtr.Zero, out instance) != VkSuccess || instance == IntPtr.Zero)
+            // vkGetPhysicalDeviceFeatures2 is core only from Vulkan 1.1 (it is the
+            // VK_KHR_get_physical_device_properties2 extension on 1.0), and the storage-buffer query
+            // below depends on it, so the instance asks for 1.1 and falls back to 1.0 for a loader
+            // that cannot provide it. A 1.0 instance would leave the feature query undefined and
+            // silently read "absent", dropping a usable GPU from the picker.
+            var created = false;
+            foreach (var apiVersion in new[] { VkApiVersion11, VkApiVersion10 })
+            {
+                var app = new VkApplicationInfo { SType = VkStructureTypeApplicationInfo, ApiVersion = apiVersion };
+                Marshal.StructureToPtr(app, appInfo, false);
+                if (create(createInfo, IntPtr.Zero, out instance) == VkSuccess && instance != IntPtr.Zero) { created = true; break; }
+            }
+            if (!created)
             {
                 AppLog.Info("gpu: vulkan instance creation failed (no Vulkan driver installed)");
                 return list;
