@@ -118,6 +118,15 @@
       <Link>runtimes\cuda\win-x64\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- whisper.net decides whether CUDA is usable by loading cudart64_13 by bare name
+         (CudaHelper.IsCudaAvailable -> NativeLibrary.TryLoad), which searches the exe's own
+         directory, System32 and PATH, not runtimes\cuda\win-x64. Without this copy the probe
+         fails on any machine with no CUDA 13 toolkit on PATH and CUDA silently falls back to
+         CPU however good the GPU is. -->
+    <Content Include="$(VaultRepoRoot)cuda\win-x64\cudart64_13.dll" Condition="Exists('$(VaultRepoRoot)cuda\win-x64\cudart64_13.dll')">
+      <Link>cudart64_13.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <!-- The MSVC/OpenMP runtime the whisper natives link against. Without it whisper fails to
          load on a machine with no VC++ redistributable, on CPU as well as GPU. -->
     <Content Include="$(VaultRepoRoot)vcruntime\win-x64\*.dll">

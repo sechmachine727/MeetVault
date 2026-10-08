@@ -156,8 +156,14 @@ loader's own index order. The old list reused DXGI adapter indices, which is a d
 list, so the index handed to whisper.net could address another card (discrete GPU
 selected, integrated GPU doing the work and idling). RUNTIME here: no Vulkan devices,
 cross-checked against `vulkaninfo.exe` ("Failed to detect any valid GPUs").
-  Unverified: whether ggml compacts or filters the physical-device list before applying
-  `GpuDevice`, which would shift the index. Needs a host with more than one Vulkan device.
+  ggml's filter is mirrored: `ggml_vk_device_is_supported` (llama.cpp
+  `ggml/src/ggml-vulkan/ggml-vulkan.cpp`) keeps a physical device when its type is discrete
+  or integrated and `VkPhysicalDeviceVulkan11Features.storageBuffer16BitAccess` is set, and
+  ggml numbers the kept devices in loader order, which is what whisper.cpp's `gpu_device`
+  counts. Verified against that source, not on hardware. Unverified: a host with more than one
+  Vulkan device. Two ggml behaviours are still not mirrored and can shift the index - it merges
+  entries that report the same driver/UUID, and when every device is filtered out it falls back
+  to the first non-CPU device.
 - whisper.net's native logger (`LogProvider.AddLogger`) is routed into `AppLog`, so ggml
   device-selection and CUDA/Vulkan init messages reach the app log, and each transcription
   window logs size, loaded backend, duration, detected language, and segment count.

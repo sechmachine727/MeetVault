@@ -37,6 +37,9 @@ public sealed partial class SettingsPage : Page
 
         try { LoadPersisted(); } catch { }
         _ready = true;
+        try { WarnIfSavedDeviceUnavailable(); } catch { }
+        // After the warning: Refresh persists the picker's current value, which SelectDevice may
+        // have already downgraded to CPU, so the warning must read the setting before that write.
         Refresh();
     }
 
@@ -153,6 +156,19 @@ public sealed partial class SettingsPage : Page
     {
         var match = _deviceOptions.FindIndex(o => o.Enabled && o.Value == value);
         DevicePicker.SelectedIndex = match >= 0 ? match : 0;
+    }
+
+    // A saved GPU can vanish between sessions (driver removed, or a build without that
+    // runtime). SelectDevice then quietly drops to CPU; say so instead of downgrading in silence.
+    private void WarnIfSavedDeviceUnavailable()
+    {
+        var saved = AppStore.Repo.GetSetting("transcription.device");
+        if (string.IsNullOrWhiteSpace(saved) || saved == "cpu") return;
+        var (backend, index) = MeetVault.Core.TranscriptionDevice.Parse(saved);
+        var wanted = MeetVault.Core.TranscriptionDevice.Encode(backend, index);
+        if (wanted == "cpu" || _deviceOptions.Any(o => o.Enabled && o.Value == wanted)) return;
+        Warn("The saved inference device is no longer available, so CPU is selected. "
+            + MeetVault.Core.GpuProbe.GpuUnavailableReason());
     }
 
     // One place that turns control values into the visible summary, so a section can never drift from its controls.

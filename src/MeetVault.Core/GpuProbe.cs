@@ -253,6 +253,10 @@ public static class GpuProbe
     // resolves to the bundled copy. The system locations stay as a fallback for a machine
     // that has the CUDA toolkit installed. Both DLLs are required: cuBLAS 13 loads through
     // cuBLASLt, so a half-staged pair would pass a single-file check and then fail at init.
+    // cudart is checked last, and by bare name only, because that is exactly how whisper.net
+    // gates the CUDA runtime (CudaHelper -> NativeLibrary.TryLoad("cudart64_13")). If this
+    // probe finds cudart somewhere whisper.net will not, the picker would offer CUDA only for
+    // the runtime to fall back to CPU, which is the silent failure this check exists to stop.
     private static bool ProbeCudaRuntime()
     {
         foreach (var name in new[] { "cublas64_13.dll", "cublasLt64_13.dll" })
@@ -268,11 +272,13 @@ public static class GpuProbe
             }
             if (!found && FindOnPath(name) is null) return false;
         }
-        return true;
+        return FindOnPath("cudart64_13.dll") is not null;
     }
 
-    // Mirrors the default native search (app folder, then PATH) without loading the library,
-    // so startup does not map a half-gigabyte cuBLAS just to answer "is CUDA usable".
+    // Mirrors the default native search (app folder, then PATH, then the Windows system
+    // directory) without loading the library, so startup does not map a half-gigabyte cuBLAS
+    // just to answer "is CUDA usable". Kept a superset of the app-folder copy the app ships,
+    // so the picker is never stricter than the runtime's own bare-name load.
     private static string? FindOnPath(string fileName)
     {
         try
@@ -286,7 +292,11 @@ public static class GpuProbe
                 if (File.Exists(candidate)) return candidate;
             }
             var system = Path.Combine(Environment.SystemDirectory, fileName);
-            return File.Exists(system) ? system : null;
+            if (File.Exists(system)) return system;
+            var windows = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), fileName);
+            if (File.Exists(windows)) return windows;
+            var cwd = Path.Combine(Directory.GetCurrentDirectory(), fileName);
+            return File.Exists(cwd) ? cwd : null;
         }
         catch { return null; }
     }
@@ -295,13 +305,84 @@ public static class GpuProbe
 
     private sealed record VulkanAdapter(int Index, string Name, uint VendorId, uint DeviceId);
 
+    // Mirrors ggml-vulkan's own device filter: only discrete and integrated GPUs reach its
+    // device list, and therefore whisper.cpp's gpu_device index. Software rasterizers and
+    // virtual adapters are dropped before whisper can ever select them.
+    internal static bool VulkanDeviceUsable(int deviceType) =>
+        deviceType == VkPhysicalDeviceTypeDiscreteGpu || deviceType == VkPhysicalDeviceTypeIntegratedGpu;
+
+    // ggml_vk_device_is_supported chains a VkPhysicalDeviceVulkan11Features off a
+    // VkPhysicalDeviceFeatures2 through pNext and reads storageBuffer16BitAccess
+    // (llama.cpp ggml/src/ggml-vulkan/ggml-vulkan.cpp). A device that fails the flag is dropped
+    // by ggml, so the picker must drop it too or every kept-device index after it shifts. When
+    // the feature query is unavailable the device is kept, matching ggml's own behaviour of
+    // having nothing to reject it on.
+    //
+    // The chained struct must be named by the outer pNext and placed after the outer
+    // VkPhysicalDeviceFeatures (55 VkBool32, 220 bytes at offset 16). Leave pNext NULL or overlap
+    // that struct and the driver fills the outer struct alone, so the flag read below returns an
+    // unrelated feature. Both offsets are exposed so a test can pin them without a GPU.
+    internal const int Vulkan11FeaturesOffset = (16 + 220 + 7) & ~7; // 8-aligned after sType+pNext+VkPhysicalDeviceFeatures
+    internal const int VulkanStorageBufferFlagOffset = Vulkan11FeaturesOffset + 16; // chained sType + pNext, then the flag
+    // The chained VkPhysicalDeviceVulkan11Features is a 16-byte header plus 12 VkBool32 members.
+    // The driver fills the whole struct, so the allocation must cover it: sizing to the flag alone
+    // lets the driver write 44 bytes past the end of the block.
+    internal const int Vulkan11FeaturesBytes = 16 + 12 * sizeof(int);
+    internal const int VulkanFeaturesBufferBytes = Vulkan11FeaturesOffset + Vulkan11FeaturesBytes;
+
+    internal static void WriteVulkanFeatures2Query(IntPtr buffer)
+    {
+        Marshal.WriteInt32(buffer, 0, unchecked((int)VkStructureTypePhysicalDeviceFeatures2));
+        Marshal.WriteIntPtr(buffer, 8, buffer + Vulkan11FeaturesOffset); // pNext -> the chained struct
+        Marshal.WriteInt32(buffer, Vulkan11FeaturesOffset, unchecked((int)VkStructureTypePhysicalDeviceVulkan11Features));
+        Marshal.WriteIntPtr(buffer, Vulkan11FeaturesOffset + 8, IntPtr.Zero); // chained pNext = NULL
+    }
+
+    internal static bool ReadVulkanStorageBufferFlag(IntPtr buffer) => Marshal.ReadInt32(buffer, VulkanStorageBufferFlagOffset) != 0;
+
+    private static bool VulkanStorageBuffer16BitAccess(IntPtr device, VkGetPhysicalDeviceFeatures2Fn? getFeatures)
+    {
+        if (getFeatures is null) return true;
+        var buffer = Marshal.AllocHGlobal(VulkanFeaturesBufferBytes);
+        try
+        {
+            for (var b = 0; b < VulkanFeaturesBufferBytes; b++) Marshal.WriteByte(buffer, b, 0);
+            WriteVulkanFeatures2Query(buffer);
+            getFeatures(device, buffer);
+            return ReadVulkanStorageBufferFlag(buffer);
+        }
+        finally { Marshal.FreeHGlobal(buffer); }
+    }
+
     private const uint VkStructureTypeApplicationInfo = 0;
     private const uint VkStructureTypeInstanceCreateInfo = 1;
     private const int VkSuccess = 0;
     private const int VkIncomplete = 5;
-    private const int VkPhysicalDeviceTypeCpu = 4;
+    // ggml-vulkan builds its device list from these two types only (its own filter is
+    // "eDiscreteGpu || eIntegratedGpu"), so an index counted over the raw loader order points
+    // at the wrong card as soon as any other type (software rasterizer, virtual adapter) sits
+    // ahead of it.
+    private const int VkPhysicalDeviceTypeIntegratedGpu = 1;
+    private const int VkPhysicalDeviceTypeDiscreteGpu = 2;
     // VkPhysicalDeviceProperties is ~816 bytes; the call writes all of it into the buffer.
     private const int VkPropertiesBufferBytes = 2048;
+    private const uint VkStructureTypePhysicalDeviceFeatures2 = 1000059000;
+    private const uint VkStructureTypePhysicalDeviceVulkan11Features = 49;
+    // VK_MAKE_VERSION(major, minor, patch) = major<<22 | minor<<12 | patch.
+    private const uint VkApiVersion10 = 1u << 22;
+    private const uint VkApiVersion11 = (1u << 22) | (1u << 12);
+
+    // ggml keeps a device only when it is a GPU the ggml_vk_device_is_supported check accepts,
+    // so mirroring the type filter alone still counts a card ggml drops and shifts every index
+    // after it. Returns the ggml device index for each raw device, or -1 when ggml would not
+    // keep it. Pure, so the compaction is testable without a Vulkan device.
+    internal static int[] AssignVulkanIndices(IReadOnlyList<bool> kept)
+    {
+        var indices = new int[kept.Count];
+        var next = 0;
+        for (var i = 0; i < kept.Count; i++) indices[i] = kept[i] ? next++ : -1;
+        return indices;
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct VkApplicationInfo
@@ -329,6 +410,7 @@ public static class GpuProbe
     [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate int VkCreateInstanceFn(IntPtr createInfo, IntPtr allocator, out IntPtr instance);
     [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate int VkEnumeratePhysicalDevicesFn(IntPtr instance, ref uint count, IntPtr devices);
     [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate void VkGetPhysicalDevicePropertiesFn(IntPtr physicalDevice, IntPtr properties);
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate void VkGetPhysicalDeviceFeatures2Fn(IntPtr physicalDevice, IntPtr features);
     [UnmanagedFunctionPointer(CallingConvention.StdCall)] private delegate void VkDestroyInstanceFn(IntPtr instance, IntPtr allocator);
 
     private static IReadOnlyList<VulkanAdapter> ProbeVulkan()
@@ -350,16 +432,35 @@ public static class GpuProbe
             var create = Marshal.GetDelegateForFunctionPointer<VkCreateInstanceFn>(createPtr);
             var enumerate = Marshal.GetDelegateForFunctionPointer<VkEnumeratePhysicalDevicesFn>(enumPtr);
             var getProps = Marshal.GetDelegateForFunctionPointer<VkGetPhysicalDevicePropertiesFn>(propsPtr);
+            VkGetPhysicalDeviceFeatures2Fn? getFeatures = null;
+            if (NativeLibrary.TryGetExport(lib, "vkGetPhysicalDeviceFeatures2", out var featuresPtr))
+                getFeatures = Marshal.GetDelegateForFunctionPointer<VkGetPhysicalDeviceFeatures2Fn>(featuresPtr);
             if (NativeLibrary.TryGetExport(lib, "vkDestroyInstance", out var destroyPtr))
                 destroy = Marshal.GetDelegateForFunctionPointer<VkDestroyInstanceFn>(destroyPtr);
 
-            var app = new VkApplicationInfo { SType = VkStructureTypeApplicationInfo, ApiVersion = 1u << 22 }; // Vulkan 1.0
             appInfo = Marshal.AllocHGlobal(Marshal.SizeOf<VkApplicationInfo>());
-            Marshal.StructureToPtr(app, appInfo, false);
             var ci = new VkInstanceCreateInfo { SType = VkStructureTypeInstanceCreateInfo, PApplicationInfo = appInfo };
             createInfo = Marshal.AllocHGlobal(Marshal.SizeOf<VkInstanceCreateInfo>());
             Marshal.StructureToPtr(ci, createInfo, false);
-            if (create(createInfo, IntPtr.Zero, out instance) != VkSuccess || instance == IntPtr.Zero)
+            // vkGetPhysicalDeviceFeatures2 is core only from Vulkan 1.1 (it is the
+            // VK_KHR_get_physical_device_properties2 extension on 1.0), and the storage-buffer query
+            // below depends on it, so the instance asks for 1.1 and falls back to 1.0 for a loader
+            // that cannot provide it. A 1.0 instance would leave the feature query undefined and
+            // silently read "absent", dropping a usable GPU from the picker.
+            var created = false;
+            var coreFeatureQuery = false; // vkGetPhysicalDeviceFeatures2 is defined only on a 1.1 instance
+            foreach (var apiVersion in new[] { VkApiVersion11, VkApiVersion10 })
+            {
+                var app = new VkApplicationInfo { SType = VkStructureTypeApplicationInfo, ApiVersion = apiVersion };
+                Marshal.StructureToPtr(app, appInfo, false);
+                if (create(createInfo, IntPtr.Zero, out instance) == VkSuccess && instance != IntPtr.Zero)
+                {
+                    created = true;
+                    coreFeatureQuery = apiVersion == VkApiVersion11;
+                    break;
+                }
+            }
+            if (!created)
             {
                 AppLog.Info("gpu: vulkan instance creation failed (no Vulkan driver installed)");
                 return list;
@@ -376,20 +477,31 @@ public static class GpuProbe
             result = enumerate(instance, ref count, devices);
             if (result != VkSuccess && result != VkIncomplete) return list;
             props = Marshal.AllocHGlobal(VkPropertiesBufferBytes);
+            var kept = new List<bool>(checked((int)count));
+            var raw = new List<(string Name, uint VendorId, uint DeviceId)>(checked((int)count));
             for (var i = 0; i < count; i++)
             {
                 var device = Marshal.ReadIntPtr(devices, i * IntPtr.Size);
                 getProps(device, props);
                 var head = Marshal.PtrToStructure<VkPhysicalDevicePropertiesHead>(props);
-                if (head.DeviceType == VkPhysicalDeviceTypeCpu) continue; // software rasterizer (llvmpipe)
                 var name = (head.DeviceName ?? "").Trim();
                 if (name.Length == 0) name = "Vulkan device " + i;
-                // The loader's own index is kept, because that is what whisper.net hands to
-                // ggml. Whether ggml filters devices before building its own list, and so
-                // expects a compacted index, is unverified until it runs on a machine with
-                // more than one GPU.
-                list.Add(new VulkanAdapter(i, name, head.VendorId, head.DeviceId));
+                raw.Add((name, head.VendorId, head.DeviceId));
+                // On a 1.0 instance the feature query is undefined, so it is treated as unavailable and
+                // the device is kept, matching the "keep when the query is unavailable" policy above.
+                kept.Add(VulkanDeviceUsable(head.DeviceType) && VulkanStorageBuffer16BitAccess(device, coreFeatureQuery ? getFeatures : null));
             }
+            // Numbered over the devices ggml keeps, in loader order, because whisper.cpp's
+            // gpu_device counts GPU/IGPU entries in ggml's list, not physical-device indices. A
+            // device ggml drops must not consume an index, or every device after it is off by one
+            // and the picker points whisper at the wrong card.
+            var indices = AssignVulkanIndices(kept);
+            for (var i = 0; i < indices.Length; i++)
+                if (indices[i] >= 0)
+                    list.Add(new VulkanAdapter(indices[i], raw[i].Name, raw[i].VendorId, raw[i].DeviceId));
+            // ponytail: ggml also merges duplicate-driver entries and, when nothing is kept, falls
+            // back to the first non-CPU device; both are rare on Windows, so the picker can still
+            // differ there. Mirror them if a machine ever shows it.
             return list;
         }
         catch (Exception ex)

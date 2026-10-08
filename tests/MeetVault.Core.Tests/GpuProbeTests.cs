@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using MeetVault.Core;
 
 namespace MeetVault.Core.Tests;
@@ -52,5 +53,74 @@ public sealed class GpuProbeTests
         Assert.NotNull(GpuProbe.Adapters);
         Assert.False(string.IsNullOrWhiteSpace(GpuProbe.ApiSummary()));
     }
-}
 
+    [Theory]
+    [InlineData(1, true)]  // integrated GPU is kept: ggml includes discrete and integrated
+    [InlineData(2, true)]  // discrete GPU is kept
+    [InlineData(4, false)] // software rasterizer (VK_PHYSICAL_DEVICE_TYPE_CPU) is dropped
+    [InlineData(0, false)] // other (virtual adapter) is dropped
+    [InlineData(3, false)] // virtual GPU is dropped
+    public void VulkanDeviceUsable_MatchesGgmlFilter(int deviceType, bool usable)
+        => Assert.Equal(usable, GpuProbe.VulkanDeviceUsable(deviceType));
+
+    [Fact]
+    public void AssignVulkanIndices_SkipsFilteredDevices()
+    {
+        // A device ggml drops must not consume an index, or every later device is off by one.
+        Assert.Equal(new[] { 0, -1, 1 }, GpuProbe.AssignVulkanIndices(new[] { true, false, true }));
+        Assert.Equal(new[] { -1, -1 }, GpuProbe.AssignVulkanIndices(new[] { false, false }));
+        Assert.Equal(new[] { 0, 1, 2 }, GpuProbe.AssignVulkanIndices(new[] { true, true, true }));
+    }
+
+    [Fact]
+    public void VulkanFeaturesQuery_ChainsTheStorageBufferFlagStruct()
+    {
+        // ggml reads storageBuffer16BitAccess from a VkPhysicalDeviceVulkan11Features chained off
+        // a VkPhysicalDeviceFeatures2. If the outer pNext is NULL, or the chained struct overlaps
+        // the outer VkPhysicalDeviceFeatures (offset 16, 220 bytes), the driver fills the outer
+        // struct alone and the flag read lands on an unrelated feature (offset 36), so the filter
+        // passes devices ggml drops. This pins the layout the driver depends on.
+        // The allocation must cover the whole chained struct (16-byte header + 12 VkBool32), not
+        // just the flag byte pair, or the driver writes past the end of the block.
+        Assert.True(GpuProbe.VulkanFeaturesBufferBytes >= GpuProbe.Vulkan11FeaturesOffset + 16 + 12 * 4);
+        var bytes = GpuProbe.VulkanFeaturesBufferBytes;
+        var buffer = Marshal.AllocHGlobal(bytes);
+        try
+        {
+            for (var b = 0; b < bytes; b++) Marshal.WriteByte(buffer, b, 0);
+            GpuProbe.WriteVulkanFeatures2Query(buffer);
+            Assert.Equal(GpuProbe.Vulkan11FeaturesOffset, (int)(Marshal.ReadIntPtr(buffer, 8).ToInt64() - buffer.ToInt64()));
+            Assert.True(GpuProbe.Vulkan11FeaturesOffset >= 16 + 220);
+            Assert.False(GpuProbe.ReadVulkanStorageBufferFlag(buffer));
+            Marshal.WriteInt32(buffer, GpuProbe.VulkanStorageBufferFlagOffset, 1);
+            Assert.True(GpuProbe.ReadVulkanStorageBufferFlag(buffer));
+        }
+        finally { Marshal.FreeHGlobal(buffer); }
+    }
+
+    [Theory]
+    [InlineData("whisper_backend_init_gpu: using Vulkan0 backend", "Vulkan0")]
+    [InlineData("whisper_backend_init_gpu: using CUDA0 backend", "CUDA0")]
+    [InlineData("whisper_backend_init_gpu: no GPU found", "CPU")]
+    [InlineData("whisper_backend_init_gpu: device 0: CPU (type: 0)", null)]
+    [InlineData("some unrelated native line", null)]
+    public void ParseAccelerator_ReadsComputeDevice(string message, string? expected)
+        => Assert.Equal(expected, WhisperTranscriber.ParseAccelerator(message));
+
+    [Fact]
+    public void CudaOffer_MatchesRuntimeBareNameLoad()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        // The picker must agree with whisper.net's own gate (CudaHelper -> NativeLibrary
+        // TryLoad("cudart64_13"), bare name). If CUDA is offered while that load fails, the
+        // runtime skips CUDA and runs the CPU with nothing shown, which is the silent fallback
+        // this guards. Only a probe that searches a looser set than the loader can fail it: a
+        // probe stricter than the loader returns here and passes, and CUDA is offered only for a
+        // supported GPU, so this cannot assert equality on machines whose GPU this build lacks
+        // code for.
+        if (!GpuProbe.CudaAvailable) return;
+        var loaded = System.Runtime.InteropServices.NativeLibrary.TryLoad("cudart64_13", out var handle);
+        if (handle != IntPtr.Zero) System.Runtime.InteropServices.NativeLibrary.Free(handle);
+        Assert.True(loaded, "CUDA is offered but cudart64_13 does not load by bare name.");
+    }
+}
