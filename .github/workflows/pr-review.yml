@@ -60,6 +60,20 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # The rubric must come from the base commit, not the pull request under review, so a PR
+      # cannot weaken the instructions that govern its own review by editing the file.
+      - name: Pin the review rubric to the base commit
+        env:
+          BASE: ${{ steps.pr.outputs.base }}
+          RUBRIC: .github/codex/pr-review-prompt.md
+        run: |
+          if git cat-file -e "$BASE:$RUBRIC" 2>/dev/null; then
+            git show "$BASE:$RUBRIC" > "$RUBRIC"
+            echo "Using the rubric from the base commit $BASE."
+          else
+            echo "::warning::$RUBRIC is absent from the base commit $BASE; using the copy from the pull request."
+          fi
+
       - name: Run Codex review
         id: codex
         # Deliberately the moving v1 tag, not a pinned SHA: this repository accepts the

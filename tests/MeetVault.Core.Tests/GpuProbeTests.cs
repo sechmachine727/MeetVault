@@ -80,7 +80,10 @@ public sealed class GpuProbeTests
         // the outer VkPhysicalDeviceFeatures (offset 16, 220 bytes), the driver fills the outer
         // struct alone and the flag read lands on an unrelated feature (offset 36), so the filter
         // passes devices ggml drops. This pins the layout the driver depends on.
-        var bytes = GpuProbe.VulkanStorageBufferFlagOffset + sizeof(int);
+        // The allocation must cover the whole chained struct (16-byte header + 12 VkBool32), not
+        // just the flag byte pair, or the driver writes past the end of the block.
+        Assert.True(GpuProbe.VulkanFeaturesBufferBytes >= GpuProbe.Vulkan11FeaturesOffset + 16 + 12 * 4);
+        var bytes = GpuProbe.VulkanFeaturesBufferBytes;
         var buffer = Marshal.AllocHGlobal(bytes);
         try
         {

@@ -110,7 +110,9 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
         // The reading is bound to the factory, not the session: a second meeting reuses the
         // cached factory, so requiring a fresh per-session reading would drop the device it
         // already reported. Only the first creation snapshots the sequence.
-        if (_factory is null) { _factory = CreateFactory(); _factorySequence = Volatile.Read(ref _acceleratorSequence); }
+        // Snapshot before creating the factory: a backend-init line the native emits while the
+        // factory loads would otherwise be excluded and leave AcceleratorInUse null.
+        if (_factory is null) { _factorySequence = Volatile.Read(ref _acceleratorSequence); _factory = CreateFactory(); }
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         IsRunning = true;
         AppLog.Info("whisper: started model=" + Path.GetFileName(_modelPath) + " lang=" + _language + " loaded=" + LoadedBackend);

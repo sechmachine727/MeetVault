@@ -324,6 +324,11 @@ public static class GpuProbe
     // unrelated feature. Both offsets are exposed so a test can pin them without a GPU.
     internal const int Vulkan11FeaturesOffset = (16 + 220 + 7) & ~7; // 8-aligned after sType+pNext+VkPhysicalDeviceFeatures
     internal const int VulkanStorageBufferFlagOffset = Vulkan11FeaturesOffset + 16; // chained sType + pNext, then the flag
+    // The chained VkPhysicalDeviceVulkan11Features is a 16-byte header plus 12 VkBool32 members.
+    // The driver fills the whole struct, so the allocation must cover it: sizing to the flag alone
+    // lets the driver write 44 bytes past the end of the block.
+    internal const int Vulkan11FeaturesBytes = 16 + 12 * sizeof(int);
+    internal const int VulkanFeaturesBufferBytes = Vulkan11FeaturesOffset + Vulkan11FeaturesBytes;
 
     internal static void WriteVulkanFeatures2Query(IntPtr buffer)
     {
@@ -338,11 +343,10 @@ public static class GpuProbe
     private static bool VulkanStorageBuffer16BitAccess(IntPtr device, VkGetPhysicalDeviceFeatures2Fn? getFeatures)
     {
         if (getFeatures is null) return true;
-        var bytes = VulkanStorageBufferFlagOffset + sizeof(int);
-        var buffer = Marshal.AllocHGlobal(bytes);
+        var buffer = Marshal.AllocHGlobal(VulkanFeaturesBufferBytes);
         try
         {
-            for (var b = 0; b < bytes; b++) Marshal.WriteByte(buffer, b, 0);
+            for (var b = 0; b < VulkanFeaturesBufferBytes; b++) Marshal.WriteByte(buffer, b, 0);
             WriteVulkanFeatures2Query(buffer);
             getFeatures(device, buffer);
             return ReadVulkanStorageBufferFlag(buffer);
