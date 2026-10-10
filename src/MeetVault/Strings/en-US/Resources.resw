@@ -4,5 +4,150 @@
   <resheader name="version"><value>2.0</value></resheader>
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <!-- Shell -->
   <data name="NavDashboard.Content" xml:space="preserve"><value>Dashboard</value></data>
+  <data name="NavLive.Content" xml:space="preserve"><value>Live</value></data>
+  <data name="NavMeetings.Content" xml:space="preserve"><value>Meetings</value></data>
+
+  <!-- Shared: manage flyout, selection toolbar, table headers -->
+  <data name="Manage.ToolTipService.ToolTip" xml:space="preserve"><value>Manage meetings</value></data>
+  <data name="Manage.AutomationProperties.Name" xml:space="preserve"><value>Manage meetings</value></data>
+  <data name="DeleteMeetings.Text" xml:space="preserve"><value>Delete meetings</value></data>
+  <data name="SelAll.ToolTipService.ToolTip" xml:space="preserve"><value>Select all visible meetings</value></data>
+  <data name="SelAll.AutomationProperties.Name" xml:space="preserve"><value>Select all visible</value></data>
+  <data name="SelClear.ToolTipService.ToolTip" xml:space="preserve"><value>Clear the selection</value></data>
+  <data name="SelClear.AutomationProperties.Name" xml:space="preserve"><value>Clear selection</value></data>
+  <data name="SelDelete.ToolTipService.ToolTip" xml:space="preserve"><value>Delete the selected meetings</value></data>
+  <data name="SelDelete.AutomationProperties.Name" xml:space="preserve"><value>Delete selected</value></data>
+  <data name="SelCancel.ToolTipService.ToolTip" xml:space="preserve"><value>Cancel selection mode</value></data>
+  <data name="SelCancel.AutomationProperties.Name" xml:space="preserve"><value>Cancel selection</value></data>
+  <data name="HeadTitle.Text" xml:space="preserve"><value>Title</value></data>
+  <data name="HeadCreated.Text" xml:space="preserve"><value>Created at</value></data>
+  <data name="HeadDuration.Text" xml:space="preserve"><value>Duration</value></data>
+  <data name="HeadStatus.Text" xml:space="preserve"><value>Status</value></data>
+  <data name="MtgRowDel.ToolTipService.ToolTip" xml:space="preserve"><value>Delete this meeting and its recording</value></data>
+  <data name="MtgRowDel.AutomationProperties.Name" xml:space="preserve"><value>Delete</value></data>
+
+  <!-- Dashboard -->
+  <data name="DashStart.Content" xml:space="preserve"><value>Start new meeting</value></data>
+  <data name="DashStart.AutomationProperties.Name" xml:space="preserve"><value>Start new meeting</value></data>
+  <data name="DashRecovery.Title" xml:space="preserve"><value>Unfinished meeting found</value></data>
+  <data name="DashResume.Content" xml:space="preserve"><value>Resume in Live</value></data>
+  <data name="DashMicLabel.Text" xml:space="preserve"><value>Microphone</value></data>
+  <data name="DashEngineLabel.Text" xml:space="preserve"><value>Engine</value></data>
+  <data name="DashRecent.Text" xml:space="preserve"><value>Recent meetings</value></data>
+  <data name="DashEmptyTitle.Text" xml:space="preserve"><value>No meetings yet</value></data>
+  <data name="DashEmptyBody.Text" xml:space="preserve"><value>Start your first meeting and the transcript lands here with speakers, timing, and Gemini summaries.</value></data>
+  <data name="DashGreeting.Text" xml:space="preserve"><value>Ready to capture</value></data>
+
+  <!-- Meetings -->
+  <data name="MtgTitle.Text" xml:space="preserve"><value>Meetings</value></data>
+  <data name="MtgSearch.PlaceholderText" xml:space="preserve"><value>Search meetings</value></data>
+
+  <!-- Live -->
+  <data name="LiveTitle.Text" xml:space="preserve"><value>Live transcript</value></data>
+  <data name="LiveStart.Content" xml:space="preserve"><value>Start recording</value></data>
+  <data name="LiveStart.AutomationProperties.Name" xml:space="preserve"><value>Start recording</value></data>
+  <data name="LivePause.Content" xml:space="preserve"><value>Pause</value></data>
+  <data name="LiveResume.Content" xml:space="preserve"><value>Resume</value></data>
+  <data name="LiveOverlay.Content" xml:space="preserve"><value>Show overlay</value></data>
+  <data name="LiveStop.Content" xml:space="preserve"><value>Stop</value></data>
+  <data name="LiveSpeakers.Text" xml:space="preserve"><value>Speakers</value></data>
+  <data name="LiveSpeakerEmpty.Text" xml:space="preserve"><value>Speakers appear here once the first turn is recognized.</value></data>
+  <data name="LiveAudioLabel.Text" xml:space="preserve"><value>Audio sources</value></data>
+  <data name="LiveEngineLabel.Text" xml:space="preserve"><value>Engine status</value></data>
+
+  <!-- Details -->
+  <data name="DetTitle.Text" xml:space="preserve"><value>Details</value></data>
+  <data name="DetCopy.Content" xml:space="preserve"><value>Copy transcript</value></data>
+  <data name="DetCopy.AutomationProperties.Name" xml:space="preserve"><value>Copy transcript</value></data>
+  <data name="DetCopy.ToolTipService.ToolTip" xml:space="preserve"><value>Copy the transcript to the clipboard</value></data>
+  <data name="DetExport.Content" xml:space="preserve"><value>Export to Documents</value></data>
+  <data name="DetExport.AutomationProperties.Name" xml:space="preserve"><value>Export transcript to Documents</value></data>
+  <data name="DetExport.ToolTipService.ToolTip" xml:space="preserve"><value>Write the transcript to a text file in Documents</value></data>
+  <data name="DetSend.Content" xml:space="preserve"><value>Send to Gemini</value></data>
+  <data name="DetSend.AutomationProperties.Name" xml:space="preserve"><value>Send to Gemini</value></data>
+  <data name="DetSend.ToolTipService.ToolTip" xml:space="preserve"><value>Upload this meeting's media and transcript to Gemini</value></data>
+  <data name="DetGeminiHeader.Header" xml:space="preserve"><value>Gemini job</value></data>
+  <data name="DetTranscript.Text" xml:space="preserve"><value>Transcript</value></data>
+  <data name="DetEmpty.Text" xml:space="preserve"><value>No meeting to show yet. Start one in Live and its transcript lands here.</value></data>
+  <data name="DetSpeakerTip.ToolTipService.ToolTip" xml:space="preserve"><value>Reassign this line to another speaker</value></data>
+  <data name="DetLineTip.ToolTipService.ToolTip" xml:space="preserve"><value>Edit this line</value></data>
+  <data name="DetSpeakerName.AutomationProperties.Name" xml:space="preserve"><value>Speaker</value></data>
+  <data name="DetSpeakerName.ToolTipService.ToolTip" xml:space="preserve"><value>Reassign this line to another speaker</value></data>
+  <data name="DetLineName.AutomationProperties.Name" xml:space="preserve"><value>Transcript line</value></data>
+  <data name="DetLineName.ToolTipService.ToolTip" xml:space="preserve"><value>Edit this line</value></data>
+
+  <!-- Settings -->
+  <data name="SetTitle.Text" xml:space="preserve"><value>Settings</value></data>
+  <data name="SetLangHeader.Text" xml:space="preserve"><value>Display language</value></data>
+  <data name="SetLang.Text" xml:space="preserve"><value>Language</value></data>
+  <data name="SetLangDesc.Text" xml:space="preserve"><value>The app's interface language. Takes effect after a restart.</value></data>
+  <data name="SetLangPicker.AutomationProperties.Name" xml:space="preserve"><value>Display language</value></data>
+  <data name="Lang.System" xml:space="preserve"><value>System default (follow Windows)</value></data>
+  <data name="SetLangRestart" xml:space="preserve"><value>Language saved. Restart the app to apply it.</value></data>
+  <data name="SetAudio.Text" xml:space="preserve"><value>Audio</value></data>
+  <data name="SetMic.Text" xml:space="preserve"><value>Microphone</value></data>
+  <data name="SetMicDesc.Text" xml:space="preserve"><value>The device used when the microphone is recorded.</value></data>
+  <data name="SetMicPicker.AutomationProperties.Name" xml:space="preserve"><value>Microphone</value></data>
+  <data name="SetMicRec.Text" xml:space="preserve"><value>Record microphone</value></data>
+  <data name="SetMicRecDesc.Text" xml:space="preserve"><value>Your own voice. Turn off to capture only system audio.</value></data>
+  <data name="SetMicSwitch.AutomationProperties.Name" xml:space="preserve"><value>Record microphone</value></data>
+  <data name="SetMicSwitch.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="SetMicSwitch.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="SetSysRec.Text" xml:space="preserve"><value>Record system audio</value></data>
+  <data name="SetSysRecDesc.Text" xml:space="preserve"><value>What your speakers play, mixed with the microphone.</value></data>
+  <data name="SetSysSwitch.AutomationProperties.Name" xml:space="preserve"><value>Record system audio</value></data>
+  <data name="SetSysSwitch.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="SetSysSwitch.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="SetSysSrc.Text" xml:space="preserve"><value>System audio source</value></data>
+  <data name="SetSysSrcDesc.Text" xml:space="preserve"><value>All apps, or one running app such as a conference app.</value></data>
+  <data name="SetSysSrcPicker.AutomationProperties.Name" xml:space="preserve"><value>System audio source</value></data>
+  <data name="SetTranscription.Text" xml:space="preserve"><value>Transcription</value></data>
+  <data name="SetModel.Text" xml:space="preserve"><value>Model</value></data>
+  <data name="SetModelDesc.Text" xml:space="preserve"><value>Whisper model file used for local transcription.</value></data>
+  <data name="SetModelPicker.AutomationProperties.Name" xml:space="preserve"><value>Transcription model</value></data>
+  <data name="SetDevice.Text" xml:space="preserve"><value>Device</value></data>
+  <data name="SetDeviceDesc.Text" xml:space="preserve"><value>Where inference runs.</value></data>
+  <data name="SetDevicePicker.AutomationProperties.Name" xml:space="preserve"><value>Transcription device</value></data>
+  <data name="SetDiar.Text" xml:space="preserve"><value>Speaker diarization</value></data>
+  <data name="SetDiarDesc.Text" xml:space="preserve"><value>Split the transcript into speaker turns.</value></data>
+  <data name="SetDiarSwitch.AutomationProperties.Name" xml:space="preserve"><value>Speaker diarization</value></data>
+  <data name="SetDiarSwitch.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="SetDiarSwitch.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="SetOverlay.Text" xml:space="preserve"><value>Overlay</value></data>
+  <data name="SetOverlayNote.Text" xml:space="preserve"><value>These values apply the next time the overlay window opens.</value></data>
+  <data name="SetPin.Text" xml:space="preserve"><value>Keep on top</value></data>
+  <data name="SetPinDesc.Text" xml:space="preserve"><value>Pin the overlay above other windows.</value></data>
+  <data name="SetPinSwitch.AutomationProperties.Name" xml:space="preserve"><value>Keep overlay on top</value></data>
+  <data name="SetPinSwitch.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="SetPinSwitch.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="SetOpacity.Text" xml:space="preserve"><value>Opacity</value></data>
+  <data name="SetOpacityDesc.Text" xml:space="preserve"><value>Overlay background opacity.</value></data>
+  <data name="SetOpacitySlider.AutomationProperties.Name" xml:space="preserve"><value>Overlay opacity</value></data>
+  <data name="SetFont.Text" xml:space="preserve"><value>Font size</value></data>
+  <data name="SetFontDesc.Text" xml:space="preserve"><value>Overlay transcript font, in points.</value></data>
+  <data name="SetFontBox.AutomationProperties.Name" xml:space="preserve"><value>Overlay font size</value></data>
+  <data name="SetLines.Text" xml:space="preserve"><value>Lines shown</value></data>
+  <data name="SetLinesDesc.Text" xml:space="preserve"><value>How many transcript lines the overlay keeps on screen.</value></data>
+  <data name="SetLinesBox.AutomationProperties.Name" xml:space="preserve"><value>Overlay lines shown</value></data>
+  <data name="SetStorage.Text" xml:space="preserve"><value>Storage</value></data>
+  <data name="SetLocation.Text" xml:space="preserve"><value>Location</value></data>
+  <data name="SetLocationDesc.Text" xml:space="preserve"><value>Folder where exported transcripts are written.</value></data>
+  <data name="SetStorageBox.AutomationProperties.Name" xml:space="preserve"><value>Storage location</value></data>
+  <data name="SetLogging.Text" xml:space="preserve"><value>Logging</value></data>
+  <data name="SetLogLevel.Text" xml:space="preserve"><value>Log level</value></data>
+  <data name="SetLogLevelDesc.Text" xml:space="preserve"><value>How much the app writes to its log file.</value></data>
+  <data name="SetLogLevelPicker.AutomationProperties.Name" xml:space="preserve"><value>Log level</value></data>
+  <data name="SetOpenLog.Content" xml:space="preserve"><value>Open log folder</value></data>
+  <data name="SetOpenLog.AutomationProperties.Name" xml:space="preserve"><value>Open log folder</value></data>
+  <data name="SetShowLog.Content" xml:space="preserve"><value>Show log</value></data>
+  <data name="SetShowLog.AutomationProperties.Name" xml:space="preserve"><value>Show log</value></data>
+  <data name="SetGemini.Text" xml:space="preserve"><value>Gemini</value></data>
+  <data name="SetApiKey.Text" xml:space="preserve"><value>API key</value></data>
+  <data name="SetApiKeyDesc.Text" xml:space="preserve"><value>Stored in Windows Credential Locker, never in a plain file.</value></data>
+  <data name="SetApiKeyBox.PlaceholderText" xml:space="preserve"><value>Paste the Gemini API key</value></data>
+  <data name="SetApiKeyBox.AutomationProperties.Name" xml:space="preserve"><value>Gemini API key</value></data>
+  <data name="SetSaveKey.Content" xml:space="preserve"><value>Save</value></data>
+  <data name="SetSaveKey.AutomationProperties.Name" xml:space="preserve"><value>Save Gemini API key</value></data>
 </root>
