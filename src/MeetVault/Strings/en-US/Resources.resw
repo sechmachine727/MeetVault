@@ -267,4 +267,33 @@
   <data name="Det.ErrFileInUse" xml:space="preserve"><value>the file is in use or the disk is full</value></data>
   <data name="Det.ErrReadOnly" xml:space="preserve"><value>the data folder is read-only</value></data>
   <data name="Det.ErrGeneric" xml:space="preserve"><value>something went wrong</value></data>
+
+  <!-- L4.5: Settings page code strings -->
+  <data name="Set.KeyCleared" xml:space="preserve"><value>The key was cleared.</value></data>
+  <data name="Set.KeyStored" xml:space="preserve"><value>Key stored in Windows Credential Locker.</value></data>
+  <data name="Set.KeyNotStored" xml:space="preserve"><value>The key could not be stored. The portable build has no Credential Locker; install the MSIX to save a key.</value></data>
+  <data name="Set.SysSrcAllApps" xml:space="preserve"><value>All apps</value></data>
+  <data name="Set.On" xml:space="preserve"><value>on</value></data>
+  <data name="Set.Off" xml:space="preserve"><value>off</value></data>
+  <data name="Set.OpenLogFailed" xml:space="preserve"><value>Could not open the log folder: {0}</value></data>
+  <data name="Set.NoLogYet" xml:space="preserve"><value>No log yet. {0}</value></data>
+  <data name="Set.ReadLogFailed" xml:space="preserve"><value>Could not read the log: {0}</value></data>
+  <data name="Set.SavedDeviceGone" xml:space="preserve"><value>The saved inference device is no longer available, so CPU is selected. {0}</value></data>
+  <data name="Set.AudioBoth" xml:space="preserve"><value>Recording {0} and system audio ({1}); mixed together.</value></data>
+  <data name="Set.AudioMicOnly" xml:space="preserve"><value>Recording {0} only.</value></data>
+  <data name="Set.AudioSysOnly" xml:space="preserve"><value>Recording system audio ({0}) only.</value></data>
+  <data name="Set.AudioNone" xml:space="preserve"><value>No audio source enabled; nothing will be recorded.</value></data>
+  <data name="Set.GpuNote" xml:space="preserve"><value> · available: {0}</value></data>
+  <data name="Set.TranscriptionStatus" xml:space="preserve"><value>{0} on {1} · diarization {2}</value></data>
+  <data name="Set.LogWriting" xml:space="preserve"><value>Writing {0} and above to {1}</value></data>
+  <data name="Set.OverlayStatus" xml:space="preserve"><value>Keep on top {0} · opacity {1} · font {2} pt · {3} line(s)</value></data>
+  <data name="Set.StorageStatus" xml:space="preserve"><value>Transcripts will be written to {0}.</value></data>
+  <data name="Set.UsageNone" xml:space="preserve"><value>Usage: 0 B — folder does not exist yet.</value></data>
+  <data name="Set.UsageMb" xml:space="preserve"><value>Usage: {0} MB in {1}</value></data>
+  <data name="Set.UsageUnavailable" xml:space="preserve"><value>Usage: unavailable.</value></data>
+  <data name="Set.GeminiNoKey" xml:space="preserve"><value>No key in Credential Locker.</value></data>
+  <data name="Set.SaveFailed" xml:space="preserve"><value>Settings could not be saved to disk ({0}). Changes apply this session and are not persisted.</value></data>
+  <data name="Set.ErrReadOnly" xml:space="preserve"><value>the data folder is read-only</value></data>
+  <data name="Set.ErrNotWritable" xml:space="preserve"><value>the data folder is not writable</value></data>
+  <data name="Set.ErrNotWritten" xml:space="preserve"><value>the data folder could not be written</value></data>
 </root>

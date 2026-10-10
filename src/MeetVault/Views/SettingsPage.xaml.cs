@@ -27,7 +27,7 @@ public sealed partial class SettingsPage : Page
         ModelPicker.ItemsSource = new[] { "tiny (live, fast)", "base (refinement, accurate)" };
         _deviceOptions = BuildDeviceOptions();
         DevicePicker.ItemsSource = _deviceOptions;
-        _sourceOptions.Add(("All apps", ""));
+        _sourceOptions.Add((Loc.T("Set.SysSrcAllApps"), ""));
         foreach (var (pid, name) in MeetVault.Core.NAudioCapture.ListAudioApps()) _sourceOptions.Add((name + " (" + pid + ")", pid.ToString()));
         SourcePicker.ItemsSource = _sourceOptions.Select(o => o.Label).ToArray();
         LogLevelPicker.ItemsSource = new[] { "trace", "debug", "info", "warning", "error", "off" };
@@ -109,9 +109,9 @@ public sealed partial class SettingsPage : Page
         var stored = Locker.Get("GeminiApiKey") is { Length: > 0 };
         Refresh();
 
-        if (key.Length == 0) { StatusBar.Severity = InfoBarSeverity.Warning; StatusBar.Message = "The key was cleared."; }
-        else if (stored) { StatusBar.Severity = InfoBarSeverity.Success; StatusBar.Message = "Key stored in Windows Credential Locker."; }
-        else { StatusBar.Severity = InfoBarSeverity.Warning; StatusBar.Message = "The key could not be stored. The portable build has no Credential Locker; install the MSIX to save a key."; }
+        if (key.Length == 0) { StatusBar.Severity = InfoBarSeverity.Warning; StatusBar.Message = Loc.T("Set.KeyCleared"); }
+        else if (stored) { StatusBar.Severity = InfoBarSeverity.Success; StatusBar.Message = Loc.T("Set.KeyStored"); }
+        else { StatusBar.Severity = InfoBarSeverity.Warning; StatusBar.Message = Loc.T("Set.KeyNotStored"); }
         StatusBar.IsOpen = true;
     }
 
@@ -147,7 +147,7 @@ public sealed partial class SettingsPage : Page
             var dir = Path.GetDirectoryName(MeetVault.Core.AppLog.Path);
             if (!string.IsNullOrEmpty(dir)) { Directory.CreateDirectory(dir); System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(dir) { UseShellExecute = true }); }
         }
-        catch (Exception ex) { Warn("Could not open the log folder: " + DescribeStorage(ex)); }
+        catch (Exception ex) { Warn(Loc.Tf("Set.OpenLogFailed", DescribeStorage(ex))); }
     }
 
     private void ShowLog_Click(object sender, RoutedEventArgs e)
@@ -160,9 +160,9 @@ public sealed partial class SettingsPage : Page
                 var tail = text.Length > 4000 ? text[^4000..] : text;
                 LogStatus.Text = tail;
             }
-            else LogStatus.Text = "No log yet. " + MeetVault.Core.AppLog.Path;
+            else LogStatus.Text = Loc.Tf("Set.NoLogYet", MeetVault.Core.AppLog.Path);
         }
-        catch (Exception ex) { Warn("Could not read the log: " + DescribeStorage(ex)); }
+        catch (Exception ex) { Warn(Loc.Tf("Set.ReadLogFailed", DescribeStorage(ex))); }
     }
 
     private void Warn(string message)
@@ -189,8 +189,7 @@ public sealed partial class SettingsPage : Page
         var (backend, index) = MeetVault.Core.TranscriptionDevice.Parse(saved);
         var wanted = MeetVault.Core.TranscriptionDevice.Encode(backend, index);
         if (wanted == "cpu" || _deviceOptions.Any(o => o.Enabled && o.Value == wanted)) return;
-        Warn("The saved inference device is no longer available, so CPU is selected. "
-            + MeetVault.Core.GpuProbe.GpuUnavailableReason());
+        Warn(Loc.Tf("Set.SavedDeviceGone", MeetVault.Core.GpuProbe.GpuUnavailableReason()));
     }
 
     // One place that turns control values into the visible summary, so a section can never drift from its controls.
@@ -207,25 +206,25 @@ public sealed partial class SettingsPage : Page
         var micOn = MicSwitch.IsOn;
         var sysOn = SystemSwitch.IsOn;
         var sourceValue = SourcePicker.SelectedIndex >= 0 && SourcePicker.SelectedIndex < _sourceOptions.Count ? _sourceOptions[SourcePicker.SelectedIndex].Value : "";
-        var sourceLabel = SourcePicker.SelectedItem as string ?? "All apps";
+        var sourceLabel = SourcePicker.SelectedItem as string ?? Loc.T("Set.SysSrcAllApps");
         AudioStatus.Text = (micOn, sysOn) switch
         {
-            (true, true) => $"Recording {MicPicker.SelectedItem} and system audio ({sourceLabel}); mixed together.",
-            (true, false) => $"Recording {MicPicker.SelectedItem} only.",
-            (false, true) => $"Recording system audio ({sourceLabel}) only.",
-            _ => "No audio source enabled; nothing will be recorded.",
+            (true, true) => Loc.Tf("Set.AudioBoth", MicPicker.SelectedItem, sourceLabel),
+            (true, false) => Loc.Tf("Set.AudioMicOnly", MicPicker.SelectedItem),
+            (false, true) => Loc.Tf("Set.AudioSysOnly", sourceLabel),
+            _ => Loc.T("Set.AudioNone"),
         };
         // Show the graphics/inference APIs this PC actually exposes, probed not guessed.
-        var gpuNote = " \u00b7 available: " + MeetVault.Core.GpuProbe.ApiSummary();
-        TranscriptionStatus.Text = $"{ModelPicker.SelectedItem} on {device?.Label ?? "CPU"} \u00b7 diarization {OnOff(DiarizationSwitch.IsOn)}{gpuNote}";
+        var gpuNote = Loc.Tf("Set.GpuNote", MeetVault.Core.GpuProbe.ApiSummary());
+        TranscriptionStatus.Text = Loc.Tf("Set.TranscriptionStatus", ModelPicker.SelectedItem, device?.Label ?? "CPU", OnOffDisplay(DiarizationSwitch.IsOn)) + gpuNote;
         var logLevel = LogLevelPicker.SelectedItem as string ?? "debug";
-        LogStatus.Text = $"Writing {logLevel} and above to {MeetVault.Core.AppLog.Path}";
-        OverlayStatus.Text = $"Keep on top {OnOff(PinSwitch.IsOn)} \u00b7 opacity {OpacitySlider.Value:P0} \u00b7 font {FontSizeBox.Value} pt \u00b7 {LinesBox.Value} line(s)";
-        StorageStatus.Text = $"Transcripts will be written to {StoragePathBox.Text}.";
+        LogStatus.Text = Loc.Tf("Set.LogWriting", logLevel, MeetVault.Core.AppLog.Path);
+        OverlayStatus.Text = Loc.Tf("Set.OverlayStatus", OnOffDisplay(PinSwitch.IsOn), OpacitySlider.Value.ToString("P0"), FontSizeBox.Value, LinesBox.Value);
+        StorageStatus.Text = Loc.Tf("Set.StorageStatus", StoragePathBox.Text);
         UsageText.Text = DescribeUsage(StoragePathBox.Text);
         GeminiStatus.Text = GeminiApiKey is null
-            ? "No key in Credential Locker."
-            : "Key stored in Windows Credential Locker.";
+            ? Loc.T("Set.GeminiNoKey")
+            : Loc.T("Set.KeyStored");
 
         // Persist after the summary renders so a storage failure degrades to a warning, never a dead page.
         try
@@ -254,7 +253,7 @@ public sealed partial class SettingsPage : Page
         {
             _saveFailed = true; // report once, not on every keystroke
             StatusBar.Severity = InfoBarSeverity.Warning;
-            StatusBar.Message = "Settings could not be saved to disk (" + DescribeStorage(ex) + "). Changes apply this session and are not persisted.";
+            StatusBar.Message = Loc.Tf("Set.SaveFailed", DescribeStorage(ex));
             StatusBar.IsOpen = true;
         }
     }
@@ -263,24 +262,26 @@ public sealed partial class SettingsPage : Page
 
     private static string DescribeStorage(Exception ex) => ex switch
     {
-        Microsoft.Data.Sqlite.SqliteException { SqliteErrorCode: 8 } => "the data folder is read-only",
-        UnauthorizedAccessException => "the data folder is not writable",
-        _ => "the data folder could not be written",
+        Microsoft.Data.Sqlite.SqliteException { SqliteErrorCode: 8 } => Loc.T("Set.ErrReadOnly"),
+        UnauthorizedAccessException => Loc.T("Set.ErrNotWritable"),
+        _ => Loc.T("Set.ErrNotWritten"),
     };
 
+    // Persisted settings values stay English ("on"/"off"); the display helper localizes.
     private static string OnOff(bool value) => value ? "on" : "off";
+    private static string OnOffDisplay(bool value) => value ? Loc.T("Set.On") : Loc.T("Set.Off");
 
     private static string DescribeUsage(string folder)
     {
-        if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder)) return "Usage: 0 B \u2014 folder does not exist yet.";
+        if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder)) return Loc.T("Set.UsageNone");
         try
         {
             var bytes = new DirectoryInfo(folder).EnumerateFiles("*", SearchOption.AllDirectories).Sum(f => f.Length);
-            return $"Usage: {bytes / 1024.0 / 1024.0:0.##} MB in {folder}";
+            return Loc.Tf("Set.UsageMb", (bytes / 1024.0 / 1024.0).ToString("0.##"), folder);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return "Usage: unavailable.";
+            return Loc.T("Set.UsageUnavailable");
         }
     }
 }
