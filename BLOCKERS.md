@@ -1,6 +1,6 @@
 # BLOCKERS.md — genuine blockers for user review
 
-> Updated 2026-10-11 (diarizer contract repaired; two-speaker separation proven on a synthetic fixture). Only items that stop progress with no local alternative go here. The code-cleanup items at the end are tracked for completeness and do not block anything.
+> Updated 2026-10-11 (diarizer contract repaired; VAD-utterance pipeline + two-sighting speaker matcher live-verified on the looped two-voice fixture — 2 stable ids over 22 segments). Only items that stop progress with no local alternative go here. The code-cleanup items at the end are tracked for completeness and do not block anything.
 
 ## Resolved this run (Observed)
 
@@ -14,7 +14,7 @@
 - Next: run `publish/win-x64/MeetVault.exe`, press Start recording, speak, Stop, then open the meeting in Meetings and press play. Report anything that looks wrong.
 
 ### 2. Spoken JA/VI accuracy + two-speaker separation
-- `Recording.m4a` validated (EN detected; the non-English portion is sung, not spoken, so ja/vi stays unexercised). Diarizer separation is now proven on a synthetic fixture (A/B/A TTS voices: distinct speakers, identity stable across turns — `DiarizerContractTests`), but real conversational audio is still unexercised.
+- `Recording.m4a` validated (EN detected; the non-English portion is sung, not spoken, so ja/vi stays unexercised). Diarizer separation + identity stability measured live on the synthetic A/B/A fixture loop (E1, meeting `cf852f755199402e9ff003ffc1fc8563`): 22 segments, 2 speaker ids, monotonic timeline; voice A → `spk_1` 15/15, voice B → `spk_2` 6/6 after its first sighting — the first sighting of a new voice deliberately keeps the previous speaker (two-sighting confirmation; at most one line per voice carries the previous id). Real conversational audio is still unexercised.
 - Next: one short spoken JA clip and one VI clip, plus a real two-speaker sample (or the loopback machine) for separation.
 
 ### 3. Gemini live call
@@ -38,6 +38,7 @@
 ## Not blockers (tracked for completeness)
 
 - Microphone and system audio are always mixed (verified: the log shows `capture: started mic=on system=all sources=2`). Per-app capture uses the WASAPI process-loopback API (`ProcessLoopbackCapture`); it falls back to system-wide capture when activation fails. Activation was not confirmed on the test VM (process loopback is often unsupported in a Hyper-V guest), so the per-app path needs a check on a machine with the target app rendering audio.
+- Pending-speech drop at pause/stop/unload is logged, not silent: the shared `DropPendingUtterance` closes the open VAD utterance and warns `live: <pause|stop|unload> dropped Xs of pending speech (not transcribed; the recording keeps it)`. Observed live: `live: pause dropped 4.9s…` and `live: stop dropped 3.1s…`. Follow-up idea: transcribe the pending utterance at stop instead of dropping it (the audio is in the recording).
 
 ### 6. System-audio capture timing (fixed, verify on your machine)
 - Root cause of "YouTube played but the transcript was empty": the mixer pump was not clocked to real time. `WdlResamplingSampleProvider` pads silence when starved, so the loop free-ran and wrote audio roughly 100x too fast (a 74 s recording produced a 339 MB WAV). Whisper then saw time-scaled near-silence. Fixed by pacing the pump against the wall clock (verified then at 16 kHz: an 11.7 s recording produced 375 KB = 32 KB/s).
