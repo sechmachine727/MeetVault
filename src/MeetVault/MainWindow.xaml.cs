@@ -63,9 +63,9 @@ public sealed partial class MainWindow : Window
         {
             var dialog = new ContentDialog
             {
-                Title = "Could not open " + (tag ?? "that page"),
-                Content = "Something went wrong loading this page. You are back on the dashboard; the details were logged under " + Path.Combine(Path.GetTempPath(), "MeetVault") + ".",
-                CloseButtonText = "Back to Dashboard",
+                Title = Loc.Tf("Nav.ErrorTitle", tag ?? Loc.T("Nav.ErrorPageFallback")),
+                Content = Loc.Tf("Nav.ErrorBody", Path.Combine(Path.GetTempPath(), "MeetVault")),
+                CloseButtonText = Loc.T("Nav.BackToDashboard"),
                 XamlRoot = RootFrame.XamlRoot,
             };
             await dialog.ShowAsync();

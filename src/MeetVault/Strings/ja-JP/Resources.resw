@@ -315,4 +315,10 @@
   <data name="Ov.RenamePlaceholder" xml:space="preserve"><value>例: Alice — すべての行に反映されます</value></data>
   <data name="Ov.On" xml:space="preserve"><value>オン</value></data>
   <data name="Ov.Off" xml:space="preserve"><value>オフ</value></data>
+
+  <!-- L4.7: MainWindow nav-error dialog -->
+  <data name="Nav.ErrorTitle" xml:space="preserve"><value>{0} を開けませんでした</value></data>
+  <data name="Nav.ErrorPageFallback" xml:space="preserve"><value>そのページ</value></data>
+  <data name="Nav.ErrorBody" xml:space="preserve"><value>このページの読み込み中に問題が発生しました。ダッシュボードに戻ります。詳細は {0} に記録されました。</value></data>
+  <data name="Nav.BackToDashboard" xml:space="preserve"><value>ダッシュボードに戻る</value></data>
 </root>

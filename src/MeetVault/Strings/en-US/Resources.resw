@@ -315,4 +315,10 @@
   <data name="Ov.RenamePlaceholder" xml:space="preserve"><value>e.g. Alice — updates every line</value></data>
   <data name="Ov.On" xml:space="preserve"><value>On</value></data>
   <data name="Ov.Off" xml:space="preserve"><value>Off</value></data>
+
+  <!-- L4.7: MainWindow nav-error dialog -->
+  <data name="Nav.ErrorTitle" xml:space="preserve"><value>Could not open {0}</value></data>
+  <data name="Nav.ErrorPageFallback" xml:space="preserve"><value>that page</value></data>
+  <data name="Nav.ErrorBody" xml:space="preserve"><value>Something went wrong loading this page. You are back on the dashboard; the details were logged under {0}.</value></data>
+  <data name="Nav.BackToDashboard" xml:space="preserve"><value>Back to Dashboard</value></data>
 </root>
