@@ -27,7 +27,8 @@ public sealed class SherpaDiarizer : ISpeakerDiarizer, IDisposable
     }
 
     // Assigns the dominant speaker of one finalized 16 kHz mono window as a stable spk_N id.
-    // ponytail: no audio by contract — callers must route window audio via AssignWindow first (LivePage WindowDiarizer does).
+    // ponytail: no audio by contract — callers feed window audio via AssignWindow first;
+    // live sessions use the WindowDiarizer adapter (Core), which carries the audio the interface cannot.
     public string AssignTurn(Segment segment) => AssignWindow(Array.Empty<float>());
 
     public string AssignWindow(float[] samples16kMono)

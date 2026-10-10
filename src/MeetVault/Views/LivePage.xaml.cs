@@ -466,24 +466,4 @@ public sealed partial class LivePage : Page
     {
         public string AssignTurn(Segment segment) => "spk_1";
     }
-
-    private sealed class WindowDiarizer : ISpeakerDiarizer
-    {
-        private readonly SherpaDiarizer _inner;
-        // Written on the capture pump thread, read on the UI thread.
-        private volatile string _current = "spk_1";
-        public WindowDiarizer(SherpaDiarizer inner) { _inner = inner; }
-        public void Dispose() => _inner.Dispose();
-        public void AssignWindowSamples(byte[] pcm16)
-        {
-            try
-            {
-                var f = new float[pcm16.Length / 2];
-                for (var i = 0; i < f.Length; i++) f[i] = BitConverter.ToInt16(pcm16, 2 * i) / 32768f;
-                _current = _inner.AssignWindow(f);
-            }
-            catch { }
-        }
-        public string AssignTurn(Segment segment) => _current;
-    }
 }
