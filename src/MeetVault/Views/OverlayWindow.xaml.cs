@@ -7,6 +7,7 @@ using Microsoft.UI;
 using Microsoft.UI.Text;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
@@ -41,25 +42,33 @@ public sealed partial class OverlayWindow : Window
     // never pushed values back to Vm.Opacity (proven: identical pixels at 1.0/0.3).
     private readonly SolidColorBrush _veil = new(Colors.Black);
     private readonly Slider _backdropSlider = new() { Minimum = 0, Maximum = 1, StepFrequency = 0.05 };
-    // YouTube-style caption: one transparent button wrapping a centered text
-    // block (code-built — XamlCompiler 1.8 rejects new direct children of the
-    // root Grid in XAML; Border AND Rectangle both bisected exit-1).
-    private readonly Button _captionButton = new()
+    // Conversation view: a bottom-anchored stack of recent lines (latest big and
+    // bold). Code-built — XamlCompiler 1.8 rejects new direct children of the
+    // root Grid in XAML; Border AND Rectangle both bisected exit-1.
+    private readonly StackPanel _conversationPanel = new()
+    {
+        Orientation = Orientation.Vertical,
+        Spacing = 6,
+        VerticalAlignment = VerticalAlignment.Bottom,
+        HorizontalAlignment = HorizontalAlignment.Stretch,
+        Margin = new Thickness(24, 0, 24, 12),
+    };
+    private readonly TextBlock _noLines = new()
+    {
+        Text = "No transcript lines yet.",
+        HorizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Center,
+        Opacity = 0.7,
+    };
+    // One cogwheel; every overlay setting lives in its flyout (owner-requested
+    // consolidation — nothing is scattered in the header/footer anymore).
+    private readonly Button _settingsButton = new()
     {
         Background = new SolidColorBrush(Colors.Transparent),
         BorderThickness = new Thickness(0),
-        Padding = new Thickness(0),
-        HorizontalAlignment = HorizontalAlignment.Stretch,
-        HorizontalContentAlignment = HorizontalAlignment.Center,
+        Padding = new Thickness(8, 4, 8, 4),
         VerticalAlignment = VerticalAlignment.Center,
-    };
-    private readonly TextBlock _captionBody = new()
-    {
-        TextWrapping = TextWrapping.WrapWholeWords,
-        MaxLines = 2,
-        TextAlignment = TextAlignment.Center,
-        Foreground = new SolidColorBrush(Colors.White),
-        FontWeight = FontWeights.Bold,
+        Content = new FontIcon { Glyph = "\uE713", FontSize = 16 },
     };
     private readonly TextBox _renameBox = new();
     private readonly Flyout _renameFlyout;
@@ -83,27 +92,35 @@ public sealed partial class OverlayWindow : Window
         Vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(OverlayViewModel.Opacity)) _veil.Opacity = Vm.Opacity;
-            if (e.PropertyName == nameof(OverlayViewModel.FontSize)) _captionBody.FontSize = Vm.FontSize + 12;
+            if (e.PropertyName is nameof(OverlayViewModel.FontSize) or nameof(OverlayViewModel.FontFamily) or nameof(OverlayViewModel.ViewLines)) BuildConversation();
+            if (e.PropertyName == nameof(OverlayViewModel.IsPinned) && _presenter is not null) _presenter.IsAlwaysOnTop = Vm.IsPinned;
         };
         // Same ABI rule as Live/Details: ObservableCollection NREs in ComWrappers
         // vtable computation in the trimmed exe. Array snapshot, refreshed on change.
         TranscriptList.ItemsSource = Vm.Lines.ToArray();
-        // Caption mode replaces the history list with the caption button.
-        // History buffer (Vm.Lines) stays intact.
-        _captionButton.Content = _captionBody;
-        _captionButton.Click += Rename_Click;
-        ToolTipService.SetToolTip(_captionButton, "Rename this speaker on every line");
+        // Conversation mode replaces the history list. History buffer stays intact.
+        AutomationProperties.SetName(_settingsButton, "Overlay settings");
+        ToolTipService.SetToolTip(_settingsButton, "Overlay settings");
+        _settingsButton.Flyout = BuildSettingsFlyout();
+        Grid.SetColumn(_settingsButton, 2);
+        HeaderBar.Children.Add(_settingsButton);
         // NOTE: visual-parent lookup is null in the ctor (proven twice by
         // crash-log NRE) — the tree is only attached at Loaded. Host the
-        // caption then; text state is already correct via RefreshCaption.
+        // conversation panel then; text state is already correct via BuildConversation.
         RootSurface.Loaded += (_, _) =>
         {
             TranscriptList.Visibility = Visibility.Collapsed;
             EmptyState.Visibility = Visibility.Collapsed;
-            ((Grid)VisualTreeHelper.GetParent(TranscriptList)).Children.Add(_captionButton);
+            ((Grid)VisualTreeHelper.GetParent(TranscriptList)).Children.Add(_conversationPanel);
+            // Consolidation: the old scattered controls go away — Pin + Backdrop
+            // in the header, Font size + Lines in the footer all live in the
+            // cogwheel flyout now.
+            if (HeaderBar.Children.Count > 1 && HeaderBar.Children[1] is FrameworkElement pinToggle) pinToggle.Visibility = Visibility.Collapsed;
+            BackdropButton.Visibility = Visibility.Collapsed;
+            foreach (var child in RootSurface.Children)
+                if (child is Grid footer && Grid.GetRow(footer) == 2) footer.Visibility = Visibility.Collapsed;
         };
         _renameFlyout = BuildRenameFlyout();
-        BackdropButton.Flyout = BuildBackdropFlyout();
         var hwnd = Win32Interop.GetWindowFromWindowId(AppWindow.Id);
         var scale = GetDpiForWindow(hwnd) / 96.0;
         _scale = scale;
@@ -172,7 +189,7 @@ public sealed partial class OverlayWindow : Window
         Closed += (_, _) => { LiveBridge.LineAdded -= OnLiveLine; LiveBridge.Cleared -= OnLiveCleared; LiveBridge.Renamed -= OnRenamed; _acrylic?.Dispose(); };
         foreach (var (speaker, text) in LiveBridge.Recent()) Vm.AddLine(speaker, text); // catch up mid-meeting
         RefreshListState();
-        RefreshCaption();
+        BuildConversation();
     }
 
     // Settings -> Overlay: the controls persist these, so the window must honor them.
@@ -185,6 +202,9 @@ public sealed partial class OverlayWindow : Window
             if (double.TryParse(repo.GetSetting("overlay.opacity"), out var op)) Vm.Opacity = op;
             if (double.TryParse(repo.GetSetting("overlay.font"), out var font)) Vm.FontSize = font;
             if (double.TryParse(repo.GetSetting("overlay.lines"), out var lines)) Vm.LineCount = lines;
+            if (double.TryParse(repo.GetSetting("overlay.viewlines"), out var viewLines)) Vm.ViewLines = viewLines;
+            var family = repo.GetSetting("overlay.fontfamily");
+            if (!string.IsNullOrWhiteSpace(family)) Vm.FontFamily = family;
         }
         catch { }
     }
@@ -196,7 +216,7 @@ public sealed partial class OverlayWindow : Window
         => DispatcherQueue.TryEnqueue(() => Vm.Lines.Clear());
 
     private void OnRenamed(string oldName, string newName)
-        => DispatcherQueue.TryEnqueue(() => { Vm.RenameSpeaker(oldName, newName); RefreshCaption(); });
+        => DispatcherQueue.TryEnqueue(() => { Vm.RenameSpeaker(oldName, newName); BuildConversation(); });
 
     public OverlayViewModel Vm { get; }
 
@@ -264,21 +284,70 @@ public sealed partial class OverlayWindow : Window
         return new Flyout { Content = content };
     }
 
-    private Flyout BuildBackdropFlyout()
+    // Every overlay setting in one place (owner-requested): background darkness,
+    // text size, text font, lines shown, keep-on-top. Each control applies live
+    // and persists to the same keys the Settings page reads.
+    private Flyout BuildSettingsFlyout()
     {
+        var darknessValue = new TextBlock { Text = Vm.Opacity.ToString("0.00"), Opacity = 0.7, VerticalAlignment = VerticalAlignment.Center };
         _backdropSlider.Value = Vm.Opacity;
-        _backdropSlider.ValueChanged += (_, e) => Vm.Opacity = e.NewValue;
-        var content = new StackPanel { Spacing = 8, Width = 220 };
-        content.Children.Add(new TextBlock { Text = "Background darkness", FontSize = 12 });
-        content.Children.Add(_backdropSlider);
-        return new Flyout { Content = content };
+        _backdropSlider.ValueChanged += (_, e) => { Vm.Opacity = e.NewValue; darknessValue.Text = e.NewValue.ToString("0.00"); Persist("overlay.opacity", e.NewValue.ToString()); };
+        AutomationProperties.SetName(_backdropSlider, "Background darkness");
+
+        var textSizeSlider = new Slider { Minimum = 12, Maximum = 48, StepFrequency = 2, Value = Vm.FontSize };
+        var textSizeValue = new TextBlock { Text = ((int)Vm.FontSize).ToString(), Opacity = 0.7, VerticalAlignment = VerticalAlignment.Center };
+        textSizeSlider.ValueChanged += (_, e) => { Vm.FontSize = e.NewValue; textSizeValue.Text = ((int)e.NewValue).ToString(); Persist("overlay.font", e.NewValue.ToString()); };
+        AutomationProperties.SetName(textSizeSlider, "Text size");
+
+        var fonts = new[] { "Segoe UI", "Segoe UI Variable", "Consolas", "Georgia", "Verdana", "Arial" };
+        var fontBox = new ComboBox { ItemsSource = fonts, HorizontalAlignment = HorizontalAlignment.Stretch };
+        fontBox.SelectedItem = fonts.Contains(Vm.FontFamily) ? Vm.FontFamily : fonts[0];
+        fontBox.SelectionChanged += (_, _) => { if (fontBox.SelectedItem is string f) { Vm.FontFamily = f; Persist("overlay.fontfamily", f); } };
+        AutomationProperties.SetName(fontBox, "Text font");
+
+        var linesSlider = new Slider { Minimum = 1, Maximum = 10, StepFrequency = 1, Value = Vm.ViewLines };
+        var linesValue = new TextBlock { Text = ((int)Vm.ViewLines).ToString(), Opacity = 0.7, VerticalAlignment = VerticalAlignment.Center };
+        linesSlider.ValueChanged += (_, e) => { Vm.ViewLines = e.NewValue; linesValue.Text = ((int)e.NewValue).ToString(); Persist("overlay.viewlines", ((int)e.NewValue).ToString()); };
+        AutomationProperties.SetName(linesSlider, "Lines shown");
+
+        var pinSwitch = new ToggleSwitch { IsOn = Vm.IsPinned, OnContent = "On", OffContent = "Off" };
+        pinSwitch.Toggled += (_, _) => { Vm.IsPinned = pinSwitch.IsOn; Persist("overlay.pin", pinSwitch.IsOn ? "on" : "off"); };
+        AutomationProperties.SetName(pinSwitch, "Keep above other windows");
+
+        var content = new StackPanel { Spacing = 12, Width = 300 };
+        content.Children.Add(new TextBlock { Text = "Overlay settings", FontWeight = FontWeights.SemiBold });
+        content.Children.Add(Labeled("Background darkness", _backdropSlider, darknessValue));
+        content.Children.Add(Labeled("Text size", textSizeSlider, textSizeValue));
+        content.Children.Add(Labeled("Text font", fontBox, null));
+        content.Children.Add(Labeled("Lines shown", linesSlider, linesValue));
+        content.Children.Add(Labeled("Keep above other windows", pinSwitch, null));
+        // The strip sits at the screen bottom AND is only 220 DIP tall: a flyout
+        // constrained to the window root is clipped to ~2 rows (proven on-screen),
+        // so it must be allowed to render outside the window bounds and open upward.
+        return new Flyout { Content = content, ShouldConstrainToRootBounds = false, Placement = FlyoutPlacementMode.Top };
+    }
+
+    private static StackPanel Labeled(string label, FrameworkElement control, FrameworkElement? trailing)
+    {
+        var row = new StackPanel { Spacing = 4 };
+        var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        header.Children.Add(new TextBlock { Text = label, FontSize = 12 });
+        if (trailing is not null) header.Children.Add(trailing);
+        row.Children.Add(header);
+        row.Children.Add(control);
+        return row;
+    }
+
+    private void Persist(string key, string value)
+    {
+        try { AppStore.Repo.SetSetting(key, value); } catch { }
     }
 
     private void OnLinesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         TranscriptList.ItemsSource = Vm.Lines.ToArray();
         RefreshListState();
-        RefreshCaption();
+        BuildConversation();
     }
 
     private void RefreshListState()
@@ -288,16 +357,47 @@ public sealed partial class OverlayWindow : Window
             TranscriptList.ScrollIntoView(TranscriptList.Items[TranscriptList.Items.Count - 1]);
     }
 
-    // Latest line big and centered; speaker rename rides the button's
-    // DataContext through the unchanged Rename_Click handler (null-safe:
-    // Rename_Click returns early when DataContext is not a TranscriptLine).
-    private void RefreshCaption()
+    // Bottom-anchored conversation: newest line big and bold (click to rename
+    // its speaker), older lines smaller and dimmer above it. Rename rides the
+    // button's DataContext through Rename_Click (null-safe early return).
+    private void BuildConversation()
     {
-        var last = Vm.Lines.Count == 0 ? null : Vm.Lines[Vm.Lines.Count - 1];
-        _captionButton.DataContext = last;
-        _captionBody.Text = last is null
-            ? "No transcript lines yet."
-            : CaptionPlacement.FormatCaption(last.Speaker, last.Text);
-        _captionBody.FontSize = Vm.FontSize + 12;
+        _conversationPanel.Children.Clear();
+        if (Vm.Lines.Count == 0)
+        {
+            _conversationPanel.Children.Add(_noLines);
+            return;
+        }
+        var take = Math.Clamp((int)Vm.ViewLines, 1, 12);
+        for (var i = Math.Max(0, Vm.Lines.Count - take); i < Vm.Lines.Count; i++)
+        {
+            var line = Vm.Lines[i];
+            var isLatest = i == Vm.Lines.Count - 1;
+            var text = new TextBlock
+            {
+                Text = CaptionPlacement.FormatCaption(line.Speaker, line.Text),
+                TextWrapping = TextWrapping.WrapWholeWords,
+                TextAlignment = TextAlignment.Center,
+                Foreground = new SolidColorBrush(Colors.White),
+                FontFamily = new FontFamily(Vm.FontFamily),
+                FontSize = isLatest ? Vm.FontSize + 12 : Vm.FontSize,
+                FontWeight = isLatest ? FontWeights.Bold : FontWeights.Normal,
+                Opacity = isLatest ? 1.0 : 0.72,
+            };
+            if (!isLatest) { _conversationPanel.Children.Add(text); continue; }
+            var button = new Button
+            {
+                Background = new SolidColorBrush(Colors.Transparent),
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(0),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                DataContext = line,
+                Content = text,
+            };
+            button.Click += Rename_Click;
+            ToolTipService.SetToolTip(button, "Rename this speaker on every line");
+            _conversationPanel.Children.Add(button);
+        }
     }
 }

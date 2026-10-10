@@ -18,6 +18,14 @@ public sealed partial class OverlayViewModel : ObservableObject
     [ObservableProperty]
     private double _lineCount = 40;
 
+    // Conversation settings owned by the overlay cogwheel (persisted as
+    // overlay.viewlines / overlay.fontfamily).
+    [ObservableProperty]
+    private double _viewLines = 4;
+
+    [ObservableProperty]
+    private string _fontFamily = "Segoe UI";
+
     public ObservableCollection<TranscriptLine> Lines { get; } = [];
 
     public void AddLine(string speaker, string text)
