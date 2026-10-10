@@ -71,6 +71,10 @@ public sealed class DiarizerContractTests
         var b2 = dz.AssignTurn(Slice(all, 139280, 183040));
         Assert.Equal(p1.SpeakerId, b1.SpeakerId);
         Assert.NotEqual(p1.SpeakerId, b2.SpeakerId);
+        // Hard recall pin: after b2, _last is spk_2, so this can only resolve to p1's id via a
+        // real store hit on A's stored embeddings (a recall miss would return the previous id).
+        var p4 = dz.AssignTurn(Slice(all, 60480, 90720));
+        Assert.Equal(p1.SpeakerId, p4.SpeakerId);
     }
 
     private static TurnAudio Slice(float[] all, int start, int end)

@@ -40,7 +40,7 @@ public sealed class SpeakerMatcher
         var id = _store.Search(embedding, MatchThreshold);
         if (id.Length > 0)
         {
-            _store.Add(id, embedding);   // multi-embedding store: recall grows with the meeting
+            _store.Add(id, embedding);   // multi-embedding store: recall grows with the meeting (capped at 5 embeddings per id)
             _last = id;
             return new SpeakerMatch(id, SpeakerOrigin.Embedding, false);
         }
@@ -59,6 +59,7 @@ public sealed class SpeakerMatcher
                 AppLog.Debug("matcher: confirmed new speaker " + p.Reserved);
                 return new SpeakerMatch(p.Reserved, SpeakerOrigin.Embedding, true);
             }
+            // Unreachable while ConfirmCount == 2 (the first match already reaches count 2); kept so raising ConfirmCount still behaves.
             _pending[i] = (p.Emb, count, p.FirstMs, atMs, p.Reserved);
             return new SpeakerMatch(_last, SpeakerOrigin.Embedding, false);
         }
