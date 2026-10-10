@@ -1,6 +1,6 @@
 # BLOCKERS.md — genuine blockers for user review
 
-> Updated 2026-10-07 by autonomous run. Only items that stop progress with no local alternative go here. The code-cleanup items at the end are tracked for completeness and do not block anything.
+> Updated 2026-10-11 (diarizer contract repaired; two-speaker separation proven on a synthetic fixture). Only items that stop progress with no local alternative go here. The code-cleanup items at the end are tracked for completeness and do not block anything.
 
 ## Resolved this run (Observed)
 
@@ -14,8 +14,8 @@
 - Next: run `publish/win-x64/MeetVault.exe`, press Start recording, speak, Stop, then open the meeting in Meetings and press play. Report anything that looks wrong.
 
 ### 2. Spoken JA/VI accuracy + two-speaker separation
-- `Recording.m4a` validated (EN detected; the non-English portion is sung, not spoken, so ja/vi stays unexercised). Diarizer proves single-voice only.
-- Next: one short spoken JA clip and one VI clip, plus a two-speaker sample (or the loopback machine) for separation.
+- `Recording.m4a` validated (EN detected; the non-English portion is sung, not spoken, so ja/vi stays unexercised). Diarizer separation is now proven on a synthetic fixture (A/B/A TTS voices: distinct speakers, identity stable across turns — `DiarizerContractTests`), but real conversational audio is still unexercised.
+- Next: one short spoken JA clip and one VI clip, plus a real two-speaker sample (or the loopback machine) for separation.
 
 ### 3. Gemini live call
 - Transport is implemented and unit-tested against stubs. No live call has run.
@@ -50,4 +50,4 @@
 ### Open code cleanup (recorded 2026-10-07, not fixed)
 
 - `Speaker.GenderIndex` and `Speaker.Gender` reach the `speakers` table but no production consumer reads either value. Declared at `src/MeetVault.Core/Domain.cs:3`, written at `src/MeetVault.Core/LocalMeetingRepository.cs:45` and `:47`, read back at `LocalMeetingRepository.cs:131` and `:135`, and constructed in production only with the literal `Gender.Unknown, 0` at `src/MeetVault.Core/MeetingSession.cs:176`. Non-zero values appear only in test fixtures. Speaker display names already carry the counter, so the two columns hold nothing the app uses. Minimal fix: drop both fields from the record, the `INSERT`, and the `SELECT`, and leave the columns at their defaults so databases already on disk keep opening.
-- `ISpeakerDiarizer.AssignTurn` cannot be satisfied by the real implementation. The interface declares it at `src/MeetVault.Core/EngineInterfaces.cs:25` and `MeetingSession.HandleSegment` calls it at `src/MeetVault.Core/MeetingSession.cs:174`, but `SherpaDiarizer.AssignTurn` forwards to `AssignWindow(Array.Empty<float>())` (`src/MeetVault.Core/SherpaDiarizer.cs:31`), which throws `ArgumentException` on empty input at `:35`. Live transcription works only because `LivePage` wraps the diarizer in a `WindowDiarizer` adapter whose `AssignTurn` returns the previous window's label (`src/MeetVault/Views/LivePage.xaml.cs:419`) while the real work happens in `AssignWindowSamples`. Minimal fix: carry the window audio in the interface so the contract matches what diarization needs, and delete the adapter.
+- ~~`ISpeakerDiarizer.AssignTurn` cannot be satisfied by the real implementation.~~ **FIXED 2026-10-11 (Phase 3).** The interface now carries the audio (`SpeakerHint AssignTurn(TurnAudio)`), `SherpaDiarizer` implements it for real (per-turn diarization + cross-turn identity by embedding match, empty audio → Unknown, never throws), `MeetingSession.NoteTurnAudio` resolves one hint per finalized turn, and the `WindowDiarizer` adapter was deleted. Verified by `DiarizerContractTests` (synthetic two-voice fixture: distinct speakers, stable ids) + `SessionTests`/`RenameSpeakerTests`; suite 135/135.

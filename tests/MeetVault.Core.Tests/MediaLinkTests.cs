@@ -49,7 +49,7 @@ public sealed class MediaLinkTests
         public Task StopAsync(CancellationToken ct) { IsRunning = false; return Task.CompletedTask; }
     }
 
-    private sealed class D : ISpeakerDiarizer { public string AssignTurn(Segment s) => "spk_1"; }
+    private sealed class D : ISpeakerDiarizer { public SpeakerHint AssignTurn(TurnAudio t) => new("spk_1", SpeakerOrigin.Unknown, null); }
     private sealed class G : IGenderLabeler { public string Label(string id, Gender e) => "Speaker 1"; }
 
     [Fact]

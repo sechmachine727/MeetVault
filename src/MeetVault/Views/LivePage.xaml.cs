@@ -16,7 +16,7 @@ public sealed partial class LivePage : Page
     private NAudioCapture? _capture;
     private readonly List<byte> _window = new();
     private const int WindowBytes = 16000 * 2 * 3; // 3 s of 16 kHz mono
-    private WindowDiarizer? _windowDiarizer;
+    private SherpaDiarizer? _sherpaDiarizer;
     private ISpeechTranscriber _transcriber = null!;
     private IAudioCapture _audio = null!;
     private ISpeakerDiarizer _diarizer = null!;
@@ -64,7 +64,7 @@ public sealed partial class LivePage : Page
         try { await _transcribeGate.WaitAsync(); _transcribeGate.Release(); } catch { } // drain in-flight window
         try { _capture?.Dispose(); } catch { }
         try { _whisper?.Dispose(); } catch { }
-        try { _windowDiarizer?.Dispose(); } catch { }
+        try { _sherpaDiarizer?.Dispose(); } catch { }
     }
 
     // Engines resolve at load; recording starts only on an explicit action or a resume.
@@ -78,7 +78,7 @@ public sealed partial class LivePage : Page
 
         WhisperTranscriber? whisper = null;
         NAudioCapture? capture = null;
-        WindowDiarizer? windowDiarizer = null;
+        SherpaDiarizer? sherpaDiarizer = null;
         try
         {
             var picked = AppStore.Repo.GetSetting("transcription.model") == "base" ? "ggml-base.bin" : "ggml-tiny.bin";
@@ -88,23 +88,22 @@ public sealed partial class LivePage : Page
             capture = new NAudioCapture();
             if (AppStore.Repo.GetSetting("transcription.diarization") != "off")
             {
-                var dz = new SherpaDiarizer(Path.Combine(ModelDir, "sherpa-seg.onnx"), Path.Combine(ModelDir, "sherpa-emb.onnx"));
-                windowDiarizer = new WindowDiarizer(dz);
+                sherpaDiarizer = new SherpaDiarizer(Path.Combine(ModelDir, "sherpa-seg.onnx"), Path.Combine(ModelDir, "sherpa-emb.onnx"));
             }
-            _whisper = whisper; _capture = capture; _windowDiarizer = windowDiarizer;
-            _transcriber = whisper; _audio = capture; _diarizer = (ISpeakerDiarizer?)windowDiarizer ?? diarizer;
+            _whisper = whisper; _capture = capture; _sherpaDiarizer = sherpaDiarizer;
+            _transcriber = whisper; _audio = capture; _diarizer = (ISpeakerDiarizer?)sherpaDiarizer ?? diarizer;
             capture.PcmReady += OnPcm;
             capture.CaptureFailed += OnCaptureFailed;
             _modelLabel = modelFile.Replace("ggml-", "").Replace(".bin", "");
-            _engineMode = "live: whisper " + _modelLabel + (windowDiarizer is null ? ", single speaker" : " + sherpa diarizer");
+            _engineMode = "live: whisper " + _modelLabel + (sherpaDiarizer is null ? ", single speaker" : " + sherpa diarizer");
             return;
         }
         catch
         {
             try { capture?.Dispose(); } catch { }
             try { whisper?.Dispose(); } catch { }
-            try { windowDiarizer?.Dispose(); } catch { }
-            _whisper = null; _capture = null; _windowDiarizer = null;
+            try { sherpaDiarizer?.Dispose(); } catch { }
+            _whisper = null; _capture = null; _sherpaDiarizer = null;
             _engineMode = "demo (engine init failed)";
             MeetVault.Core.AppLog.Error("live: engine init failed; running demo");
         }
@@ -226,7 +225,7 @@ public sealed partial class LivePage : Page
                 : actual && requested == GpuBackend.Vulkan && !accel.StartsWith("Vulkan", StringComparison.OrdinalIgnoreCase)
                     ? " (requested Vulkan, running " + accel + ")"
                     : "";
-        EngineStatus.Text = "live: whisper " + _modelLabel + " + " + accel + note + (_windowDiarizer is null ? ", single speaker" : " + sherpa diarizer");
+        EngineStatus.Text = "live: whisper " + _modelLabel + " + " + accel + note + (_sherpaDiarizer is null ? ", single speaker" : " + sherpa diarizer");
         if (actual) MeetVault.Core.AppLog.Info("live: accelerator=" + accel + " requested=" + requested + " native=" + loaded);
     }
 
@@ -289,7 +288,9 @@ public sealed partial class LivePage : Page
         try
         {
             if (_session?.MeetingId is not { Length: > 0 } meetingId) return;
-            _windowDiarizer?.AssignWindowSamples(window);
+            // One diarization per finalized 3 s turn; the session keeps the resolved speaker
+            // for every segment this window produces (empty turns stay with the previous one).
+            _session.NoteTurnAudio(new TurnAudio(ToFloats16k(window), start, start + windowMs));
             DispatcherQueue.TryEnqueue(() => PartialLine.Text = "Transcribing\u2026");
             await _whisper.TranscribeWindowAsync(window, start, meetingId);
             ReportAcceleratorOnce();
@@ -443,6 +444,14 @@ public sealed partial class LivePage : Page
         _ => "something went wrong",
     };
 
+    // PCM16 little-endian -> normalized floats; the shape TurnAudio carries.
+    private static float[] ToFloats16k(byte[] pcm16)
+    {
+        var f = new float[pcm16.Length / 2];
+        for (var i = 0; i < f.Length; i++) f[i] = BitConverter.ToInt16(pcm16, 2 * i) / 32768f;
+        return f;
+    }
+
     private sealed class FakeAudioCapture : IAudioCapture
     {
         public bool IsCapturing { get; private set; }
@@ -464,6 +473,6 @@ public sealed partial class LivePage : Page
 
     private sealed class FakeDiarizer : ISpeakerDiarizer
     {
-        public string AssignTurn(Segment segment) => "spk_1";
+        public SpeakerHint AssignTurn(TurnAudio turn) => new("spk_1", SpeakerOrigin.Unknown, null);
     }
 }

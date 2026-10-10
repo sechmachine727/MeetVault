@@ -20,9 +20,22 @@ public interface ISpeechTranscriber
     bool IsRunning { get; }
 }
 
+public enum SpeakerOrigin { Manual, SourceHint, Embedding, Unknown }
+
+// One finalized turn's audio (16 kHz mono) and its position in the recording timeline.
+public sealed record TurnAudio(ReadOnlyMemory<float> Samples16kMono, long StartMs, long EndMs);
+
+// A stable speaker association for one turn. SpeakerId is opaque and stable for the
+// meeting ("spk_1", ...); an empty SpeakerId means no association (Origin Unknown).
+// Confidence is null when the engine reports no score. Display names live in the
+// repository rename map, never here.
+public sealed record SpeakerHint(string SpeakerId, SpeakerOrigin Origin, float? Confidence);
+
 public interface ISpeakerDiarizer
 {
-    string AssignTurn(Segment segment);
+    // Assigns a stable speaker for one finalized turn. Must never throw for valid
+    // input; empty audio returns an Unknown hint instead of throwing.
+    SpeakerHint AssignTurn(TurnAudio turn);
 }
 
 public interface IGenderLabeler

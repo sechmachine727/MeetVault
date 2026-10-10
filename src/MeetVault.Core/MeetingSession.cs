@@ -14,6 +14,9 @@ public sealed class MeetingSession : IDisposable
     private bool _paused;
     private string _micId = "";
     private string _appSource = "";
+    // Resolved once per finalized turn by NoteTurnAudio; every segment of that turn
+    // carries it. Neutral "spk_1" until the first hint arrives.
+    private string _turnSpeakerId = "spk_1";
     // Captured at construction (UI thread in the app); null in tests, where we run inline.
     private readonly SynchronizationContext? _ui = SynchronizationContext.Current;
 
@@ -84,6 +87,16 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         _speakers[i] = _speakers[i].Rename(next);
         if (_meeting is not null) Persist();
         AppLog.Info("session: rename " + speakerId + " -> " + next);
+    }
+
+    // The window owner reports each finalized turn's audio exactly once; the diarizer
+    // resolves one stable speaker for every segment that turn produces. An Unknown hint
+    // keeps the previous speaker, so an uncertain turn stays neutral instead of
+    // inventing a new identity per window.
+    public void NoteTurnAudio(TurnAudio turn)
+    {
+        var hint = _diarizer.AssignTurn(turn);
+        if (hint.SpeakerId.Length > 0) _turnSpeakerId = hint.SpeakerId;
     }
 
     // Stamps the capture's media path onto the meeting so the recording is linked,
@@ -171,7 +184,7 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
     private void HandleSegment(Segment raw)
     {
         if (_paused || _meeting is null) return; // gap: paused audio never reappears
-        var speakerId = _diarizer.AssignTurn(raw);
+        var speakerId = _turnSpeakerId;
         var speaker = _speakers.FirstOrDefault(s => s.Id == speakerId);
         if (speaker is null) { speaker = new Speaker(speakerId, _gender.Label(speakerId, Gender.Unknown)); _speakers.Add(speaker); }
         var seg = raw with { SpeakerId = speakerId };

@@ -22,7 +22,7 @@ sealed class FakeTranscriber : ISpeechTranscriber
 
 sealed class FakeDiarizer : ISpeakerDiarizer
 {
-    public string AssignTurn(Segment segment) => "spk_1";
+    public SpeakerHint AssignTurn(TurnAudio turn) => new("spk_1", SpeakerOrigin.Unknown, null);
 }
 
 sealed class FakeGender : IGenderLabeler
@@ -41,7 +41,14 @@ sealed class ScriptedDiarizer : ISpeakerDiarizer
 {
     private readonly Queue<string> _turns;
     public ScriptedDiarizer(params string[] turns) { _turns = new Queue<string>(turns); }
-    public string AssignTurn(Segment segment) => _turns.Count > 0 ? _turns.Dequeue() : "spk_x";
+    public SpeakerHint AssignTurn(TurnAudio turn) => new(_turns.Count > 0 ? _turns.Dequeue() : "spk_x", SpeakerOrigin.Embedding, null);
+}
+
+// Records every turn it is asked to resolve; used to prove one diarization per turn.
+sealed class RecordingDiarizer : ISpeakerDiarizer
+{
+    public readonly List<TurnAudio> Turns = new();
+    public SpeakerHint AssignTurn(TurnAudio turn) { Turns.Add(turn); return new("spk_1", SpeakerOrigin.Unknown, null); }
 }
 
 
@@ -113,14 +120,53 @@ public sealed class SessionTests
         var diarizer = new ScriptedDiarizer("spk_m", "spk_f", "spk_m2");
         var session = new MeetingSession(new FakeAudio(), tx, diarizer, new CounterGenderLabeler(id => id.StartsWith("spk_m") ? Gender.Male : Gender.Female), new FakeStore());
         await session.StartAsync("mic", "app");
+        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 0, 1000));
         tx.Emit(new Segment("a", "", 0, 1000, "one", true));
+        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 1000, 2000));
         tx.Emit(new Segment("b", "", 1000, 2000, "two", true));
+        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 2000, 3000));
         tx.Emit(new Segment("c", "", 2000, 3000, "three", true));
         await session.StopAsync();
         var names = session.Speakers.OrderBy(s => s.Id).Select(s => s.DisplayName).ToArray();
         Assert.Equal(new[] { "Female 1", "Male 1", "Male 2" }, names);
     }
 
+    [Fact]
+    public async Task NoteTurnAudio_OneDiarizationPerTurn_SegmentsShareTheHint()
+    {
+        var tx = new RawTranscriber();
+        var recording = new RecordingDiarizer();
+        var session = new MeetingSession(new FakeAudio(), tx, recording, new FakeGender(), new FakeStore());
+        await session.StartAsync("mic", "app");
+
+        session.NoteTurnAudio(new TurnAudio(new float[160], 0, 100));
+        tx.Emit(new Segment("a", "", 0, 50, "one", true));
+        tx.Emit(new Segment("b", "", 50, 100, "two", true));
+
+        Assert.Single(recording.Turns);
+        Assert.Equal(0, recording.Turns[0].StartMs);
+        Assert.Equal(2, session.Segments.Count);
+        Assert.All(session.Segments, s => Assert.Equal("spk_1", s.SpeakerId));
+        await session.StopAsync();
+    }
+
+    [Fact]
+    public async Task NoteTurnAudio_UnknownHint_KeepsPreviousSpeaker()
+    {
+        var tx = new RawTranscriber();
+        var session = new MeetingSession(new FakeAudio(), tx, new ScriptedDiarizer("spk_1", "", "spk_2"), new FakeGender(), new FakeStore());
+        await session.StartAsync("mic", "app");
+
+        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 0, 1000));
+        tx.Emit(new Segment("a", "", 0, 1000, "one", true));
+        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 1000, 2000));
+        tx.Emit(new Segment("b", "", 1000, 2000, "two", true));  // Unknown hint -> previous speaker
+        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 2000, 3000));
+        tx.Emit(new Segment("c", "", 2000, 3000, "three", true));
+
+        Assert.Equal(new[] { "spk_1", "spk_1", "spk_2" }, session.Segments.Select(s => s.SpeakerId).ToArray());
+        await session.StopAsync();
+    }
 }
 
 
