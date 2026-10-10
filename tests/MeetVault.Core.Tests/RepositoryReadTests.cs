@@ -12,7 +12,7 @@ public sealed class RepositoryReadTests : IDisposable
     [Fact]
     public void LoadSegments_ReturnsInOrder()
     {
-        _repo.Save(M("m1", MeetingStatus.Ready), new[] { new Speaker("spk_1", "Male 1", Gender.Male, 1) }, new[] { new Segment("s2", "spk_1", 1000, 2000, "two", true), new Segment("s1", "spk_1", 0, 1000, "one", true) });
+        _repo.Save(M("m1", MeetingStatus.Ready), new[] { new Speaker("spk_1", "Male 1") }, new[] { new Segment("s2", "spk_1", 1000, 2000, "two", true), new Segment("s1", "spk_1", 0, 1000, "one", true) });
         var segs = _repo.LoadSegments("m1");
         Assert.Equal(new[] { "s1", "s2" }, segs.Select(s => s.Id));
     }
@@ -20,7 +20,7 @@ public sealed class RepositoryReadTests : IDisposable
     [Fact]
     public void LoadSpeakers_ReturnsRenamed()
     {
-        _repo.Save(M("m1", MeetingStatus.Ready), new[] { new Speaker("spk_1", "Male 1", Gender.Male, 1) }, Array.Empty<Segment>());
+        _repo.Save(M("m1", MeetingStatus.Ready), new[] { new Speaker("spk_1", "Male 1") }, Array.Empty<Segment>());
         _repo.RenameSpeaker("m1", "spk_1", "Bob");
         Assert.Equal("Bob", _repo.LoadSpeakers("m1").Single().DisplayName);
     }

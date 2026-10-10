@@ -173,7 +173,7 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         if (_paused || _meeting is null) return; // gap: paused audio never reappears
         var speakerId = _diarizer.AssignTurn(raw);
         var speaker = _speakers.FirstOrDefault(s => s.Id == speakerId);
-        if (speaker is null) { speaker = new Speaker(speakerId, _gender.Label(speakerId, Gender.Unknown), Gender.Unknown, 0); _speakers.Add(speaker); }
+        if (speaker is null) { speaker = new Speaker(speakerId, _gender.Label(speakerId, Gender.Unknown)); _speakers.Add(speaker); }
         var seg = raw with { SpeakerId = speakerId };
         _segments.Add(seg);
         AppLog.Debug("session: segment " + speakerId + " [" + seg.StartMs + "-" + seg.EndMs + "] " + seg.Text);

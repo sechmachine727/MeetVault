@@ -1,6 +1,6 @@
 namespace MeetVault.Core;
 
-public sealed record Speaker(string Id, string DisplayName, Gender Gender, int GenderIndex)
+public sealed record Speaker(string Id, string DisplayName)
 {
     public Speaker Rename(string displayName) => this with { DisplayName = displayName };
 }

@@ -14,7 +14,7 @@ public sealed class DeleteMeetingTests : IDisposable
     public void DeleteMeeting_RemovesMeetingSegmentsSpeakers_AndReturnsMedia()
     {
         var m = new Meeting("del-me", "t", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, MeetingStatus.Ready, "/tmp/rec.wav", "audio/wav");
-        _repo.Save(m, new[] { new Speaker("spk_1", "Speaker 1", Gender.Unknown, 0) }, new[] { new Segment("seg-1", "spk_1", 0, 1000, "hi", true) });
+        _repo.Save(m, new[] { new Speaker("spk_1", "Speaker 1") }, new[] { new Segment("seg-1", "spk_1", 0, 1000, "hi", true) });
 
         var media = _repo.DeleteMeeting("del-me");
 

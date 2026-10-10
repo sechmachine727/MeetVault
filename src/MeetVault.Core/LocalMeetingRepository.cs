@@ -42,9 +42,8 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         foreach (var sp in speakers)
         {
             using var c = _db.CreateCommand();
-            c.CommandText = "INSERT INTO speakers(meeting_id,speaker_id,display_name,gender,gender_index) VALUES($m,$s,$d,$g,$i) ON CONFLICT(meeting_id,speaker_id) DO UPDATE SET display_name=$d,gender=$g,gender_index=$i";
+            c.CommandText = "INSERT INTO speakers(meeting_id,speaker_id,display_name) VALUES($m,$s,$d) ON CONFLICT(meeting_id,speaker_id) DO UPDATE SET display_name=$d";
             c.Parameters.AddWithValue("$m", meeting.Id); c.Parameters.AddWithValue("$s", sp.Id); c.Parameters.AddWithValue("$d", sp.DisplayName);
-            c.Parameters.AddWithValue("$g", sp.Gender.ToString()); c.Parameters.AddWithValue("$i", sp.GenderIndex);
             c.ExecuteNonQuery();
         }
         using (var del = _db.CreateCommand()) { del.CommandText = "DELETE FROM transcript_segments WHERE meeting_id=$m"; del.Parameters.AddWithValue("$m", meeting.Id); del.ExecuteNonQuery(); }
@@ -128,11 +127,11 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
     public IReadOnlyList<Speaker> LoadSpeakers(string meetingId)
     {
         using var c = _db.CreateCommand();
-        c.CommandText = "SELECT speaker_id,display_name,gender,gender_index FROM speakers WHERE meeting_id=$m ORDER BY speaker_id";
+        c.CommandText = "SELECT speaker_id,display_name FROM speakers WHERE meeting_id=$m ORDER BY speaker_id";
         c.Parameters.AddWithValue("$m", meetingId);
         using var r = c.ExecuteReader();
         var list = new List<Speaker>();
-        while (r.Read()) list.Add(new Speaker(r.GetString(0), r.GetString(1), Enum.TryParse<Gender>(r.GetString(2), out var g) ? g : Gender.Unknown, r.GetInt32(3)));
+        while (r.Read()) list.Add(new Speaker(r.GetString(0), r.GetString(1)));
         return list;
     }
 

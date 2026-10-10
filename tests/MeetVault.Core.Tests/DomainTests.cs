@@ -7,7 +7,7 @@ public sealed class DomainTests
     [Fact]
     public void Rename_KeepsId()
     {
-        var s = new Speaker("spk_1", "Male 1", Gender.Male, 1);
+        var s = new Speaker("spk_1", "Male 1");
         Assert.Equal("spk_1", s.Rename("Bob").Id);
         Assert.Equal("Bob", s.Rename("Bob").DisplayName);
     }

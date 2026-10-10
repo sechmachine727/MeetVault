@@ -47,7 +47,7 @@ public sealed class ReviewFixTests : IDisposable
     public void RenameSpeaker_EmptyName_ThrowsActionable()
     {
         var m = new Meeting("rn", "t", DateTimeOffset.UtcNow, null, MeetingStatus.Recording, null, null);
-        _repo.Save(m, new[] { new Speaker("spk_1", "Speaker 1", Gender.Unknown, 0) }, Array.Empty<Segment>());
+        _repo.Save(m, new[] { new Speaker("spk_1", "Speaker 1") }, Array.Empty<Segment>());
         Assert.Throws<ArgumentException>(() => _repo.RenameSpeaker("rn", "spk_1", ""));
     }
 }
