@@ -459,6 +459,7 @@ public sealed partial class LivePage : Page
             // Reset restarts the stream clock for the post-pause segment.
             DropPendingUtterance("pause");
             SetState(LiveState.Paused);
+            LiveBridge.SetLive(false); // capture is stopped; the overlay must not claim "Listening…"
             Status("Paused. Audio in the gap is not recorded and will not reappear on resume.");
         }
         catch (Exception ex) { Status("Could not pause: " + Short(ex)); }
@@ -483,6 +484,7 @@ public sealed partial class LivePage : Page
             await _session.ResumeAsync();
             _windowOffsetMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
             SetState(LiveState.Recording);
+            LiveBridge.SetLive(true); // capture is back; the overlay's "Listening…" applies again
             Status("Resumed. Capture continues after the gap.");
         }
         catch (Exception ex) { Status("Could not resume: " + Short(ex)); }

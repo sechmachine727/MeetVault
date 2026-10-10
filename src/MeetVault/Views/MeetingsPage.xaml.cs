@@ -177,10 +177,17 @@ public sealed partial class MeetingsPage : Page
     {
         if (_busy || _selection.Count == 0) return;
         var ids = _selection.Ids.ToArray();
+        // The search filter may hide selected rows; the delete still covers the whole
+        // selection, so the confirmation says how many hidden meetings go with it.
+        var visibleIds = VisibleRows.Select(c => c.Id).ToHashSet();
+        var hidden = ids.Count(id => !visibleIds.Contains(id));
+        var hiddenNote = hidden > 0
+            ? $" {hidden} selected meeting(s) are hidden by the current search and will be deleted too."
+            : "";
         var confirm = new ContentDialog
         {
             Title = "Delete meetings?",
-            Content = $"Delete {ids.Length} meeting(s)? Their recordings and transcripts will be removed from this device.",
+            Content = $"Delete {ids.Length} meeting(s)? Their recordings and transcripts will be removed from this device.{hiddenNote}",
             PrimaryButtonText = "Delete",
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Close,

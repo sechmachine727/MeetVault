@@ -354,9 +354,11 @@ public sealed partial class OverlayWindow : Window
         BuildConversation();
     }
 
+    // The conversation panel owns the empty text (same Grid cell as the old XAML
+    // EmptyState, collapsed once at load); re-showing EmptyState here would stack
+    // two empty messages on every Clear.
     private void RefreshListState()
     {
-        EmptyState.Visibility = Vm.Lines.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (TranscriptList.Items.Count > 0)
             TranscriptList.ScrollIntoView(TranscriptList.Items[TranscriptList.Items.Count - 1]);
     }
