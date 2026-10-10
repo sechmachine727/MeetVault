@@ -7,9 +7,11 @@ namespace MeetVault.Core;
 public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
 {
     private readonly SqliteConnection _db;
+    private readonly string _mediaRoot;
 
-    public LocalMeetingRepository(string path)
+    public LocalMeetingRepository(string path, string? mediaRoot = null)
     {
+        _mediaRoot = mediaRoot ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MeetVault", "media");
         _db = new SqliteConnection($"Data Source={path}");
         _db.Open();
         AppLog.Info("repo: opened " + path);
@@ -110,6 +112,51 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         tx.Commit();
         AppLog.Info("repo: deleted meeting " + meetingId + (media is null ? "" : " media=" + media));
         return media;
+    }
+
+    // Deletes many meetings, reporting per-item failures instead of aborting the batch.
+    // Per item the recording file goes first, then the DB rows: a crash never leaves
+    // bytes on disk that were already claimed deleted, and a locked or foreign file
+    // keeps its row so the user can retry. Active or resumable recordings are refused.
+    public BulkDeleteResult DeleteMeetings(IReadOnlyCollection<string> meetingIds)
+    {
+        var deleted = new List<string>();
+        var failed = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var id in meetingIds.Distinct(StringComparer.Ordinal))
+        {
+            try
+            {
+                var meeting = Load(id);
+                if (meeting is null) { failed[id] = "not found"; continue; }
+                if (meeting.Status is MeetingStatus.Recording or MeetingStatus.Paused)
+                { failed[id] = "active or resumable recording"; continue; }
+                if (meeting.MediaPath is { Length: > 0 } media)
+                {
+                    if (!IsManagedMedia(media)) { failed[id] = "media outside managed directory"; continue; }
+                    if (File.Exists(media)) File.Delete(media);
+                }
+                DeleteMeeting(id);
+                deleted.Add(id);
+            }
+            catch (Exception ex) { failed[id] = ex.Message; }
+        }
+        AppLog.Info($"repo: bulk delete {deleted.Count} deleted, {failed.Count} failed");
+        return new BulkDeleteResult(deleted, failed);
+    }
+
+    // Only recordings under the managed media directory may be removed by batch
+    // delete. Anything else (exports, user copies, malformed rows) is refused so a
+    // bad database record can never turn into deletion of an arbitrary path.
+    private bool IsManagedMedia(string path)
+    {
+        string full, root;
+        try
+        {
+            full = Path.GetFullPath(path);
+            root = Path.GetFullPath(_mediaRoot);
+        }
+        catch { return false; }
+        return full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
 

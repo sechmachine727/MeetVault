@@ -15,6 +15,10 @@ public enum MeetingStatus { Recording, Paused, Processing, Ready, Failed }
 
 public sealed record Meeting(string Id, string Title, DateTimeOffset StartedAt, DateTimeOffset? EndedAt, MeetingStatus Status, string? MediaPath, string? MediaMime);
 
+public sealed record BulkDeleteResult(
+    IReadOnlyList<string> DeletedIds,
+    IReadOnlyDictionary<string, string> FailedIds);
+
 public enum GeminiJobState { Queued, Uploading, Succeeded, Failed }
 
 public sealed record GeminiJob(string Id, string MeetingId, GeminiJobState State, int Attempts, string? LastError, string? ResultPath);
