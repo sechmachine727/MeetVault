@@ -178,6 +178,7 @@ public sealed partial class LivePage : Page
             _utteranceBaseMs = _windowOffsetMs; // adjustment (A): recovered audio continues on the same timeline
             _acceleratorReported = false;
             SetState(_session.IsPaused ? LiveState.Paused : LiveState.Recording);
+            LiveBridge.SetLive(!_session.IsPaused); // paused recovery: the overlay must not claim "Listening…"
             UpdateEngineStatus(actual: true);
             RebuildSpeakers();
             Status($"Resumed '{id}'. {_session.Segments.Count} line(s) restored.");
