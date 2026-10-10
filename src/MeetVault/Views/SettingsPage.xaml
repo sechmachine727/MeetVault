@@ -10,6 +10,23 @@
             <InfoBar x:Name="StatusBar" IsOpen="False" Severity="Informational" />
 
             <StackPanel Spacing="8">
+                <TextBlock x:Uid="SetLangHeader" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetLang" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetLangDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ComboBox x:Name="LanguagePicker" Grid.Column="1" Width="280" HorizontalAlignment="Left"
+                              SelectionChanged="Language_SelectionChanged"
+                              x:Uid="SetLangPicker" />
+                </Grid>
+            </StackPanel>
+
+            <StackPanel Spacing="8">
                 <TextBlock Text="Audio" Style="{StaticResource SubtitleTextBlockStyle}" />
                 <Grid ColumnSpacing="24">
                     <Grid.ColumnDefinitions>

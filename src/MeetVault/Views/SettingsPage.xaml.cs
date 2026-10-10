@@ -31,6 +31,8 @@ public sealed partial class SettingsPage : Page
         foreach (var (pid, name) in MeetVault.Core.NAudioCapture.ListAudioApps()) _sourceOptions.Add((name + " (" + pid + ")", pid.ToString()));
         SourcePicker.ItemsSource = _sourceOptions.Select(o => o.Label).ToArray();
         LogLevelPicker.ItemsSource = new[] { "trace", "debug", "info", "warning", "error", "off" };
+        // Language names stay endonyms (English / 日本語) — the standard convention.
+        LanguagePicker.ItemsSource = new[] { Loc.T("Lang.System"), "English", "日本語" };
         MicPicker.SelectedIndex = 0;
         ModelPicker.SelectedIndex = 0;
         DevicePicker.SelectedIndex = 0;
@@ -67,6 +69,25 @@ public sealed partial class SettingsPage : Page
 
     private void Picker_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (_ready) Refresh(); }
 
+    // Persists ui.language and applies the override for the NEXT launch; the InfoBar says so.
+    // Unpackaged apps must use the Microsoft.Windows.Globalization variant — the
+    // Windows.Globalization one throws InvalidOperationException here (L0 probe).
+    private void Language_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_ready) return;
+        var value = LanguagePicker.SelectedIndex switch { 1 => "en", 2 => "ja", _ => "system" };
+        AppStore.Repo.SetSetting("ui.language", value);
+        try
+        {
+            Microsoft.Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride =
+                MeetVault.Core.UiLanguage.ToTag(MeetVault.Core.UiLanguage.Resolve(value, System.Globalization.CultureInfo.CurrentUICulture.Name));
+        }
+        catch { }
+        StatusBar.Severity = InfoBarSeverity.Informational;
+        StatusBar.Message = Loc.T("SetLangRestart");
+        StatusBar.IsOpen = true;
+    }
+
     private void Diarization_Toggled(object sender, RoutedEventArgs e) { if (_ready) Refresh(); }
 
     private void Audio_Toggled(object sender, RoutedEventArgs e) { if (_ready) Refresh(); }
@@ -99,6 +120,7 @@ public sealed partial class SettingsPage : Page
     {
         var repo = AppStore.Repo;
         DiarizationSwitch.IsOn = repo.GetSetting("transcription.diarization") != "off";
+        LanguagePicker.SelectedIndex = (repo.GetSetting("ui.language") ?? "system") switch { "en" => 1, "ja" => 2, _ => 0 };
         PinSwitch.IsOn = repo.GetSetting("overlay.pin") != "off";
         if (double.TryParse(repo.GetSetting("overlay.opacity"), out var op)) OpacitySlider.Value = op;
         if (double.TryParse(repo.GetSetting("overlay.font"), out var font)) FontSizeBox.Value = font;
