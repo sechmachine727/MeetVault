@@ -4,7 +4,7 @@ Launch the single canonical portable release:
 
     publish/win-x64/MeetVault.exe
 
-- Self-contained, no dotnet needed. Natives (`onnxruntime.dll`, `sherpa-onnx-c-api.dll`) sit at the app root, models under `models/` (tiny 78MB, base 148MB, sherpa-seg 6MB, sherpa-emb 40MB).
+- Self-contained, no dotnet needed. Natives (`onnxruntime.dll`, `sherpa-onnx-c-api.dll`) sit at the app root, models under `models/` (tiny 78MB, base 148MB, sherpa-seg 6MB, sherpa-emb 40MB, silero-vad 0.6MB).
 - This is the only portable build. Do not create extra publish folders; rebuild in place with the commands below.
 - Live starts only when you press Start recording; leaving Live pauses the meeting and keeps it as a recoverable draft on the Dashboard.
 - Hardware: Settings -> Transcription -> Device lists what each backend can actually drive, queried not guessed. This portable build bundles both the CUDA user-mode runtime (`runtimes\cuda\win-x64`) and the MSVC/OpenMP runtime the whisper natives need, so CPU, CUDA and Vulkan all work without installing anything. CUDA still needs an NVIDIA driver of 580 or newer and a GPU the shipped CUDA native has code for (sm_8.6-8.9, RTX 30/40, or sm_120/121, RTX 50), because the display driver cannot be bundled and this build has no PTX for anything else. When nothing is usable the entry is greyed out and says why. The Live line shows the backend that actually loaded, and `%TEMP%\MeetVault\app.log` carries the driver version, each device's compute capability, and ggml's own device-selection messages.

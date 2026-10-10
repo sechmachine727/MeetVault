@@ -92,7 +92,7 @@ If a file is missing, install the Microsoft Visual C++ 2015-2022 Redistributable
 
 ## Stage the speech models
 
-The build does not bundle `models/`. Copy it into the published output after publishing. See [Speech models](../README.md#speech-models) for the four files, their purposes, and their sources.
+The build does not bundle `models/`. Copy it into the published output after publishing. See [Speech models](../README.md#speech-models) for the five files, their purposes, and their sources. `silero_vad.onnx` (VAD sentence segmentation) is staged from the [k2-fsa/sherpa-onnx asr-models release](https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models).
 
 ## Build the payload into the app
 

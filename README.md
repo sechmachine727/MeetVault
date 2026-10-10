@@ -83,8 +83,9 @@ Place these under `models/`. They are gitignored and must be staged next to the 
 | `ggml-base.bin` | Post-meeting refinement (accurate) | ~148 MB |
 | `sherpa-seg.onnx` | Speaker segmentation | ~6 MB |
 | `sherpa-emb.onnx` | Speaker embeddings | ~40 MB |
+| `silero_vad.onnx` | Sentence segmentation (VAD) for sentence-length live lines | ~0.6 MB |
 
-`WhisperTranscriber.DownloadModelAsync` fetches a Whisper model. The sherpa models come from the sherpa-onnx project.
+`WhisperTranscriber.DownloadModelAsync` fetches a Whisper model. The sherpa models come from the sherpa-onnx project; `silero_vad.onnx` is the VAD asset of its `asr-models` release (sha256 `9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6`). Without it, live transcription falls back to 3 s windows.
 
 ## Configuration
 
