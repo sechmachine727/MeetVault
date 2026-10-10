@@ -68,6 +68,7 @@ public sealed partial class LivePage : Page
     {
         _checkpoint?.Stop();
         LiveBridge.RenameByName = null;
+        DropPendingUtterance("unload");
         try { if (_state != LiveState.Idle && _session is not null) await _session.PauseAsync(); } catch { }
         try { await _transcribeGate.WaitAsync(); _transcribeGate.Release(); } catch { } // drain in-flight window
         LiveBridge.SetLive(false); // leaving Live ends active transcription
@@ -141,15 +142,14 @@ public sealed partial class LivePage : Page
     {
         try
         {
+            // Reset BEFORE StartAsync: the pump (started inside StartAsync) must never push onto
+            // the previous meeting's stream state - neither its VAD stream clock (Reset) nor the
+            // rebase base, which would offset every raw utterance time of the new meeting.
+            lock (_vadLock) { _utterances?.Reset(); _utteranceBaseMs = 0; }
             _session = new MeetingSession(_audio, _transcriber, _diarizer, new NeutralSpeakerLabeler(), AppStore.Repo);
             await _session.StartAsync(MicId, AppSource, CancellationToken.None);
             WireSession(clearOverlay: true);
             _windowOffsetMs = 0;
-            _utteranceBaseMs = 0;
-            // Extra guard (beyond the mandated adjustments): a Stop -> Start in the same page
-            // must not inherit the previous meeting's VAD stream counter, which would offset
-            // every raw utterance time. At a fresh start the stream is empty, so this is a no-op.
-            lock (_vadLock) { _utterances?.Reset(); }
             _acceleratorReported = false;
             SetState(LiveState.Recording);
             UpdateEngineStatus(actual: true);
@@ -284,19 +284,19 @@ public sealed partial class LivePage : Page
     {
         if (_whisper is null || !_whisper.IsRunning) return;
         var samples = Pcm16.ToFloats(chunk);
-        IReadOnlyList<Utterance> utterances;
-        if (_utterances is not null)
+        // The VAD decision, the push and the rebase happen under one lock: a late pump frame
+        // must not read _utterances non-null, then lose the lock to OnUnloaded's dispose and
+        // dereference the nulled field (an NRE here faults the pump thread and stops capture).
+        // The rebase reads _utteranceBaseMs under the same lock that Pause/Resume/Start reset it.
+        IReadOnlyList<Utterance>? utterances = null;
+        lock (_vadLock)
         {
-            // Adjustment (B): the pump can deliver a late frame while Pause/Resume/unload mutate
-            // the segmenter, so every _utterances touch is serialized on _vadLock. The Push is
-            // synchronous at the top of the callback, before any await, exactly as before.
-            lock (_vadLock) utterances = _utterances.Push(samples);
-            // Adjustment (A): the VAD's stream clock restarts at zero after Reset (pause/resume),
-            // so raw utterance times are rebased onto the meeting timeline here. For the first
-            // recording segment _utteranceBaseMs is 0 and this is the identity map.
-            utterances = utterances.Select(u => new Utterance(u.Samples16k, _utteranceBaseMs + u.StartMs, _utteranceBaseMs + u.EndMs)).ToList();
+            if (_utterances is not null)
+                utterances = _utterances.Push(samples)
+                    .Select(u => new Utterance(u.Samples16k, _utteranceBaseMs + u.StartMs, _utteranceBaseMs + u.EndMs))
+                    .ToList();
         }
-        else
+        if (utterances is null)
         {
             // Fallback: the old fixed 3 s window behavior when the VAD model is absent.
             lock (_window) _window.AddRange(chunk);
@@ -432,6 +432,21 @@ public sealed partial class LivePage : Page
     private void OnCaptureFailed(string reason)
         => DispatcherQueue.TryEnqueue(() => Status("Capture stopped unexpectedly (" + reason + "). Press Stop and save to keep what was recorded."));
 
+    // Closes any open speech in the segmenter and logs what is dropped, so pause, stop and
+    // unload cannot silently lose the pending sentence (the recording still holds the audio).
+    private void DropPendingUtterance(string reason)
+    {
+        lock (_vadLock)
+        {
+            if (_utterances is null) return;
+            var pending = _utterances.Flush();
+            long droppedMs = 0;
+            foreach (var u in pending) droppedMs += u.EndMs - u.StartMs;
+            if (droppedMs > 0) MeetVault.Core.AppLog.Warn("live: " + reason + " dropped " + (droppedMs / 1000.0).ToString("0.0") + "s of pending speech (not transcribed; the recording keeps it)");
+            _utterances.Reset();
+        }
+    }
+
     private async void Pause_Click(object sender, RoutedEventArgs e)
     {
         if (_state != LiveState.Recording || _session is null) return;
@@ -439,20 +454,10 @@ public sealed partial class LivePage : Page
         try
         {
             await _session.PauseAsync();
-            // Adjustment (B): the VAD may hold an open utterance at the pause point. Close it and
-            // drop it - its audio is not transcribed (the recording keeps it), so the loss must be
-            // visible in the log. Reset restarts the stream clock for the post-pause segment.
-            lock (_vadLock)
-            {
-                if (_utterances is not null)
-                {
-                    var pending = _utterances.Flush();
-                    long droppedMs = 0;
-                    foreach (var u in pending) droppedMs += u.EndMs - u.StartMs;
-                    if (droppedMs > 0) MeetVault.Core.AppLog.Warn("live: pause dropped " + (droppedMs / 1000.0).ToString("0.0") + "s of pending speech (not transcribed; the recording keeps it)");
-                    _utterances.Reset();
-                }
-            }
+            // The VAD may hold an open utterance at the pause point; close it and drop it -
+            // its audio is not transcribed (the recording keeps it), so the loss is logged.
+            // Reset restarts the stream clock for the post-pause segment.
+            DropPendingUtterance("pause");
             SetState(LiveState.Paused);
             Status("Paused. Audio in the gap is not recorded and will not reappear on resume.");
         }
@@ -468,8 +473,13 @@ public sealed partial class LivePage : Page
             // times would collide with pre-pause timestamps. Anchor the new segment of the timeline
             // at the last transcribed end (the same value the fallback path uses) and reset the
             // segmenter BEFORE capture resumes, so the first post-resume frames start at zero.
-            _utteranceBaseMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
-            lock (_vadLock) { _utterances?.Reset(); }
+            // Base and Reset happen under one lock: OnPcm rebases while holding it, so a late
+            // frame can never read a half-updated base/reset pair.
+            lock (_vadLock)
+            {
+                _utteranceBaseMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
+                _utterances?.Reset();
+            }
             await _session.ResumeAsync();
             _windowOffsetMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
             SetState(LiveState.Recording);
@@ -495,6 +505,7 @@ public sealed partial class LivePage : Page
                 XamlRoot = XamlRoot,
             };
             if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+            DropPendingUtterance("stop");
             await _session.StopAsync();
             var count = _session.Segments.Count;
             _session.Dispose(); // unsubscribe from the shared transcriber before dropping it
