@@ -225,4 +225,46 @@
   <data name="Live.GpuRuntimeMissing" xml:space="preserve"><value>{0} ランタイムが読み込まれませんでした</value></data>
   <data name="Live.GpuNotUsable" xml:space="preserve"><value>要求された {0} GPU はここでは使用できません</value></data>
   <data name="Live.GpuNativeMismatch" xml:space="preserve"><value>読み込まれたネイティブは {0} のため、アプリを再起動するまで {1} は無視されます</value></data>
+
+  <!-- L4.4: Details page code strings -->
+  <data name="Det.NoMeeting" xml:space="preserve"><value>まだ表示する会議がありません。ライブで会議を開始すると、ここに文字起こしが表示されます。</value></data>
+  <data name="Det.LastResult" xml:space="preserve"><value>前回の結果: {0} · 試行 {1} 回</value></data>
+  <data name="Det.ResultUnreadable" xml:space="preserve"><value>保存された結果を読み取れませんでした。</value></data>
+  <data name="Det.NoResult" xml:space="preserve"><value>ジョブは結果を返さずに終了しました。</value></data>
+  <data name="Det.StateQueued" xml:space="preserve"><value>待機中</value></data>
+  <data name="Det.StateUploading" xml:space="preserve"><value>アップロード中</value></data>
+  <data name="Det.StateSucceeded" xml:space="preserve"><value>成功</value></data>
+  <data name="Det.StateFailed" xml:space="preserve"><value>失敗</value></data>
+  <data name="Det.StateUnknown" xml:space="preserve"><value>不明</value></data>
+  <data name="Det.EditSaveFailed" xml:space="preserve"><value>編集はメモリに保持されましたが、保存に失敗しました: {0}</value></data>
+  <data name="Det.NoLines" xml:space="preserve"><value>行がありません</value></data>
+  <data name="Det.LineCount" xml:space="preserve"><value>{0} 行</value></data>
+  <data name="Det.LineCountEdited" xml:space="preserve"><value>{0} 行 · {1} 件編集済み</value></data>
+  <data name="Det.NoTranscriptLines" xml:space="preserve"><value>この会議の文字起こし行はまだありません。</value></data>
+  <data name="Det.Copied" xml:space="preserve"><value>{0} 行をクリップボードにコピーしました。</value></data>
+  <data name="Det.ClipboardBusy" xml:space="preserve"><value>クリップボードが使用中です。もう一度お試しください。</value></data>
+  <data name="Det.OverwriteTitle" xml:space="preserve"><value>エクスポートを上書きしますか？</value></data>
+  <data name="Det.OverwriteBody" xml:space="preserve"><value>{0} は既に存在します。置き換えますか？</value></data>
+  <data name="Det.Overwrite" xml:space="preserve"><value>上書き</value></data>
+  <data name="Det.Cancel" xml:space="preserve"><value>キャンセル</value></data>
+  <data name="Det.SavedExport" xml:space="preserve"><value>{0} 行を {1} に保存しました。</value></data>
+  <data name="Det.ExportFolderFailed" xml:space="preserve"><value>エクスポート先フォルダーが存在せず、作成できませんでした。設定の保存先を確認してください。</value></data>
+  <data name="Det.ExportWriteFailed" xml:space="preserve"><value>文字起こしファイルを書き込めませんでした: {0}</value></data>
+  <data name="Det.NoApiKey" xml:space="preserve"><value>Gemini API キーが保存されていません。</value></data>
+  <data name="Det.AddApiKeyBody" xml:space="preserve"><value>設定で Gemini API キーを追加してから、もう一度送信してください。キーは Windows 資格情報ロッカーに保存され、ファイルには保存されません。</value></data>
+  <data name="Det.AddApiKeyStatus" xml:space="preserve"><value>送信する前に、設定で Gemini API キーを追加してください。</value></data>
+  <data name="Det.NoRecording" xml:space="preserve"><value>この会議には録音がありません。</value></data>
+  <data name="Det.NoAudioBody" xml:space="preserve"><value>この会議にはアップロードできる保存済み音声がありません。</value></data>
+  <data name="Det.NoAudioStatus" xml:space="preserve"><value>この会議には送信できる保存済み音声がありません。</value></data>
+  <data name="Det.Uploading" xml:space="preserve"><value>アップロード中…</value></data>
+  <data name="Det.GeminiSaved" xml:space="preserve"><value>Gemini が分析を返し、ローカルに保存しました。</value></data>
+  <data name="Det.GeminiFailed" xml:space="preserve"><value>Gemini ジョブが失敗しました: {0}</value></data>
+  <data name="Det.UnknownReason" xml:space="preserve"><value>不明な理由</value></data>
+  <data name="Det.UploadFailed" xml:space="preserve"><value>アップロードを完了できませんでした。</value></data>
+  <data name="Det.GeminiSendFailed" xml:space="preserve"><value>Gemini の送信に失敗しました: {0}</value></data>
+  <data name="Det.EmptyTranscript" xml:space="preserve"><value>文字起こしが空です。</value></data>
+  <data name="Det.ErrPermissionDenied" xml:space="preserve"><value>アクセスが拒否されました</value></data>
+  <data name="Det.ErrFileInUse" xml:space="preserve"><value>ファイルが使用中か、ディスク容量が不足しています</value></data>
+  <data name="Det.ErrReadOnly" xml:space="preserve"><value>データフォルダーが読み取り専用です</value></data>
+  <data name="Det.ErrGeneric" xml:space="preserve"><value>問題が発生しました</value></data>
 </root>

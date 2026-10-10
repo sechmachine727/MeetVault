@@ -34,16 +34,17 @@ public sealed partial class DetailsPage : Page
         {
             UpdateLineStatus();
             SetActionsEnabled(false);
-            EmptyState.Text = "No meeting to show yet. Start one in Live and its transcript lands here.";
+            EmptyState.Text = Loc.T("Det.NoMeeting");
             EmptyState.Visibility = Visibility.Visible;
             TranscriptList.Visibility = Visibility.Collapsed;
             return;
         }
 
         MeetingTitle.Text = _meeting.Title;
+        var progressLabel = Loc.T("Mtg.DurInProgress");
         MeetingMeta.Text = _meeting.EndedAt is { } end
             ? $"{_meeting.StartedAt:g}  \u00b7  {FormatDuration(_meeting)}  \u00b7  {MeetingCards.StatusLabel(_meeting.Status)}"
-            : $"{_meeting.StartedAt:g}  \u00b7  in progress  \u00b7  {MeetingCards.StatusLabel(_meeting.Status)}";
+            : $"{_meeting.StartedAt:g}  \u00b7  {progressLabel}  \u00b7  {MeetingCards.StatusLabel(_meeting.Status)}";
 
         var repoSegs = AppStore.Repo.LoadSegments(_meeting.Id).ToList();
         var repoSpks = AppStore.Repo.LoadSpeakers(_meeting.Id).ToList();
@@ -69,9 +70,9 @@ public sealed partial class DetailsPage : Page
 
     private static string FormatDuration(Meeting m)
     {
-        if (m.EndedAt is not { } ended) return "in progress";
+        if (m.EndedAt is not { } ended) return Loc.T("Mtg.DurInProgress");
         var minutes = (int)Math.Round((ended - m.StartedAt).TotalMinutes);
-        return minutes < 60 ? $"{minutes} min" : $"{minutes / 60} h {minutes % 60} min";
+        return minutes < 60 ? Loc.Tf("Mtg.DurMin", minutes) : Loc.Tf("Mtg.DurHourMin", minutes / 60, minutes % 60);
     }
 
     private void ShowPlayer()
@@ -99,22 +100,22 @@ public sealed partial class DetailsPage : Page
         var job = AppStore.Repo.LoadJob(meeting.Id);
         if (job is null) return;
         GeminiExpander.IsExpanded = true;
-        JobState.Text = $"Last result: {GeminiStateLabel(job.State)} \u00b7 {job.Attempts} attempt(s)";
+        JobState.Text = Loc.Tf("Det.LastResult", GeminiStateLabel(job.State), job.Attempts);
         if (job.State == GeminiJobState.Succeeded && job.ResultPath is not null)
         {
             try { JobResult.Text = File.ReadAllText(job.ResultPath); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { JobResult.Text = "The saved result could not be read."; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { JobResult.Text = Loc.T("Det.ResultUnreadable"); }
         }
-        else JobResult.Text = job.LastError ?? "The job finished without a result.";
+        else JobResult.Text = job.LastError ?? Loc.T("Det.NoResult");
     }
 
     private static string GeminiStateLabel(GeminiJobState state) => state switch
     {
-        GeminiJobState.Queued => "Queued",
-        GeminiJobState.Uploading => "Uploading",
-        GeminiJobState.Succeeded => "Succeeded",
-        GeminiJobState.Failed => "Failed",
-        _ => "Unknown",
+        GeminiJobState.Queued => Loc.T("Det.StateQueued"),
+        GeminiJobState.Uploading => Loc.T("Det.StateUploading"),
+        GeminiJobState.Succeeded => Loc.T("Det.StateSucceeded"),
+        GeminiJobState.Failed => Loc.T("Det.StateFailed"),
+        _ => Loc.T("Det.StateUnknown"),
     };
 
     private void SpeakerPicker_Loaded(object sender, RoutedEventArgs e)
@@ -168,7 +169,7 @@ public sealed partial class DetailsPage : Page
             _originalText.AddRange(Lines.Select(l => l.Text));
             UpdateLineStatus();
         }
-        catch (Exception ex) { MeetVault.Core.AppLog.Error("details: persist edits failed", ex); Status(InfoBarSeverity.Warning, $"Edit kept in memory; save failed: {Short(ex)}"); }
+        catch (Exception ex) { MeetVault.Core.AppLog.Error("details: persist edits failed", ex); Status(InfoBarSeverity.Warning, Loc.Tf("Det.EditSaveFailed", Short(ex))); }
     }
 
     private void UpdateLineStatus()
@@ -176,12 +177,12 @@ public sealed partial class DetailsPage : Page
         if (_meeting is null) { LineStatus.Text = ""; return; }
         var edited = Lines.Where((line, i) => i < _originalText.Count && line.Text != _originalText[i]).Count();
         LineStatus.Text = Lines.Count == 0
-            ? "No lines"
-            : edited == 0 ? $"{Lines.Count} line(s)" : $"{Lines.Count} line(s) \u00b7 {edited} edited";
+            ? Loc.T("Det.NoLines")
+            : edited == 0 ? Loc.Tf("Det.LineCount", Lines.Count) : Loc.Tf("Det.LineCountEdited", Lines.Count, edited);
         EmptyState.Visibility = Lines.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (Lines.Count == 0) EmptyState.Text = _meeting is null
-            ? "No meeting to show yet. Start one in Live and its transcript lands here."
-            : "No transcript lines for this meeting yet.";
+            ? Loc.T("Det.NoMeeting")
+            : Loc.T("Det.NoTranscriptLines");
     }
 
     private void Copy_Click(object sender, RoutedEventArgs e)
@@ -190,9 +191,9 @@ public sealed partial class DetailsPage : Page
         try
         {
             ToClipboard(text);
-            Status(InfoBarSeverity.Success, $"Copied {Lines.Count} line(s) to the clipboard.");
+            Status(InfoBarSeverity.Success, Loc.Tf("Det.Copied", Lines.Count));
         }
-        catch (COMException) { Status(InfoBarSeverity.Error, "The clipboard is busy. Try again."); }
+        catch (COMException) { Status(InfoBarSeverity.Error, Loc.T("Det.ClipboardBusy")); }
     }
 
     private async void Export_Click(object sender, RoutedEventArgs e)
@@ -203,23 +204,23 @@ public sealed partial class DetailsPage : Page
         var path = Path.Combine(folder, FileNameFor(_meeting?.Title ?? "meeting"));
         if (File.Exists(path))
         {
-            var confirm = new ContentDialog { Title = "Overwrite export?", Content = $"{path} already exists. Replace it?", PrimaryButtonText = "Overwrite", CloseButtonText = "Cancel", XamlRoot = XamlRoot };
+            var confirm = new ContentDialog { Title = Loc.T("Det.OverwriteTitle"), Content = Loc.Tf("Det.OverwriteBody", path), PrimaryButtonText = Loc.T("Det.Overwrite"), CloseButtonText = Loc.T("Det.Cancel"), XamlRoot = XamlRoot };
             if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
         }
         try
         {
             Directory.CreateDirectory(folder); // the configured folder may not exist yet
             File.WriteAllText(path, text);
-            Status(InfoBarSeverity.Success, $"Saved {Lines.Count} line(s) to {path}.");
+            Status(InfoBarSeverity.Success, Loc.Tf("Det.SavedExport", Lines.Count, path));
             MeetVault.Core.AppLog.Info("details: exported " + Lines.Count + " line(s) to " + path);
         }
         catch (DirectoryNotFoundException)
         {
-            Status(InfoBarSeverity.Error, "The export folder does not exist and could not be created. Check the storage location in Settings.");
+            Status(InfoBarSeverity.Error, Loc.T("Det.ExportFolderFailed"));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            Status(InfoBarSeverity.Error, "Could not write the transcript file: " + Short(ex));
+            Status(InfoBarSeverity.Error, Loc.Tf("Det.ExportWriteFailed", Short(ex)));
         }
     }
 
@@ -230,23 +231,23 @@ public sealed partial class DetailsPage : Page
         if (key is not { Length: > 0 })
         {
             GeminiExpander.IsExpanded = true;
-            JobState.Text = "No Gemini API key stored.";
-            JobResult.Text = "Add your Gemini API key in Settings, then send again. The key is kept in Windows Credential Locker, never in a file.";
-            Status(InfoBarSeverity.Warning, "Add a Gemini API key in Settings before sending.");
+            JobState.Text = Loc.T("Det.NoApiKey");
+            JobResult.Text = Loc.T("Det.AddApiKeyBody");
+            Status(InfoBarSeverity.Warning, Loc.T("Det.AddApiKeyStatus"));
             return;
         }
         if (_meeting.MediaPath is null || !File.Exists(_meeting.MediaPath))
         {
             GeminiExpander.IsExpanded = true;
-            JobState.Text = "No recording for this meeting.";
-            JobResult.Text = "This meeting has no saved audio to upload.";
-            Status(InfoBarSeverity.Warning, "This meeting has no saved audio to send.");
+            JobState.Text = Loc.T("Det.NoRecording");
+            JobResult.Text = Loc.T("Det.NoAudioBody");
+            Status(InfoBarSeverity.Warning, Loc.T("Det.NoAudioStatus"));
             return;
         }
 
         SendButton.IsEnabled = false;
         GeminiExpander.IsExpanded = true;
-        JobState.Text = "Uploading \u2026";
+        JobState.Text = Loc.T("Det.Uploading");
         JobResult.Text = "";
         try
         {
@@ -255,22 +256,22 @@ public sealed partial class DetailsPage : Page
             var job = await uploader.SendMeetingAsync(_meeting, JsonSerializer.Serialize(Lines.ToList(), TranscriptJsonContext.Default.ListTranscriptLine), ResultDirectory);
             AppStore.Repo.SaveJob(job);
 
-            JobState.Text = $"Last result: {GeminiStateLabel(job.State)} \u00b7 {job.Attempts} attempt(s)";
+            JobState.Text = Loc.Tf("Det.LastResult", GeminiStateLabel(job.State), job.Attempts);
             if (job.State == GeminiJobState.Succeeded && job.ResultPath is not null)
             {
                 JobResult.Text = File.ReadAllText(job.ResultPath);
-                Status(InfoBarSeverity.Success, "Gemini returned an analysis and it was saved locally.");
+                Status(InfoBarSeverity.Success, Loc.T("Det.GeminiSaved"));
             }
             else
             {
-                JobResult.Text = job.LastError ?? "The job finished without a result.";
-                Status(InfoBarSeverity.Error, "Gemini job failed: " + (job.LastError ?? "unknown reason"));
+                JobResult.Text = job.LastError ?? Loc.T("Det.NoResult");
+                Status(InfoBarSeverity.Error, Loc.Tf("Det.GeminiFailed", job.LastError ?? Loc.T("Det.UnknownReason")));
             }
         }
         catch (Exception ex)
         {
-            JobResult.Text = "The upload could not finish.";
-            Status(InfoBarSeverity.Error, "Gemini send failed: " + Short(ex));
+            JobResult.Text = Loc.T("Det.UploadFailed");
+            Status(InfoBarSeverity.Error, Loc.Tf("Det.GeminiSendFailed", Short(ex)));
         }
         finally { SendButton.IsEnabled = true; }
     }
@@ -279,7 +280,7 @@ public sealed partial class DetailsPage : Page
     {
         text = string.Join(Environment.NewLine, Lines.Select(l => $"{l.Speaker}: {l.Text}"));
         if (Lines.Count > 0) return true;
-        Status(InfoBarSeverity.Warning, "The transcript is empty.");
+        Status(InfoBarSeverity.Warning, Loc.T("Det.EmptyTranscript"));
         return false;
     }
 
@@ -309,9 +310,9 @@ public sealed partial class DetailsPage : Page
     // One plain sentence for the user; the exception type stays out of the UI.
     private static string Short(Exception ex) => ex switch
     {
-        UnauthorizedAccessException => "permission denied",
-        IOException => "the file is in use or the disk is full",
-        Microsoft.Data.Sqlite.SqliteException { SqliteErrorCode: 8 } => "the data folder is read-only",
-        _ => "something went wrong",
+        UnauthorizedAccessException => Loc.T("Det.ErrPermissionDenied"),
+        IOException => Loc.T("Det.ErrFileInUse"),
+        Microsoft.Data.Sqlite.SqliteException { SqliteErrorCode: 8 } => Loc.T("Det.ErrReadOnly"),
+        _ => Loc.T("Det.ErrGeneric"),
     };
 }

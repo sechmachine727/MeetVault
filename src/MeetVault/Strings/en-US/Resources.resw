@@ -225,4 +225,46 @@
   <data name="Live.GpuRuntimeMissing" xml:space="preserve"><value>the {0} runtime did not load</value></data>
   <data name="Live.GpuNotUsable" xml:space="preserve"><value>the requested {0} GPU is not usable here</value></data>
   <data name="Live.GpuNativeMismatch" xml:space="preserve"><value>the loaded native is {0}, so {1} is ignored until the app is restarted</value></data>
+
+  <!-- L4.4: Details page code strings -->
+  <data name="Det.NoMeeting" xml:space="preserve"><value>No meeting to show yet. Start one in Live and its transcript lands here.</value></data>
+  <data name="Det.LastResult" xml:space="preserve"><value>Last result: {0} · {1} attempt(s)</value></data>
+  <data name="Det.ResultUnreadable" xml:space="preserve"><value>The saved result could not be read.</value></data>
+  <data name="Det.NoResult" xml:space="preserve"><value>The job finished without a result.</value></data>
+  <data name="Det.StateQueued" xml:space="preserve"><value>Queued</value></data>
+  <data name="Det.StateUploading" xml:space="preserve"><value>Uploading</value></data>
+  <data name="Det.StateSucceeded" xml:space="preserve"><value>Succeeded</value></data>
+  <data name="Det.StateFailed" xml:space="preserve"><value>Failed</value></data>
+  <data name="Det.StateUnknown" xml:space="preserve"><value>Unknown</value></data>
+  <data name="Det.EditSaveFailed" xml:space="preserve"><value>Edit kept in memory; save failed: {0}</value></data>
+  <data name="Det.NoLines" xml:space="preserve"><value>No lines</value></data>
+  <data name="Det.LineCount" xml:space="preserve"><value>{0} line(s)</value></data>
+  <data name="Det.LineCountEdited" xml:space="preserve"><value>{0} line(s) · {1} edited</value></data>
+  <data name="Det.NoTranscriptLines" xml:space="preserve"><value>No transcript lines for this meeting yet.</value></data>
+  <data name="Det.Copied" xml:space="preserve"><value>Copied {0} line(s) to the clipboard.</value></data>
+  <data name="Det.ClipboardBusy" xml:space="preserve"><value>The clipboard is busy. Try again.</value></data>
+  <data name="Det.OverwriteTitle" xml:space="preserve"><value>Overwrite export?</value></data>
+  <data name="Det.OverwriteBody" xml:space="preserve"><value>{0} already exists. Replace it?</value></data>
+  <data name="Det.Overwrite" xml:space="preserve"><value>Overwrite</value></data>
+  <data name="Det.Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Det.SavedExport" xml:space="preserve"><value>Saved {0} line(s) to {1}.</value></data>
+  <data name="Det.ExportFolderFailed" xml:space="preserve"><value>The export folder does not exist and could not be created. Check the storage location in Settings.</value></data>
+  <data name="Det.ExportWriteFailed" xml:space="preserve"><value>Could not write the transcript file: {0}</value></data>
+  <data name="Det.NoApiKey" xml:space="preserve"><value>No Gemini API key stored.</value></data>
+  <data name="Det.AddApiKeyBody" xml:space="preserve"><value>Add your Gemini API key in Settings, then send again. The key is kept in Windows Credential Locker, never in a file.</value></data>
+  <data name="Det.AddApiKeyStatus" xml:space="preserve"><value>Add a Gemini API key in Settings before sending.</value></data>
+  <data name="Det.NoRecording" xml:space="preserve"><value>No recording for this meeting.</value></data>
+  <data name="Det.NoAudioBody" xml:space="preserve"><value>This meeting has no saved audio to upload.</value></data>
+  <data name="Det.NoAudioStatus" xml:space="preserve"><value>This meeting has no saved audio to send.</value></data>
+  <data name="Det.Uploading" xml:space="preserve"><value>Uploading …</value></data>
+  <data name="Det.GeminiSaved" xml:space="preserve"><value>Gemini returned an analysis and it was saved locally.</value></data>
+  <data name="Det.GeminiFailed" xml:space="preserve"><value>Gemini job failed: {0}</value></data>
+  <data name="Det.UnknownReason" xml:space="preserve"><value>unknown reason</value></data>
+  <data name="Det.UploadFailed" xml:space="preserve"><value>The upload could not finish.</value></data>
+  <data name="Det.GeminiSendFailed" xml:space="preserve"><value>Gemini send failed: {0}</value></data>
+  <data name="Det.EmptyTranscript" xml:space="preserve"><value>The transcript is empty.</value></data>
+  <data name="Det.ErrPermissionDenied" xml:space="preserve"><value>permission denied</value></data>
+  <data name="Det.ErrFileInUse" xml:space="preserve"><value>the file is in use or the disk is full</value></data>
+  <data name="Det.ErrReadOnly" xml:space="preserve"><value>the data folder is read-only</value></data>
+  <data name="Det.ErrGeneric" xml:space="preserve"><value>something went wrong</value></data>
 </root>
