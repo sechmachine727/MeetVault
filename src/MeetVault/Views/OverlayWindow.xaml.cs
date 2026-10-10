@@ -23,15 +23,6 @@ public sealed partial class OverlayWindow : Window
     [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(IntPtr hWnd);
 
-    [DllImport("user32.dll")]
-    private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
-
-    [DllImport("user32.dll")]
-    private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
-
-    [DllImport("user32.dll")]
-    private static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint crKey, byte bAlpha, uint dwFlags);
-
     private readonly OverlappedPresenter _presenter;
     private readonly double _scale;
     // Veil is code-built, not XAML: this file's XamlCompiler rejects new direct
@@ -70,11 +61,13 @@ public sealed partial class OverlayWindow : Window
         InitializeComponent();
         SeedFromSettings();
         _veil.Opacity = Vm.Opacity;
-        // True transparency via color key: the magenta base is keyed out at HWND
-        // level (WS_EX_LAYERED + LWA_COLORKEY), the black veil above it carries
-        // the user darkness, content rows paint above both. Clicks still land
-        // (no WS_EX_TRANSPARENT), so Close/rename keep working.
-        RootSurface.Background = new SolidColorBrush(Colors.Magenta);
+        // Desktop see-through: WinUI 3's ONLY supported path is a SystemBackdrop.
+        // AcrylicBrush is in-app acrylic (never shows the desktop), and the HWND
+        // tricks both fail on this runtime — LWA_COLORKEY does not compose through
+        // DirectComposition and WCA_ACCENT_POLICY (TRANSPARENTGRADIENT/BLURBEHIND)
+        // is ignored; pixel captures with the veil at 0 rendered solid black for
+        // all three. The black veil sits above the backdrop and is the user's
+        // darkness control; content paints above both.
         var veilHost = new Grid { Background = _veil };
         Grid.SetRowSpan(veilHost, 3);
         RootSurface.Children.Insert(0, veilHost);
@@ -86,20 +79,25 @@ public sealed partial class OverlayWindow : Window
         // Same ABI rule as Live/Details: ObservableCollection NREs in ComWrappers
         // vtable computation in the trimmed exe. Array snapshot, refreshed on change.
         TranscriptList.ItemsSource = Vm.Lines.ToArray();
-        // Caption mode replaces the history list: the row-1 grid hosts the
-        // caption button instead. History buffer (Vm.Lines) stays intact.
+        // Caption mode replaces the history list with the caption button.
+        // History buffer (Vm.Lines) stays intact.
         _captionButton.Content = _captionBody;
         _captionButton.Click += Rename_Click;
         ToolTipService.SetToolTip(_captionButton, "Rename this speaker on every line");
-        TranscriptList.Visibility = Visibility.Collapsed;
-        EmptyState.Visibility = Visibility.Collapsed;
-        ((Grid)TranscriptList.Parent).Children.Add(_captionButton);
+        // NOTE: visual-parent lookup is null in the ctor (proven twice by
+        // crash-log NRE) — the tree is only attached at Loaded. Host the
+        // caption then; text state is already correct via RefreshCaption.
+        RootSurface.Loaded += (_, _) =>
+        {
+            TranscriptList.Visibility = Visibility.Collapsed;
+            EmptyState.Visibility = Visibility.Collapsed;
+            ((Grid)VisualTreeHelper.GetParent(TranscriptList)).Children.Add(_captionButton);
+        };
         _renameFlyout = BuildRenameFlyout();
         BackdropButton.Flyout = BuildBackdropFlyout();
         var hwnd = Win32Interop.GetWindowFromWindowId(AppWindow.Id);
         var scale = GetDpiForWindow(hwnd) / 96.0;
         _scale = scale;
-        MakeLayeredMagentaTransparent(hwnd);
         AppWindow.Resize(new SizeInt32((int)(WidthDip * scale), (int)(HeightDip * scale)));
         // Dock bottom-center like a YouTube subtitle. WorkArea excludes the
         // taskbar; AppWindow geometry is physical pixels, hence the scale.
@@ -120,7 +118,12 @@ public sealed partial class OverlayWindow : Window
             bar.ButtonBackgroundColor = Colors.Transparent;
             bar.ButtonInactiveBackgroundColor = Colors.Transparent;
         }
-        RootSurface.Loaded += (_, _) => UpdateDragRects();
+        // Desktop-see-through material: applied after the window loads — a
+        // SystemBackdrop set in the ctor can be dropped when the presenter /
+        // title bar are configured (probe 2026-10-10: ctor-set backdrop left
+        // the window at the default theme gray, proven with a pure-green
+        // background directly behind the strip).
+        RootSurface.Loaded += (_, _) => { SystemBackdrop = new DesktopAcrylicBackdrop(); UpdateDragRects(); };
         RootSurface.SizeChanged += (_, _) => UpdateDragRects();
         _presenter = (OverlappedPresenter)AppWindow.Presenter;
         _presenter.IsAlwaysOnTop = Vm.IsPinned;
@@ -158,17 +161,6 @@ public sealed partial class OverlayWindow : Window
         => DispatcherQueue.TryEnqueue(() => { Vm.RenameSpeaker(oldName, newName); RefreshCaption(); });
 
     public OverlayViewModel Vm { get; }
-
-    private static void MakeLayeredMagentaTransparent(IntPtr hwnd)
-    {
-        const int GWL_EXSTYLE = -20;
-        const uint WS_EX_LAYERED = 0x00080000;
-        const uint LWA_COLORKEY = 0x00000001;
-        var ex = GetWindowLong(hwnd, GWL_EXSTYLE);
-        SetWindowLong(hwnd, GWL_EXSTYLE, ex | (int)WS_EX_LAYERED);
-        // COLORREF magenta must match Colors.Magenta exactly: RGB(255,0,255).
-        SetLayeredWindowAttributes(hwnd, 0x00FF00FF, 0, LWA_COLORKEY);
-    }
 
     private void Pin_Click(object sender, RoutedEventArgs e)
         => _presenter.IsAlwaysOnTop = ((ToggleButton)sender).IsChecked == true;
