@@ -150,4 +150,35 @@
   <data name="SetApiKeyBox.AutomationProperties.Name" xml:space="preserve"><value>Gemini API key</value></data>
   <data name="SetSaveKey.Content" xml:space="preserve"><value>Save</value></data>
   <data name="SetSaveKey.AutomationProperties.Name" xml:space="preserve"><value>Save Gemini API key</value></data>
+
+  <!-- L4.1: Meetings page code strings -->
+  <data name="Mtg.FromRepo" xml:space="preserve"><value>{0} meetings from the local repository.</value></data>
+  <data name="Mtg.SelectHint" xml:space="preserve"><value>Select the meetings to delete, then choose Delete selected.</value></data>
+  <data name="Mtg.DraftReason" xml:space="preserve"><value>Still recording or a resumable draft - finish or discard it in Live first.</value></data>
+  <data name="Mtg.DelTitle" xml:space="preserve"><value>Delete meetings?</value></data>
+  <data name="Mtg.DelBody" xml:space="preserve"><value>Delete {0} meeting(s)? Their recordings and transcripts will be removed from this device.</value></data>
+  <data name="Mtg.DelConfirm" xml:space="preserve"><value>Delete</value></data>
+  <data name="Mtg.Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Mtg.Deleted" xml:space="preserve"><value>Deleted {0} meeting(s).</value></data>
+  <data name="Mtg.Partial" xml:space="preserve"><value>{0} deleted, {1} failed - the remaining meetings could not be deleted.</value></data>
+  <data name="Mtg.CouldNotDeleteSelected" xml:space="preserve"><value>Could not delete the selected meetings.</value></data>
+  <data name="Mtg.DelOneTitle" xml:space="preserve"><value>Delete this meeting?</value></data>
+  <data name="Mtg.DelOneBody" xml:space="preserve"><value>'{0}' and its transcript will be removed. The recording file is deleted too. This cannot be undone.</value></data>
+  <data name="Mtg.DeletedOne" xml:space="preserve"><value>Deleted '{0}'.</value></data>
+  <data name="Mtg.CouldNotDelete" xml:space="preserve"><value>Could not delete the meeting.</value></data>
+  <data name="Mtg.NoMatch" xml:space="preserve"><value>No meetings match "{0}".</value></data>
+  <data name="Mtg.EmptyList" xml:space="preserve"><value>No meetings yet. Start one to populate this list.</value></data>
+  <data name="Mtg.RowOpen" xml:space="preserve"><value>Select a meeting to open its details</value></data>
+  <data name="Mtg.RowToggle" xml:space="preserve"><value>Click to select or deselect this meeting</value></data>
+  <data name="Mtg.StatusRecording" xml:space="preserve"><value>Recording</value></data>
+  <data name="Mtg.StatusPaused" xml:space="preserve"><value>Paused</value></data>
+  <data name="Mtg.StatusProcessing" xml:space="preserve"><value>Processing</value></data>
+  <data name="Mtg.StatusReady" xml:space="preserve"><value>Ready</value></data>
+  <data name="Mtg.StatusFailed" xml:space="preserve"><value>Did not finish</value></data>
+  <data name="Mtg.StatusUnknown" xml:space="preserve"><value>Unknown</value></data>
+  <data name="Mtg.DurInProgress" xml:space="preserve"><value>In progress</value></data>
+  <data name="Mtg.DurMin" xml:space="preserve"><value>{0} min</value></data>
+  <data name="Mtg.DurHourMin" xml:space="preserve"><value>{0} h {1} min</value></data>
+  <data name="Mtg.SelectedCount" xml:space="preserve"><value>{0} selected</value></data>
+  <data name="Mtg.HiddenNote" xml:space="preserve"><value> {0} selected meeting(s) are hidden by the current search and will be deleted too.</value></data>
 </root>

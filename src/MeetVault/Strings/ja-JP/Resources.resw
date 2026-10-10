@@ -150,4 +150,35 @@
   <data name="SetApiKeyBox.AutomationProperties.Name" xml:space="preserve"><value>Gemini API キー</value></data>
   <data name="SetSaveKey.Content" xml:space="preserve"><value>保存</value></data>
   <data name="SetSaveKey.AutomationProperties.Name" xml:space="preserve"><value>Gemini API キーを保存</value></data>
+
+  <!-- L4.1: Meetings page code strings -->
+  <data name="Mtg.FromRepo" xml:space="preserve"><value>ローカルリポジトリの会議 {0} 件。</value></data>
+  <data name="Mtg.SelectHint" xml:space="preserve"><value>削除する会議を選択し、「選択した会議を削除」を選んでください。</value></data>
+  <data name="Mtg.DraftReason" xml:space="preserve"><value>録音中または再開可能な下書きです。先にライブで終了するか破棄してください。</value></data>
+  <data name="Mtg.DelTitle" xml:space="preserve"><value>会議を削除しますか？</value></data>
+  <data name="Mtg.DelBody" xml:space="preserve"><value>{0} 件の会議を削除しますか？録音と文字起こしがこのデバイスから削除されます。</value></data>
+  <data name="Mtg.DelConfirm" xml:space="preserve"><value>削除</value></data>
+  <data name="Mtg.Cancel" xml:space="preserve"><value>キャンセル</value></data>
+  <data name="Mtg.Deleted" xml:space="preserve"><value>{0} 件の会議を削除しました。</value></data>
+  <data name="Mtg.Partial" xml:space="preserve"><value>{0} 件削除、{1} 件失敗 — 残りの会議を削除できませんでした。</value></data>
+  <data name="Mtg.CouldNotDeleteSelected" xml:space="preserve"><value>選択した会議を削除できませんでした。</value></data>
+  <data name="Mtg.DelOneTitle" xml:space="preserve"><value>この会議を削除しますか？</value></data>
+  <data name="Mtg.DelOneBody" xml:space="preserve"><value>「{0}」とその文字起こしを削除します。録音ファイルも削除されます。この操作は元に戻せません。</value></data>
+  <data name="Mtg.DeletedOne" xml:space="preserve"><value>「{0}」を削除しました。</value></data>
+  <data name="Mtg.CouldNotDelete" xml:space="preserve"><value>会議を削除できませんでした。</value></data>
+  <data name="Mtg.NoMatch" xml:space="preserve"><value>「{0}」に一致する会議はありません。</value></data>
+  <data name="Mtg.EmptyList" xml:space="preserve"><value>まだ会議がありません。会議を開始するとここに表示されます。</value></data>
+  <data name="Mtg.RowOpen" xml:space="preserve"><value>会議を選択して詳細を開きます</value></data>
+  <data name="Mtg.RowToggle" xml:space="preserve"><value>クリックしてこの会議を選択/解除します</value></data>
+  <data name="Mtg.StatusRecording" xml:space="preserve"><value>録音中</value></data>
+  <data name="Mtg.StatusPaused" xml:space="preserve"><value>一時停止中</value></data>
+  <data name="Mtg.StatusProcessing" xml:space="preserve"><value>処理中</value></data>
+  <data name="Mtg.StatusReady" xml:space="preserve"><value>完了</value></data>
+  <data name="Mtg.StatusFailed" xml:space="preserve"><value>完了できませんでした</value></data>
+  <data name="Mtg.StatusUnknown" xml:space="preserve"><value>不明</value></data>
+  <data name="Mtg.DurInProgress" xml:space="preserve"><value>進行中</value></data>
+  <data name="Mtg.DurMin" xml:space="preserve"><value>{0} 分</value></data>
+  <data name="Mtg.DurHourMin" xml:space="preserve"><value>{0} 時間 {1} 分</value></data>
+  <data name="Mtg.SelectedCount" xml:space="preserve"><value>{0} 件選択</value></data>
+  <data name="Mtg.HiddenNote" xml:space="preserve"><value> 現在の検索で非表示になっている選択中の会議 {0} 件も削除されます。</value></data>
 </root>

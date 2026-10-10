@@ -28,7 +28,7 @@ public sealed class MeetingCard : INotifyPropertyChanged
     // Still-recording or resumable-draft meetings cannot be bulk-deleted from
     // these lists; the Core repository refuses them as well (one rule, both layers).
     public bool IsSelectable => !IsDraft;
-    public string SelectReason => IsDraft ? "Still recording or a resumable draft - finish or discard it in Live first." : "";
+    public string SelectReason => IsDraft ? Loc.T("Mtg.DraftReason") : "";
 
     private bool _selected;
     public bool IsSelected
@@ -61,8 +61,8 @@ public sealed class MeetingCard : INotifyPropertyChanged
     public Visibility DeleteVisibility => _showSelect ? Visibility.Collapsed : Visibility.Visible;
 
     public string RowTooltip => _showSelect
-        ? (IsSelectable ? "Click to select or deselect this meeting" : SelectReason)
-        : "Select a meeting to open its details";
+        ? (IsSelectable ? Loc.T("Mtg.RowToggle") : SelectReason)
+        : Loc.T("Mtg.RowOpen");
 
     private static readonly Brush ClearBrush = new SolidColorBrush(Colors.Transparent);
     private static readonly Brush SelectedBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(0x33, 0x00, 0x78, 0xD4));
@@ -76,19 +76,19 @@ public static class MeetingCards
     // Plain label for the raw enum.
     public static string StatusLabel(MeetingStatus status) => status switch
     {
-        MeetingStatus.Recording => "Recording",
-        MeetingStatus.Paused => "Paused",
-        MeetingStatus.Processing => "Processing",
-        MeetingStatus.Ready => "Ready",
-        MeetingStatus.Failed => "Did not finish",
-        _ => "Unknown",
+        MeetingStatus.Recording => Loc.T("Mtg.StatusRecording"),
+        MeetingStatus.Paused => Loc.T("Mtg.StatusPaused"),
+        MeetingStatus.Processing => Loc.T("Mtg.StatusProcessing"),
+        MeetingStatus.Ready => Loc.T("Mtg.StatusReady"),
+        MeetingStatus.Failed => Loc.T("Mtg.StatusFailed"),
+        _ => Loc.T("Mtg.StatusUnknown"),
     };
 
     private static string Duration(Meeting m)
     {
-        if (m.EndedAt is not { } ended) return "In progress";
+        if (m.EndedAt is not { } ended) return Loc.T("Mtg.DurInProgress");
         var minutes = (int)Math.Round((ended - m.StartedAt).TotalMinutes);
-        return minutes < 60 ? $"{minutes} min" : $"{minutes / 60} h {minutes % 60} min";
+        return minutes < 60 ? Loc.Tf("Mtg.DurMin", minutes) : Loc.Tf("Mtg.DurHourMin", minutes / 60, minutes % 60);
     }
 }
 
@@ -128,7 +128,7 @@ public sealed partial class MeetingsPage : Page
     {
         InitializeComponent();
         ApplyFilter(string.Empty);
-        StatusBar.Message = $"{AppStore.Cards().Count} meetings from the local repository.";
+        StatusBar.Message = Loc.Tf("Mtg.FromRepo", AppStore.Cards().Count);
         StatusBar.IsOpen = true;
     }
 
@@ -145,7 +145,7 @@ public sealed partial class MeetingsPage : Page
         SelectionBar.Visibility = Visibility.Visible;
         HeaderSelectSpacer.Visibility = Visibility.Visible;
         ApplyFilter(SearchBox.Text);
-        StatusBar.Message = "Select the meetings to delete, then choose Delete selected.";
+        StatusBar.Message = Loc.T("Mtg.SelectHint");
         StatusBar.Severity = InfoBarSeverity.Informational;
         StatusBar.IsOpen = true;
     }
@@ -181,15 +181,13 @@ public sealed partial class MeetingsPage : Page
         // selection, so the confirmation says how many hidden meetings go with it.
         var visibleIds = VisibleRows.Select(c => c.Id).ToHashSet();
         var hidden = ids.Count(id => !visibleIds.Contains(id));
-        var hiddenNote = hidden > 0
-            ? $" {hidden} selected meeting(s) are hidden by the current search and will be deleted too."
-            : "";
+        var hiddenNote = hidden > 0 ? Loc.Tf("Mtg.HiddenNote", hidden) : "";
         var confirm = new ContentDialog
         {
-            Title = "Delete meetings?",
-            Content = $"Delete {ids.Length} meeting(s)? Their recordings and transcripts will be removed from this device.{hiddenNote}",
-            PrimaryButtonText = "Delete",
-            CloseButtonText = "Cancel",
+            Title = Loc.T("Mtg.DelTitle"),
+            Content = Loc.Tf("Mtg.DelBody", ids.Length) + hiddenNote,
+            PrimaryButtonText = Loc.T("Mtg.DelConfirm"),
+            CloseButtonText = Loc.T("Mtg.Cancel"),
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = XamlRoot,
         };
@@ -202,7 +200,7 @@ public sealed partial class MeetingsPage : Page
         {
             MeetVault.Core.AppLog.Error("delete: batch delete failed", ex);
             SetBusy(false);
-            StatusBar.Message = "Could not delete the selected meetings.";
+            StatusBar.Message = Loc.T("Mtg.CouldNotDeleteSelected");
             StatusBar.Severity = InfoBarSeverity.Error;
             StatusBar.IsOpen = true;
             return;
@@ -216,13 +214,13 @@ public sealed partial class MeetingsPage : Page
         if (result.FailedIds.Count == 0)
         {
             ExitSelection();
-            StatusBar.Message = $"Deleted {result.DeletedIds.Count} meeting(s).";
+            StatusBar.Message = Loc.Tf("Mtg.Deleted", result.DeletedIds.Count);
             StatusBar.Severity = InfoBarSeverity.Success;
         }
         else
         {
             ApplyFilter(SearchBox.Text);
-            StatusBar.Message = $"{result.DeletedIds.Count} deleted, {result.FailedIds.Count} failed - the remaining meetings could not be deleted.";
+            StatusBar.Message = Loc.Tf("Mtg.Partial", result.DeletedIds.Count, result.FailedIds.Count);
             StatusBar.Severity = InfoBarSeverity.Warning;
         }
         StatusBar.IsOpen = true;
@@ -240,7 +238,7 @@ public sealed partial class MeetingsPage : Page
 
     private void UpdateToolbar()
     {
-        SelectionCount.Text = $"{_selection.Count} selected";
+        SelectionCount.Text = Loc.Tf("Mtg.SelectedCount", _selection.Count);
         DeleteSelectedButton.IsEnabled = !_busy && _selection.Count > 0;
     }
 
@@ -281,10 +279,10 @@ public sealed partial class MeetingsPage : Page
         if (sender is not FrameworkElement { DataContext: MeetingCard card }) return;
         var confirm = new ContentDialog
         {
-            Title = "Delete this meeting?",
-            Content = $"'{card.Title}' and its transcript will be removed. The recording file is deleted too. This cannot be undone.",
-            PrimaryButtonText = "Delete",
-            CloseButtonText = "Cancel",
+            Title = Loc.T("Mtg.DelOneTitle"),
+            Content = Loc.Tf("Mtg.DelOneBody", card.Title),
+            PrimaryButtonText = Loc.T("Mtg.DelConfirm"),
+            CloseButtonText = Loc.T("Mtg.Cancel"),
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = XamlRoot,
         };
@@ -305,14 +303,14 @@ public sealed partial class MeetingsPage : Page
                 }
             }
             ApplyFilter(SearchBox.Text);
-            StatusBar.Message = $"Deleted '{card.Title}'.";
+            StatusBar.Message = Loc.Tf("Mtg.DeletedOne", card.Title);
             StatusBar.Severity = InfoBarSeverity.Success;
             StatusBar.IsOpen = true;
         }
         catch (Exception ex)
         {
             MeetVault.Core.AppLog.Error("delete: meeting " + card.Id + " failed", ex);
-            StatusBar.Message = "Could not delete the meeting.";
+            StatusBar.Message = Loc.T("Mtg.CouldNotDelete");
             StatusBar.Severity = InfoBarSeverity.Error;
             StatusBar.IsOpen = true;
         }
@@ -338,7 +336,7 @@ public sealed partial class MeetingsPage : Page
         EmptyState.Visibility = rows.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (EmptyState.Visibility == Visibility.Visible)
             EmptyState.Text = term.Length == 0
-                ? "No meetings yet. Start one to populate this list."
-                : $"No meetings match \"{term}\".";
+                ? Loc.T("Mtg.EmptyList")
+                : Loc.Tf("Mtg.NoMatch", term);
     }
 }
