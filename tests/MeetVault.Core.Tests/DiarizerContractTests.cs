@@ -30,23 +30,25 @@ public sealed class DiarizerContractTests
     public void AssignTurn_TwoVoices_DistinguishesAndStabilizes()
     {
         // Synthetic A/B/A fixture (Windows TTS voices; committed, no consent required).
+        // Two-sighting rule (SpeakerMatcher): an unmatched voice keeps the previous
+        // speaker on its FIRST sighting and owns a new spk_N only once seen again.
         var wavPath = Path.Combine(TestAudio.RepoRoot, "tests", "MeetVault.Core.Tests", "fixtures", "diarizer_two_speakers_16k.wav");
         Assert.True(File.Exists(wavPath), "fixture missing: " + wavPath);
         using var dz = TryOpen();
         if (dz is null) return;
 
         var all = TestAudio.ReadWav16k(wavPath);
-        // Region boundaries in samples, fixed by the committed fixture (0.3 s gaps).
-        var a1 = dz.AssignTurn(Slice(all, 0, 90720));
-        var b1 = dz.AssignTurn(Slice(all, 95520, 183040));
-        var a2 = dz.AssignTurn(Slice(all, 187840, 278560));
+        var a1 = dz.AssignTurn(Slice(all, 0, 90720));        // voice A, first sighting
+        var b1 = dz.AssignTurn(Slice(all, 95520, 183040));   // voice B, first sighting -> keeps previous
+        var b2 = dz.AssignTurn(Slice(all, 95520, 183040));   // voice B again -> own identity
+        var a2 = dz.AssignTurn(Slice(all, 0, 90720));        // voice A again -> stable
+        var again = dz.AssignTurn(Slice(all, 60480, 90720)); // A sub-clip -> still stable
 
         Assert.StartsWith("spk_", a1.SpeakerId);
         Assert.Equal(SpeakerOrigin.Embedding, a1.Origin);
-        Assert.NotEqual(a1.SpeakerId, b1.SpeakerId);   // different voice -> different speaker
-        Assert.Equal(a1.SpeakerId, a2.SpeakerId);      // same voice again -> same speaker
-        var again = dz.AssignTurn(Slice(all, 0, 90720));
-        Assert.Equal(a1.SpeakerId, again.SpeakerId);   // stable across calls
+        Assert.Equal(a1.SpeakerId, a2.SpeakerId);       // same voice keeps its id
+        Assert.Equal(a1.SpeakerId, again.SpeakerId);
+        Assert.NotEqual(a1.SpeakerId, b2.SpeakerId);    // different voice gets its own id once confirmed
     }
 
     private static TurnAudio Slice(float[] all, int start, int end)

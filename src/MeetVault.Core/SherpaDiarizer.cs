@@ -3,18 +3,14 @@ using SherpaOnnx;
 namespace MeetVault.Core;
 
 // Real diarization behind ISpeakerDiarizer: sherpa-onnx 1.13.8 offline diarization (finalized windows).
-// Identity is tracked ACROSS turns by speaker embedding (cosine match), because each
-// Process() call only clusters within its own window — local indices restart every turn.
+// Identity is tracked ACROSS turns by SpeakerMatcher (two-sighting confirmation over a
+// multi-embedding store), because each Process() call only clusters within its own window —
+// local indices restart every turn.
 public sealed class SherpaDiarizer : ISpeakerDiarizer, IDisposable
 {
     private readonly OfflineSpeakerDiarization _diar;
     private readonly SpeakerEmbeddingExtractor _embed;
-    private readonly SpeakerEmbeddingManager _manager;
-    private int _next = 1;
-
-    // Cosine threshold for matching a turn's embedding against known speakers. Same voice
-    // measures ~1.0 and different voices ~0.1 on the fixture; 0.5 is the safe midpoint.
-    private const float MatchThreshold = 0.5f;
+    private readonly SpeakerMatcher _matcher;
 
     public SherpaDiarizer(string segmentationModel, string embeddingModel, int numThreads = 1)
     {
@@ -31,7 +27,7 @@ public sealed class SherpaDiarizer : ISpeakerDiarizer, IDisposable
         };
         _diar = new OfflineSpeakerDiarization(config);
         _embed = new SpeakerEmbeddingExtractor(new SpeakerEmbeddingExtractorConfig { Model = embeddingModel, NumThreads = numThreads });
-        _manager = new SpeakerEmbeddingManager(_embed.Dim);
+        _matcher = new SpeakerMatcher(new ManagerStore());
         AppLog.Info("diarizer: loaded seg=" + System.IO.Path.GetFileName(segmentationModel) + " emb=" + System.IO.Path.GetFileName(embeddingModel) + " threads=" + numThreads);
     }
 
@@ -48,14 +44,8 @@ public sealed class SherpaDiarizer : ISpeakerDiarizer, IDisposable
         var dominant = segments.OrderByDescending(s => s.End - s.Start).First().Speaker;
         var emb = EmbeddingFor(samples.Span, segments.Where(s => s.Speaker == dominant));
 
-        var id = _manager.Search(emb, MatchThreshold);
-        if (string.IsNullOrEmpty(id))
-        {
-            id = $"spk_{_next++}";
-            _manager.Add(id, emb);
-            AppLog.Debug("diarizer: new speaker " + id);
-        }
-        return new SpeakerHint(id, SpeakerOrigin.Embedding, null);
+        var match = _matcher.Assign(emb, turn.StartMs);
+        return new SpeakerHint(match.SpeakerId, match.Origin, null);
     }
 
     // Union of this local speaker's spans within the turn -> one embedding per turn.
@@ -75,9 +65,42 @@ public sealed class SherpaDiarizer : ISpeakerDiarizer, IDisposable
         return _embed.Compute(stream);
     }
 
+    // Embedding store for SpeakerMatcher. Owns its own per-id embedding lists instead of
+    // using SpeakerEmbeddingManager: measured on sherpa-onnx 1.13.8 (throwaway diag,
+    // 2026-10-11: Add(id, v1)=True, Add(id, v2)=False, Search(v1) hits, Search(v2) misses),
+    // a second Add for an existing id returns false and the embedding is silently dropped —
+    // the manager neither appends nor replaces, so its store cannot grow with the meeting.
+    // Search = best cosine over the lists ("" when nothing reaches the threshold);
+    // Add appends, keeping the newest 5 embeddings per id.
+    private sealed class ManagerStore : IEmbeddingStore
+    {
+        private const int MaxPerId = 5;
+        private readonly Dictionary<string, List<float[]>> _byId = new();
+
+        public string Search(float[] embedding, float threshold)
+        {
+            var best = "";
+            var bestSim = threshold;
+            foreach (var (id, list) in _byId)
+                foreach (var e in list)
+                {
+                    var s = SpeakerMatcher.Cosine(embedding, e);
+                    if (s >= bestSim) { bestSim = s; best = id; }
+                }
+            return best;
+        }
+
+        public void Add(string speakerId, float[] embedding)
+        {
+            if (!_byId.TryGetValue(speakerId, out var list)) _byId[speakerId] = list = new();
+            list.Add(embedding);
+            if (list.Count > MaxPerId) list.RemoveAt(0);
+        }
+    }
+
     private static readonly SpeakerHint Unknown = new("", SpeakerOrigin.Unknown, null);
 
-    public void Dispose() { _manager.Dispose(); _embed.Dispose(); _diar.Dispose(); }
+    public void Dispose() { _embed.Dispose(); _diar.Dispose(); }
 }
 
 
