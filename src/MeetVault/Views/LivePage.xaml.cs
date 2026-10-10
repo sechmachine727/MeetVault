@@ -186,6 +186,7 @@ public sealed partial class LivePage : Page
         catch (Exception ex)
         {
             SetState(LiveState.Idle);
+            LiveBridge.SetLive(false); // an exception after WireSession must not leave the overlay claiming "Listening…"
             _capture?.ClearReuse(); // a recovery that failed must not capture the next meeting into the old file
             MeetVault.Core.AppLog.Error("live: resume failed", ex);
             Status(Loc.Tf("Live.CouldNotResumeMeeting", Short(ex)));
