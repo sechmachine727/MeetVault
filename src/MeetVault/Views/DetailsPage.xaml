@@ -13,7 +13,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBlock Text="Details" Style="{StaticResource TitleTextBlockStyle}" />
+        <TextBlock x:Uid="DetTitle" Style="{StaticResource TitleTextBlockStyle}" />
 
         <InfoBar x:Name="StatusBar" Grid.Row="1" IsOpen="False" Severity="Informational" />
 
@@ -26,18 +26,12 @@
                             Visibility="Collapsed" />
 
         <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="8">
-            <Button x:Name="CopyButton" Content="Copy transcript" Click="Copy_Click"
-                    AutomationProperties.Name="Copy transcript"
-                    ToolTipService.ToolTip="Copy the transcript to the clipboard" />
-            <Button x:Name="ExportButton" Content="Export to Documents" Click="Export_Click"
-                    AutomationProperties.Name="Export transcript to Documents"
-                    ToolTipService.ToolTip="Write the transcript to a text file in Documents" />
-            <Button x:Name="SendButton" Content="Send to Gemini" Click="Gemini_Click"
-                    AutomationProperties.Name="Send to Gemini"
-                    ToolTipService.ToolTip="Upload this meeting's media and transcript to Gemini" />
+            <Button x:Name="CopyButton" x:Uid="DetCopy" Click="Copy_Click" />
+            <Button x:Name="ExportButton" x:Uid="DetExport" Click="Export_Click" />
+            <Button x:Name="SendButton" x:Uid="DetSend" Click="Gemini_Click" />
         </StackPanel>
 
-        <Expander x:Name="GeminiExpander" Grid.Row="5" Header="Gemini job" IsExpanded="False" HorizontalAlignment="Stretch">
+        <Expander x:Name="GeminiExpander" x:Uid="DetGeminiHeader" Grid.Row="5" IsExpanded="False" HorizontalAlignment="Stretch">
             <StackPanel Spacing="6">
                 <TextBlock x:Name="JobState" Text="No job sent yet." TextWrapping="Wrap" />
                 <TextBlock x:Name="JobResult" Text="" FontFamily="Consolas" FontSize="12" Opacity="0.8"
@@ -55,7 +49,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="Transcript" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock x:Uid="DetTranscript" Style="{StaticResource SubtitleTextBlockStyle}" />
                 <TextBlock x:Name="LineStatus" Grid.Column="1" Opacity="0.7" VerticalAlignment="Center" Margin="0,0,12,0" />
             </Grid>
             <Grid Grid.Row="1">
@@ -67,22 +61,18 @@
                                     <ColumnDefinition Width="160" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <ComboBox Width="160" HorizontalAlignment="Stretch"
+                                <ComboBox x:Uid="DetSpeakerName" Width="160" HorizontalAlignment="Stretch"
                                           Loaded="SpeakerPicker_Loaded"
-                                          SelectionChanged="SpeakerPicker_SelectionChanged"
-                                          AutomationProperties.Name="Speaker"
-                                          ToolTipService.ToolTip="Reassign this line to another speaker" />
-                                <TextBox Grid.Column="1"
+                                          SelectionChanged="SpeakerPicker_SelectionChanged" />
+                                <TextBox x:Uid="DetLineName" Grid.Column="1"
                                          Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                          TextChanged="LineText_TextChanged"
-                                         TextWrapping="Wrap" AcceptsReturn="False"
-                                         AutomationProperties.Name="Transcript line"
-                                         ToolTipService.ToolTip="Edit this line" />
+                                         TextWrapping="Wrap" AcceptsReturn="False" />
                             </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <TextBlock x:Name="EmptyState" Text="No meeting to show yet. Start one in Live and its transcript lands here."
+                <TextBlock x:Name="EmptyState" x:Uid="DetEmpty"
                            Opacity="0.7" TextWrapping="Wrap" VerticalAlignment="Center" HorizontalAlignment="Center"
                            MaxWidth="320" TextAlignment="Center" Visibility="Collapsed" />
             </Grid>
