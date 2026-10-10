@@ -18,20 +18,20 @@ public sealed partial class DashboardPage : Page
         if (unfinished.Count > 0)
         {
             _recoverable = unfinished[0];
-            RecoveryBar.Message = $"'{_recoverable.Title}' was interrupted. Resume it in Live to keep recording, or start a new meeting; this one stays as a draft.";
+            RecoveryBar.Message = Loc.Tf("Dash.Interrupted", _recoverable.Title);
             RecoveryBar.IsOpen = true;
         }
         var hour = DateTime.Now.Hour;
-        GreetingTitle.Text = hour < 12 ? "Good morning — ready to capture" : hour < 18 ? "Good afternoon — ready to capture" : "Good evening — ready to capture";
+        GreetingTitle.Text = hour < 12 ? Loc.T("Dash.GreetingMorning") : hour < 18 ? Loc.T("Dash.GreetingAfternoon") : Loc.T("Dash.GreetingEvening");
         // audio.mic stores the numeric device id; resolve to the live device name.
         var micIdx = AppStore.Repo.GetSetting("audio.mic") ?? "";
-        var mic = MeetVault.Core.NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == micIdx).Name ?? "Windows default";
-        MicStatus.Text = string.IsNullOrWhiteSpace(mic) ? "Not started" : mic;
+        var mic = MeetVault.Core.NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == micIdx).Name ?? Loc.T("Dash.WindowsDefault");
+        MicStatus.Text = string.IsNullOrWhiteSpace(mic) ? Loc.T("Dash.MicNotStarted") : mic;
         var model = AppStore.Repo.GetSetting("transcription.model") == "base" ? "base" : "tiny";
         EngineStatus.Text = model == "base" ? "base (refinement)" : "tiny (live)";
         ModelStatus.Text = EngineModels.Available
-            ? $"Multilingual {model} + diarizer ready. Live transcription runs on-device."
-            : "Speech model not downloaded. Live runs in demo mode until models arrive.";
+            ? Loc.Tf("Dash.ModelReady", model)
+            : Loc.T("Dash.ModelMissing");
     }
 
     private MeetingCard[] VisibleRows => RecentMeetings.ItemsSource as MeetingCard[] ?? Array.Empty<MeetingCard>();
@@ -44,7 +44,7 @@ public sealed partial class DashboardPage : Page
         SelectionBar.Visibility = Visibility.Visible;
         HeaderSelectSpacer.Visibility = Visibility.Visible;
         RefreshList();
-        StatusBar.Message = "Select the meetings to delete, then choose Delete selected.";
+        StatusBar.Message = Loc.T("Mtg.SelectHint");
         StatusBar.Severity = InfoBarSeverity.Informational;
         StatusBar.IsOpen = true;
     }
@@ -78,10 +78,10 @@ public sealed partial class DashboardPage : Page
         var ids = _selection.Ids.ToArray();
         var confirm = new ContentDialog
         {
-            Title = "Delete meetings?",
-            Content = $"Delete {ids.Length} meeting(s)? Their recordings and transcripts will be removed from this device.",
-            PrimaryButtonText = "Delete",
-            CloseButtonText = "Cancel",
+            Title = Loc.T("Mtg.DelTitle"),
+            Content = Loc.Tf("Mtg.DelBody", ids.Length),
+            PrimaryButtonText = Loc.T("Mtg.DelConfirm"),
+            CloseButtonText = Loc.T("Mtg.Cancel"),
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = XamlRoot,
         };
@@ -94,7 +94,7 @@ public sealed partial class DashboardPage : Page
         {
             MeetVault.Core.AppLog.Error("delete: batch delete failed", ex);
             SetBusy(false);
-            StatusBar.Message = "Could not delete the selected meetings.";
+            StatusBar.Message = Loc.T("Mtg.CouldNotDeleteSelected");
             StatusBar.Severity = InfoBarSeverity.Error;
             StatusBar.IsOpen = true;
             return;
@@ -108,13 +108,13 @@ public sealed partial class DashboardPage : Page
         if (result.FailedIds.Count == 0)
         {
             ExitSelection();
-            StatusBar.Message = $"Deleted {result.DeletedIds.Count} meeting(s).";
+            StatusBar.Message = Loc.Tf("Mtg.Deleted", result.DeletedIds.Count);
             StatusBar.Severity = InfoBarSeverity.Success;
         }
         else
         {
             RefreshList();
-            StatusBar.Message = $"{result.DeletedIds.Count} deleted, {result.FailedIds.Count} failed - the remaining meetings could not be deleted.";
+            StatusBar.Message = Loc.Tf("Mtg.Partial", result.DeletedIds.Count, result.FailedIds.Count);
             StatusBar.Severity = InfoBarSeverity.Warning;
         }
         StatusBar.IsOpen = true;
@@ -132,7 +132,7 @@ public sealed partial class DashboardPage : Page
 
     private void UpdateToolbar()
     {
-        SelectionCount.Text = $"{_selection.Count} selected";
+        SelectionCount.Text = Loc.Tf("Mtg.SelectedCount", _selection.Count);
         DeleteSelectedButton.IsEnabled = !_busy && _selection.Count > 0;
     }
 
@@ -191,7 +191,7 @@ public sealed partial class DashboardPage : Page
             main.NavigateToLive();
         else
         {
-            StatusBar.Message = "Cannot open Live from here. Use the Live item in the navigation pane.";
+            StatusBar.Message = Loc.T("Dash.CannotOpenLive");
             StatusBar.Severity = InfoBarSeverity.Warning;
             StatusBar.IsOpen = true;
         }

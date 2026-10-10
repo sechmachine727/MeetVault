@@ -181,4 +181,15 @@
   <data name="Mtg.DurHourMin" xml:space="preserve"><value>{0} h {1} min</value></data>
   <data name="Mtg.SelectedCount" xml:space="preserve"><value>{0} selected</value></data>
   <data name="Mtg.HiddenNote" xml:space="preserve"><value> {0} selected meeting(s) are hidden by the current search and will be deleted too.</value></data>
+
+  <!-- L4.2: Dashboard page code strings -->
+  <data name="Dash.GreetingMorning" xml:space="preserve"><value>Good morning — ready to capture</value></data>
+  <data name="Dash.GreetingAfternoon" xml:space="preserve"><value>Good afternoon — ready to capture</value></data>
+  <data name="Dash.GreetingEvening" xml:space="preserve"><value>Good evening — ready to capture</value></data>
+  <data name="Dash.Interrupted" xml:space="preserve"><value>'{0}' was interrupted. Resume it in Live to keep recording, or start a new meeting; this one stays as a draft.</value></data>
+  <data name="Dash.MicNotStarted" xml:space="preserve"><value>Not started</value></data>
+  <data name="Dash.WindowsDefault" xml:space="preserve"><value>Windows default</value></data>
+  <data name="Dash.ModelReady" xml:space="preserve"><value>Multilingual {0} + diarizer ready. Live transcription runs on-device.</value></data>
+  <data name="Dash.ModelMissing" xml:space="preserve"><value>Speech model not downloaded. Live runs in demo mode until models arrive.</value></data>
+  <data name="Dash.CannotOpenLive" xml:space="preserve"><value>Cannot open Live from here. Use the Live item in the navigation pane.</value></data>
 </root>

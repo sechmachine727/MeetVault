@@ -181,4 +181,15 @@
   <data name="Mtg.DurHourMin" xml:space="preserve"><value>{0} 時間 {1} 分</value></data>
   <data name="Mtg.SelectedCount" xml:space="preserve"><value>{0} 件選択</value></data>
   <data name="Mtg.HiddenNote" xml:space="preserve"><value> 現在の検索で非表示になっている選択中の会議 {0} 件も削除されます。</value></data>
+
+  <!-- L4.2: Dashboard page code strings -->
+  <data name="Dash.GreetingMorning" xml:space="preserve"><value>おはようございます — 録音の準備ができました</value></data>
+  <data name="Dash.GreetingAfternoon" xml:space="preserve"><value>こんにちは — 録音の準備ができました</value></data>
+  <data name="Dash.GreetingEvening" xml:space="preserve"><value>こんばんは — 録音の準備ができました</value></data>
+  <data name="Dash.Interrupted" xml:space="preserve"><value>「{0}」が中断されました。ライブで再開して録音を続けるか、新しい会議を開始してください。この会議は下書きとして残ります。</value></data>
+  <data name="Dash.MicNotStarted" xml:space="preserve"><value>未開始</value></data>
+  <data name="Dash.WindowsDefault" xml:space="preserve"><value>Windows 既定</value></data>
+  <data name="Dash.ModelReady" xml:space="preserve"><value>多言語 {0} + 話者分離の準備完了。文字起こしはすべてデバイス上で実行されます。</value></data>
+  <data name="Dash.ModelMissing" xml:space="preserve"><value>音声モデルが未ダウンロードです。モデルが揃うまでライブはデモモードで動作します。</value></data>
+  <data name="Dash.CannotOpenLive" xml:space="preserve"><value>ここからライブを開けません。ナビゲーションの「ライブ」を使用してください。</value></data>
 </root>
