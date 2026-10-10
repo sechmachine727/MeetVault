@@ -154,14 +154,14 @@ public sealed partial class LivePage : Page
             SetState(LiveState.Recording);
             UpdateEngineStatus(actual: true);
             RebuildSpeakers();
-            Status(_engineMode.StartsWith("live") ? "Recording. Speaker turns appear below as they are recognized." : "Demo mode: add Whisper and diarizer models to models/ for live transcription.");
+            Status(_engineMode.StartsWith("live") ? Loc.T("Live.Recording") : Loc.T("Live.DemoMode"));
         }
         catch (Exception ex)
         {
             try { if (_session is not null) { _session.MarkFailed(); _session.Dispose(); _session = null; } } catch { }
             SetState(LiveState.Idle);
             MeetVault.Core.AppLog.Error("live: start capture failed", ex);
-            Status("Could not start capture. Check the microphone in Settings. (" + Short(ex) + ")");
+            Status(Loc.Tf("Live.CouldNotStart", Short(ex)));
         }
     }
 
@@ -181,14 +181,14 @@ public sealed partial class LivePage : Page
             LiveBridge.SetLive(!_session.IsPaused); // paused recovery: the overlay must not claim "Listening…"
             UpdateEngineStatus(actual: true);
             RebuildSpeakers();
-            Status($"Resumed '{id}'. {_session.Segments.Count} line(s) restored.");
+            Status(Loc.Tf("Live.ResumedCount", id, _session.Segments.Count));
         }
         catch (Exception ex)
         {
             SetState(LiveState.Idle);
             _capture?.ClearReuse(); // a recovery that failed must not capture the next meeting into the old file
             MeetVault.Core.AppLog.Error("live: resume failed", ex);
-            Status("Could not resume this meeting. (" + Short(ex) + ")");
+            Status(Loc.Tf("Live.CouldNotResumeMeeting", Short(ex)));
         }
     }
 
@@ -225,8 +225,8 @@ public sealed partial class LivePage : Page
 
     private void RefreshAudioStatus()
         => AudioStatus.Text = _state == LiveState.Idle
-            ? $"Mic: {_micLabel}. Not recording."
-            : _state == LiveState.Paused ? $"Paused. Mic: {_micLabel}." : $"Recording from {_micLabel}.";
+            ? Loc.Tf("Live.AudioIdle", _micLabel)
+            : _state == LiveState.Paused ? Loc.Tf("Live.AudioPaused", _micLabel) : Loc.Tf("Live.AudioRecording", _micLabel);
 
     // Shows the accelerator that actually loaded once recording has begun, so a GPU that
     // silently fell back to CPU is called out rather than shown as if it were used.
@@ -259,8 +259,8 @@ public sealed partial class LivePage : Page
         {
             _speakerNames[sp.Id] = sp.DisplayName;
             var id = sp.Id;
-            var box = new TextBox { Text = sp.DisplayName, TextWrapping = TextWrapping.NoWrap, PlaceholderText = "Speaker name" };
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(box, "Rename " + sp.DisplayName);
+            var box = new TextBox { Text = sp.DisplayName, TextWrapping = TextWrapping.NoWrap, PlaceholderText = Loc.T("Live.RenamePlaceholder") };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(box, Loc.Tf("Live.RenameAutomation", sp.DisplayName));
             void Commit() { Rename(id, box.Text); }
             box.LostFocus += (_, _) => Commit();
             box.KeyDown += (_, e) => { if (e.Key == Windows.System.VirtualKey.Enter) Commit(); };
@@ -336,7 +336,7 @@ public sealed partial class LivePage : Page
                 // the resolved speaker for every segment this sentence produces (empty turns
                 // stay with the previous one).
                 _session.NoteTurnAudio(new TurnAudio(utterance.Samples16k, utterance.StartMs, utterance.EndMs));
-                DispatcherQueue.TryEnqueue(() => PartialLine.Text = "Transcribing\u2026");
+                DispatcherQueue.TryEnqueue(() => PartialLine.Text = Loc.T("Live.Transcribing"));
                 await _whisper.TranscribeWindowAsync(Pcm16.FromFloats(utterance.Samples16k), utterance.StartMs, meetingId);
                 ReportAcceleratorOnce();
             }
@@ -344,7 +344,7 @@ public sealed partial class LivePage : Page
             finally
             {
                 _transcribeGate.Release();
-                DispatcherQueue.TryEnqueue(() => PartialLine.Text = _state != LiveState.Idle ? "Listening\u2026" : "");
+                DispatcherQueue.TryEnqueue(() => PartialLine.Text = _state != LiveState.Idle ? Loc.T("Live.Listening") : "");
             }
         }
     }
@@ -404,19 +404,17 @@ public sealed partial class LivePage : Page
         // without restart keeps the first native).
         string? problem = compute switch
         {
-            null => "the " + requested + " runtime did not load",
-            "CPU" => "the requested " + requested + " GPU is not usable here",
+            null => Loc.Tf("Live.GpuRuntimeMissing", requested),
+            "CPU" => Loc.Tf("Live.GpuNotUsable", requested),
             _ when requested == GpuBackend.Cuda && !compute.StartsWith("CUDA", StringComparison.OrdinalIgnoreCase)
-                => "the loaded native is " + compute + ", so CUDA is ignored until the app is restarted",
+                => Loc.Tf("Live.GpuNativeMismatch", compute, "CUDA"),
             _ when requested == GpuBackend.Vulkan && !compute.StartsWith("Vulkan", StringComparison.OrdinalIgnoreCase)
-                => "the loaded native is " + compute + ", so Vulkan is ignored until the app is restarted",
+                => Loc.Tf("Live.GpuNativeMismatch", compute, "Vulkan"),
             _ => null,
         };
         if (problem is null) return;
         MeetVault.Core.AppLog.Warn("live: GPU not used as requested; requested=" + requested + " compute=" + (compute ?? "unknown") + " native=" + loaded);
-        Status(InfoBarSeverity.Warning,
-            "Transcription is not on the requested GPU: " + problem + ". Recording continues. "
-            + "Check the graphics device in Settings, restart the app after changing it, or see the log.");
+        Status(InfoBarSeverity.Warning, Loc.Tf("Live.GpuFallback", problem));
     }
 
     // whisper reports the compute device on its first window, not at start, so the engine line
@@ -431,7 +429,7 @@ public sealed partial class LivePage : Page
     // Capture died on its own. The meeting is still open so the user can save what was
     // recorded, but they must not be left believing the microphone is still live.
     private void OnCaptureFailed(string reason)
-        => DispatcherQueue.TryEnqueue(() => Status("Capture stopped unexpectedly (" + reason + "). Press Stop and save to keep what was recorded."));
+        => DispatcherQueue.TryEnqueue(() => Status(Loc.Tf("Live.CaptureFailed", reason)));
 
     // Closes any open speech in the segmenter and logs what is dropped, so pause, stop and
     // unload cannot silently lose the pending sentence (the recording still holds the audio).
@@ -461,9 +459,9 @@ public sealed partial class LivePage : Page
             DropPendingUtterance("pause");
             SetState(LiveState.Paused);
             LiveBridge.SetLive(false); // capture is stopped; the overlay must not claim "Listening…"
-            Status("Paused. Audio in the gap is not recorded and will not reappear on resume.");
+            Status(Loc.T("Live.Paused"));
         }
-        catch (Exception ex) { Status("Could not pause: " + Short(ex)); }
+        catch (Exception ex) { Status(Loc.Tf("Live.CouldNotPause", Short(ex))); }
     }
 
     private async void Resume_Click(object sender, RoutedEventArgs e)
@@ -486,9 +484,9 @@ public sealed partial class LivePage : Page
             _windowOffsetMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
             SetState(LiveState.Recording);
             LiveBridge.SetLive(true); // capture is back; the overlay's "Listening…" applies again
-            Status("Resumed. Capture continues after the gap.");
+            Status(Loc.T("Live.Resumed"));
         }
-        catch (Exception ex) { Status("Could not resume: " + Short(ex)); }
+        catch (Exception ex) { Status(Loc.Tf("Live.CouldNotResume", Short(ex))); }
     }
 
     private void Overlay_Click(object sender, RoutedEventArgs e) { OverlayWindow.ShowOrActivate(); }
@@ -500,10 +498,10 @@ public sealed partial class LivePage : Page
         {
             var confirm = new ContentDialog
             {
-                Title = "Stop and save this meeting?",
-                Content = "Recording stops and the meeting is saved with " + _session.Segments.Count + " line(s). You cannot add more to it afterwards.",
-                PrimaryButtonText = "Stop and save",
-                CloseButtonText = "Keep recording",
+                Title = Loc.T("Live.StopTitle"),
+                Content = Loc.Tf("Live.StopBody", _session.Segments.Count),
+                PrimaryButtonText = Loc.T("Live.StopConfirm"),
+                CloseButtonText = Loc.T("Live.KeepRecording"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = XamlRoot,
             };
@@ -516,17 +514,17 @@ public sealed partial class LivePage : Page
             LiveBridge.SetLive(false);
             _checkpoint?.Stop();
             SetState(LiveState.Idle);
-            Status($"Saved. {count} line(s) written to the local repository.");
+            Status(Loc.Tf("Live.Saved", count));
         }
-        catch (Exception ex) { Status("Could not stop: " + Short(ex)); }
+        catch (Exception ex) { Status(Loc.Tf("Live.CouldNotStop", Short(ex))); }
     }
 
     private static string Short(Exception ex) => ex switch
     {
-        InvalidOperationException => "the meeting is not active",
-        ArgumentException => "the microphone is not available",
-        Microsoft.Data.Sqlite.SqliteException { SqliteErrorCode: 8 } => "the data folder is read-only",
-        _ => "something went wrong",
+        InvalidOperationException => Loc.T("Live.ErrNotActive"),
+        ArgumentException => Loc.T("Live.ErrMicUnavailable"),
+        Microsoft.Data.Sqlite.SqliteException { SqliteErrorCode: 8 } => Loc.T("Live.ErrReadOnly"),
+        _ => Loc.T("Live.ErrGeneric"),
     };
 
     private sealed class FakeAudioCapture : IAudioCapture
