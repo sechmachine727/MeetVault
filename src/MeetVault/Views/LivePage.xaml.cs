@@ -15,7 +15,7 @@ public sealed partial class LivePage : Page
     private WhisperTranscriber? _whisper;
     private NAudioCapture? _capture;
     private readonly List<byte> _window = new();
-    private const int WindowBytes = 16000 * 2 * 6; // 6 s of 16 kHz mono
+    private const int WindowBytes = 16000 * 2 * 3; // 3 s of 16 kHz mono
     private WindowDiarizer? _windowDiarizer;
     private ISpeechTranscriber _transcriber = null!;
     private IAudioCapture _audio = null!;
