@@ -168,6 +168,11 @@ public sealed partial class DashboardPage : Page
         }
     }
 
+    // Content column: fill up to a 1100 DIP reading width and stay centered in the page.
+    // (Stretch + MaxWidth does not center reliably in WinUI 3; an explicit clamped width is deterministic.)
+    private void RootScroll_SizeChanged(object sender, SizeChangedEventArgs e)
+        => ContentColumn.Width = Math.Min(1100, e.NewSize.Width);
+
     private void RefreshList()
     {
         var cards = AppStore.Cards();
