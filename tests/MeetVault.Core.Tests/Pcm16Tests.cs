@@ -12,7 +12,8 @@ public sealed class Pcm16Tests
         var back = Pcm16.ToFloats(bytes);
         Assert.Equal(floats.Length, back.Length);
         for (var i = 0; i < floats.Length; i++)
-            Assert.True(Math.Abs(floats[i] - back[i]) < 1f / 32000f, $"sample {i}: {floats[i]} vs {back[i]}");
+            // 16-bit codec worst case is ~4.6e-5 (half-step 1/21845 at full scale); 1/16384 leaves headroom.
+            Assert.True(Math.Abs(floats[i] - back[i]) < 1f / 16384f, $"sample {i}: {floats[i]} vs {back[i]}");
     }
 
     [Fact]

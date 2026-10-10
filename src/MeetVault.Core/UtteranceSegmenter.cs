@@ -10,10 +10,12 @@ public sealed record Utterance(float[] Samples16k, long StartMs, long EndMs);
 // natural pause (silence >= MinSilenceDuration). One utterance = one transcription
 // unit = one diarization unit, which is what makes lines sentence-shaped and lets
 // the speaker be decided once per sentence instead of once per window.
+// Single-caller type: Push/Flush/Reset/Dispose are not thread-safe. Serialize calls
+// externally (LivePage drives one pump thread under its own lock).
 public sealed class UtteranceSegmenter : IDisposable
 {
     private readonly VoiceActivityDetector _vad;
-    private long _streamSamples;   // total samples fed since ctor/Reset
+    private bool _disposed;
 
     public UtteranceSegmenter(string modelPath, float minSilenceSeconds = 0.5f, float minSpeechSeconds = 0.25f, float maxSpeechSeconds = 15f)
     {
@@ -41,7 +43,6 @@ public sealed class UtteranceSegmenter : IDisposable
     public IReadOnlyList<Utterance> Push(float[] samples16k)
     {
         _vad.AcceptWaveform(samples16k);
-        _streamSamples += samples16k.Length;
         return Drain();
     }
 
@@ -52,12 +53,10 @@ public sealed class UtteranceSegmenter : IDisposable
         return Drain();
     }
 
-    // New recording segment (after a pause): timing restarts at zero.
-    public void Reset()
-    {
-        _vad.Reset();
-        _streamSamples = 0;
-    }
+    // New recording segment (after a pause): timing restarts at zero. Segments the VAD
+    // already closed but nobody drained are discarded — drain (or Flush) first to keep
+    // them; current callers do.
+    public void Reset() => _vad.Reset();
 
     private List<Utterance> Drain()
     {
@@ -71,7 +70,7 @@ public sealed class UtteranceSegmenter : IDisposable
             // chunks: starts 4192 / 97376 / 196192 (the three voice onsets), absolute
             // across 87 Push calls — sherpa keeps segment.start as an index into its
             // stream ring buffer, so no per-push rebasing is needed. (The rejected
-            // alternative was _streamSamples - _lastPushSamples + seg.Start.)
+            // alternative was rebasing by the samples fed in the last push.)
             var startSamples = seg.Start;
             var startMs = startSamples * 1000L / 16000;
             var endMs = startMs + seg.Samples.Length * 1000L / 16000;
@@ -80,5 +79,11 @@ public sealed class UtteranceSegmenter : IDisposable
         return closed;
     }
 
-    public void Dispose() => _vad.Dispose();
+    // Idempotent: extra Dispose calls are no-ops.
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _vad.Dispose();
+    }
 }
