@@ -33,42 +33,77 @@
                     <TextBlock x:Name="EngineStatus" Text="Checking..." Opacity="0.7" TextWrapping="Wrap" />
                 </StackPanel>
             </VariableSizedWrapGrid>
-            <TextBlock Text="Recent meetings" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Recent meetings" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
+                <Button Grid.Column="1" VerticalAlignment="Center" ToolTipService.ToolTip="Manage meetings"
+                        AutomationProperties.Name="Manage meetings">
+                    <Button.Flyout>
+                        <MenuFlyout Placement="BottomEdgeAlignedRight">
+                            <MenuFlyoutItem Text="Delete meetings" Click="EnterSelection_Click" />
+                        </MenuFlyout>
+                    </Button.Flyout>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE70F;" FontSize="14" />
+                        <TextBlock Text="Edit" />
+                    </StackPanel>
+                </Button>
+            </Grid>
             <!-- Card container keeps the table visually distinct from the page. -->
             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                     CornerRadius="{StaticResource OverlayCornerRadius}" Padding="12,6">
                 <StackPanel>
+                    <StackPanel x:Name="SelectionBar" Orientation="Horizontal" Spacing="8" Padding="12,6,12,2" Visibility="Collapsed">
+                        <TextBlock x:Name="SelectionCount" Text="0 selected" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <Button x:Name="SelectAllButton" Content="Select all visible" Click="SelectAll_Click" />
+                        <Button x:Name="ClearSelectionButton" Content="Clear selection" Click="ClearSelection_Click" />
+                        <Button x:Name="DeleteSelectedButton" Content="Delete selected" Click="DeleteSelected_Click" IsEnabled="False" Style="{StaticResource AccentButtonStyle}" />
+                        <Button x:Name="CancelSelectionButton" Content="Cancel" Click="CancelSelection_Click" />
+                    </StackPanel>
                     <Grid Padding="12,0,12,4" ColumnSpacing="16" Opacity="0.7">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="2*" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="Title" FontSize="12" />
-                        <TextBlock Grid.Column="1" Text="When" FontSize="12" />
-                        <TextBlock Grid.Column="2" Text="Duration" FontSize="12" MinWidth="90" />
-                        <TextBlock Grid.Column="3" Text="Status" FontSize="12" MinWidth="80" />
+                        <TextBlock x:Name="HeaderSelectSpacer" Width="32" Visibility="Collapsed" />
+                        <TextBlock Grid.Column="1" Text="Title" FontSize="12" />
+                        <TextBlock Grid.Column="2" Text="When" FontSize="12" />
+                        <TextBlock Grid.Column="3" Text="Duration" FontSize="12" MinWidth="90" />
+                        <TextBlock Grid.Column="4" Text="Status" FontSize="12" MinWidth="80" />
                     </Grid>
                     <ItemsControl x:Name="RecentMeetings">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Button Click="OpenMeeting_Click" Background="Transparent" BorderThickness="0" Padding="12,10"
+                                <Button Click="OpenMeeting_Click" Background="{Binding RowBackground}" BorderThickness="0" Padding="12,10"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" CornerRadius="4"
                                         AutomationProperties.Name="{Binding Title}"
-                                        ToolTipService.ToolTip="Select a meeting to open its details">
+                                        ToolTipService.ToolTip="{Binding RowTooltip}">
                                     <Grid ColumnSpacing="16">
                                         <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="2*" />
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="1" Text="{Binding When}" Opacity="0.7" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                        <TextBlock Grid.Column="2" Text="{Binding Duration}" Opacity="0.7" VerticalAlignment="Center" MinWidth="90" />
-                                        <TextBlock Grid.Column="3" Text="{Binding Status}" Opacity="0.7" VerticalAlignment="Center" MinWidth="80" />
+                                        <!-- The checkbox is a visual indicator; the row click toggles
+                                             selection (hit testing stays on the row button). -->
+                                        <CheckBox IsChecked="{Binding IsSelected, Mode=OneWay}" IsEnabled="{Binding IsSelectable}"
+                                                  Visibility="{Binding CheckVisibility}" IsHitTestVisible="False" IsTabStop="False"
+                                                  MinWidth="0" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="2" Text="{Binding When}" Opacity="0.7" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <TextBlock Grid.Column="3" Text="{Binding Duration}" Opacity="0.7" VerticalAlignment="Center" MinWidth="90" />
+                                        <TextBlock Grid.Column="4" Text="{Binding Status}" Opacity="0.7" VerticalAlignment="Center" MinWidth="80" />
                                     </Grid>
                                 </Button>
                             </DataTemplate>
@@ -83,4 +118,3 @@
         </StackPanel>
     </ScrollViewer>
 </Page>
-
