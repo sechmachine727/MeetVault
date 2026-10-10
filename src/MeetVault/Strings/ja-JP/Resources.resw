@@ -296,4 +296,23 @@
   <data name="Set.ErrReadOnly" xml:space="preserve"><value>データフォルダーが読み取り専用です</value></data>
   <data name="Set.ErrNotWritable" xml:space="preserve"><value>データフォルダーに書き込みできません</value></data>
   <data name="Set.ErrNotWritten" xml:space="preserve"><value>データフォルダーに書き込めませんでした</value></data>
+
+  <!-- L4.6: Overlay window code strings -->
+  <data name="Ov.Title" xml:space="preserve"><value>ライブ文字起こし</value></data>
+  <data name="Ov.Settings" xml:space="preserve"><value>オーバーレイ設定</value></data>
+  <data name="Ov.Darkness" xml:space="preserve"><value>背景の暗さ</value></data>
+  <data name="Ov.TextSize" xml:space="preserve"><value>文字サイズ</value></data>
+  <data name="Ov.Font" xml:space="preserve"><value>フォント</value></data>
+  <data name="Ov.Lines" xml:space="preserve"><value>表示行数</value></data>
+  <data name="Ov.Pin" xml:space="preserve"><value>常に最前面</value></data>
+  <data name="Ov.NoLines" xml:space="preserve"><value>文字起こしはまだありません。</value></data>
+  <data name="Ov.NotRecording" xml:space="preserve"><value>録音していません — MeetVault で「録音を開始」を押してください。</value></data>
+  <data name="Ov.Listening" xml:space="preserve"><value>聞き取り中…</value></data>
+  <data name="Ov.RenameTip" xml:space="preserve"><value>すべての行でこの話者の名前を変更します</value></data>
+  <data name="Ov.RenameTitle" xml:space="preserve"><value>話者の名前を変更</value></data>
+  <data name="Ov.Cancel" xml:space="preserve"><value>キャンセル</value></data>
+  <data name="Ov.Save" xml:space="preserve"><value>保存</value></data>
+  <data name="Ov.RenamePlaceholder" xml:space="preserve"><value>例: Alice — すべての行に反映されます</value></data>
+  <data name="Ov.On" xml:space="preserve"><value>オン</value></data>
+  <data name="Ov.Off" xml:space="preserve"><value>オフ</value></data>
 </root>

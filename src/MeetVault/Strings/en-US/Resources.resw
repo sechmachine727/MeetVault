@@ -296,4 +296,23 @@
   <data name="Set.ErrReadOnly" xml:space="preserve"><value>the data folder is read-only</value></data>
   <data name="Set.ErrNotWritable" xml:space="preserve"><value>the data folder is not writable</value></data>
   <data name="Set.ErrNotWritten" xml:space="preserve"><value>the data folder could not be written</value></data>
+
+  <!-- L4.6: Overlay window code strings -->
+  <data name="Ov.Title" xml:space="preserve"><value>Live transcript</value></data>
+  <data name="Ov.Settings" xml:space="preserve"><value>Overlay settings</value></data>
+  <data name="Ov.Darkness" xml:space="preserve"><value>Background darkness</value></data>
+  <data name="Ov.TextSize" xml:space="preserve"><value>Text size</value></data>
+  <data name="Ov.Font" xml:space="preserve"><value>Text font</value></data>
+  <data name="Ov.Lines" xml:space="preserve"><value>Lines shown</value></data>
+  <data name="Ov.Pin" xml:space="preserve"><value>Keep above other windows</value></data>
+  <data name="Ov.NoLines" xml:space="preserve"><value>No transcript lines yet.</value></data>
+  <data name="Ov.NotRecording" xml:space="preserve"><value>Not recording — press Start recording in MeetVault.</value></data>
+  <data name="Ov.Listening" xml:space="preserve"><value>Listening…</value></data>
+  <data name="Ov.RenameTip" xml:space="preserve"><value>Rename this speaker on every line</value></data>
+  <data name="Ov.RenameTitle" xml:space="preserve"><value>Rename speaker</value></data>
+  <data name="Ov.Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Ov.Save" xml:space="preserve"><value>Save</value></data>
+  <data name="Ov.RenamePlaceholder" xml:space="preserve"><value>e.g. Alice — updates every line</value></data>
+  <data name="Ov.On" xml:space="preserve"><value>On</value></data>
+  <data name="Ov.Off" xml:space="preserve"><value>Off</value></data>
 </root>
