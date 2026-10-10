@@ -284,12 +284,12 @@
   <data name="Set.AudioSysOnly" xml:space="preserve"><value>システム音声（{0}）のみを録音しています。</value></data>
   <data name="Set.AudioNone" xml:space="preserve"><value>有効な音声ソースがありません。何も録音されません。</value></data>
   <data name="Set.GpuNote" xml:space="preserve"><value> · 利用可能: {0}</value></data>
-  <data name="Set.TranscriptionStatus" xml:space="preserve"><value>{1} で {0} · 話者分離 {2}</value></data>
-  <data name="Set.LogWriting" xml:space="preserve"><value>{1} に {0} 以上を書き込みます</value></data>
+  <data name="Set.TranscriptionStatus" xml:space="preserve"><value>{0}（{1} で）· 話者分離 {2}</value></data>
+  <data name="Set.LogWriting" xml:space="preserve"><value>{0} 以上を {1} に書き込みます</value></data>
   <data name="Set.OverlayStatus" xml:space="preserve"><value>常に最前面 {0} · 不透明度 {1} · 文字サイズ {2} pt · {3} 行</value></data>
   <data name="Set.StorageStatus" xml:space="preserve"><value>文字起こしは {0} に書き込まれます。</value></data>
   <data name="Set.UsageNone" xml:space="preserve"><value>使用量: 0 B — フォルダーはまだ存在しません。</value></data>
-  <data name="Set.UsageMb" xml:space="preserve"><value>使用量: {1} の {0} MB</value></data>
+  <data name="Set.UsageMb" xml:space="preserve"><value>使用量: {0} MB（{1} 内）</value></data>
   <data name="Set.UsageUnavailable" xml:space="preserve"><value>使用量: 取得できません。</value></data>
   <data name="Set.GeminiNoKey" xml:space="preserve"><value>資格情報ロッカーにキーがありません。</value></data>
   <data name="Set.SaveFailed" xml:space="preserve"><value>設定をディスクに保存できませんでした（{0}）。変更はこのセッションにのみ適用され、保存されません。</value></data>

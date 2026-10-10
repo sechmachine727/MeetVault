@@ -53,4 +53,27 @@ public sealed class LocalizationResourceTests
                 Assert.True(en.ContainsKey(m.Groups[1].Value), Path.GetFileName(file) + ": Loc key missing from resw: " + m.Groups[1].Value);
         }
     }
+
+    [Fact]
+    public void Placeholders_HaveParityAcrossLanguages()
+    {
+        var en = Load("en-US"); var ja = Load("ja-JP");
+        foreach (var (key, enValue) in en)
+        {
+            if (!ja.TryGetValue(key, out var jaValue)) continue; // key parity is guarded by BothLanguages_HaveIdenticalKeys_NoEmptyValues
+            var enTokens = PlaceholderTokens(enValue);
+            var jaTokens = PlaceholderTokens(jaValue);
+            Assert.True(enTokens.SequenceEqual(jaTokens),
+                key + ": placeholder mismatch — en=[" + string.Join(", ", enTokens) + "] ja=[" + string.Join(", ", jaTokens) + "]");
+        }
+    }
+
+    // Ordered {n} tokens of a composite-format value. {{ and }} are escaped literal braces,
+    // not placeholders, so strip the escapes first (otherwise "{{0}}" would parse as token 0).
+    private static List<string> PlaceholderTokens(string value)
+    {
+        var normalized = value.Replace("{{", "").Replace("}}", "");
+        return System.Text.RegularExpressions.Regex.Matches(normalized, "\\{(\\d+)\\}")
+            .Select(m => m.Groups[1].Value).ToList();
+    }
 }
