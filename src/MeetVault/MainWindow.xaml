@@ -18,8 +18,8 @@
         <NavigationView x:Name="Nav" Grid.Row="1" PaneDisplayMode="Auto" IsBackButtonVisible="Collapsed" SelectionChanged="Nav_SelectionChanged">
             <NavigationView.MenuItems>
                 <NavigationViewItem x:Uid="NavDashboard" Tag="dashboard" Icon="Home" />
-                <NavigationViewItem Content="Live" Tag="live" Icon="Microphone" />
-                <NavigationViewItem Content="Meetings" Tag="meetings" Icon="Library" />
+                <NavigationViewItem x:Uid="NavLive" Tag="live" Icon="Microphone" />
+                <NavigationViewItem x:Uid="NavMeetings" Tag="meetings" Icon="Library" />
             </NavigationView.MenuItems>
             <Frame x:Name="RootFrame" />
         </NavigationView>
