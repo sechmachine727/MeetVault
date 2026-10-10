@@ -127,7 +127,6 @@ public sealed partial class DashboardPage : Page
         SelectAllButton.IsEnabled = !busy;
         ClearSelectionButton.IsEnabled = !busy;
         CancelSelectionButton.IsEnabled = !busy;
-        DeleteSelectedButton.Content = busy ? "Deleting..." : "Delete selected";
         UpdateToolbar();
     }
 

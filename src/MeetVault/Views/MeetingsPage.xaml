@@ -19,10 +19,7 @@
                             <MenuFlyoutItem Text="Delete meetings" Click="EnterSelection_Click" />
                         </MenuFlyout>
                     </Button.Flyout>
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon Glyph="&#xE70F;" FontSize="14" />
-                        <TextBlock Text="Edit" />
-                    </StackPanel>
+                    <FontIcon Glyph="&#xE70F;" FontSize="14" />
                 </Button>
             </Grid>
             <TextBlock x:Name="EmptyState" Text="No meetings yet. Start one to populate this list." Visibility="Collapsed" TextWrapping="Wrap" />
@@ -33,13 +30,25 @@
                 <StackPanel>
                     <StackPanel x:Name="SelectionBar" Orientation="Horizontal" Spacing="8" Padding="12,6,12,2" Visibility="Collapsed">
                         <TextBlock x:Name="SelectionCount" Text="0 selected" FontWeight="SemiBold" VerticalAlignment="Center" />
-                        <Button x:Name="SelectAllButton" Content="Select all visible" Click="SelectAll_Click" />
-                        <Button x:Name="ClearSelectionButton" Content="Clear selection" Click="ClearSelection_Click" />
-                        <Button x:Name="DeleteSelectedButton" Content="Delete selected" Click="DeleteSelected_Click" IsEnabled="False" Style="{StaticResource AccentButtonStyle}" />
-                        <Button x:Name="CancelSelectionButton" Content="Cancel" Click="CancelSelection_Click">
+                        <Button x:Name="SelectAllButton" Click="SelectAll_Click"
+                                ToolTipService.ToolTip="Select all visible meetings" AutomationProperties.Name="Select all visible">
+                            <FontIcon Glyph="&#xE73A;" FontSize="14" />
+                        </Button>
+                        <Button x:Name="ClearSelectionButton" Click="ClearSelection_Click"
+                                ToolTipService.ToolTip="Clear the selection" AutomationProperties.Name="Clear selection">
+                            <FontIcon Glyph="&#xE8E6;" FontSize="14" />
+                        </Button>
+                        <Button x:Name="DeleteSelectedButton" Click="DeleteSelected_Click" IsEnabled="False"
+                                ToolTipService.ToolTip="Delete the selected meetings" AutomationProperties.Name="Delete selected"
+                                Foreground="{ThemeResource SystemFillColorCriticalBrush}">
+                            <FontIcon Glyph="&#xE74D;" FontSize="14" />
+                        </Button>
+                        <Button x:Name="CancelSelectionButton" Click="CancelSelection_Click"
+                                ToolTipService.ToolTip="Cancel selection mode" AutomationProperties.Name="Cancel selection">
                             <Button.KeyboardAccelerators>
                                 <KeyboardAccelerator Key="Escape" />
                             </Button.KeyboardAccelerators>
+                            <FontIcon Glyph="&#xE711;" FontSize="14" />
                         </Button>
                     </StackPanel>
                     <Grid Padding="12,0,12,4" ColumnSpacing="16" Opacity="0.7">
@@ -47,15 +56,17 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="2*" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="96" />
+                            <ColumnDefinition Width="100" />
+                            <!-- Reserves the row delete slot (button 40 + row gap 8) so the
+                                 header columns sit exactly above the row columns. -->
+                            <ColumnDefinition Width="48" />
                         </Grid.ColumnDefinitions>
                         <TextBlock x:Name="HeaderSelectSpacer" Width="32" Visibility="Collapsed" />
                         <TextBlock Grid.Column="1" Text="Title" FontSize="12" />
-                        <TextBlock Grid.Column="2" Text="When" FontSize="12" />
-                        <TextBlock Grid.Column="3" Text="Duration" FontSize="12" MinWidth="90" />
-                        <TextBlock Grid.Column="4" Text="Status" FontSize="12" MinWidth="80" />
+                        <TextBlock Grid.Column="2" Text="Created at" FontSize="12" />
+                        <TextBlock Grid.Column="3" Text="Duration" FontSize="12" HorizontalAlignment="Center" />
+                        <TextBlock Grid.Column="4" Text="Status" FontSize="12" HorizontalAlignment="Center" />
                     </Grid>
                     <ItemsControl x:Name="MeetingList">
                         <ItemsControl.ItemTemplate>
@@ -65,7 +76,7 @@
                                 <Grid ColumnSpacing="8">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="40" />
                                     </Grid.ColumnDefinitions>
                                     <Button Click="OpenMeeting_Click" Background="{Binding RowBackground}" BorderThickness="0" Padding="12,10"
                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" CornerRadius="4"
@@ -76,8 +87,8 @@
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="2*" />
                                                 <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="96" />
+                                                <ColumnDefinition Width="100" />
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <!-- The checkbox is a visual indicator; the row click toggles
@@ -86,15 +97,19 @@
                                                       Visibility="{Binding CheckVisibility}" IsHitTestVisible="False" IsTabStop="False"
                                                       MinWidth="0" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="2" Text="{Binding When}" Opacity="0.7" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                            <TextBlock Grid.Column="3" Text="{Binding Duration}" Opacity="0.7" VerticalAlignment="Center" MinWidth="90" />
-                                            <TextBlock Grid.Column="4" Text="{Binding Status}" Opacity="0.7" VerticalAlignment="Center" MinWidth="80" />
+                                            <TextBlock Grid.Column="2" Text="{Binding CreatedAt}" Opacity="0.7" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                            <TextBlock Grid.Column="3" Text="{Binding Duration}" Opacity="0.7" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                            <TextBlock Grid.Column="4" Text="{Binding Status}" Opacity="0.7" VerticalAlignment="Center" HorizontalAlignment="Center" />
                                         </Grid>
                                     </Button>
-                                    <Button Grid.Column="1" Content="Delete" Click="DeleteMeeting_Click" VerticalAlignment="Center" Visibility="{Binding DeleteVisibility}"
+                                    <Button Grid.Column="1" Click="DeleteMeeting_Click" VerticalAlignment="Center" Visibility="{Binding DeleteVisibility}"
+                                            Width="40" Padding="0"
                                             AutomationProperties.Name="Delete"
                                             AutomationProperties.HelpText="{Binding Title}"
-                                            ToolTipService.ToolTip="Delete this meeting and its recording" />
+                                            ToolTipService.ToolTip="Delete this meeting and its recording"
+                                            Foreground="{ThemeResource SystemFillColorCriticalBrush}">
+                                        <FontIcon Glyph="&#xE74D;" FontSize="16" />
+                                    </Button>
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

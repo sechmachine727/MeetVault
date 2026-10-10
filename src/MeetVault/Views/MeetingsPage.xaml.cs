@@ -10,14 +10,14 @@ namespace MeetVault.Views;
 /// <summary>Display projection of a <see cref="Meeting"/>; keeps formatted text out of the XAML.</summary>
 public sealed class MeetingCard : INotifyPropertyChanged
 {
-    public MeetingCard(string id, string title, string when, string duration, string status, bool isDraft)
+    public MeetingCard(string id, string title, string createdAt, string duration, string status, bool isDraft)
     {
-        Id = id; Title = title; When = when; Duration = duration; Status = status; IsDraft = isDraft;
+        Id = id; Title = title; CreatedAt = createdAt; Duration = duration; Status = status; IsDraft = isDraft;
     }
 
     public string Id { get; }
     public string Title { get; }
-    public string When { get; }
+    public string CreatedAt { get; }
     public string Duration { get; }
     public string Status { get; }
     public bool IsDraft { get; }
@@ -228,7 +228,6 @@ public sealed partial class MeetingsPage : Page
         SelectAllButton.IsEnabled = !busy;
         ClearSelectionButton.IsEnabled = !busy;
         CancelSelectionButton.IsEnabled = !busy;
-        DeleteSelectedButton.Content = busy ? "Deleting..." : "Delete selected";
         UpdateToolbar();
     }
 
