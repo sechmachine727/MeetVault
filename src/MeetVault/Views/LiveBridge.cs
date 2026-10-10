@@ -13,6 +13,18 @@ public static class LiveBridge
     public static event Action<string, string>? Renamed;      // oldName, newName (page -> overlay)
     public static Func<string, string, bool>? RenameByName;   // oldName, newName -> handled
 
+    // Whether a recording session is currently open (set by LivePage). The overlay
+    // uses it to explain an empty conversation instead of looking silently broken.
+    public static bool IsLive { get; private set; }
+    public static event Action<bool>? LiveChanged;
+
+    public static void SetLive(bool live)
+    {
+        if (IsLive == live) return;
+        IsLive = live;
+        LiveChanged?.Invoke(live);
+    }
+
     public static void Publish(string speaker, string text)
     {
         lock (RecentLines)

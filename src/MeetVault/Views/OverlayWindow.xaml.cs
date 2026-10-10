@@ -186,7 +186,8 @@ public sealed partial class OverlayWindow : Window
         LiveBridge.LineAdded += OnLiveLine;
         LiveBridge.Cleared += OnLiveCleared;
         LiveBridge.Renamed += OnRenamed;
-        Closed += (_, _) => { LiveBridge.LineAdded -= OnLiveLine; LiveBridge.Cleared -= OnLiveCleared; LiveBridge.Renamed -= OnRenamed; _acrylic?.Dispose(); };
+        LiveBridge.LiveChanged += OnLiveChanged;
+        Closed += (_, _) => { LiveBridge.LineAdded -= OnLiveLine; LiveBridge.Cleared -= OnLiveCleared; LiveBridge.Renamed -= OnRenamed; LiveBridge.LiveChanged -= OnLiveChanged; _acrylic?.Dispose(); };
         foreach (var (speaker, text) in LiveBridge.Recent()) Vm.AddLine(speaker, text); // catch up mid-meeting
         RefreshListState();
         BuildConversation();
@@ -217,6 +218,9 @@ public sealed partial class OverlayWindow : Window
 
     private void OnRenamed(string oldName, string newName)
         => DispatcherQueue.TryEnqueue(() => { Vm.RenameSpeaker(oldName, newName); BuildConversation(); });
+
+    private void OnLiveChanged(bool live)
+        => DispatcherQueue.TryEnqueue(BuildConversation);
 
     public OverlayViewModel Vm { get; }
 
@@ -365,6 +369,9 @@ public sealed partial class OverlayWindow : Window
         _conversationPanel.Children.Clear();
         if (Vm.Lines.Count == 0)
         {
+            _noLines.Text = LiveBridge.IsLive
+                ? "Listening\u2026"
+                : "Not recording \u2014 press Start recording in MeetVault.";
             _conversationPanel.Children.Add(_noLines);
             return;
         }

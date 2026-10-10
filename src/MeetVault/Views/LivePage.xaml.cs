@@ -62,6 +62,7 @@ public sealed partial class LivePage : Page
         LiveBridge.RenameByName = null;
         try { if (_state != LiveState.Idle && _session is not null) await _session.PauseAsync(); } catch { }
         try { await _transcribeGate.WaitAsync(); _transcribeGate.Release(); } catch { } // drain in-flight window
+        LiveBridge.SetLive(false); // leaving Live ends active transcription
         try { _capture?.Dispose(); } catch { }
         try { _whisper?.Dispose(); } catch { }
         try { _sherpaDiarizer?.Dispose(); } catch { }
@@ -176,6 +177,7 @@ public sealed partial class LivePage : Page
         _session!.LiveSegment += OnLiveSegment;
         if (clearOverlay) LiveBridge.Clear();
         LiveBridge.RenameByName = RenameByDisplayName;
+        LiveBridge.SetLive(true); // overlay shows "Listening…" instead of looking dead
         StartCheckpointTimer();
     }
 
@@ -429,6 +431,7 @@ public sealed partial class LivePage : Page
             var count = _session.Segments.Count;
             _session.Dispose(); // unsubscribe from the shared transcriber before dropping it
             _session = null;
+            LiveBridge.SetLive(false);
             _checkpoint?.Stop();
             SetState(LiveState.Idle);
             Status($"Saved. {count} line(s) written to the local repository.");
