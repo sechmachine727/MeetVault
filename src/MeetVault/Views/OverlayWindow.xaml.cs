@@ -12,6 +12,7 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
 using Windows.System;
+using WinRT;
 
 namespace MeetVault.Views;
 
@@ -23,14 +24,23 @@ public sealed partial class OverlayWindow : Window
     [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(IntPtr hWnd);
 
+    // DWM draws a 1px frame (and shadow) around an Overlapped window even with
+    // the content extended into the title bar; DWMWA_COLOR_NONE suppresses it.
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+    private const int DwmwaBorderColor = 34;
+    private const int DwmwaColorNone = unchecked((int)0xFFFFFFFE);
+
     private readonly OverlappedPresenter _presenter;
     private readonly double _scale;
+    private Microsoft.UI.Composition.SystemBackdrops.DesktopAcrylicController? _acrylic;
     // Veil is code-built, not XAML: this file's XamlCompiler rejects new direct
     // children of the root Grid (bisected: Border and Rectangle both exit 1).
     // The Backdrop slider is code-built too: x:Bind TwoWay inside Button.Flyout
     // never pushed values back to Vm.Opacity (proven: identical pixels at 1.0/0.3).
     private readonly SolidColorBrush _veil = new(Colors.Black);
-    private readonly Slider _backdropSlider = new() { Minimum = 0.3, Maximum = 1, StepFrequency = 0.05 };
+    private readonly Slider _backdropSlider = new() { Minimum = 0, Maximum = 1, StepFrequency = 0.05 };
     // YouTube-style caption: one transparent button wrapping a centered text
     // block (code-built — XamlCompiler 1.8 rejects new direct children of the
     // root Grid in XAML; Border AND Rectangle both bisected exit-1).
@@ -61,13 +71,12 @@ public sealed partial class OverlayWindow : Window
         InitializeComponent();
         SeedFromSettings();
         _veil.Opacity = Vm.Opacity;
-        // Desktop see-through: WinUI 3's ONLY supported path is a SystemBackdrop.
-        // AcrylicBrush is in-app acrylic (never shows the desktop), and the HWND
-        // tricks both fail on this runtime — LWA_COLORKEY does not compose through
-        // DirectComposition and WCA_ACCENT_POLICY (TRANSPARENTGRADIENT/BLURBEHIND)
-        // is ignored; pixel captures with the veil at 0 rendered solid black for
-        // all three. The black veil sits above the backdrop and is the user's
-        // darkness control; content paints above both.
+        // Plain see-through: no material, no blur, no tint. AcrylicBrush is
+        // in-app only, DesktopAcrylic tints+blurs, and the HWND tricks
+        // (LWA_COLORKEY, WCA_ACCENT_POLICY) are ignored on this runtime — so
+        // the window backdrop is a fully transparent composition brush and the
+        // DWM frame is suppressed. At zero darkness only the content remains;
+        // the black veil is the user's depth control and paints under content.
         var veilHost = new Grid { Background = _veil };
         Grid.SetRowSpan(veilHost, 3);
         RootSurface.Children.Insert(0, veilHost);
@@ -118,12 +127,41 @@ public sealed partial class OverlayWindow : Window
             bar.ButtonBackgroundColor = Colors.Transparent;
             bar.ButtonInactiveBackgroundColor = Colors.Transparent;
         }
-        // Desktop-see-through material: applied after the window loads — a
-        // SystemBackdrop set in the ctor can be dropped when the presenter /
-        // title bar are configured (probe 2026-10-10: ctor-set backdrop left
-        // the window at the default theme gray, proven with a pure-green
-        // background directly behind the strip).
-        RootSurface.Loaded += (_, _) => { SystemBackdrop = new DesktopAcrylicBackdrop(); UpdateDragRects(); };
+        // Applied after the window loads: a ctor-set backdrop is dropped when
+        // the presenter / title bar are configured (probe 2026-10-10 — a
+        // ctor-set backdrop left the window at the default theme grey, proven
+        // with a pure-green background directly behind the strip).
+        RootSurface.Loaded += (_, _) =>
+        {
+            // WinUI 3 only composites the desktop through a *material*: a plain
+            // colour-brush backdrop renders opaque black (proven with a pure-green
+            // window behind the strip), and all HWND tricks are ignored. So the
+            // see-through comes from Desktop Acrylic with tint and luminosity
+            // turned off and the thin variant — at zero darkness the strip is
+            // essentially the desktop behind it, and the veil adds the darkness.
+            // Applied after load: a backdrop set in the ctor is dropped.
+            var supportsAcrylic = Microsoft.UI.Composition.SystemBackdrops.DesktopAcrylicController.IsSupported();
+            if (supportsAcrylic)
+            {
+                _acrylic = new Microsoft.UI.Composition.SystemBackdrops.DesktopAcrylicController
+                {
+                    Kind = Microsoft.UI.Composition.SystemBackdrops.DesktopAcrylicKind.Thin,
+                    TintColor = Colors.Black,
+                    TintOpacity = 0f,
+                    LuminosityOpacity = 0f,
+                    FallbackColor = Colors.Black,
+                };
+                _acrylic.AddSystemBackdropTarget(this.As<Microsoft.UI.Composition.ICompositionSupportsSystemBackdrop>());
+                _acrylic.SetSystemBackdropConfiguration(
+                    new Microsoft.UI.Composition.SystemBackdrops.SystemBackdropConfiguration { IsInputActive = true });
+            }
+            else
+            {
+                SystemBackdrop = new DesktopAcrylicBackdrop();
+            }
+            SuppressWindowFrame(hwnd);
+            UpdateDragRects();
+        };
         RootSurface.SizeChanged += (_, _) => UpdateDragRects();
         _presenter = (OverlappedPresenter)AppWindow.Presenter;
         _presenter.IsAlwaysOnTop = Vm.IsPinned;
@@ -131,7 +169,7 @@ public sealed partial class OverlayWindow : Window
         LiveBridge.LineAdded += OnLiveLine;
         LiveBridge.Cleared += OnLiveCleared;
         LiveBridge.Renamed += OnRenamed;
-        Closed += (_, _) => { LiveBridge.LineAdded -= OnLiveLine; LiveBridge.Cleared -= OnLiveCleared; LiveBridge.Renamed -= OnRenamed; };
+        Closed += (_, _) => { LiveBridge.LineAdded -= OnLiveLine; LiveBridge.Cleared -= OnLiveCleared; LiveBridge.Renamed -= OnRenamed; _acrylic?.Dispose(); };
         foreach (var (speaker, text) in LiveBridge.Recent()) Vm.AddLine(speaker, text); // catch up mid-meeting
         RefreshListState();
         RefreshCaption();
@@ -164,6 +202,12 @@ public sealed partial class OverlayWindow : Window
 
     private void Pin_Click(object sender, RoutedEventArgs e)
         => _presenter.IsAlwaysOnTop = ((ToggleButton)sender).IsChecked == true;
+
+    private static void SuppressWindowFrame(IntPtr hwnd)
+    {
+        var none = DwmwaColorNone;
+        _ = DwmSetWindowAttribute(hwnd, DwmwaBorderColor, ref none, sizeof(int));
+    }
 
     // Extending content into the title bar removes the default drag region,
     // so the header is the drag handle. Recomputed on resize for DPI moves.
