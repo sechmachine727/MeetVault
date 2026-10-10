@@ -17,12 +17,20 @@ public sealed partial class LivePage : Page
     private readonly List<byte> _window = new();
     private const int WindowBytes = 16000 * 2 * 3; // 3 s of 16 kHz mono
     private SherpaDiarizer? _sherpaDiarizer;
+    private UtteranceSegmenter? _utterances;
     private ISpeechTranscriber _transcriber = null!;
     private IAudioCapture _audio = null!;
     private ISpeakerDiarizer _diarizer = null!;
     private string _engineMode = "demo (no models)";
     private static readonly string ModelDir = Path.Combine(AppContext.BaseDirectory, "models");
     private long _windowOffsetMs;
+    // Adjustment (A): VAD stream time restarts at zero after Reset, so raw utterance times are
+    // relative to the current recording segment; this anchors them to the meeting timeline.
+    private long _utteranceBaseMs;
+    // Adjustment (B): the capture pump can deliver late frames (StopCore joins it with a 1 s
+    // timeout) while Pause/Resume/unload mutate the segmenter; every _utterances touch is
+    // serialized on this lock.
+    private readonly object _vadLock = new();
     private readonly Dictionary<string, string> _speakerNames = new();
     private string _micLabel = "not started";
     private string _modelLabel = "tiny";
@@ -66,6 +74,7 @@ public sealed partial class LivePage : Page
         try { _capture?.Dispose(); } catch { }
         try { _whisper?.Dispose(); } catch { }
         try { _sherpaDiarizer?.Dispose(); } catch { }
+        try { lock (_vadLock) { _utterances?.Dispose(); _utterances = null; } } catch { }
     }
 
     // Engines resolve at load; recording starts only on an explicit action or a resume.
@@ -87,6 +96,9 @@ public sealed partial class LivePage : Page
             var (backend, deviceIndex) = TranscriptionDevice.Parse(AppStore.Repo.GetSetting("transcription.device"));
             whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile), "auto", backend, deviceIndex);
             capture = new NAudioCapture();
+            var vadModel = Path.Combine(ModelDir, "silero_vad.onnx");
+            _utterances = File.Exists(vadModel) ? new UtteranceSegmenter(vadModel) : null;
+            if (_utterances is null) MeetVault.Core.AppLog.Warn("live: silero_vad.onnx missing; falling back to 3 s windows");
             if (AppStore.Repo.GetSetting("transcription.diarization") != "off")
             {
                 sherpaDiarizer = new SherpaDiarizer(Path.Combine(ModelDir, "sherpa-seg.onnx"), Path.Combine(ModelDir, "sherpa-emb.onnx"));
@@ -104,6 +116,7 @@ public sealed partial class LivePage : Page
             try { capture?.Dispose(); } catch { }
             try { whisper?.Dispose(); } catch { }
             try { sherpaDiarizer?.Dispose(); } catch { }
+            try { lock (_vadLock) { _utterances?.Dispose(); _utterances = null; } } catch { }
             _whisper = null; _capture = null; _sherpaDiarizer = null;
             _engineMode = "demo (engine init failed)";
             MeetVault.Core.AppLog.Error("live: engine init failed; running demo");
@@ -132,6 +145,11 @@ public sealed partial class LivePage : Page
             await _session.StartAsync(MicId, AppSource, CancellationToken.None);
             WireSession(clearOverlay: true);
             _windowOffsetMs = 0;
+            _utteranceBaseMs = 0;
+            // Extra guard (beyond the mandated adjustments): a Stop -> Start in the same page
+            // must not inherit the previous meeting's VAD stream counter, which would offset
+            // every raw utterance time. At a fresh start the stream is empty, so this is a no-op.
+            lock (_vadLock) { _utterances?.Reset(); }
             _acceleratorReported = false;
             SetState(LiveState.Recording);
             UpdateEngineStatus(actual: true);
@@ -157,6 +175,7 @@ public sealed partial class LivePage : Page
             foreach (var s in _session.Segments) AddLine(s.SpeakerId, s.Text);
             WireSession(clearOverlay: false); // keep the recovered backlog for a late-opened overlay
             _windowOffsetMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
+            _utteranceBaseMs = _windowOffsetMs; // adjustment (A): recovered audio continues on the same timeline
             _acceleratorReported = false;
             SetState(_session.IsPaused ? LiveState.Paused : LiveState.Recording);
             UpdateEngineStatus(actual: true);
@@ -264,44 +283,68 @@ public sealed partial class LivePage : Page
     private async void OnPcm(byte[] chunk)
     {
         if (_whisper is null || !_whisper.IsRunning) return;
-        lock (_window) _window.AddRange(chunk);
-        byte[] window;
-        lock (_window)
+        var samples = Pcm16.ToFloats(chunk);
+        IReadOnlyList<Utterance> utterances;
+        if (_utterances is not null)
         {
-            if (_window.Count < WindowBytes) return;
-            window = _window.ToArray();
-            _window.Clear();
+            // Adjustment (B): the pump can deliver a late frame while Pause/Resume/unload mutate
+            // the segmenter, so every _utterances touch is serialized on _vadLock. The Push is
+            // synchronous at the top of the callback, before any await, exactly as before.
+            lock (_vadLock) utterances = _utterances.Push(samples);
+            // Adjustment (A): the VAD's stream clock restarts at zero after Reset (pause/resume),
+            // so raw utterance times are rebased onto the meeting timeline here. For the first
+            // recording segment _utteranceBaseMs is 0 and this is the identity map.
+            utterances = utterances.Select(u => new Utterance(u.Samples16k, _utteranceBaseMs + u.StartMs, _utteranceBaseMs + u.EndMs)).ToList();
         }
-        var windowMs = window.Length / 32;
-        var start = _windowOffsetMs;
-        _windowOffsetMs = start + windowMs;
-        // Leave the capture pump before the diarizer and whisper run: both are synchronous up
-        // to their first await, and running them here would stall the thread that writes the
-        // archive, which then drops source audio and loses wall-clock duration.
-        await Task.Yield();
-        if (!await _transcribeGate.WaitAsync(0))
+        else
         {
-            // Transcription is behind real time and this window cannot wait. The recording
-            // still holds the audio; the transcript loses it, so it must be visible in the log.
-            var dropped = System.Threading.Interlocked.Increment(ref _droppedWindows);
-            MeetVault.Core.AppLog.Warn("live: transcription behind real time, dropped " + (windowMs / 1000.0).ToString("0.0") + "s window (total " + dropped + ")");
-            return;
+            // Fallback: the old fixed 3 s window behavior when the VAD model is absent.
+            lock (_window) _window.AddRange(chunk);
+            byte[] w;
+            lock (_window)
+            {
+                if (_window.Count < WindowBytes) return;
+                w = _window.ToArray();
+                _window.Clear();
+            }
+            // Old semantics preserved: _windowOffsetMs advances the moment the window is cut,
+            // even when the transcribe gate later drops it.
+            var startMs = _windowOffsetMs;
+            var endMs = startMs + w.Length / 32;
+            _windowOffsetMs = endMs;
+            utterances = new[] { new Utterance(Pcm16.ToFloats(w), startMs, endMs) };
         }
-        try
+        foreach (var utterance in utterances)
         {
-            if (_session?.MeetingId is not { Length: > 0 } meetingId) return;
-            // One diarization per finalized 3 s turn; the session keeps the resolved speaker
-            // for every segment this window produces (empty turns stay with the previous one).
-            _session.NoteTurnAudio(new TurnAudio(ToFloats16k(window), start, start + windowMs));
-            DispatcherQueue.TryEnqueue(() => PartialLine.Text = "Transcribing\u2026");
-            await _whisper.TranscribeWindowAsync(window, start, meetingId);
-            ReportAcceleratorOnce();
-        }
-        catch { }
-        finally
-        {
-            _transcribeGate.Release();
-            DispatcherQueue.TryEnqueue(() => PartialLine.Text = _state != LiveState.Idle ? "Listening\u2026" : "");
+            // Leave the capture pump before the diarizer and whisper run: both are synchronous up
+            // to their first await, and running them here would stall the thread that writes the
+            // archive, which then drops source audio and loses wall-clock duration.
+            await Task.Yield();
+            if (!await _transcribeGate.WaitAsync(0))
+            {
+                // Transcription is behind real time and this utterance cannot wait. The recording
+                // still holds the audio; the transcript loses it, so it must be visible in the log.
+                var dropped = System.Threading.Interlocked.Increment(ref _droppedWindows);
+                MeetVault.Core.AppLog.Warn("live: transcription behind real time, dropped " + ((utterance.EndMs - utterance.StartMs) / 1000.0).ToString("0.0") + "s utterance (total " + dropped + ")");
+                continue;
+            }
+            try
+            {
+                if (_session?.MeetingId is not { Length: > 0 } meetingId) return;
+                // One diarization + one transcription per finalized utterance; the session keeps
+                // the resolved speaker for every segment this sentence produces (empty turns
+                // stay with the previous one).
+                _session.NoteTurnAudio(new TurnAudio(utterance.Samples16k, utterance.StartMs, utterance.EndMs));
+                DispatcherQueue.TryEnqueue(() => PartialLine.Text = "Transcribing\u2026");
+                await _whisper.TranscribeWindowAsync(Pcm16.FromFloats(utterance.Samples16k), utterance.StartMs, meetingId);
+                ReportAcceleratorOnce();
+            }
+            catch { }
+            finally
+            {
+                _transcribeGate.Release();
+                DispatcherQueue.TryEnqueue(() => PartialLine.Text = _state != LiveState.Idle ? "Listening\u2026" : "");
+            }
         }
     }
 
@@ -393,7 +436,26 @@ public sealed partial class LivePage : Page
     {
         if (_state != LiveState.Recording || _session is null) return;
         lock (_window) _window.Clear();
-        try { await _session.PauseAsync(); SetState(LiveState.Paused); Status("Paused. Audio in the gap is not recorded and will not reappear on resume."); }
+        try
+        {
+            await _session.PauseAsync();
+            // Adjustment (B): the VAD may hold an open utterance at the pause point. Close it and
+            // drop it - its audio is not transcribed (the recording keeps it), so the loss must be
+            // visible in the log. Reset restarts the stream clock for the post-pause segment.
+            lock (_vadLock)
+            {
+                if (_utterances is not null)
+                {
+                    var pending = _utterances.Flush();
+                    long droppedMs = 0;
+                    foreach (var u in pending) droppedMs += u.EndMs - u.StartMs;
+                    if (droppedMs > 0) MeetVault.Core.AppLog.Warn("live: pause dropped " + (droppedMs / 1000.0).ToString("0.0") + "s of pending speech (not transcribed; the recording keeps it)");
+                    _utterances.Reset();
+                }
+            }
+            SetState(LiveState.Paused);
+            Status("Paused. Audio in the gap is not recorded and will not reappear on resume.");
+        }
         catch (Exception ex) { Status("Could not pause: " + Short(ex)); }
     }
 
@@ -402,6 +464,12 @@ public sealed partial class LivePage : Page
         if (_state != LiveState.Paused || _session is null) return;
         try
         {
+            // Adjustment (A): the VAD stream clock restarts at zero after Reset, so raw utterance
+            // times would collide with pre-pause timestamps. Anchor the new segment of the timeline
+            // at the last transcribed end (the same value the fallback path uses) and reset the
+            // segmenter BEFORE capture resumes, so the first post-resume frames start at zero.
+            _utteranceBaseMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
+            lock (_vadLock) { _utterances?.Reset(); }
             await _session.ResumeAsync();
             _windowOffsetMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
             SetState(LiveState.Recording);
@@ -446,14 +514,6 @@ public sealed partial class LivePage : Page
         Microsoft.Data.Sqlite.SqliteException { SqliteErrorCode: 8 } => "the data folder is read-only",
         _ => "something went wrong",
     };
-
-    // PCM16 little-endian -> normalized floats; the shape TurnAudio carries.
-    private static float[] ToFloats16k(byte[] pcm16)
-    {
-        var f = new float[pcm16.Length / 2];
-        for (var i = 0; i < f.Length; i++) f[i] = BitConverter.ToInt16(pcm16, 2 * i) / 32768f;
-        return f;
-    }
 
     private sealed class FakeAudioCapture : IAudioCapture
     {
