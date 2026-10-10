@@ -1,0 +1,35 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    env:
+      VSTEST_CONNECTION_TIMEOUT: 240
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build solution (Release)
+        # Solution maps the app Any CPU to x64 (required: the app defaults RID to
+        # win-x64, and an x86 mapping fails with NETSDK1032). Keep them in sync.
+        run: dotnet build MeetVault.sln -c Release
+
+      - name: Test Core (Release)
+        run: dotnet test tests/MeetVault.Core.Tests/MeetVault.Core.Tests.csproj -c Release --nologo -v q
