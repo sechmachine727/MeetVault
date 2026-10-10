@@ -53,6 +53,23 @@ public partial class App : Application
     /// </summary>
     public App()
     {
+        // Display language: ui.language (en|ja) wins; otherwise the Windows language list
+        // decides. Must run before any XAML or resource-map use — this is the first
+        // statement in the ctor for that reason. Restart-to-apply is the documented behavior.
+        // Unpackaged apps must use Microsoft.Windows.Globalization.ApplicationLanguages:
+        // the Windows.Globalization variant throws InvalidOperationException here (L0 probe).
+        try
+        {
+            var langSetting = Views.AppStore.Repo.GetSetting("ui.language");
+            var resolved = MeetVault.Core.UiLanguage.Resolve(langSetting, System.Globalization.CultureInfo.CurrentUICulture.Name);
+            var tag = MeetVault.Core.UiLanguage.ToTag(resolved);
+            Microsoft.Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride = tag;
+            var culture = new System.Globalization.CultureInfo(tag);
+            System.Globalization.CultureInfo.DefaultThreadCurrentCulture = culture;
+            System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = culture;
+            LogStartup("ui language: setting=" + (langSetting ?? "(none)") + " resolved=" + tag);
+        }
+        catch (Exception ex) { LogStartup("ui language init failed: " + ex.Message); }
         // Pin the app's own onnxruntime before the WindowsAppRuntime framework copy
         // hijacks the "onnxruntime.dll" base name: sherpa-onnx binds by name and
         // access-violates against the mismatched WASDK build.
