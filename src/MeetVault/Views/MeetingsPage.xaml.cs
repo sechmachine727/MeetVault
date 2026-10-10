@@ -288,8 +288,15 @@ public sealed partial class MeetingsPage : Page
             var media = AppStore.Repo.DeleteMeeting(card.Id);
             if (media is { Length: > 0 })
             {
-                try { if (File.Exists(media)) File.Delete(media); }
-                catch (Exception ex) { MeetVault.Core.AppLog.Warn("delete: could not remove media " + media + " :: " + ex.Message); }
+                if (!AppStore.Repo.IsManagedMedia(media))
+                {
+                    MeetVault.Core.AppLog.Warn("delete: refused to remove media outside managed directory " + media);
+                }
+                else
+                {
+                    try { if (File.Exists(media)) File.Delete(media); }
+                    catch (Exception ex) { MeetVault.Core.AppLog.Warn("delete: could not remove media " + media + " :: " + ex.Message); }
+                }
             }
             ApplyFilter(SearchBox.Text);
             StatusBar.Message = $"Deleted '{card.Title}'.";

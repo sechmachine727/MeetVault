@@ -11,7 +11,7 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
 
     public LocalMeetingRepository(string path, string? mediaRoot = null)
     {
-        _mediaRoot = mediaRoot ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MeetVault", "media");
+        _mediaRoot = Path.TrimEndingDirectorySeparator(mediaRoot ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MeetVault", "media"));
         _db = new SqliteConnection($"Data Source={path}");
         _db.Open();
         AppLog.Info("repo: opened " + path);
@@ -124,6 +124,9 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         var failed = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var id in meetingIds.Distinct(StringComparer.Ordinal))
         {
+            // Junk entries are skipped: null/empty can never name a meeting and the
+            // failure map cannot key them.
+            if (string.IsNullOrEmpty(id)) continue;
             try
             {
                 var meeting = Load(id);
@@ -133,7 +136,9 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
                 if (meeting.MediaPath is { Length: > 0 } media)
                 {
                     if (!IsManagedMedia(media)) { failed[id] = "media outside managed directory"; continue; }
-                    if (File.Exists(media)) File.Delete(media);
+                    try { if (File.Exists(media)) File.Delete(media); }
+                    catch (FileNotFoundException) { }        // vanished mid-flight: already gone
+                    catch (DirectoryNotFoundException) { }   // same, via a vanished parent
                 }
                 DeleteMeeting(id);
                 deleted.Add(id);
@@ -147,16 +152,39 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
     // Only recordings under the managed media directory may be removed by batch
     // delete. Anything else (exports, user copies, malformed rows) is refused so a
     // bad database record can never turn into deletion of an arbitrary path.
-    private bool IsManagedMedia(string path)
+    // The check is deliberately lexical AND physical: the path must be fully
+    // qualified, resolve under the root, and pass through no reparse point
+    // (symlink/junction), which could otherwise redirect the delete elsewhere.
+    public bool IsManagedMedia(string path)
     {
         string full, root;
         try
         {
+            if (!Path.IsPathFullyQualified(path)) return false;
             full = Path.GetFullPath(path);
             root = Path.GetFullPath(_mediaRoot);
         }
         catch { return false; }
-        return full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        return full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+               && !HasReparsePoint(full, root);
+    }
+
+    private static bool HasReparsePoint(string full, string root)
+    {
+        var current = root;
+        var rest = full.Substring(root.Length + 1);
+        foreach (var segment in rest.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, segment);
+            try
+            {
+                if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0) return true;
+            }
+            catch (FileNotFoundException) { return false; }        // nothing on disk to reach
+            catch (DirectoryNotFoundException) { return false; }   // ditto
+            catch { return true; }                                 // unreadable: refuse
+        }
+        return false;
     }
 
 

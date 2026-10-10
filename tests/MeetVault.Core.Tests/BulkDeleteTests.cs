@@ -148,4 +148,139 @@ public sealed class BulkDeleteTests : IDisposable
         Assert.Null(_repo.Load("good"));
         Assert.NotNull(_repo.Load("locked"));
     }
+
+    // --- review hardening (independent review deleg_d2ddb14e task-1) ---
+
+    [Fact]
+    public void DeleteMeetings_NullOrEmptyId_Skipped_NoThrow()
+    {
+        Save("a");
+
+        var result = _repo.DeleteMeetings(new[] { "a", null!, "" });
+
+        Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
+        Assert.Empty(result.FailedIds);
+        Assert.Null(_repo.Load("a"));
+    }
+
+    [Fact]
+    public void DeleteMeetings_EmptyCollection_EmptyResult()
+    {
+        var result = _repo.DeleteMeetings(Array.Empty<string>());
+
+        Assert.Empty(result.DeletedIds);
+        Assert.Empty(result.FailedIds);
+    }
+
+    [Fact]
+    public void DeleteMeetings_MediaRootWithTrailingSeparator_StillDeletes()
+    {
+        var dir2 = Path.Combine(_dir, "media2");
+        Directory.CreateDirectory(dir2);
+        using var repo2 = new LocalMeetingRepository(Path.Combine(dir2, "t2.db"), dir2 + Path.DirectorySeparatorChar);
+        var media = Path.Combine(dir2, "x.m4a");
+        File.WriteAllBytes(media, new byte[] { 1 });
+        repo2.Save(NewMeeting("a", media),
+            new[] { new Speaker("spk_1", "Speaker 1") },
+            new[] { new Segment("seg-a", "spk_1", 0, 1000, "hi", true) });
+
+        var result = repo2.DeleteMeetings(new[] { "a" });
+
+        Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
+        Assert.False(File.Exists(media));
+        Assert.Null(repo2.Load("a"));
+    }
+
+    [Fact]
+    public void DeleteMeetings_RelativeMediaPath_Refused()
+    {
+        _repo.Save(NewMeeting("a", "sub" + Path.DirectorySeparatorChar + "rel.m4a"),
+            new[] { new Speaker("spk_1", "Speaker 1") },
+            new[] { new Segment("seg-a", "spk_1", 0, 1000, "hi", true) });
+
+        var result = _repo.DeleteMeetings(new[] { "a" });
+
+        Assert.Empty(result.DeletedIds);
+        Assert.True(result.FailedIds.ContainsKey("a"));
+        Assert.NotNull(_repo.Load("a"));
+    }
+
+    [Fact]
+    public void DeleteMeetings_TraversalRow_Refused_OutsideUntouched()
+    {
+        var outside = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".m4a");
+        File.WriteAllBytes(outside, new byte[] { 9 });
+        try
+        {
+            _repo.Save(NewMeeting("a", Path.Combine(_dir, "..", Path.GetFileName(outside))),
+                new[] { new Speaker("spk_1", "Speaker 1") },
+                new[] { new Segment("seg-a", "spk_1", 0, 1000, "hi", true) });
+
+            var result = _repo.DeleteMeetings(new[] { "a" });
+
+            Assert.Empty(result.DeletedIds);
+            Assert.True(result.FailedIds.ContainsKey("a"));
+            Assert.True(File.Exists(outside));
+            Assert.NotNull(_repo.Load("a"));
+        }
+        finally { try { File.Delete(outside); } catch { } }
+    }
+
+    [Fact]
+    public void DeleteMeetings_NullMediaPath_RowDeleted()
+    {
+        _repo.Save(NewMeeting("a", null),
+            new[] { new Speaker("spk_1", "Speaker 1") },
+            new[] { new Segment("seg-a", "spk_1", 0, 1000, "hi", true) });
+
+        var result = _repo.DeleteMeetings(new[] { "a" });
+
+        Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
+        Assert.Empty(result.FailedIds);
+        Assert.Null(_repo.Load("a"));
+    }
+
+    [Fact]
+    public void DeleteMeetings_MediaAlreadyMissing_RowStillDeleted()
+    {
+        Save("a");
+        File.Delete(_repo.Load("a")!.MediaPath!);
+
+        var result = _repo.DeleteMeetings(new[] { "a" });
+
+        Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
+        Assert.Null(_repo.Load("a"));
+    }
+
+    [Theory]
+    [InlineData(MeetingStatus.Failed)]
+    [InlineData(MeetingStatus.Processing)]
+    public void DeleteMeetings_NonActiveStatuses_Deletable(MeetingStatus status)
+    {
+        Save("a", status: status);
+
+        var result = _repo.DeleteMeetings(new[] { "a" });
+
+        Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
+        Assert.Null(_repo.Load("a"));
+    }
+
+    [Fact]
+    public void DeleteMeetings_LockThenRelease_RetrySucceeds()
+    {
+        Save("a");
+        var media = _repo.Load("a")!.MediaPath!;
+        using (var hold = new FileStream(media, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            var first = _repo.DeleteMeetings(new[] { "a" });
+            Assert.Empty(first.DeletedIds);
+            Assert.True(first.FailedIds.ContainsKey("a"));
+        }
+
+        var retry = _repo.DeleteMeetings(new[] { "a" });
+
+        Assert.Equal(new[] { "a" }, retry.DeletedIds.ToArray());
+        Assert.False(File.Exists(media));
+        Assert.Null(_repo.Load("a"));
+    }
 }
