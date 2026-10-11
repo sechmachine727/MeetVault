@@ -176,6 +176,7 @@ public sealed class ScreenCaptureController : IDisposable
         catch (Exception ex)
         {
             Warn("screen: could not start recording (" + ex.Message + ")");
+            try { if (File.Exists(path)) File.Delete(path); } catch { } // a partial MP4 from a failed start has no row (review r14)
             return;
         }
         // The adapter can fail synchronously (a failure event during Record clears its
@@ -183,6 +184,7 @@ public sealed class ScreenCaptureController : IDisposable
         if (!_recorder.IsRecording)
         {
             Warn("screen: recorder failed during start");
+            try { if (File.Exists(path)) File.Delete(path); } catch { } // same: no row, no sweep path (review r14)
             return;
         }
         _run = run;

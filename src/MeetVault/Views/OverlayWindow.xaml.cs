@@ -414,7 +414,7 @@ public sealed partial class OverlayWindow : Window
 
         var textSizeSlider = new Slider { Minimum = 12, Maximum = 48, StepFrequency = 2, Value = Vm.FontSize };
         var textSizeValue = new TextBlock { Text = ((int)Vm.FontSize).ToString(), Opacity = 0.7, VerticalAlignment = VerticalAlignment.Center };
-        textSizeSlider.ValueChanged += (_, e) => { Vm.FontSize = e.NewValue; textSizeValue.Text = ((int)e.NewValue).ToString(); Persist("overlay.font", e.NewValue.ToString()); };
+        textSizeSlider.ValueChanged += (_, e) => { Vm.FontSize = e.NewValue; textSizeValue.Text = ((int)e.NewValue).ToString(); Persist("overlay.font", e.NewValue.ToString(CultureInfo.InvariantCulture)); };
         AutomationProperties.SetName(textSizeSlider, Loc.T("Ov.TextSize"));
 
         var fonts = new[] { "Segoe UI", "Segoe UI Variable", "Consolas", "Georgia", "Verdana", "Arial" };

@@ -72,6 +72,17 @@ public sealed class RelaySwapTests
     }
 
     [Fact]
+    public async Task OnlyIfUnset_RefusesWhenAnEngineExists()
+    {
+        // The auto-start fallback must not overwrite an engine published while it waited
+        // on the swap gate (review r14).
+        var relay = new SwitchableStreamingTranscriber(_ => new Rec());
+        Assert.True(await Task.Run(() => relay.SwapTo("a", onlyIfNoEngine: true)));
+        Assert.False(await Task.Run(() => relay.SwapTo("b", onlyIfNoEngine: true)));
+        Assert.Equal("a", relay.ActiveModelDir);
+    }
+
+    [Fact]
     public async Task SameModelSwap_IsANoOp()
     {
         var built = 0;

@@ -31,6 +31,10 @@ public sealed class AutoLanguagePolicy
     // prior agreements must not let a single fresh window trigger a switch (review r12).
     public void ResetAgreement() { _recent.Clear(); _lastSwitchMs = null; }
 
+    // The confidence bar for a switch (exposed so the UI's auto-initial pick applies the
+    // same bar as the suggestions — review r14).
+    public float ConfidenceThreshold => _s.ConfidenceThreshold;
+
     // A detection arrived (code already mapped to en/ja/vi; conf = detector probability).
     // Returns the language to switch to, or null.
     public string? Detection(string code, float confidence, long nowMs)

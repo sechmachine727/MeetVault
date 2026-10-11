@@ -95,13 +95,19 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
     // code detached and disposed first, so a factory failure left the relay deaf once the
     // pre-roll filled). A semaphore serializes swaps so two callers cannot build two
     // engines and leak the loser. Call off the UI thread: the factory loads a model.
-    public bool SwapTo(string modelDir)
+    // onlyIfNoEngine: re-asserted INSIDE the gate — a fallback that waited behind another
+    // swap must not overwrite the engine that swap just published (review r14).
+    public bool SwapTo(string modelDir, bool onlyIfNoEngine = false)
     {
         _swapOne.Wait();
         try
         {
             if (_disposed) return false; // a swap starting after Dispose must not build an engine (review r9)
-            lock (_swapLock) { if (modelDir == _activeModelDir) return true; }
+            lock (_swapLock)
+            {
+                if (onlyIfNoEngine && _inner is not null) return false;
+                if (modelDir == _activeModelDir) return true;
+            }
 
             // Build the replacement BEFORE touching the live engine: a failure must leave
             // the meeting transcribing on what it already had.

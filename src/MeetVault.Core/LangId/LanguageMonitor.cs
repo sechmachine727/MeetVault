@@ -23,6 +23,8 @@ public sealed class LanguageMonitor : IDisposable
     private long _lastInferMs;
 
     public volatile bool Enabled = true;                            // false in manual mode; UI-written, monitor-read
+    /// <summary>The policy's confidence bar, for callers that consume raw detections (review r14).</summary>
+    public float ConfidenceThreshold => _policy.ConfidenceThreshold;
     public event Action<string, float>? Detected;                   // every accepted detection (indicator)
     public event Action<string>? Suggested;                         // policy agreed (caller swaps at a boundary)
 

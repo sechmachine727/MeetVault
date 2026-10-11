@@ -78,7 +78,6 @@ public sealed partial class LivePage : Page
     {
         _checkpoint?.Stop();
         try { if (_state != LiveState.Idle && _session is not null) await _session.PauseAsync(); } catch { }
-        try { if (_state != LiveState.Idle) _streaming?.Flush(); } catch { } // close pending speech (pause already flushed; safety no-op)
         LiveBridge.SetLive(false); // leaving Live ends active transcription
         LiveBridge.SetMeetingState(_state == LiveState.Idle ? LiveBridge.MeetingState.Idle : LiveBridge.MeetingState.Paused);
         LiveBridge.LanguageRequested -= OnLanguageRequested;
@@ -191,7 +190,12 @@ public sealed partial class LivePage : Page
             ?? (MicId == "0" ? Loc.T("Dash.WindowsDefault") : Loc.Tf("Live.DeviceN", MicId));
         var id = PendingRecovery.MeetingId;
         PendingRecovery.MeetingId = null;
-        if (id is not null) await RecoverAsync(id);
+        if (id is not null)
+        {
+            _starting = true; // a Start click during the recovery window must not start a second session (review r14)
+            try { await RecoverAsync(id); }
+            finally { _starting = false; }
+        }
         else SetState(LiveState.Idle); // do not start on navigation; the user presses Start
     }
 
@@ -253,7 +257,9 @@ public sealed partial class LivePage : Page
                 if (_relay.ActiveModelDir is null)
                 {
                     var fallback = EngineCatalog.Find("en", "small");
-                    if (fallback is not null && await Task.Run(() => _relay.SwapTo(Path.Combine(ModelDir, "vosk", fallback.Model))))
+                    // onlyIfNoEngine: an auto-initial swap may be loading behind the gate —
+                    // the fallback must not overwrite the detected engine (review r14).
+                    if (fallback is not null && await Task.Run(() => _relay.SwapTo(Path.Combine(ModelDir, "vosk", fallback.Model), onlyIfNoEngine: true)))
                     {
                         _activeLanguage = "en";
                         _engineMode = "live: vosk " + fallback.Model;
@@ -697,6 +703,9 @@ public sealed partial class LivePage : Page
         {
             if (!_autoMode) return;
             ToolTipService.SetToolTip(LangStatus, Loc.Tf("Live.LangDetected", LiveBridge.LanguageDisplay(code) + " " + confidence.ToString("P0")));
+            // The auto-initial pick needs the policy's confidence bar: a weak window must
+            // not fix the meeting's starting engine (review r14).
+            if (_langMonitor is not null && confidence < _langMonitor.ConfidenceThreshold) return;
             // First detection while no engine is active decides the starting language.
             if (_relay is not null && _relay.ActiveModelDir is null && _state == LiveState.Recording)
                 await ApplyLanguageAsync(code, auto: true, reason: "auto-initial");
@@ -821,7 +830,6 @@ public sealed partial class LivePage : Page
         try
         {
             await _session.PauseAsync();
-            try { _streaming?.Flush(); } catch { } // the session's StopAsync already flushed; safety no-op
             SetState(LiveState.Paused);
             LiveBridge.SetLive(false); // capture is stopped; the overlay must not claim "Listening…"
             LiveBridge.SetMeetingState(LiveBridge.MeetingState.Paused);
@@ -879,7 +887,6 @@ public sealed partial class LivePage : Page
             };
             if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
             await _session.StopAsync();
-            try { _streaming?.Flush(); } catch { } // the session's StopAsync already flushed; safety no-op
             var count = _session.Segments.Count;
             _session.Dispose(); // unsubscribe from the shared transcriber before dropping it
             _session = null;

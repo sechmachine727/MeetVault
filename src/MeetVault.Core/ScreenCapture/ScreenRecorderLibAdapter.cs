@@ -14,23 +14,38 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
     private readonly object _gate = new();
     private RunRecorder? _recorder;
 
-    // One native recorder per run, disposed exactly once (review r10): the C++/CLI wrapper
-    // must not be freed twice (a synchronous failure event plus a Record throw can both try)
-    // and never from inside its own completion callback.
+    // One native recorder per run: its OWN completion source (a late event from an
+    // abandoned run can never complete another run's stop — review r14) and an
+    // exactly-once dispose (a synchronous failure event plus a Record throw can both try —
+    // review r10).
     private sealed class RunRecorder
     {
         private int _disposed;
         public Recorder Recorder { get; }
-        public RunRecorder(Recorder recorder) { Recorder = recorder; }
+        public string OutputPath { get; }
+        public long StartTicks { get; }
+        public TaskCompletionSource<RecordingResult> Done { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public EventHandler<RecordingCompleteEventArgs>? CompleteHandler { get; set; }
+        public EventHandler<RecordingFailedEventArgs>? FailedHandler { get; set; }
+        public RunRecorder(Recorder recorder, string outputPath)
+        {
+            Recorder = recorder;
+            OutputPath = outputPath;
+            StartTicks = Stopwatch.GetTimestamp();
+        }
+        public long ElapsedMs() => StartTicks == 0 ? 0 : (long)Stopwatch.GetElapsedTime(StartTicks).TotalMilliseconds;
         public void DisposeOnce()
         {
             if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
             try { Recorder.Dispose(); } catch { }
         }
     }
-    private string? _outputPath;
-    private TaskCompletionSource<RecordingResult>? _done;
-    private long _startTicks;
+
+    // While Record() is on the stack a failure event can fire synchronously during it, so a
+    // finished run must be retired — disposed only after Record returns — never from the
+    // pool, which would free the native wrapper under the in-flight call (review r14).
+    private bool _recordInProgress;
+    private RunRecorder? _retireAfterRecord;
 
     public bool IsRecording { get; private set; }
     public event Action<string>? Failed;
@@ -43,27 +58,34 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
         {
             if (IsRecording) throw new InvalidOperationException("already recording");
             // Before the native recorder exists: a bad/long path or permission failure here
-            // must not leak a recorder or leave _done set (review r8).
+            // must not leak a recorder or leave state set (review r8).
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
             var recorder = Create(source, OnFrameRecorded);
-            _outputPath = outputPath;
-            _done = new TaskCompletionSource<RecordingResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-            recorder.OnRecordingComplete += (_, e) => Finish(true, e.FilePath, null);
-            recorder.OnRecordingFailed += (_, e) => Finish(false, e.FilePath, e.Error);
-            _startTicks = Stopwatch.GetTimestamp();
-            // Publish the recorder before Record: a throw from Record (e.g. the missing-CRT
-            // path) must not leak the native recorder or leave _done dangling (review r7).
-            var run = new RunRecorder(recorder);
+            var run = new RunRecorder(recorder, outputPath);
+            run.CompleteHandler = (_, e) => Finish(run, true, e.FilePath, null);
+            run.FailedHandler = (_, e) => Finish(run, false, e.FilePath, e.Error);
+            recorder.OnRecordingComplete += run.CompleteHandler;
+            recorder.OnRecordingFailed += run.FailedHandler;
+            // Publish the run before Record: a throw from Record (e.g. the missing-CRT
+            // path) must not leak the native recorder (review r7).
             _recorder = run;
             IsRecording = true;
+            _recordInProgress = true;
             try { recorder.Record(outputPath); }
             catch
             {
                 _recorder = null;
                 IsRecording = false;
-                _done = null;
                 run.DisposeOnce(); // idempotent with a synchronous failure event (review r10)
                 throw;
+            }
+            finally
+            {
+                // A run that finished during Record is retired only now, when Record has
+                // returned (review r14).
+                RunRecorder? pending;
+                lock (_gate) { _recordInProgress = false; pending = _retireAfterRecord; _retireAfterRecord = null; }
+                pending?.DisposeOnce();
             }
         }
         return Task.CompletedTask;
@@ -72,74 +94,70 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
     public async Task<RecordingResult> StopAsync(CancellationToken ct = default)
     {
         RunRecorder? recorder;
-        TaskCompletionSource<RecordingResult>? done;
-        string? path;
-        bool notRecording;
-        lock (_gate)
-        {
-            recorder = _recorder;
-            done = _done;
-            path = _outputPath;
-            notRecording = recorder is null || done is null || !IsRecording;
-        }
-        if (notRecording)
+        lock (_gate) recorder = _recorder;
+        if (recorder is null || !IsRecording)
         {
             // Already finalized (mid-run failure) or never started.
-            if (done is not null && done.Task.IsCompleted) return await done.Task.ConfigureAwait(false);
-            return new RecordingResult(false, path, 0, "not recording");
+            if (recorder is not null && recorder.Done.Task.IsCompleted) return await recorder.Done.Task.ConfigureAwait(false);
+            return new RecordingResult(false, recorder?.OutputPath, 0, "not recording");
         }
-        try { recorder!.Recorder.Stop(); }
+        try { recorder.Recorder.Stop(); }
         catch (Exception ex)
         {
             var failed = EndRun();
             failed?.DisposeOnce();
-            return new RecordingResult(false, path, ElapsedMs(), ex.Message);
+            return new RecordingResult(false, recorder.OutputPath, recorder.ElapsedMs(), ex.Message);
         }
-        var winner = await Task.WhenAny(done!.Task, Task.Delay(3000, ct)).ConfigureAwait(false);
-        if (winner == done.Task) return await done.Task.ConfigureAwait(false);
+        var winner = await Task.WhenAny(recorder.Done.Task, Task.Delay(3000, ct)).ConfigureAwait(false);
+        if (winner == recorder.Done.Task) return await recorder.Done.Task.ConfigureAwait(false);
         // Timed out: the finalize may still complete (a long MP4's moov/faststart rewrite
         // can outlast 3 s). The native recorder is released, and the result is marked
         // Indeterminate so the caller KEEPS the file instead of deleting it (review r13).
         var abandoned = EndRun();
         abandoned?.DisposeOnce();
-        return new RecordingResult(false, path, ElapsedMs(), "stop timed out", Indeterminate: true);
+        return new RecordingResult(false, recorder.OutputPath, recorder.ElapsedMs(), "stop timed out", Indeterminate: true);
     }
 
     public void Dispose()
     {
         RunRecorder? rec;
         lock (_gate) { rec = _recorder; _recorder = null; IsRecording = false; }
-        try { rec?.Recorder.Stop(); } catch { }
-        rec?.DisposeOnce(); // release the native recorder exactly once (review r10)
+        if (rec is not null)
+        {
+            try { rec.Recorder.Stop(); } catch { }
+            rec.DisposeOnce(); // release the native recorder exactly once (review r10)
+        }
     }
 
-    private void Finish(bool ok, string? path, string? error)
+    private void Finish(RunRecorder run, bool ok, string? path, string? error)
     {
-        TaskCompletionSource<RecordingResult>? done;
-        RunRecorder? rec;
+        if (!run.Done.TrySetResult(new RecordingResult(ok, path ?? run.OutputPath, run.ElapsedMs(), error))) return; // late duplicate event
+        lock (_gate) { if (ReferenceEquals(_recorder, run)) IsRecording = false; }
+        if (!ok && error is not null) Failed?.Invoke(error);
+        // Never free the wrapper from the pool while Record() is on the stack (a failure
+        // event fires synchronously during Record): retire it after Record returns
+        // (review r14). Otherwise hand the dispose off this callback thread (review r10).
+        var retire = false;
         lock (_gate)
         {
-            done = _done;
-            if (done is null || done.Task.IsCompleted) return; // late duplicate event
-            IsRecording = false;
-            rec = _recorder;
-            _recorder = null;
-            done.TrySetResult(new RecordingResult(ok, path ?? _outputPath, ElapsedMs(), error));
+            if (_recordInProgress) { _retireAfterRecord = run; retire = true; }
         }
-        if (!ok && error is not null) Failed?.Invoke(error);
-        // Hand the dispose off this callback thread: freeing the wrapper inside its own
-        // completion event is unsafe (review r10). DisposeOnce keeps it exactly-once.
-        if (rec is not null) _ = Task.Run(rec.DisposeOnce);
+        if (!retire) _ = Task.Run(run.DisposeOnce);
     }
 
     private RunRecorder? EndRun()
     {
         RunRecorder? rec;
         lock (_gate) { rec = _recorder; IsRecording = false; _recorder = null; }
+        if (rec is not null)
+        {
+            // Detach so a late completion/failure from the abandoned run can never reach
+            // any live state (review r14).
+            try { rec.Recorder.OnRecordingComplete -= rec.CompleteHandler; } catch { }
+            try { rec.Recorder.OnRecordingFailed -= rec.FailedHandler; } catch { }
+        }
         return rec;
     }
-
-    private long ElapsedMs() => _startTicks == 0 ? 0 : (long)Stopwatch.GetElapsedTime(_startTicks).TotalMilliseconds;
 
     private static Recorder Create(CaptureSource source, EventHandler<FrameRecordedEventArgs> frameHandler)
     {
