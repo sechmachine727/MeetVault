@@ -19,23 +19,7 @@
             </Grid.ColumnDefinitions>
             <TextBlock Text="Live transcript" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
         </Grid>
-        <Grid Grid.Row="1">
-            <ListView x:Name="TranscriptList" FontSize="{x:Bind Vm.FontSize, Mode=OneWay}" SelectionMode="None" Padding="12,0">
-                <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="local:TranscriptLine">
-                        <Grid ColumnSpacing="8" Padding="0,2">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="{x:Bind Speaker}" VerticalAlignment="Top" Margin="0,0,8,0" />
-                            <TextBlock Grid.Column="1" Text="{x:Bind Text}" TextWrapping="Wrap" />
-                        </Grid>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
-            <TextBlock x:Name="EmptyState" Text="No transcript lines yet." Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" />
-        </Grid>
+        <Grid x:Name="ConversationCell" Grid.Row="1" />
     </Grid>
 </Window>
 

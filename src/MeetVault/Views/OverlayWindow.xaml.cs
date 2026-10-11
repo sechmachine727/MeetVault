@@ -106,10 +106,6 @@ public sealed partial class OverlayWindow : Window
             if (e.PropertyName is nameof(OverlayViewModel.FontSize) or nameof(OverlayViewModel.FontFamily) or nameof(OverlayViewModel.ViewLines)) BuildConversation();
             if (e.PropertyName == nameof(OverlayViewModel.IsPinned) && _presenter is not null) _presenter.IsAlwaysOnTop = Vm.IsPinned;
         };
-        // Same ABI rule as Live/Details: ObservableCollection NREs in ComWrappers
-        // vtable computation in the trimmed exe. Array snapshot, refreshed on change.
-        TranscriptList.ItemsSource = Vm.Lines.ToArray();
-        // Conversation mode replaces the history list. History buffer stays intact.
         AutomationProperties.SetName(_settingsButton, Loc.T("Ov.Settings"));
         ToolTipService.SetToolTip(_settingsButton, Loc.T("Ov.Settings"));
         _settingsButton.Flyout = BuildSettingsFlyout();
@@ -129,6 +125,7 @@ public sealed partial class OverlayWindow : Window
             LiveBridge.RequestLanguage(idx == 0 ? "auto" : MeetVault.Core.EngineCatalog.Languages[idx - 1].Code);
         };
         HeaderBar.Children.Add(_langCombo);
+        MeetVault.Core.AppLog.Info("overlay: language combo added (" + _langCombo.Items.Count + " items)");
         LiveBridge.LanguageChanged += OnLanguageChanged;
         Closed += (_, _) => LiveBridge.LanguageChanged -= OnLanguageChanged;
         // NOTE: visual-parent lookup is null in the ctor (proven twice by
@@ -139,14 +136,11 @@ public sealed partial class OverlayWindow : Window
             if (HeaderBar.Children.Count > 0 && HeaderBar.Children[0] is TextBlock headerTitle) headerTitle.Text = Loc.T("Ov.Title");
             UpdateTitleLanguage(LiveBridge.CurrentLanguage);
             SyncOverlayLanguageCombo(LiveBridge.CurrentLanguage);
-            TranscriptList.Visibility = Visibility.Collapsed;
-            EmptyState.Visibility = Visibility.Collapsed;
-            var conversationCell = (Grid)VisualTreeHelper.GetParent(TranscriptList);
-            conversationCell.Children.Add(_conversationPanel);
+            ConversationCell.Children.Add(_conversationPanel);
             // The ctor's build ran on the estimate (no ActualHeight yet): re-fit
             // against the real cell height now, and keep both the fit and the clip
             // honest when the strip is resized or its content reflows.
-            conversationCell.SizeChanged += (_, _) => BuildConversation();
+            ConversationCell.SizeChanged += (_, _) => BuildConversation();
             _conversationPanel.SizeChanged += (_, _) => UpdateConversationClip();
             BuildConversation();
         };
@@ -218,7 +212,6 @@ public sealed partial class OverlayWindow : Window
         LiveBridge.PartialChanged += OnPartial;
         Closed += (_, _) => { LiveBridge.LineAdded -= OnLiveLine; LiveBridge.Cleared -= OnLiveCleared; LiveBridge.LiveChanged -= OnLiveChanged; LiveBridge.PartialChanged -= OnPartial; _acrylic?.Dispose(); };
         foreach (var (speaker, text) in LiveBridge.Recent()) Vm.AddLine(speaker, text); // catch up mid-meeting
-        RefreshListState();
         BuildConversation();
     }
 
@@ -420,20 +413,7 @@ public sealed partial class OverlayWindow : Window
     }
 
     private void OnLinesChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        TranscriptList.ItemsSource = Vm.Lines.ToArray();
-        RefreshListState();
-        BuildConversation();
-    }
-
-    // The conversation panel owns the empty text (same Grid cell as the old XAML
-    // EmptyState, collapsed once at load); re-showing EmptyState here would stack
-    // two empty messages on every Clear.
-    private void RefreshListState()
-    {
-        if (TranscriptList.Items.Count > 0)
-            TranscriptList.ScrollIntoView(TranscriptList.Items[TranscriptList.Items.Count - 1]);
-    }
+        => BuildConversation();
 
     // Bottom-anchored conversation: every line — the current sentence included — renders
     // at the same size and weight (owner convention 2026-10-11: no headline treatment);

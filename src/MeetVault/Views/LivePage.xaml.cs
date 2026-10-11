@@ -22,10 +22,8 @@ public sealed partial class LivePage : Page
     // The stream timeline restarts after every pause; this anchors raw engine times to the
     // meeting timeline (nowMs = base + elapsed since the watch restarted).
     private long _utteranceBaseMs;
-    // Index of the OPEN SENTENCE's row in Lines: the interim text renders as a NORMAL
-    // transcript row — same template as finals — and the final replaces it in place, so
-    // the current sentence never appears as a special caption. -1 = no open row.
-    private int _partialRowIndex = -1;
+    // The engine option the page resolved at load (ResolveEngines); Start's lazy init uses it.
+    private MeetVault.Core.EngineOption? _resolvedOption;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _checkpoint;
     private LiveState _state = LiveState.Idle;
     private string _micLabel = "not started";
@@ -97,6 +95,7 @@ public sealed partial class LivePage : Page
         // first, then any installed.
         var resolution = EngineModels.ResolveLive(repo);
         var option = resolution.Option;
+        _resolvedOption = option;
         if (resolution.IsFallback)
             MeetVault.Core.AppLog.Warn("live: model " + resolution.Requested.Model + " missing; falling back to " + option.Model);
         if (resolution.Demo)
@@ -116,10 +115,9 @@ public sealed partial class LivePage : Page
             _autoMode = autoRequested && MeetVault.Core.LangIdModel.IsAvailable(ModelDir);
             var now = () => _utteranceBaseMs + (long)_streamWatch.Elapsed.TotalMilliseconds;
             _relay = new SwitchableStreamingTranscriber(dir => new VoskStreamingTranscriber(dir, now));
-            // In auto mode the engine starts on the first detection (or the fallback after
-            // the collect window on Start); otherwise it starts now.
-            if (!_autoMode && !_relay.SwapTo(Path.Combine(ModelDir, "vosk", option.Model)))
-                throw new InvalidOperationException("engine init failed for " + option.Model);
+            // The engine is created lazily — on the first Start (or on the first detection in
+            // auto mode). Opening the Live tab must not load a model: the large tier takes
+            // seconds, and the page disposes the relay on every navigation.
             _activeLanguage = option.Language;
             _relay.PartialReady += OnPartial;
             _streaming = _relay;
@@ -127,7 +125,7 @@ public sealed partial class LivePage : Page
             _engineMode = "live: vosk " + option.Model;
             if (_autoMode)
             {
-                _langIdModel = MeetVault.Core.LangIdModel.Load(ModelDir);
+                // The detector model loads on demand (EnsureLangIdLoaded at Start/Recover).
                 _langMonitor = new LanguageMonitor(window =>
                 {
                     var model = _langIdModel;
@@ -178,7 +176,14 @@ public sealed partial class LivePage : Page
             // stale open-sentence row from a previous meeting must not be reused.
             _utteranceBaseMs = 0;
             _streamWatch.Restart(); // streaming timeline: nowMs = base + elapsed since start
-            _partialRowIndex = -1;
+            // Lazy engine init: the configured model loads on the first Start (off the UI
+            // thread — the large tier takes seconds), not when the tab is opened.
+            if (_relay is not null && !_autoMode && _relay.ActiveModelDir is null)
+            {
+                var option = _resolvedOption ?? EngineCatalog.Find(_activeLanguage, "small");
+                if (option is null || !await Task.Run(() => _relay.SwapTo(Path.Combine(ModelDir, "vosk", option.Model))))
+                    throw new InvalidOperationException("engine init failed for " + (option?.Model ?? _activeLanguage));
+            }
             _session = new MeetingSession(_audio, _transcriber, AppStore.Repo);
             await _session.StartAsync(MicId, AppSource, CancellationToken.None);
             WireSession(clearOverlay: true);
@@ -191,6 +196,7 @@ public sealed partial class LivePage : Page
                 // Auto: collect the first speech windows, then transcribe on the detected
                 // language — or English/small when no speech is detected at all.
                 Status(Loc.T("Live.LangDetecting"));
+                await EnsureLangIdLoaded();
                 await Task.Delay(3500);
                 if (_relay.ActiveModelDir is null)
                 {
@@ -226,13 +232,21 @@ public sealed partial class LivePage : Page
         }
     }
 
+    // The 86 MB detector session has no business loading when the tab opens; it loads on
+    // the first Start/Recover in auto mode (off the UI thread).
+    private async Task EnsureLangIdLoaded()
+    {
+        if (_langIdModel is not null) return;
+        try { _langIdModel = await Task.Run(() => MeetVault.Core.LangIdModel.Load(ModelDir)); }
+        catch (Exception ex) { MeetVault.Core.AppLog.Warn("langid: detector load failed: " + ex.Message); }
+    }
+
     private async Task RecoverAsync(string id)
     {
         try
         {
             if (AppStore.Repo.Load(id)?.MediaPath is { Length: > 0 } mediaPath && _capture is not null) _capture.ReuseFile(mediaPath);
             _session = await MeetingSession.RecoverAsync(id, _audio, _transcriber, AppStore.Repo, MicId, AppSource);
-            _partialRowIndex = -1; // backlog lines are finals; none of them is an open sentence
             foreach (var s in _session.Segments) AddLine(s.Text);
             WireSession(clearOverlay: false); // keep the recovered backlog for a late-opened overlay
             _utteranceBaseMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
@@ -242,6 +256,7 @@ public sealed partial class LivePage : Page
             LiveBridge.SetMeetingState(_session.IsPaused ? LiveBridge.MeetingState.Paused : LiveBridge.MeetingState.Recording);
             // The meeting's own language comes back with it — the persisted code is the
             // engine the draft was last captured with (auto mode included).
+            if (_autoMode) await EnsureLangIdLoaded();
             var storedLanguage = AppStore.Repo.Load(id)?.Language;
             if (_relay is not null)
             {
@@ -319,16 +334,17 @@ public sealed partial class LivePage : Page
             TryApplyPendingLanguage();
         });
 
-    // Streaming engines publish the open utterance's interim text. It shows up as a normal
-    // transcript row (updated in place, replaced by the final when the sentence closes);
-    // an empty string clears the open row. The overlay keeps its own dimmed partial line.
+    // Streaming engines publish the open utterance's interim text; it renders in the trailing
+    // PartialLine under the list — NOT in the bound collection, whose change handler
+    // re-snapshots ItemsSource: per-partial mutations rebuilt every container and stalled the
+    // UI thread (recognizer partials arrive several times a second).
     private void OnPartial(string text) => DispatcherQueue.TryEnqueue(() =>
     {
         if (text.Length > 0)
         {
-            var live = new TranscriptLine("", text);
-            if (_partialRowIndex >= 0 && _partialRowIndex < Lines.Count) Lines[_partialRowIndex] = live;
-            else { Lines.Add(live); _partialRowIndex = Lines.Count - 1; }
+            PartialLine.Text = text;
+            PartialLine.Visibility = Visibility.Visible;
+            TranscriptScroll.ChangeView(null, TranscriptScroll.ScrollableHeight, null);
         }
         else ClearPartialRow();
         LiveBridge.NotifyPartial(text);
@@ -336,20 +352,14 @@ public sealed partial class LivePage : Page
 
     private void ClearPartialRow()
     {
-        if (_partialRowIndex >= 0 && _partialRowIndex < Lines.Count) Lines.RemoveAt(_partialRowIndex);
-        _partialRowIndex = -1;
+        PartialLine.Text = "";
+        PartialLine.Visibility = Visibility.Collapsed;
     }
 
     private void AddLine(string text)
     {
-        // The open sentence's row BECOMES its final: no duplicated row, no restyle.
-        if (_partialRowIndex >= 0)
-        {
-            if (_partialRowIndex < Lines.Count) Lines[_partialRowIndex] = new TranscriptLine("", text);
-            else Lines.Add(new TranscriptLine("", text));
-            _partialRowIndex = -1;
-        }
-        else Lines.Add(new TranscriptLine("", text));
+        ClearPartialRow(); // the final supersedes the open sentence
+        Lines.Add(new TranscriptLine("", text));
         LiveBridge.Publish("", text);
     }
 

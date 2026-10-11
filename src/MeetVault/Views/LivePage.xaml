@@ -13,6 +13,7 @@
             <!-- ItemsControl, not ListView: ListView item templates with bound buttons NRE
                  inside ComWrappers vtable computation in the trimmed portable exe. -->
             <ScrollViewer x:Name="TranscriptScroll" MaxHeight="320" VerticalScrollMode="Auto">
+            <StackPanel>
             <ItemsControl x:Name="TranscriptList">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
@@ -21,6 +22,11 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+            <!-- The open sentence's interim text: a trailing element, never a row of the
+                 bound collection (the ctor re-snapshots on every collection change). -->
+            <TextBlock x:Name="PartialLine" TextWrapping="Wrap" Margin="8,0,0,0"
+                       Opacity="0.85" Visibility="Collapsed" />
+            </StackPanel>
             </ScrollViewer>
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button x:Name="StartButton" x:Uid="LiveStart" Click="Start_Click" Style="{StaticResource AccentButtonStyle}" />

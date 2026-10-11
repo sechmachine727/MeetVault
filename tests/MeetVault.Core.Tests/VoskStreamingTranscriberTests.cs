@@ -22,10 +22,14 @@ public sealed class VoskStreamingTranscriberTests
     [Fact]
     public async Task StreamsPartials_AndFinalizesTheFixture()
     {
-        var dir = ModelDir();
-        if (dir is null) return;
+        // The fixture is read and sanity-checked BEFORE the model gate. The gate early-returns
+        // (reported as passed) when no model is staged — as in CI — so a corrupt or truncated
+        // fixture must still fail the run.
         var wav = Path.Combine(TestAudio.RepoRoot, "tests", "MeetVault.Core.Tests", "fixtures", "diarizer_two_speakers_16k.wav");
         var all = TestAudio.ReadWav16k(wav);
+        Assert.True(all.Length > 16_000 * 15, "fixture should hold ~17 s of 16 kHz samples, got " + all.Length);
+        var dir = ModelDir();
+        if (dir is null) return;
         using var tx = new VoskStreamingTranscriber(dir);
         var segs = new List<Segment>();
         var partials = new List<string>();
