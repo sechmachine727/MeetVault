@@ -40,8 +40,14 @@ public sealed class MeetingCard : INotifyPropertyChanged
             _selected = value;
             Raise(nameof(IsSelected));
             Raise(nameof(RowBackground));
+            Raise(nameof(SelectionStatus));
         }
     }
+
+    // The per-row checkbox is Raw in the accessibility tree (its glyph is unnamed noise),
+    // so the row BUTTON carries the selection state: AutomationProperties.ItemStatus on the
+    // button lets a screen reader tell which meetings are checked before a batch delete.
+    public string SelectionStatus => _selected ? Loc.T("Mtg.RowSelected") : Loc.T("Mtg.RowNotSelected");
 
     private bool _showSelect;
     public bool ShowSelect

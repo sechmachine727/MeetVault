@@ -170,6 +170,8 @@
   <data name="Mtg.EmptyList" xml:space="preserve"><value>No meetings yet. Start one to populate this list.</value></data>
   <data name="Mtg.RowOpen" xml:space="preserve"><value>Select a meeting to open its details</value></data>
   <data name="Mtg.RowToggle" xml:space="preserve"><value>Click to select or deselect this meeting</value></data>
+  <data name="Mtg.RowSelected" xml:space="preserve"><value>Selected</value></data>
+  <data name="Mtg.RowNotSelected" xml:space="preserve"><value>Not selected</value></data>
   <data name="Mtg.StatusRecording" xml:space="preserve"><value>Recording</value></data>
   <data name="Mtg.StatusPaused" xml:space="preserve"><value>Paused</value></data>
   <data name="Mtg.StatusProcessing" xml:space="preserve"><value>Processing</value></data>

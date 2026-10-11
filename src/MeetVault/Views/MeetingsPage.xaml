@@ -76,6 +76,7 @@
                                     <Button Click="OpenMeeting_Click" Background="{Binding RowBackground}" BorderThickness="0" Padding="12,10"
                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" CornerRadius="4"
                                             AutomationProperties.Name="{Binding Title}"
+                                            AutomationProperties.ItemStatus="{Binding SelectionStatus}"
                                             ToolTipService.ToolTip="{Binding RowTooltip}">
                                         <Grid ColumnSpacing="16">
                                             <Grid.ColumnDefinitions>

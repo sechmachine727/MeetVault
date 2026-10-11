@@ -170,6 +170,8 @@
   <data name="Mtg.EmptyList" xml:space="preserve"><value>まだ会議がありません。会議を開始するとここに表示されます。</value></data>
   <data name="Mtg.RowOpen" xml:space="preserve"><value>会議を選択して詳細を開きます</value></data>
   <data name="Mtg.RowToggle" xml:space="preserve"><value>クリックしてこの会議を選択/解除します</value></data>
+  <data name="Mtg.RowSelected" xml:space="preserve"><value>選択中</value></data>
+  <data name="Mtg.RowNotSelected" xml:space="preserve"><value>未選択</value></data>
   <data name="Mtg.StatusRecording" xml:space="preserve"><value>録音中</value></data>
   <data name="Mtg.StatusPaused" xml:space="preserve"><value>一時停止中</value></data>
   <data name="Mtg.StatusProcessing" xml:space="preserve"><value>処理中</value></data>
