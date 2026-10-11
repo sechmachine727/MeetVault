@@ -41,6 +41,20 @@ public sealed class RelaySwapTests
     }
 
     [Fact]
+    public async Task SwapAfterDispose_IsRefusedAndBuildsNothing()
+    {
+        // A swap starting after Dispose must not build/subscribe/publish an engine that
+        // nothing owns (review r9): OnUnloaded can dispose the relay while ApplyLanguage's
+        // Task.Run swap is still queued behind it.
+        var built = 0;
+        var relay = new SwitchableStreamingTranscriber(_ => { built++; return new Rec(); });
+        Assert.True(await Task.Run(() => relay.SwapTo("a")));
+        relay.Dispose();
+        Assert.False(await Task.Run(() => relay.SwapTo("b")));
+        Assert.Equal(1, built);   // the refused swap built no engine
+    }
+
+    [Fact]
     public async Task SameModelSwap_IsANoOp()
     {
         var built = 0;

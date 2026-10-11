@@ -50,9 +50,9 @@ public sealed class LanguageMonitor : IDisposable
 
     public void Push(float[] samples16k)
     {
-        if (_stop) return; // a straggling pump push must not hit the disposed wake handle (review r8)
+        if (_stop) return; // fast path; the catch covers the check-then-act window (review r9)
         lock (_lock) _pending.AddRange(samples16k);
-        _wake.Set();
+        try { _wake.Set(); } catch (ObjectDisposedException) { }
     }
 
     private void Loop()

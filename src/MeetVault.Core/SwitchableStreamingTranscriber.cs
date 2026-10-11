@@ -19,6 +19,7 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
     private const int PreRollMs = 6000;
     private IStreamingTranscriber? _inner;
     private string? _activeModelDir;
+    private bool _disposed;                                          // guarded by _swapOne
 
     public SwitchableStreamingTranscriber(Func<string, IStreamingTranscriber> factory)
     { _factory = factory; }
@@ -93,6 +94,7 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
         _swapOne.Wait();
         try
         {
+            if (_disposed) return false; // a swap starting after Dispose must not build an engine (review r9)
             lock (_swapLock) { if (modelDir == _activeModelDir) return true; }
 
             // Build the replacement BEFORE touching the live engine: a failure must leave
@@ -120,12 +122,23 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
                     return false;   // the old engine keeps serving
                 }
             }
+            // Detach FIRST so pushes buffer into the pre-roll, then flush the old engine:
+            // Flush joins its decode thread, so its final is delivered through the
+            // still-live subscription BEFORE the fresh engine is published — no inverted
+            // or overlapping segments (review r9). Unsubscribe only after the join.
             IStreamingTranscriber? old;
+            lock (_swapLock) { old = _inner; _inner = null; }
+            if (old is not null)
+            {
+                try { old.Flush(); } catch (Exception ex) { AppLog.Warn("swap: flush failed: " + ex.Message); }
+                old.PartialReady -= ForwardPartial;
+                old.SegmentReady -= ForwardSegment;
+                try { old.Dispose(); } catch { }
+            }
             lock (_swapLock)
             {
                 // Publish + pre-roll replay are atomic with Push (which takes this lock),
                 // so the live stream keeps its order.
-                old = _inner;
                 _inner = fresh;
                 _activeModelDir = modelDir;
                 if (start)
@@ -133,15 +146,6 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
                     foreach (var chunk in _preRoll) fresh.Push(chunk);
                     _preRoll.Clear();
                 }
-            }
-            if (old is not null)
-            {
-                // Flush BEFORE detaching: the old engine's last sentence still reaches the
-                // session through this relay. It is already detached, so no late events.
-                try { old.Flush(); } catch (Exception ex) { AppLog.Warn("swap: flush failed: " + ex.Message); }
-                old.PartialReady -= ForwardPartial;
-                old.SegmentReady -= ForwardSegment;
-                try { old.Dispose(); } catch { }
             }
             AppLog.Info("swap: active engine -> " + modelDir);
             return true;
@@ -154,25 +158,37 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
 
     public void Dispose()
     {
-        // Serialize against an in-flight SwapTo (review r8): its Task.Run can be loading a
-        // model while the page unloads; without this, the swap would publish and start a
-        // fresh engine into a disposed relay — a leaked model with a parked decode thread.
-        _swapOne.Wait();
-        try
+        // Bounded wait: OnUnloaded runs this on the UI thread while a language switch may
+        // be mid-model-load (~16.5 s large tier) — never block the UI for that (review r9).
+        // If the swap is still in flight, the teardown is handed to the pool; the in-flight
+        // swap completes first either way, and _disposed makes later swaps no-ops.
+        if (_swapOne.Wait(TimeSpan.FromSeconds(2)))
         {
-            IStreamingTranscriber? inner;
-            lock (_swapLock)
-            {
-                inner = _inner;
-                _inner = null;
-                _preRoll.Clear();
-                IsRunning = false;
-            }
-            if (inner is null) return;
-            inner.PartialReady -= ForwardPartial;
-            inner.SegmentReady -= ForwardSegment;
-            try { inner.Dispose(); } catch { }
+            try { DisposeCore(); } finally { _swapOne.Release(); }
+            return;
         }
-        finally { _swapOne.Release(); }
+        _ = Task.Run(() =>
+        {
+            _swapOne.Wait();
+            try { DisposeCore(); } finally { _swapOne.Release(); }
+        });
+    }
+
+    private void DisposeCore()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        IStreamingTranscriber? inner;
+        lock (_swapLock)
+        {
+            inner = _inner;
+            _inner = null;
+            _preRoll.Clear();
+            IsRunning = false;
+        }
+        if (inner is null) return;
+        inner.PartialReady -= ForwardPartial;
+        inner.SegmentReady -= ForwardSegment;
+        try { inner.Dispose(); } catch { }
     }
 }
