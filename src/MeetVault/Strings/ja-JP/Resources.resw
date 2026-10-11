@@ -146,7 +146,7 @@
   <!-- L4.1: Meetings page code strings -->
   <data name="Mtg.FromRepo" xml:space="preserve"><value>ローカルリポジトリの会議 {0} 件。</value></data>
   <data name="Mtg.SelectHint" xml:space="preserve"><value>削除する会議を選択し、「選択した会議を削除」を選んでください。</value></data>
-  <data name="Mtg.DraftReason" xml:space="preserve"><value>録音中または再開可能な下書きです。先にライブで終了するか破棄してください。</value></data>
+  <data name="Mtg.DraftReason" xml:space="preserve"><value>録音中または再開可能な下書きです。ライブで再開して停止すると保存され、その後削除できます。</value></data>
   <data name="Mtg.DraftNoDelete" xml:space="preserve"><value>この下書きはまだ再開できます — 削除する前に終了するか停止してください。</value></data>
   <data name="Mtg.DelTitle" xml:space="preserve"><value>会議を削除しますか？</value></data>
   <data name="Mtg.DelBody" xml:space="preserve"><value>{0} 件の会議を削除しますか？録音と文字起こしがこのデバイスから削除されます。</value></data>
@@ -306,6 +306,12 @@
   <data name="Ov.Listening" xml:space="preserve"><value>聞き取り中…</value></data>
   <data name="Ov.On" xml:space="preserve"><value>オン</value></data>
   <data name="Ov.Off" xml:space="preserve"><value>オフ</value></data>
+  <data name="OvPinBtn.Content" xml:space="preserve"><value>固定</value></data>
+  <data name="OvPinBtn.ToolTipService.ToolTip" xml:space="preserve"><value>オーバーレイを他のウィンドウより前面に固定します</value></data>
+  <data name="OvBackdrop.Content" xml:space="preserve"><value>背景</value></data>
+  <data name="OvBackdrop.ToolTipService.ToolTip" xml:space="preserve"><value>背景の暗さを調整します</value></data>
+  <data name="OvFooterFont.Text" xml:space="preserve"><value>文字サイズ</value></data>
+  <data name="OvFooterLines.Text" xml:space="preserve"><value>表示行数</value></data>
 
   <!-- L4.7: MainWindow nav-error dialog -->
   <data name="Nav.ErrorTitle" xml:space="preserve"><value>{0} を開けませんでした</value></data>

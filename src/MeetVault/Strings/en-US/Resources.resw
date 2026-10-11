@@ -146,7 +146,7 @@
   <!-- L4.1: Meetings page code strings -->
   <data name="Mtg.FromRepo" xml:space="preserve"><value>{0} meetings from the local repository.</value></data>
   <data name="Mtg.SelectHint" xml:space="preserve"><value>Select the meetings to delete, then choose Delete selected.</value></data>
-  <data name="Mtg.DraftReason" xml:space="preserve"><value>Still recording or a resumable draft - finish or discard it in Live first.</value></data>
+  <data name="Mtg.DraftReason" xml:space="preserve"><value>Recording or a resumable draft - resume it in Live and press Stop to finish it; it can be deleted afterwards.</value></data>
   <data name="Mtg.DraftNoDelete" xml:space="preserve"><value>This draft can still be resumed — finish or stop it before deleting.</value></data>
   <data name="Mtg.DelTitle" xml:space="preserve"><value>Delete meetings?</value></data>
   <data name="Mtg.DelBody" xml:space="preserve"><value>Delete {0} meeting(s)? Their recordings and transcripts will be removed from this device.</value></data>
@@ -306,6 +306,12 @@
   <data name="Ov.Listening" xml:space="preserve"><value>Listening…</value></data>
   <data name="Ov.On" xml:space="preserve"><value>On</value></data>
   <data name="Ov.Off" xml:space="preserve"><value>Off</value></data>
+  <data name="OvPinBtn.Content" xml:space="preserve"><value>Pin</value></data>
+  <data name="OvPinBtn.ToolTipService.ToolTip" xml:space="preserve"><value>Keep the overlay above other windows</value></data>
+  <data name="OvBackdrop.Content" xml:space="preserve"><value>Backdrop</value></data>
+  <data name="OvBackdrop.ToolTipService.ToolTip" xml:space="preserve"><value>Adjust background darkness</value></data>
+  <data name="OvFooterFont.Text" xml:space="preserve"><value>Font size</value></data>
+  <data name="OvFooterLines.Text" xml:space="preserve"><value>Lines</value></data>
 
   <!-- L4.7: MainWindow nav-error dialog -->
   <data name="Nav.ErrorTitle" xml:space="preserve"><value>Could not open {0}</value></data>

@@ -93,7 +93,7 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
     // Returns the recording path (if any) so the caller can remove the audio file.
     // Refuses active or resumable recordings (Recording/Paused) with the same message
     // the bulk path reports, so both callers share one rule: a draft is deleted by
-    // stopping or discarding it in Live, never through a delete path.
+    // resuming and stopping it in Live (Stop, then Stop and save), never through a delete path.
     public string? DeleteMeeting(string meetingId)
     {
         string? media = null;
