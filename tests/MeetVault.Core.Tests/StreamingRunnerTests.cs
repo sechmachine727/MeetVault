@@ -21,6 +21,28 @@ public sealed class StreamingRunnerTests
         public void Dispose() { }
     }
 
+    // A backend whose decode thread can be parked inside AcceptWaveform, so the queue
+    // overflows and the join-timeout paths become reachable deterministically.
+    private sealed class BlockingBackend : IStreamingBackend
+    {
+        public readonly ManualResetEventSlim Gate = new(initialState: false);
+        public volatile bool Block = true;
+        public int Accepts;
+        public int CurrentTextCalls;
+        public bool Disposed;
+        public void AcceptWaveform(float[] s)
+        {
+            Interlocked.Increment(ref Accepts);
+            if (Block) Gate.Wait(TimeSpan.FromSeconds(10));
+        }
+        public bool IsReady() => false;
+        public void Decode() { }
+        public string CurrentText() { Interlocked.Increment(ref CurrentTextCalls); return ""; }
+        public bool TryTakeFinal(out string text) { text = ""; return false; }
+        public bool TryFlushFinal(out string text) { text = ""; return false; }
+        public void Dispose() => Disposed = true;
+    }
+
     private static long _clock;
     private static long Next() => ++_clock;
 
@@ -76,15 +98,40 @@ public sealed class StreamingRunnerTests
     [Fact]
     public void FullQueue_DropsOldest_AndCounts()
     {
-        var b = new FakeBackend { };
-        using var r = new StreamingRunner(b, Next);
+        // With the decode thread parked inside AcceptWaveform, pushing past the 1024-chunk
+        // queue forces the drop-oldest branch in Push (the production backpressure path:
+        // Push must never block the capture pump).
+        var b = new BlockingBackend();
+        using var r = new StreamingRunner(b, Next, joinTimeoutMs: 300);
         r.Start();
-        // The decode thread consumes continuously; to force drops, push faster than 64
-        // before it drains is unreliable — so assert the counter API exists and stays 0
-        // on a normal run, then rely on the log warn for the pathological case.
-        for (var i = 0; i < 10; i++) r.Push(new float[] { 1 });
-        r.Flush();
-        Assert.Equal(0, r.DroppedChunks);
+        r.Push(new float[] { 0 }); // the decode thread takes this one, then blocks on the gate
+        Assert.True(SpinWait.SpinUntil(() => b.Accepts >= 1, 5000), "decode thread never reached the backend");
+        for (var i = 0; i < 1100; i++) r.Push(new float[] { 1 }); // far beyond the queue capacity
+        Assert.True(r.DroppedChunks > 0, "a full queue must drop the oldest chunks");
+        b.Block = false; b.Gate.Set();
+        Assert.True(r.FlushAndWait()); // the parked thread drains the backlog and exits
+    }
+
+    [Fact]
+    public void StalledDecodeThread_FlushReportsFalse_AndDisposeKeepsTheBackendAlive()
+    {
+        // The regression this pins: Flush used to discard the Join result and Dispose always
+        // freed the backend, so a stalled decode thread could keep calling into a disposed
+        // native recognizer (access violation) — or race a restarted thread over it.
+        var b = new BlockingBackend();
+        var r = new StreamingRunner(b, Next, joinTimeoutMs: 150);
+        r.Start();
+        r.Push(new float[] { 0 });
+        Assert.True(SpinWait.SpinUntil(() => b.Accepts >= 1, 5000), "decode thread never reached the backend");
+
+        Assert.False(r.FlushAndWait()); // the thread is parked inside AcceptWaveform: reported, not hidden
+        r.Dispose();                    // must NOT free the backend under the parked thread
+        Assert.False(b.Disposed);
+
+        var before = Volatile.Read(ref b.CurrentTextCalls);
+        b.Block = false; b.Gate.Set();  // release the thread; it must finish safely
+        Assert.True(SpinWait.SpinUntil(() => Volatile.Read(ref b.CurrentTextCalls) > before, 5000), "the decode loop did not survive Dispose");
+        Assert.False(b.Disposed);
     }
 
     [Fact]

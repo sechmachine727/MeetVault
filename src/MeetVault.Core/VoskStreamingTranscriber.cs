@@ -20,9 +20,15 @@ public sealed class VoskStreamingTranscriber : IStreamingTranscriber
 
     public Task StartAsync(CancellationToken ct)
     {
-        // A start while already running (unpaired Start/Resume) closes the previous decode
-        // thread instead of leaking it; the common start/stop pairing is unaffected.
-        if (IsRunning) _runner.Flush();
+        // A previous decode thread must be gone before a new one touches the shared
+        // recognizer: FlushAndWait closes the current one and reports whether it exited.
+        // If it is still draining (stalled subscriber, full backlog), the start is
+        // skipped rather than racing two threads over one native recognizer.
+        if (!_runner.FlushAndWait())
+        {
+            AppLog.Warn("vosk: previous decode thread still draining; start skipped");
+            return Task.CompletedTask;
+        }
         _runner.Start();
         IsRunning = true;
         return Task.CompletedTask;

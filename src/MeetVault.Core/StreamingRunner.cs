@@ -23,16 +23,20 @@ public sealed class StreamingRunner : IDisposable
     private long _utteranceStartMs;
     private string _lastPartial = "";
     private bool _disposed;
+    // How long FlushAndWait gives the decode thread to drain before reporting failure
+    // (tests shrink it; production keeps the 5 s budget).
+    private readonly int _joinTimeoutMs;
 
     public event Action<string>? PartialReady;
     public event Action<Segment>? SegmentReady;
 
     public int DroppedChunks => _droppedChunks;
 
-    public StreamingRunner(IStreamingBackend backend, Func<long>? nowMs = null)
+    public StreamingRunner(IStreamingBackend backend, Func<long>? nowMs = null, int joinTimeoutMs = 5000)
     {
         _backend = backend;
         _nowMs = nowMs ?? (() => Environment.TickCount64);
+        _joinTimeoutMs = joinTimeoutMs;
     }
 
     public void Start()
@@ -106,20 +110,35 @@ public sealed class StreamingRunner : IDisposable
         PartialReady?.Invoke("");
     }
 
-    public void Flush()
+    // Stops accepting chunks and waits for the decode thread to drain (up to the join
+    // timeout). Returns TRUE when the thread has exited (or never ran) and FALSE while it
+    // is still alive — a stalled subscriber or a full backlog can outlive the wait — in
+    // which case the caller must NOT dispose the backend or start a second decode thread
+    // over it: the loop is still calling into the native recognizer.
+    public bool FlushAndWait()
     {
         var q = _queue;
-        if (!_running || q is null) return;
         _running = false;
-        q.CompleteAdding();
-        _thread?.Join(TimeSpan.FromSeconds(5));
+        if (q is null) return true;
+        try { q.CompleteAdding(); } catch (ObjectDisposedException) { return true; }
+        var t = _thread;
+        if (t is null || t == Thread.CurrentThread) return true;
+        if (t.Join(TimeSpan.FromMilliseconds(_joinTimeoutMs))) return true;
+        AppLog.Warn("streaming: decode thread still draining after " + _joinTimeoutMs + " ms; keeping the backend alive");
+        return false;
     }
+
+    public void Flush() => FlushAndWait();
 
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
-        try { Flush(); } catch { }
+        var exited = true;
+        try { exited = FlushAndWait(); } catch { }
+        // The decode thread still owns the backend and the queue: freeing either under it
+        // risks a native access violation. They are left to the background thread / GC.
+        if (!exited) return;
         try { _backend.Dispose(); } catch { }
         _queue?.Dispose();
     }
