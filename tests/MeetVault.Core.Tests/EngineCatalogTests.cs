@@ -14,6 +14,11 @@ public sealed class EngineCatalogTests
         Assert.Equal(new[] { "en", "en", "en", "ja", "ja", "vi", "vi" }, EngineCatalog.Options.Select(o => o.Language).ToArray());
         Assert.Equal(new[] { "small", "medium", "large", "small", "large", "small", "large" }, EngineCatalog.Options.Select(o => o.Size).ToArray());
         Assert.All(EngineCatalog.Options, o => Assert.Contains("vosk/" + o.Model + "/am/final.mdl", o.RequiredFiles));
+        // Every required file is relative to the models root and lives under the model's own
+        // folder — the graph entries must carry the same vosk/<model>/ prefix as the rest.
+        // (A missing prefix still passes the Contains check above but breaks IsAvailable at
+        // runtime: the catalog would probe models/graph/HCLr.fst, which never exists.)
+        Assert.All(EngineCatalog.Options, o => Assert.All(o.RequiredFiles, f => Assert.StartsWith("vosk/" + o.Model + "/", f)));
         Assert.All(EngineCatalog.Options, o => Assert.True(o.DownloadMb > 0));
     }
 

@@ -28,8 +28,8 @@ public static class EngineCatalog
     private static string[] Parts(string model, bool composed = false)
     {
         var graph = composed
-            ? new[] { "graph/HCLG.fst" }
-            : new[] { "graph/HCLr.fst", "graph/Gr.fst" };
+            ? new[] { "vosk/" + model + "/graph/HCLG.fst" }
+            : new[] { "vosk/" + model + "/graph/HCLr.fst", "vosk/" + model + "/graph/Gr.fst" };
         return new[]
         {
             "vosk/" + model + "/am/final.mdl",
