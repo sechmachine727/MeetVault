@@ -80,10 +80,13 @@ public sealed partial class LivePage : Page
         // pause/stop call sites: Flush() is native, and a throw here must not skip the rest
         // of OnUnloaded (session left un-paused, engines undisposed).
         try { DropPendingUtterance("unload"); } catch { }
+        try { if (_state != LiveState.Idle) _streaming?.Flush(); } catch { } // close pending speech (pause already flushed; safety no-op)
         try { await _transcribeGate.WaitAsync(); _transcribeGate.Release(); } catch { } // drain in-flight window
         LiveBridge.SetLive(false); // leaving Live ends active transcription
         try { _capture?.Dispose(); } catch { }
         try { _whisper?.Dispose(); } catch { }
+        try { if (!ReferenceEquals(_windowEngine, _whisper) && _windowEngine is not null) _windowEngine.Dispose(); } catch { }
+        try { _streaming?.Dispose(); } catch { }
         try { _sherpaDiarizer?.Dispose(); } catch { }
         try { lock (_vadLock) { _utterances?.Dispose(); _utterances = null; } } catch { }
     }
@@ -170,6 +173,7 @@ public sealed partial class LivePage : Page
                     _engineMode = "live: whisper " + _modelLabel + (_singleSpeaker ? ", single speaker" : " + sherpa diarizer");
                     break;
             }
+            if (_streaming is not null) _streaming.PartialReady += OnPartial;
             capture = new NAudioCapture();
             _capture = capture; _sherpaDiarizer = sherpaDiarizer;
             _audio = capture; _diarizer = (ISpeakerDiarizer?)sherpaDiarizer ?? diarizer;
@@ -213,6 +217,7 @@ public sealed partial class LivePage : Page
             // the previous meeting's stream state - neither its VAD stream clock (Reset) nor the
             // rebase base, which would offset every raw utterance time of the new meeting.
             lock (_vadLock) { _utterances?.Reset(); _utteranceBaseMs = 0; }
+            _streamWatch.Restart(); // streaming timeline: nowMs = base + elapsed since start
             // Per-meeting speaker state, same rule: a meeting started on this page instance
             // (the Dashboard CTA only navigates here; Start_Click is the single new-meeting
             // entry) must not carry the previous meeting's speaker display names - a stale
@@ -253,6 +258,7 @@ public sealed partial class LivePage : Page
             WireSession(clearOverlay: false); // keep the recovered backlog for a late-opened overlay
             _windowOffsetMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
             _utteranceBaseMs = _windowOffsetMs; // adjustment (A): recovered audio continues on the same timeline
+            _streamWatch.Restart(); // active recovery restarts capture: stream timeline starts here
             _acceleratorReported = false;
             SetState(_session.IsPaused ? LiveState.Paused : LiveState.Recording);
             LiveBridge.SetLive(!_session.IsPaused); // paused recovery: the overlay must not claim "Listening…"
@@ -362,7 +368,17 @@ public sealed partial class LivePage : Page
 
     private async void OnPcm(byte[] chunk)
     {
-        if (_whisper is null || !_whisper.IsRunning) return;
+        // Streaming engines consume the raw 16 kHz stream (the runner enqueues; the engine
+        // decodes on its own thread). No VAD, no per-utterance gate: interim text arrives
+        // through PartialReady and finals through the session's usual SegmentReady path.
+        var streaming = _streaming;
+        if (streaming is not null)
+        {
+            if (streaming.IsRunning) streaming.Push(Pcm16.ToFloats(chunk));
+            return;
+        }
+        var engine = _windowEngine;
+        if (engine is null || !engine.IsRunning) return;
         var samples = Pcm16.ToFloats(chunk);
         // The VAD decision, the push and the rebase happen under one lock: a late pump frame
         // must not read _utterances non-null, then lose the lock to OnUnloaded's dispose and
@@ -424,7 +440,7 @@ public sealed partial class LivePage : Page
                 try { _session.NoteTurnAudio(new TurnAudio(utterance.Samples16k, utterance.StartMs, utterance.EndMs)); }
                 catch (Exception ex) { MeetVault.Core.AppLog.Warn("live: speaker hint failed :: " + ex.Message); }
                 DispatcherQueue.TryEnqueue(() => PartialLine.Text = Loc.T("Live.Transcribing"));
-                await _whisper.TranscribeWindowAsync(Pcm16.FromFloats(utterance.Samples16k), utterance.StartMs, meetingId);
+                await engine.TranscribeWindowAsync(Pcm16.FromFloats(utterance.Samples16k), utterance.StartMs, meetingId);
                 ReportAcceleratorOnce();
             }
             catch { }
@@ -442,6 +458,13 @@ public sealed partial class LivePage : Page
             if (!_speakerNames.ContainsKey(segment.SpeakerId)) RebuildSpeakers();
             AddLine(segment.SpeakerId, segment.Text);
         });
+
+    // Streaming engines publish the open utterance's interim text; an empty string clears
+    // the line (never back to "Listening…" while idle — same rule as the transcribe path).
+    private void OnPartial(string text) => DispatcherQueue.TryEnqueue(() =>
+    {
+        PartialLine.Text = text.Length > 0 ? text : (_state != LiveState.Idle ? Loc.T("Live.Listening") : "");
+    });
 
     private void AddLine(string speakerId, string text)
     {
@@ -550,6 +573,7 @@ public sealed partial class LivePage : Page
             // its audio is not transcribed (the recording keeps it), so the loss is logged.
             // Reset restarts the stream clock for the post-pause segment.
             DropPendingUtterance("pause");
+            try { _streaming?.Flush(); } catch { } // the session's StopAsync already flushes; safety no-op
             SetState(LiveState.Paused);
             LiveBridge.SetLive(false); // capture is stopped; the overlay must not claim "Listening…"
             Status(Loc.T("Live.Paused"));
@@ -573,6 +597,7 @@ public sealed partial class LivePage : Page
                 _utteranceBaseMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
                 _utterances?.Reset();
             }
+            _streamWatch.Restart(); // streaming timeline: base rebased above
             await _session.ResumeAsync();
             _windowOffsetMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
             SetState(LiveState.Recording);
@@ -600,6 +625,7 @@ public sealed partial class LivePage : Page
             };
             if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
             await _session.StopAsync();
+            try { _streaming?.Flush(); } catch { } // the session's StopAsync already flushes; safety no-op
             // The VAD may hold an open utterance at the stop point; close it and drop it
             // AFTER the stop (same order as pause and unload): dropping before the stop
             // reset the segmenter while frames were still arriving, and whatever those
