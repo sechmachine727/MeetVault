@@ -4,6 +4,10 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- ScreenRecorderLib ships a C++/CLI mixed-mode assembly whose targets reject AnyCPU
+         (v7.0.1); the library is x64-only on this box anyway (app ships win-x64). -->
+    <Platforms>x64</Platforms>
+    <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,6 +19,7 @@
     <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.31.0" />
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
+    <PackageReference Include="ScreenRecorderLib" Version="7.0.1" />
     <PackageReference Include="Vosk" Version="0.3.38" />
   </ItemGroup>
 

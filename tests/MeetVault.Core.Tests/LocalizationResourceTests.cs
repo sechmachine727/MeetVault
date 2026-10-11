@@ -6,7 +6,7 @@ namespace MeetVault.Core.Tests;
 // XAML has entries, and every Loc.T/Loc.Tf key used in code exists. File IO only.
 public sealed class LocalizationResourceTests
 {
-    private static string Root => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+    private static string Root => TestAudio.RepoRoot;
 
     private static Dictionary<string, string> Load(string lang)
     {

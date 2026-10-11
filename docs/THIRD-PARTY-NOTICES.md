@@ -14,6 +14,14 @@ Vietnamese (`vosk-model-small-en-us-0.15`, `vosk-model-en-us-0.22-lgraph`,
 `vosk-model-small-vn-0.4`, `vosk-model-vn-0.4`), distributed by Alpha Cephei under the
 Apache License 2.0 and not committed to this repository.
 
+## ScreenRecorderLib (screen recording)
+
+Screen-video capture for meetings uses `ScreenRecorderLib` v7.0.1 (MIT License, Copyright
+(c) 2017 Sverre Skodje), shipped as an x64 C++/CLI mixed-mode `ScreenRecorderLib.dll` via
+the NuGet package. It expects the Microsoft Visual C++ 2015-2022 x64 redistributable at
+runtime; when that is missing the app reports "screen capture unavailable" and records
+audio-only. Audio-only use of the app does not depend on it.
+
 ## Others
 
 - **NAudio** (`NAudio`, `NAudio.Wasapi`) — audio capture and resampling. MIT License.

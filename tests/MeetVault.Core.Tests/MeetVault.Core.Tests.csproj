@@ -4,6 +4,9 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- x64: the Core library references ScreenRecorderLib (mixed-mode, no AnyCPU). -->
+    <Platforms>x64</Platforms>
+    <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
 
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>

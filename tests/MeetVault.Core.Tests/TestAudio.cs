@@ -2,7 +2,20 @@ namespace MeetVault.Core.Tests;
 
 internal static class TestAudio
 {
-    public static string RepoRoot => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+    // Walk up to the solution root instead of counting '..' levels: the output path gains
+    // an 'x64' segment under Platform=x64, which broke fixed-depth resolution.
+    public static string RepoRoot => FindRepoRoot();
+
+    private static string FindRepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            if (File.Exists(Path.Combine(dir.FullName, "MeetVault.sln"))) return dir.FullName;
+            dir = dir.Parent;
+        }
+        throw new InvalidOperationException("repo root (MeetVault.sln) not found above " + AppContext.BaseDirectory);
+    }
 
     public static float[] ReadWav16k(string path)
     {
