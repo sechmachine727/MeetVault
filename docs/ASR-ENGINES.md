@@ -58,9 +58,10 @@ warning.
   utterance); diarization works exactly as before (one speaker per utterance).
 - Zipformer and Vosk consume the raw 16 kHz stream through `StreamingRunner` (bounded
   1024-chunk queue ≈10 s, dedicated decode thread, drop-oldest with a rate-limited warn).
-  They emit interim text (`PartialReady` → Live partial line + overlay partial caption)
-  and finalized utterances on the engine's own endpoints (`SegmentReady` → the session's
-  normal segment path).
+  They emit interim text (`PartialReady` → a NORMAL transcript row in the Live list,
+  updated in place and replaced by its final — never a special caption; the overlay keeps
+  its dimmed partial line) and finalized utterances on the engine's own endpoints
+  (`SegmentReady` → the session's normal segment path).
 - Streaming engines always run **single-speaker**: the diarization switch is ignored for
   them and the Live engine line says "(streaming)". Online diarization is out of scope.
 - Streaming timestamps are wall-clock (utterance start = previous endpoint, end = now).
@@ -78,10 +79,14 @@ warning.
   pad is too short here). `ZipformerStreamingBackend.Prime()` feeds 1.5 s of leading
   silence before the decode thread starts (below Rule1 so no early endpoint fires).
   Endpoint tuning (`ZipformerStreamingBackend`): Rule1 2.0 s (silence, nothing decoded),
-  Rule2 1.0 s (after speech), Rule3 15 s (hard cap). Output is UPPERCASE — that is the
-  model's documented voice (its `test_wavs/trans.txt` is uppercase too).
-- **Vosk** output is lowercase; it needs no preroll. `AcceptWaveform` decodes internally
-  (`IsReady() => false` — a `true` there would spin the runner's drain loop).
+  Rule2 1.0 s (after speech), Rule3 15 s (hard cap). Its vocabulary is ALL-CAPS with no
+  punctuation (the model's documented voice — its `test_wavs/trans.txt` is uppercase too);
+  both streaming engines pass every text — partials and finals alike — through
+  `SpeechText.SentenceCase` (lowercase + first-letter capital + the English pronoun I), so
+  every surface reads as sentence case instead of a shouting caption.
+- **Vosk** output is lowercase (normalized to sentence case by the same rule); it needs no
+  preroll. `AcceptWaveform` decodes internally (`IsReady() => false` — a `true` there
+  would spin the runner's drain loop).
 - **Streaming segment ids** are minted as `s<random8>-<n>` per runner instance: the
   `transcript_segments.id` column is a global PRIMARY KEY, so parallel meetings/engines
   must never both start at `s0` (a live run hit exactly that UNIQUE violation and could
