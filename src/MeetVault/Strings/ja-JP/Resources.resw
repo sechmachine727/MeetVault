@@ -53,8 +53,6 @@
   <data name="LiveResume.Content" xml:space="preserve"><value>再開</value></data>
   <data name="LiveOverlay.Content" xml:space="preserve"><value>オーバーレイを表示</value></data>
   <data name="LiveStop.Content" xml:space="preserve"><value>停止</value></data>
-  <data name="LiveSpeakers.Text" xml:space="preserve"><value>話者</value></data>
-  <data name="LiveSpeakerEmpty.Text" xml:space="preserve"><value>最初の発話が認識されると、ここに話者が表示されます。</value></data>
   <data name="LiveAudioLabel.Text" xml:space="preserve"><value>音声ソース</value></data>
   <data name="LiveEngineLabel.Text" xml:space="preserve"><value>エンジン状態</value></data>
 
@@ -103,18 +101,9 @@
   <data name="SetSysSrcDesc.Text" xml:space="preserve"><value>すべてのアプリ、または会議アプリなど特定のアプリ。</value></data>
   <data name="SetSysSrcPicker.AutomationProperties.Name" xml:space="preserve"><value>システム音声ソース</value></data>
   <data name="SetTranscription.Text" xml:space="preserve"><value>文字起こし</value></data>
-  <data name="SetEngine.Text" xml:space="preserve"><value>エンジン</value></data>
-  <data name="SetEngineDesc.Text" xml:space="preserve"><value>音声認識エンジンとモデル。ストリーミングエンジンは話しながら字幕を表示します。Moonshine・Zipformer・Vosk は言語固定です。</value></data>
-  <data name="SetEnginePicker.AutomationProperties.Name" xml:space="preserve"><value>音声認識エンジン</value></data>
-  <data name="SetDevice.Text" xml:space="preserve"><value>デバイス</value></data>
-  <data name="SetDeviceDesc.Text" xml:space="preserve"><value>推論を実行する場所。</value></data>
-  <data name="SetDevicePicker.AutomationProperties.Name" xml:space="preserve"><value>推論デバイス</value></data>
-  <data name="SetPerfHeader.Text" xml:space="preserve"><value>パフォーマンス</value></data>
-  <data name="SetDiar.Text" xml:space="preserve"><value>話者分離</value></data>
-  <data name="SetDiarDesc.Text" xml:space="preserve"><value>文字起こしを話者ごとに分割します。オフにすると話者分離エンジンがパイプラインから外れ、文字起こしが速くなりリアルタイムに近づきます（話者名は表示されません）。</value></data>
-  <data name="SetDiarSwitch.AutomationProperties.Name" xml:space="preserve"><value>話者分離</value></data>
-  <data name="SetDiarSwitch.OnContent" xml:space="preserve"><value>オン</value></data>
-  <data name="SetDiarSwitch.OffContent" xml:space="preserve"><value>オフ</value></data>
+  <data name="SetEngine.Text" xml:space="preserve"><value>モデル</value></data>
+  <data name="SetEngineDesc.Text" xml:space="preserve"><value>音声認識モデル。Vosk small — オフライン・ストリーミング、会議ごとに1言語。</value></data>
+  <data name="SetEnginePicker.AutomationProperties.Name" xml:space="preserve"><value>音声モデル</value></data>
   <data name="SetOverlay.Text" xml:space="preserve"><value>オーバーレイ</value></data>
   <data name="SetOverlayNote.Text" xml:space="preserve"><value>これらの値は次にオーバーレイを開いたときに適用されます。</value></data>
   <data name="SetPin.Text" xml:space="preserve"><value>常に最前面</value></data>
@@ -206,11 +195,10 @@
   <data name="Live.CouldNotPause" xml:space="preserve"><value>一時停止できませんでした: {0}</value></data>
   <data name="Live.CouldNotResume" xml:space="preserve"><value>再開できませんでした: {0}</value></data>
   <data name="Live.CouldNotStop" xml:space="preserve"><value>停止できませんでした: {0}</value></data>
-  <data name="Live.DemoMode" xml:space="preserve"><value>デモモード: ライブ文字起こしには models/ に Whisper と話者分離モデルを追加してください。</value></data>
+  <data name="Live.DemoMode" xml:space="preserve"><value>デモモード: ライブ文字起こしには models/ に Vosk small モデルを追加してください（docs/ASR-ENGINES.md 参照）。</value></data>
   <data name="Live.CaptureFailed" xml:space="preserve"><value>録音が予期せず停止しました（{0}）。「停止」で保存すると録音済みの内容を保持できます。</value></data>
   <data name="Live.Transcribing" xml:space="preserve"><value>文字起こし中…</value></data>
   <data name="Live.Listening" xml:space="preserve"><value>聞き取り中…</value></data>
-  <data name="Live.GpuFallback" xml:space="preserve"><value>文字起こしは要求した GPU で実行されていません: {0}。録音は続行されます。設定でグラフィックス デバイスを確認し、変更後はアプリを再起動するか、ログを確認してください。</value></data>
   <data name="Live.StopTitle" xml:space="preserve"><value>この会議を停止して保存しますか？</value></data>
   <data name="Live.StopBody" xml:space="preserve"><value>録音を停止し、会議は {0} 行で保存されます。その後、この会議に追加することはできません。</value></data>
   <data name="Live.StopConfirm" xml:space="preserve"><value>停止して保存</value></data>
@@ -221,15 +209,10 @@
   <data name="Live.AudioPaused" xml:space="preserve"><value>一時停止中。マイク: {0}。</value></data>
   <data name="Live.AudioRecording" xml:space="preserve"><value>{0} から録音しています。</value></data>
   <data name="Live.DeviceN" xml:space="preserve"><value>デバイス {0}</value></data>
-  <data name="Live.RenamePlaceholder" xml:space="preserve"><value>話者名</value></data>
-  <data name="Live.RenameAutomation" xml:space="preserve"><value>{0} の名前を変更</value></data>
   <data name="Live.ErrNotActive" xml:space="preserve"><value>会議がアクティブではありません</value></data>
   <data name="Live.ErrMicUnavailable" xml:space="preserve"><value>マイクを利用できません</value></data>
   <data name="Live.ErrReadOnly" xml:space="preserve"><value>データフォルダーが読み取り専用です</value></data>
   <data name="Live.ErrGeneric" xml:space="preserve"><value>問題が発生しました</value></data>
-  <data name="Live.GpuRuntimeMissing" xml:space="preserve"><value>{0} ランタイムが読み込まれませんでした</value></data>
-  <data name="Live.GpuNotUsable" xml:space="preserve"><value>要求された {0} GPU はここでは使用できません</value></data>
-  <data name="Live.GpuNativeMismatch" xml:space="preserve"><value>読み込まれたネイティブは {0} のため、アプリを再起動するまで {1} は無視されます</value></data>
 
   <!-- L4.4: Details page code strings -->
   <data name="Det.NoMeeting" xml:space="preserve"><value>まだ表示する会議がありません。ライブで会議を開始すると、ここに文字起こしが表示されます。</value></data>
@@ -285,13 +268,11 @@
   <data name="Set.OpenLogFailed" xml:space="preserve"><value>ログフォルダーを開けませんでした: {0}</value></data>
   <data name="Set.NoLogYet" xml:space="preserve"><value>ログはまだありません。{0}</value></data>
   <data name="Set.ReadLogFailed" xml:space="preserve"><value>ログを読み取れませんでした: {0}</value></data>
-  <data name="Set.SavedDeviceGone" xml:space="preserve"><value>保存された推論デバイスが利用できなくなったため、CPU が選択されています。{0}</value></data>
   <data name="Set.AudioBoth" xml:space="preserve"><value>{0} とシステム音声（{1}）を録音しています。ミックスされます。</value></data>
   <data name="Set.AudioMicOnly" xml:space="preserve"><value>{0} のみを録音しています。</value></data>
   <data name="Set.AudioSysOnly" xml:space="preserve"><value>システム音声（{0}）のみを録音しています。</value></data>
   <data name="Set.AudioNone" xml:space="preserve"><value>有効な音声ソースがありません。何も録音されません。</value></data>
-  <data name="Set.GpuNote" xml:space="preserve"><value> · 利用可能: {0}</value></data>
-  <data name="Set.TranscriptionStatus" xml:space="preserve"><value>{0}（{1} で）· 話者分離 {2}</value></data>
+  <data name="Set.TranscriptionStatus" xml:space="preserve"><value>{0} · オフライン処理（CPU）</value></data>
   <data name="Set.LogWriting" xml:space="preserve"><value>{0} 以上を {1} に書き込みます</value></data>
   <data name="Set.OverlayStatus" xml:space="preserve"><value>常に最前面 {0} · 不透明度 {1} · 文字サイズ {2} pt · {3} 行</value></data>
   <data name="Set.StorageStatus" xml:space="preserve"><value>文字起こしは {0} に書き込まれます。</value></data>
@@ -315,11 +296,6 @@
   <data name="Ov.NoLines" xml:space="preserve"><value>文字起こしはまだありません。</value></data>
   <data name="Ov.NotRecording" xml:space="preserve"><value>録音していません — MeetVault で「録音を開始」を押してください。</value></data>
   <data name="Ov.Listening" xml:space="preserve"><value>聞き取り中…</value></data>
-  <data name="Ov.RenameTip" xml:space="preserve"><value>すべての行でこの話者の名前を変更します</value></data>
-  <data name="Ov.RenameTitle" xml:space="preserve"><value>話者の名前を変更</value></data>
-  <data name="Ov.Cancel" xml:space="preserve"><value>キャンセル</value></data>
-  <data name="Ov.Save" xml:space="preserve"><value>保存</value></data>
-  <data name="Ov.RenamePlaceholder" xml:space="preserve"><value>例: Alice — すべての行に反映されます</value></data>
   <data name="Ov.On" xml:space="preserve"><value>オン</value></data>
   <data name="Ov.Off" xml:space="preserve"><value>オフ</value></data>
 

@@ -25,7 +25,6 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
             </ScrollViewer>
-            <TextBlock x:Name="PartialLine" Opacity="0.6" />
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button x:Name="StartButton" x:Uid="LiveStart" Click="Start_Click" Style="{StaticResource AccentButtonStyle}" />
                 <Button x:Name="PauseButton" x:Uid="LivePause" Click="Pause_Click" IsEnabled="False" />
@@ -35,9 +34,6 @@
             </StackPanel>
         </StackPanel>
         <StackPanel Grid.Column="1" Spacing="8">
-            <TextBlock x:Uid="LiveSpeakers" Style="{StaticResource SubtitleTextBlockStyle}" />
-            <TextBlock x:Name="SpeakerEmpty" x:Uid="LiveSpeakerEmpty" Opacity="0.7" TextWrapping="Wrap" />
-            <StackPanel x:Name="SpeakerPanel" Spacing="6" />
             <TextBlock x:Uid="LiveAudioLabel" Style="{StaticResource SubtitleTextBlockStyle}" />
             <TextBlock x:Name="AudioStatus" Text="Mic: not started." TextWrapping="Wrap" />
             <TextBlock x:Uid="LiveEngineLabel" Style="{StaticResource SubtitleTextBlockStyle}" />

@@ -9,11 +9,12 @@ public sealed partial class OverlayViewModel : ObservableObject
     [ObservableProperty]
     private bool _isPinned = true;
 
+    // Defaults (owner convention): a light background dim and 18 pt captions.
     [ObservableProperty]
-    private double _opacity = 0.9;
+    private double _opacity = 0.2;
 
     [ObservableProperty]
-    private double _fontSize = 16;
+    private double _fontSize = 18;
 
     // History-buffer retention for the overlay's own list — NOT the visible count
     // (that is ViewLines, the single overlay.viewlines setting the Settings row and
@@ -44,18 +45,6 @@ public sealed partial class OverlayViewModel : ObservableObject
         TrimToLineCount();
     }
 
-    public void RenameSpeaker(string currentName, string newName)
-    {
-        var next = newName.Trim();
-        if (next.Length == 0 || string.Equals(next, currentName, StringComparison.Ordinal))
-            return;
-        for (var i = 0; i < Lines.Count; i++)
-        {
-            if (string.Equals(Lines[i].Speaker, currentName, StringComparison.Ordinal))
-                Lines[i] = Lines[i].WithSpeaker(next);
-        }
-    }
-
     partial void OnLineCountChanged(double value) => TrimToLineCount();
 
     private void TrimToLineCount()
@@ -65,4 +54,3 @@ public sealed partial class OverlayViewModel : ObservableObject
             Lines.RemoveAt(0);
     }
 }
-

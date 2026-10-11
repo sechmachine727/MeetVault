@@ -2,7 +2,7 @@ namespace MeetVault.Views;
 
 // One tiny hub so the overlay window can mirror the live session without holding a
 // reference to the page. Keeps a short backlog so an overlay opened mid-meeting
-// still shows recent lines. LivePage publishes lines and owns rename.
+// still shows recent lines.
 public static class LiveBridge
 {
     private const int MaxRecent = 8;
@@ -10,8 +10,6 @@ public static class LiveBridge
 
     public static event Action<string, string>? LineAdded;
     public static event Action? Cleared;
-    public static event Action<string, string>? Renamed;      // oldName, newName (page -> overlay)
-    public static Func<string, string, bool>? RenameByName;   // oldName, newName -> handled
     public static event Action<string>? PartialChanged;       // interim text of the current utterance ("" clears)
 
     // Whether a recording session is currently open (set by LivePage). The overlay
@@ -46,11 +44,6 @@ public static class LiveBridge
         lock (RecentLines) RecentLines.Clear();
         Cleared?.Invoke();
     }
-
-    public static bool Rename(string oldName, string newName) => RenameByName?.Invoke(oldName, newName) ?? false;
-
-    // Fired after the page renames a speaker so an open overlay reflects it (FR3 both ways).
-    public static void NotifyRenamed(string oldName, string newName) => Renamed?.Invoke(oldName, newName);
 
     // Fired on every streaming partial (and with "" when the open utterance closes).
     public static void NotifyPartial(string text) => PartialChanged?.Invoke(text);

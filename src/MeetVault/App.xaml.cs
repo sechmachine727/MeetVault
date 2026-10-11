@@ -76,25 +76,10 @@ public partial class App : Application
             LogStartup("ui language: setting=" + (langSetting ?? "(none)") + " resolved=" + tag + " culture=" + (explicitChoice ? tag : "(system)"));
         }
         catch (Exception ex) { LogStartup("ui language init failed: " + ex.Message); }
-        // Pin the app's own onnxruntime before the WindowsAppRuntime framework copy
-        // hijacks the "onnxruntime.dll" base name: sherpa-onnx binds by name and
-        // access-violates against the mismatched WASDK build.
-        try
-        {
-            var nativeOnnx = System.IO.Path.Combine(AppContext.BaseDirectory, "onnxruntime.dll");
-            if (System.IO.File.Exists(nativeOnnx))
-                System.Runtime.InteropServices.NativeLibrary.Load(nativeOnnx);
-            else
-                LogStartup("onnxruntime.dll not found beside the exe; sherpa may fail at engine init.");
-        }
-        catch (Exception ex) { LogStartup("onnxruntime pin failed: " + ex.Message); }
         // Configure the app log from Settings (default level: debug) before anything logs.
         try { MeetVault.Core.AppLog.Configure(Views.AppStore.Repo.GetSetting("logging.level") ?? "debug"); }
         catch { MeetVault.Core.AppLog.Configure("debug"); }
         MeetVault.Core.AppLog.Info("app start; log level=" + MeetVault.Core.AppLog.LevelName(MeetVault.Core.AppLog.Parse(Views.AppStore.Repo.GetSetting("logging.level"))));
-        // Touch the GPU probe so its capability report is in the log from startup, not only
-        // once Settings is opened. First access runs the probe's static constructor.
-        _ = MeetVault.Core.GpuProbe.ApiSummary();
         InitializeComponent();
         // ponytail: last-resort crash log. Unhandled UI exceptions otherwise vanish
         // in the unpackaged exe with no debugger attached.

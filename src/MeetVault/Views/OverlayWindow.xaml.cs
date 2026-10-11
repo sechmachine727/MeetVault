@@ -48,9 +48,10 @@ public sealed partial class OverlayWindow : Window
     // never pushed values back to Vm.Opacity (proven: identical pixels at 1.0/0.3).
     private readonly SolidColorBrush _veil = new(Colors.Black);
     private readonly Slider _backdropSlider = new() { Minimum = 0, Maximum = 1, StepFrequency = 0.05 };
-    // Conversation view: a bottom-anchored stack of recent lines (latest big and
-    // bold). Code-built — XamlCompiler 1.8 rejects new direct children of the
-    // root Grid in XAML; Border AND Rectangle both bisected exit-1.
+    // Conversation view: a bottom-anchored stack of recent lines at one uniform
+    // size and weight (brightness marks the newest). Code-built — XamlCompiler 1.8
+    // rejects new direct children of the root Grid in XAML; Border AND Rectangle
+    // both bisected exit-1.
     private readonly StackPanel _conversationPanel = new()
     {
         Orientation = Orientation.Vertical,
@@ -67,7 +68,7 @@ public sealed partial class OverlayWindow : Window
         Opacity = 0.7,
     };
     // The streaming partial line: updated IN PLACE on every partial (no rebuild), so
-    // partial churn cannot dismiss an open rename flyout — a final line still rebuilds.
+    // partial churn cannot dismiss an open settings flyout — a final line still rebuilds.
     private TextBlock? _partialBlock;
     // One cogwheel; every overlay setting lives in its flyout (owner-requested
     // consolidation — nothing is scattered in the header/footer anymore).
@@ -79,9 +80,6 @@ public sealed partial class OverlayWindow : Window
         VerticalAlignment = VerticalAlignment.Center,
         Content = new FontIcon { Glyph = "\uE713", FontSize = 16 },
     };
-    private readonly TextBox _renameBox = new();
-    private readonly Flyout _renameFlyout;
-    private TranscriptLine? _renaming;
 
     public OverlayWindow()
     {
@@ -137,7 +135,6 @@ public sealed partial class OverlayWindow : Window
             foreach (var child in RootSurface.Children)
                 if (child is Grid footer && Grid.GetRow(footer) == 2) footer.Visibility = Visibility.Collapsed;
         };
-        _renameFlyout = BuildRenameFlyout();
         var hwnd = Win32Interop.GetWindowFromWindowId(AppWindow.Id);
         var scale = GetDpiForWindow(hwnd) / 96.0;
         _scale = scale;
@@ -202,10 +199,9 @@ public sealed partial class OverlayWindow : Window
         ((INotifyCollectionChanged)Vm.Lines).CollectionChanged += OnLinesChanged;
         LiveBridge.LineAdded += OnLiveLine;
         LiveBridge.Cleared += OnLiveCleared;
-        LiveBridge.Renamed += OnRenamed;
         LiveBridge.LiveChanged += OnLiveChanged;
         LiveBridge.PartialChanged += OnPartial;
-        Closed += (_, _) => { LiveBridge.LineAdded -= OnLiveLine; LiveBridge.Cleared -= OnLiveCleared; LiveBridge.Renamed -= OnRenamed; LiveBridge.LiveChanged -= OnLiveChanged; LiveBridge.PartialChanged -= OnPartial; _acrylic?.Dispose(); };
+        Closed += (_, _) => { LiveBridge.LineAdded -= OnLiveLine; LiveBridge.Cleared -= OnLiveCleared; LiveBridge.LiveChanged -= OnLiveChanged; LiveBridge.PartialChanged -= OnPartial; _acrylic?.Dispose(); };
         foreach (var (speaker, text) in LiveBridge.Recent()) Vm.AddLine(speaker, text); // catch up mid-meeting
         RefreshListState();
         BuildConversation();
@@ -244,9 +240,6 @@ public sealed partial class OverlayWindow : Window
 
     private void OnLiveCleared()
         => DispatcherQueue.TryEnqueue(() => { Vm.Lines.Clear(); Vm.Partial = ""; });
-
-    private void OnRenamed(string oldName, string newName)
-        => DispatcherQueue.TryEnqueue(() => { Vm.RenameSpeaker(oldName, newName); BuildConversation(); });
 
     private void OnLiveChanged(bool live)
         => DispatcherQueue.TryEnqueue(() => { Vm.Partial = ""; BuildConversation(); });
@@ -291,47 +284,6 @@ public sealed partial class OverlayWindow : Window
             new RectInt32((int)(p.X * _scale), (int)(p.Y * _scale),
                           (int)(HeaderBar.ActualWidth * _scale), (int)(HeaderBar.ActualHeight * _scale)),
         });
-    }
-
-    private void Rename_Click(object sender, RoutedEventArgs e)
-    {
-        if (((FrameworkElement)sender).DataContext is not TranscriptLine line)
-            return;
-        _renaming = line;
-        _renameBox.Text = line.Speaker;
-        _renameFlyout.ShowAt((FrameworkElement)sender);
-        _renameBox.SelectAll();
-        _renameBox.Focus(FocusState.Programmatic);
-    }
-
-    private void CommitRename()
-    {
-        if (_renaming is not null)
-        {
-            // Route to the live session first (syncs Live + storage), then reflect locally.
-            LiveBridge.Rename(_renaming.Speaker, _renameBox.Text);
-            Vm.RenameSpeaker(_renaming.Speaker, _renameBox.Text);
-        }
-        _renaming = null;
-        _renameFlyout.Hide();
-    }
-
-    private Flyout BuildRenameFlyout()
-    {
-        var cancel = new Button { Content = Loc.T("Ov.Cancel"), MinWidth = 88 };
-        cancel.Click += (_, _) => _renameFlyout.Hide();
-        var save = new Button { Content = Loc.T("Ov.Save"), MinWidth = 88 };
-        save.Click += (_, _) => CommitRename();
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
-        actions.Children.Add(cancel);
-        actions.Children.Add(save);
-        var content = new StackPanel { Spacing = 8, Width = 260 };
-        content.Children.Add(new TextBlock { Text = Loc.T("Ov.RenameTitle"), FontSize = 12 });
-        content.Children.Add(_renameBox);
-        content.Children.Add(actions);
-        _renameBox.PlaceholderText = Loc.T("Ov.RenamePlaceholder");
-        _renameBox.KeyDown += (_, e) => { if (e.Key == VirtualKey.Enter) CommitRename(); };
-        return new Flyout { Content = content };
     }
 
     // Every overlay setting in one place (owner-requested): background darkness,
@@ -453,24 +405,7 @@ public sealed partial class OverlayWindow : Window
                 FontWeight = FontWeights.Normal,
                 Opacity = isLatest ? 1.0 : 0.72, // brightness alone marks the newest line
             };
-            if (!isLatest || line.Speaker is not { Length: > 0 })
-            {
-                _conversationPanel.Children.Add(text);
-                continue;
-            }
-            var button = new Button
-            {
-                Background = new SolidColorBrush(Colors.Transparent),
-                BorderThickness = new Thickness(0),
-                Padding = new Thickness(0),
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                HorizontalContentAlignment = HorizontalAlignment.Left,
-                DataContext = line,
-                Content = text,
-            };
-            button.Click += Rename_Click;
-            ToolTipService.SetToolTip(button, Loc.T("Ov.RenameTip"));
-            _conversationPanel.Children.Add(button);
+            _conversationPanel.Children.Add(text);
         }
         if (Vm.Partial.Length > 0)
         {

@@ -53,8 +53,6 @@
   <data name="LiveResume.Content" xml:space="preserve"><value>Resume</value></data>
   <data name="LiveOverlay.Content" xml:space="preserve"><value>Show overlay</value></data>
   <data name="LiveStop.Content" xml:space="preserve"><value>Stop</value></data>
-  <data name="LiveSpeakers.Text" xml:space="preserve"><value>Speakers</value></data>
-  <data name="LiveSpeakerEmpty.Text" xml:space="preserve"><value>Speakers appear here once the first turn is recognized.</value></data>
   <data name="LiveAudioLabel.Text" xml:space="preserve"><value>Audio sources</value></data>
   <data name="LiveEngineLabel.Text" xml:space="preserve"><value>Engine status</value></data>
 
@@ -103,18 +101,9 @@
   <data name="SetSysSrcDesc.Text" xml:space="preserve"><value>All apps, or one running app such as a conference app.</value></data>
   <data name="SetSysSrcPicker.AutomationProperties.Name" xml:space="preserve"><value>System audio source</value></data>
   <data name="SetTranscription.Text" xml:space="preserve"><value>Transcription</value></data>
-  <data name="SetEngine.Text" xml:space="preserve"><value>Engine</value></data>
-  <data name="SetEngineDesc.Text" xml:space="preserve"><value>Speech recognition engine and model. Streaming engines caption while you speak; Moonshine, Zipformer and Vosk are fixed-language.</value></data>
-  <data name="SetEnginePicker.AutomationProperties.Name" xml:space="preserve"><value>Speech engine</value></data>
-  <data name="SetDevice.Text" xml:space="preserve"><value>Device</value></data>
-  <data name="SetDeviceDesc.Text" xml:space="preserve"><value>Where inference runs.</value></data>
-  <data name="SetDevicePicker.AutomationProperties.Name" xml:space="preserve"><value>Transcription device</value></data>
-  <data name="SetPerfHeader.Text" xml:space="preserve"><value>Performance</value></data>
-  <data name="SetDiar.Text" xml:space="preserve"><value>Speaker diarization</value></data>
-  <data name="SetDiarDesc.Text" xml:space="preserve"><value>Split the transcript into speaker turns. Turn off to remove the diarization engine from the pipeline — transcription runs faster and stays closer to realtime, and lines show no speaker names (single speaker).</value></data>
-  <data name="SetDiarSwitch.AutomationProperties.Name" xml:space="preserve"><value>Speaker diarization</value></data>
-  <data name="SetDiarSwitch.OnContent" xml:space="preserve"><value>On</value></data>
-  <data name="SetDiarSwitch.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="SetEngine.Text" xml:space="preserve"><value>Model</value></data>
+  <data name="SetEngineDesc.Text" xml:space="preserve"><value>Speech recognition model. Vosk small — offline and streaming; one language per meeting.</value></data>
+  <data name="SetEnginePicker.AutomationProperties.Name" xml:space="preserve"><value>Speech model</value></data>
   <data name="SetOverlay.Text" xml:space="preserve"><value>Overlay</value></data>
   <data name="SetOverlayNote.Text" xml:space="preserve"><value>These values apply the next time the overlay window opens.</value></data>
   <data name="SetPin.Text" xml:space="preserve"><value>Keep on top</value></data>
@@ -206,11 +195,10 @@
   <data name="Live.CouldNotPause" xml:space="preserve"><value>Could not pause: {0}</value></data>
   <data name="Live.CouldNotResume" xml:space="preserve"><value>Could not resume: {0}</value></data>
   <data name="Live.CouldNotStop" xml:space="preserve"><value>Could not stop: {0}</value></data>
-  <data name="Live.DemoMode" xml:space="preserve"><value>Demo mode: add Whisper and diarizer models to models/ for live transcription.</value></data>
+  <data name="Live.DemoMode" xml:space="preserve"><value>Demo mode: add Vosk small models to models/ (see docs/ASR-ENGINES.md) for live transcription.</value></data>
   <data name="Live.CaptureFailed" xml:space="preserve"><value>Capture stopped unexpectedly ({0}). Press Stop and save to keep what was recorded.</value></data>
   <data name="Live.Transcribing" xml:space="preserve"><value>Transcribing…</value></data>
   <data name="Live.Listening" xml:space="preserve"><value>Listening…</value></data>
-  <data name="Live.GpuFallback" xml:space="preserve"><value>Transcription is not on the requested GPU: {0}. Recording continues. Check the graphics device in Settings, restart the app after changing it, or see the log.</value></data>
   <data name="Live.StopTitle" xml:space="preserve"><value>Stop and save this meeting?</value></data>
   <data name="Live.StopBody" xml:space="preserve"><value>Recording stops and the meeting is saved with {0} line(s). You cannot add more to it afterwards.</value></data>
   <data name="Live.StopConfirm" xml:space="preserve"><value>Stop and save</value></data>
@@ -221,15 +209,10 @@
   <data name="Live.AudioPaused" xml:space="preserve"><value>Paused. Mic: {0}.</value></data>
   <data name="Live.AudioRecording" xml:space="preserve"><value>Recording from {0}.</value></data>
   <data name="Live.DeviceN" xml:space="preserve"><value>device {0}</value></data>
-  <data name="Live.RenamePlaceholder" xml:space="preserve"><value>Speaker name</value></data>
-  <data name="Live.RenameAutomation" xml:space="preserve"><value>Rename {0}</value></data>
   <data name="Live.ErrNotActive" xml:space="preserve"><value>the meeting is not active</value></data>
   <data name="Live.ErrMicUnavailable" xml:space="preserve"><value>the microphone is not available</value></data>
   <data name="Live.ErrReadOnly" xml:space="preserve"><value>the data folder is read-only</value></data>
   <data name="Live.ErrGeneric" xml:space="preserve"><value>something went wrong</value></data>
-  <data name="Live.GpuRuntimeMissing" xml:space="preserve"><value>the {0} runtime did not load</value></data>
-  <data name="Live.GpuNotUsable" xml:space="preserve"><value>the requested {0} GPU is not usable here</value></data>
-  <data name="Live.GpuNativeMismatch" xml:space="preserve"><value>the loaded native is {0}, so {1} is ignored until the app is restarted</value></data>
 
   <!-- L4.4: Details page code strings -->
   <data name="Det.NoMeeting" xml:space="preserve"><value>No meeting to show yet. Start one in Live and its transcript lands here.</value></data>
@@ -285,13 +268,11 @@
   <data name="Set.OpenLogFailed" xml:space="preserve"><value>Could not open the log folder: {0}</value></data>
   <data name="Set.NoLogYet" xml:space="preserve"><value>No log yet. {0}</value></data>
   <data name="Set.ReadLogFailed" xml:space="preserve"><value>Could not read the log: {0}</value></data>
-  <data name="Set.SavedDeviceGone" xml:space="preserve"><value>The saved inference device is no longer available, so CPU is selected. {0}</value></data>
   <data name="Set.AudioBoth" xml:space="preserve"><value>Recording {0} and system audio ({1}); mixed together.</value></data>
   <data name="Set.AudioMicOnly" xml:space="preserve"><value>Recording {0} only.</value></data>
   <data name="Set.AudioSysOnly" xml:space="preserve"><value>Recording system audio ({0}) only.</value></data>
   <data name="Set.AudioNone" xml:space="preserve"><value>No audio source enabled; nothing will be recorded.</value></data>
-  <data name="Set.GpuNote" xml:space="preserve"><value> · available: {0}</value></data>
-  <data name="Set.TranscriptionStatus" xml:space="preserve"><value>{0} on {1} · diarization {2}</value></data>
+  <data name="Set.TranscriptionStatus" xml:space="preserve"><value>{0} · offline streaming, runs on CPU</value></data>
   <data name="Set.LogWriting" xml:space="preserve"><value>Writing {0} and above to {1}</value></data>
   <data name="Set.OverlayStatus" xml:space="preserve"><value>Keep on top {0} · opacity {1} · font {2} pt · {3} line(s)</value></data>
   <data name="Set.StorageStatus" xml:space="preserve"><value>Transcripts will be written to {0}.</value></data>
@@ -315,11 +296,6 @@
   <data name="Ov.NoLines" xml:space="preserve"><value>No transcript lines yet.</value></data>
   <data name="Ov.NotRecording" xml:space="preserve"><value>Not recording — press Start recording in MeetVault.</value></data>
   <data name="Ov.Listening" xml:space="preserve"><value>Listening…</value></data>
-  <data name="Ov.RenameTip" xml:space="preserve"><value>Rename this speaker on every line</value></data>
-  <data name="Ov.RenameTitle" xml:space="preserve"><value>Rename speaker</value></data>
-  <data name="Ov.Cancel" xml:space="preserve"><value>Cancel</value></data>
-  <data name="Ov.Save" xml:space="preserve"><value>Save</value></data>
-  <data name="Ov.RenamePlaceholder" xml:space="preserve"><value>e.g. Alice — updates every line</value></data>
   <data name="Ov.On" xml:space="preserve"><value>On</value></data>
   <data name="Ov.Off" xml:space="preserve"><value>Off</value></data>
 

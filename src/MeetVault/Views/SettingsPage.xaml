@@ -90,49 +90,10 @@
                         <TextBlock x:Uid="SetEngine" FontWeight="SemiBold" />
                         <TextBlock x:Uid="SetEngineDesc" Opacity="0.7" TextWrapping="Wrap" />
                     </StackPanel>
-                    <ComboBox x:Name="EnginePicker" x:Uid="SetEnginePicker" Grid.Column="1" Width="360" HorizontalAlignment="Left"
+                    <ComboBox x:Name="ModelPicker" x:Uid="SetEnginePicker" Grid.Column="1" Width="360" HorizontalAlignment="Left"
                               SelectionChanged="Picker_SelectionChanged" />
                 </Grid>
-                <Grid ColumnSpacing="24">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="200" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Spacing="2" VerticalAlignment="Top">
-                        <TextBlock x:Uid="SetDevice" FontWeight="SemiBold" />
-                        <TextBlock x:Uid="SetDeviceDesc" Opacity="0.7" TextWrapping="Wrap" />
-                    </StackPanel>
-                    <ComboBox x:Name="DevicePicker" x:Uid="SetDevicePicker" Grid.Column="1" Width="320" HorizontalAlignment="Left"
-                              SelectionChanged="Picker_SelectionChanged">
-                        <ComboBox.ItemContainerStyle>
-                            <Style TargetType="ComboBoxItem">
-                                <Setter Property="IsEnabled" Value="{Binding Enabled}" />
-                            </Style>
-                        </ComboBox.ItemContainerStyle>
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Label}" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                </Grid>
                 <TextBlock x:Name="TranscriptionStatus" Opacity="0.7" TextWrapping="Wrap" />
-            </StackPanel>
-
-            <StackPanel Spacing="8">
-                <TextBlock x:Uid="SetPerfHeader" Style="{StaticResource SubtitleTextBlockStyle}" />
-                <Grid ColumnSpacing="24">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="200" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Spacing="2" VerticalAlignment="Top">
-                        <TextBlock x:Uid="SetDiar" FontWeight="SemiBold" />
-                        <TextBlock x:Uid="SetDiarDesc" Opacity="0.7" TextWrapping="Wrap" />
-                    </StackPanel>
-                    <ToggleSwitch x:Name="DiarizationSwitch" x:Uid="SetDiarSwitch" Grid.Column="1" HorizontalAlignment="Left"
-                                  IsOn="True" Toggled="Diarization_Toggled" />
-                </Grid>
             </StackPanel>
 
             <StackPanel Spacing="8">
@@ -160,7 +121,7 @@
                         <TextBlock x:Uid="SetOpacityDesc" Opacity="0.7" TextWrapping="Wrap" />
                     </StackPanel>
                     <Slider x:Name="OpacitySlider" x:Uid="SetOpacitySlider" Grid.Column="1" Width="280" HorizontalAlignment="Left"
-                            Minimum="0" Maximum="1" StepFrequency="0.05" Value="0.9"
+                            Minimum="0" Maximum="1" StepFrequency="0.05" Value="0.2"
                             ValueChanged="Opacity_ValueChanged" />
                 </Grid>
                 <Grid ColumnSpacing="24">
@@ -173,7 +134,7 @@
                         <TextBlock x:Uid="SetFontDesc" Opacity="0.7" TextWrapping="Wrap" />
                     </StackPanel>
                     <NumberBox x:Name="FontSizeBox" x:Uid="SetFontBox" Grid.Column="1" Width="140" HorizontalAlignment="Left"
-                               Minimum="12" Maximum="48" Value="16" SmallChange="1"
+                               Minimum="12" Maximum="48" Value="18" SmallChange="1"
                                SpinButtonPlacementMode="Compact" ValueChanged="Number_ValueChanged" />
                 </Grid>
                 <Grid ColumnSpacing="24">
