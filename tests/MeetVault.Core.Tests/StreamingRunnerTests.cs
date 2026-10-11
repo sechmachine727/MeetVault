@@ -163,5 +163,40 @@ public sealed class StreamingRunnerTests
         Assert.NotEmpty(segs1);
         Assert.NotEmpty(segs2);
         Assert.Empty(segs1.Select(s => s.Id).Intersect(segs2.Select(s => s.Id)));
+        // The prefix carries the full GUID (a short slice is only a 32-bit namespace and
+        // reintroduces the collision class this test exists to prevent).
+        Assert.Matches("^s[0-9a-f]{32}-0$", segs1[0].Id);
+    }
+
+    [Fact]
+    public void Push_RacingStop_NeverThrowsOutOfTheCapturePump()
+    {
+        // The capture pump calls Push while Stop/pause can complete the queue mid-call:
+        // the _running fast path is racy by nature, so a chunk that loses the race must
+        // be a quiet no-op — a throw would surface as CaptureFailed and kill the recording
+        // (review round 2: reproduced by the reviewer with ~4,900 throws in 10k races).
+        // FlushAndWait completes the queue once per rep, so repeat to make the window hit.
+        var errors = new List<Exception>();
+        for (var rep = 0; rep < 40; rep++)
+        {
+            var b = new BlockingBackend();
+            using var r = new StreamingRunner(b, Next, joinTimeoutMs: 5);
+            r.Start();
+            r.Push(new float[] { 0 });
+            Assert.True(SpinWait.SpinUntil(() => b.Accepts >= 1, 5000), "decode thread never reached the backend");
+            var stop = new ManualResetEventSlim(false);
+            var pusher = new Thread(() =>
+            {
+                try { while (!stop.IsSet) r.Push(new float[] { 1 }); }
+                catch (Exception ex) { lock (errors) errors.Add(ex); }
+            });
+            pusher.Start();
+            Assert.True(SpinWait.SpinUntil(() => r.DroppedChunks > 100, 5000), "pusher never filled the queue");
+            Assert.False(r.FlushAndWait());   // completes the queue while the pusher keeps pushing
+            stop.Set();
+            Assert.True(pusher.Join(5000), "pusher thread did not stop");
+            b.Block = false; b.Gate.Set();    // release the parked decode thread
+        }
+        Assert.Empty(errors);
     }
 }

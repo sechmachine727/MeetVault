@@ -14,7 +14,9 @@ public sealed class StreamingRunner : IDisposable
     // global PRIMARY KEY, and every runner instance restarts its own sequence at 0 — two
     // meetings would both mint "s0" and the second meeting's saves would die on the UNIQUE
     // constraint (hit live: the vosk test run could not save or stop at all).
-    private readonly string _idPrefix = "s" + Guid.NewGuid().ToString("n").Substring(0, 8);
+    // The full GUID, not a short slice: 8 hex chars is only a 32-bit namespace, and a
+    // collision on the global PRIMARY KEY fails the whole save.
+    private readonly string _idPrefix = "s" + Guid.NewGuid().ToString("n");
     private BlockingCollection<float[]>? _queue;
     private Thread? _thread;
     private volatile bool _running;
@@ -55,16 +57,27 @@ public sealed class StreamingRunner : IDisposable
     {
         var q = _queue;
         if (!_running || q is null) return;
-        while (!q.TryAdd(samples16k))
+        // A chunk can race Stop/pause: the _running read above is a fast path, not the
+        // synchronization — FlushAndWait can complete (or Dispose can free) the queue
+        // between that read and the calls below. A late chunk is a no-op, never an
+        // exception: this runs on the capture pump, where a throw surfaces as
+        // CaptureFailed and stops the recording.
+        try
         {
-            if (q.TryTake(out _))
+            while (!q.TryAdd(samples16k))
             {
-                var n = System.Threading.Interlocked.Increment(ref _droppedChunks);
-                if (n == 1 || n % 50 == 0)
-                    AppLog.Warn("streaming: decoder behind, dropped " + n + " chunk(s)");
+                if (q.TryTake(out _))
+                {
+                    var n = System.Threading.Interlocked.Increment(ref _droppedChunks);
+                    if (n == 1 || n % 50 == 0)
+                        AppLog.Warn("streaming: decoder behind, dropped " + n + " chunk(s)");
+                }
+                else break;
             }
-            else break;
         }
+        // InvalidOperationException = the queue was completed (Stop/pause) mid-call;
+        // ObjectDisposedException is its subclass and covered by the same clause.
+        catch (InvalidOperationException) { }
     }
 
     private void Loop()
