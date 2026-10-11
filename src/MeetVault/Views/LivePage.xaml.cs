@@ -538,8 +538,12 @@ public sealed partial class LivePage : Page
                 XamlRoot = XamlRoot,
             };
             if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
-            DropPendingUtterance("stop");
             await _session.StopAsync();
+            // The VAD may hold an open utterance at the stop point; close it and drop it
+            // AFTER the stop (same order as pause and unload): dropping before the stop
+            // reset the segmenter while frames were still arriving, and whatever those
+            // frames pushed was discarded unlogged. The recording keeps the audio.
+            DropPendingUtterance("stop");
             var count = _session.Segments.Count;
             _session.Dispose(); // unsubscribe from the shared transcriber before dropping it
             _session = null;
