@@ -20,7 +20,10 @@ public sealed record SpeakerMatch(string SpeakerId, SpeakerOrigin Origin, bool I
 // second: the voice keeps one id even when another voice is confirmed in between
 // (minting at confirmation would let an interleaved confirmation flip a voice's id),
 // and the first voice's reserved id (spk_1) coincides with the placeholder, so its id
-// never changes when it commits.
+// never changes when it commits. An id consumed at first sighting stays consumed even
+// if the candidate is evicted (PendingCap/TtlMs) or never confirmed — gaps such as
+// spk_1, spk_3 are accepted by design, because the reservation must stay stable from
+// first sighting.
 public sealed class SpeakerMatcher
 {
     private const float MatchThreshold = 0.5f;
