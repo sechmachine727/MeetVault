@@ -115,12 +115,14 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
     }
 
     // Deletes many meetings, reporting per-item failures instead of aborting the batch.
-    // Per item the recording file goes first, then the DB rows: a crash never leaves
-    // bytes on disk that were already claimed deleted, and a locked MANAGED file keeps
-    // its row so the user can retry. Media outside the managed directory is never
-    // touched but no longer blocks the row: a meeting whose media is unmanaged (export,
-    // user copy, malformed path) must still be deletable, exactly like the single-row
-    // path removes such rows. Active or resumable recordings are refused.
+    // Per item the recording is renamed ASIDE (media + ".deleting") BEFORE the DB rows,
+    // mirroring the single-row path: a failed rename keeps the row (retryable) and a
+    // failed row delete restores the file. A crash between the rename and the row delete
+    // leaves a *.deleting file beside a row still pointing at the original name — the
+    // bytes survive and the row stays retryable, but the renamed file needs manual
+    // cleanup. Media outside the managed directory is never touched but never blocks
+    // the row either (export, user copy, malformed path), exactly like the single-row
+    // path. Active or resumable recordings are refused.
     public BulkDeleteResult DeleteMeetings(IReadOnlyCollection<string> meetingIds)
     {
         var deleted = new List<string>();
@@ -136,7 +138,9 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
                 if (meeting is null) { failed[id] = "not found"; continue; }
                 if (meeting.Status is MeetingStatus.Recording or MeetingStatus.Paused)
                 { failed[id] = "active or resumable recording"; continue; }
-                if (meeting.MediaPath is { Length: > 0 } media)
+                string? media = meeting.MediaPath is { Length: > 0 } m ? m : null;
+                string? aside = null;
+                if (media is not null)
                 {
                     if (!IsManagedMedia(media))
                     {
@@ -144,14 +148,38 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
                         // unmanaged-media meeting is not permanently undeletable.
                         AppLog.Warn("repo: bulk delete leaving unmanaged media in place: " + media + " (meeting " + id + ")");
                     }
-                    else
+                    else if (File.Exists(media))
                     {
-                        try { if (File.Exists(media)) File.Delete(media); }
-                        catch (FileNotFoundException) { }        // vanished mid-flight: already gone
-                        catch (DirectoryNotFoundException) { }   // same, via a vanished parent
+                        // Rename aside first (same order as the single-row delete): the row
+                        // must never be deleted while its bytes still sit at the original
+                        // path. A failed rename keeps the row so the user can retry.
+                        aside = media + ".deleting";
+                        try { File.Move(media, aside, overwrite: true); }
+                        catch (Exception ex) { failed[id] = ex.Message; continue; }
                     }
                 }
-                DeleteMeeting(id);
+                try
+                {
+                    DeleteMeeting(id);
+                }
+                catch
+                {
+                    // Row delete failed after the rename: put the recording back (best
+                    // effort) so the meeting stays retryable, then let the outer handler
+                    // record the failure.
+                    if (aside is not null)
+                    {
+                        try { File.Move(aside, media!, overwrite: true); }
+                        catch (Exception back) { AppLog.Warn("repo: bulk delete could not restore media " + aside + " :: " + back.Message); }
+                    }
+                    throw;
+                }
+                if (aside is not null)
+                {
+                    // The row is gone; a failed cleanup here leaves only a *.deleting file.
+                    try { File.Delete(aside); }
+                    catch (Exception ex) { AppLog.Warn("repo: bulk delete could not remove media " + aside + " :: " + ex.Message); }
+                }
                 deleted.Add(id);
             }
             catch (Exception ex) { failed[id] = ex.Message; }

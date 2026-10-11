@@ -287,4 +287,32 @@ public sealed class BulkDeleteTests : IDisposable
         Assert.False(File.Exists(media));
         Assert.Null(_repo.Load("a"));
     }
+
+    // --- review round 2 (rename-aside ordering) ---
+
+    [Fact]
+    public void DeleteMeetings_RowDeleteFails_FileRestored_RowKept()
+    {
+        // Force the row delete to fail AFTER the aside rename: a BEFORE DELETE trigger on
+        // meetings aborts the DELETE deterministically and instantly (a competing write
+        // lock would only fail after the 30 s busy timeout). The renamed recording must be
+        // put back so a failed row delete cannot lose the audio.
+        Save("a");
+        var media = _repo.Load("a")!.MediaPath!;
+        using (var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={_db}"))
+        {
+            conn.Open();
+            using var c = conn.CreateCommand();
+            c.CommandText = "CREATE TRIGGER block_del BEFORE DELETE ON meetings BEGIN SELECT RAISE(ABORT, 'forced row-delete failure'); END;";
+            c.ExecuteNonQuery();
+        }
+
+        var result = _repo.DeleteMeetings(new[] { "a" });
+
+        Assert.Empty(result.DeletedIds);
+        Assert.True(result.FailedIds.ContainsKey("a"));
+        Assert.NotNull(_repo.Load("a"));
+        Assert.True(File.Exists(media), "a failed row delete must restore the renamed recording");
+        Assert.False(File.Exists(media + ".deleting"), "a restored delete must not leave an aside file behind");
+    }
 }
