@@ -137,8 +137,17 @@ public sealed partial class SettingsPage : Page
         if (double.TryParse(repo.GetSetting("overlay.opacity"), out var op)) OpacitySlider.Value = op;
         if (double.TryParse(repo.GetSetting("overlay.font"), out var font)) FontSizeBox.Value = font;
         // The overlay's VISIBLE line count: one key drives both the cogwheel flyout slider
-        // and this row (overlay.lines, the old retention-only key, is no longer read).
-        if (double.TryParse(repo.GetSetting("overlay.viewlines"), out var viewLines)) LinesBox.Value = viewLines;
+        // and this row (overlay.viewlines). overlay.lines is the retired key; an install
+        // that saved it keeps its value — read the new key first, fall back to the old one
+        // once, and persist the fallback forward so the old row stops being read. This is
+        // the one deliberate load-time write: the _loading guard suppresses every other.
+        var viewLines = repo.GetSetting("overlay.viewlines");
+        if (string.IsNullOrEmpty(viewLines))
+        {
+            viewLines = repo.GetSetting("overlay.lines");
+            if (!string.IsNullOrEmpty(viewLines)) repo.SetSetting("overlay.viewlines", viewLines);
+        }
+        if (double.TryParse(viewLines, out var lines)) LinesBox.Value = lines;
         StoragePathBox.Text = repo.GetSetting("storage.path") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "MeetVault");
         ModelPicker.SelectedIndex = repo.GetSetting("transcription.model") == "base" ? 1 : 0;
         // Restore persisted mic index + device; clamp when hardware changed.

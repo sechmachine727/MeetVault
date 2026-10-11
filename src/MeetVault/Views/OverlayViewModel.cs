@@ -17,7 +17,8 @@ public sealed partial class OverlayViewModel : ObservableObject
 
     // History-buffer retention for the overlay's own list — NOT the visible count
     // (that is ViewLines, the single overlay.viewlines setting the Settings row and
-    // the cogwheel flyout share; overlay.lines is retired and no longer read).
+    // the cogwheel flyout share; overlay.lines is retired — read once as a fallback
+    // and migrated forward).
     [ObservableProperty]
     private double _lineCount = 40;
 

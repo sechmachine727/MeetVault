@@ -205,9 +205,17 @@ public sealed partial class OverlayWindow : Window
             if (double.TryParse(repo.GetSetting("overlay.font"), out var font)) Vm.FontSize = font;
             // One visible-line setting for the whole app: this window's cogwheel flyout
             // slider and the Settings row both read/write overlay.viewlines. overlay.lines
-            // is retired (not read here anymore; an existing row is left in place) — the
-            // Vm.LineCount history-buffer retention keeps its own default.
-            if (double.TryParse(repo.GetSetting("overlay.viewlines"), out var viewLines)) Vm.ViewLines = viewLines;
+            // is the retired key; an install that saved it keeps its value — read the new
+            // key first, fall back to the old one once, and persist the fallback forward
+            // so the old row stops being read. (Vm.LineCount, the history-buffer retention,
+            // keeps its own default and is unrelated.)
+            var viewLines = repo.GetSetting("overlay.viewlines");
+            if (string.IsNullOrEmpty(viewLines))
+            {
+                viewLines = repo.GetSetting("overlay.lines");
+                if (!string.IsNullOrEmpty(viewLines)) repo.SetSetting("overlay.viewlines", viewLines);
+            }
+            if (double.TryParse(viewLines, out var lines)) Vm.ViewLines = lines;
             var family = repo.GetSetting("overlay.fontfamily");
             if (!string.IsNullOrWhiteSpace(family)) Vm.FontFamily = family;
         }
