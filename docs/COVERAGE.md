@@ -25,6 +25,19 @@
 | Bundled-install smoke | Portable fresh build launches; UI walkthrough all pages alive (UIA, 2026-10-06 evening); MSIX signed (install needs machine trust) | partial (install trust is user step) |
 | Gemini success/failure | TEST GeminiTests + TransportTests (stubs); no live call | partial (needs key) |
 
+## Language detection + screen recording (2026-10-12)
+
+| Item | Evidence | Status |
+|---|---|---|
+| Auto language detection (VoxLingua107, ONNX) | TEST LangId* suites (real-model en/ja fixture check) + RUNTIME mid-meeting auto switch en→ja (published build: `live: language -> ja (auto)`, `meetings.language=ja`, JA segments transcribed) | proven on fixture speech |
+| Language controls (Live / overlay / Settings) | RUNTIME UIA: overlay pick → persisted → engine swap both ways; Settings default + picker; Live combo reflects mode | proven |
+| Engine swap relay (in-meeting) | TEST SwitchableStreamingTranscriberTests + P3 probe (5 real-engine cycles, 0 dupes) | proven |
+| Screen recording lifecycle | TEST ScreenCaptureControllerTests (mutation-proven) + RUNTIME: start with meeting, pause finalizes (offset 2 ms), resume starts a new run (offset 50887 ms), stop finalizes; tracks + files on disk | proven |
+| Screen capture sources | TEST CaptureSourceResolverTests + RUNTIME display capture (WGC forced — DesktopDuplication is black on this box); window source probe-level | proven (display); window probe |
+| Live preview + recorded-video playback | RUNTIME: frame-API preview during a run; Details plays the track with the playhead line highlighted (screenshot verified) | proven |
+| Overlay recording control + indicator | RUNTIME: auto open with the meeting and close on stop; button routes to the controller (not-running guard); real-click proof of the header controls | proven |
+| media_tracks storage + delete integration | TEST BulkDeleteTests additions (removed / restored on failure / unmanaged reported; mutation-proven) | proven |
+
 ## Spec FRs (01-requirements)
 
 | FR | Evidence | Status |

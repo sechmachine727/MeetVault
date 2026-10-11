@@ -6,16 +6,18 @@ Built with C# and WinUI 3 on .NET 8. There is no login, no subscription, and no 
 
 ## Status
 
-Working MVP, tested on Windows 11. The solution builds with 0 errors; three pre-existing `CA1416` warnings remain in `ProcessLoopbackCapture.cs` (COM release call sites) — do not add more. The Core test suite passes 157 tests. The portable build launches and records, transcribes, and saves meetings. See [BLOCKERS.md](BLOCKERS.md) for what still needs a specific machine to verify.
+Working MVP, tested on Windows 11. The solution builds with 0 errors; three pre-existing `CA1416` warnings remain in `ProcessLoopbackCapture.cs` (COM release call sites) — do not add more. The Core test suite passes 210 tests. The portable build launches and records, transcribes, and saves meetings. See [BLOCKERS.md](BLOCKERS.md) for what still needs a specific machine to verify.
 
-Per-process audio capture is implemented but has not been exercised against a machine with the target app playing. The app supports English, Japanese, and Vietnamese with Vosk's small/medium/large model tiers (medium is English-only); JA/VI accuracy has not been verified with real speech.
+Per-process audio capture is implemented but has not been exercised against a machine with the target app playing. The app supports English, Japanese, and Vietnamese with Vosk's small/medium/large model tiers (medium is English-only); meetings default to Auto-detect, which identifies the spoken language with a bundled VoxLingua107 model and switches the engine live. JA/VI accuracy has not been verified with real speech.
 
 ## Features
 
 - Record the microphone and system output together, mixed into one track, so your own voice is never lost. The system side can capture every app or a single chosen app (a conference call).
 - On-device streaming transcription (Vosk, small/medium/large tiers), so transcription runs offline. The open sentence appears live as a normal transcript line while you speak.
-- Live transcript view with a pinnable, always-on-top overlay.
-- Meetings list with per-meeting delete; Details view with audio playback, transcript edit, copy, and export.
+- Automatic language detection (SpeechBrain VoxLingua107 via ONNX): new meetings default to Auto-detect and the engine follows the spoken language mid-meeting; picking a language pins it. The same language control appears in the meeting window, the overlay, and Settings.
+- Screen recording alongside the audio: a whole display or a single window, video-only MP4, enabled by default and paused with the meeting; each run is saved as a track with its timeline offset.
+- Live transcript view with a pinnable, always-on-top overlay (auto-opens with the meeting; recording indicator + screen-recording control included).
+- Meetings list with per-meeting delete; Details view with audio playback, screen-video playback synced to the transcript timeline (current line highlighted, click a line to seek), transcript edit, copy, and export.
 - Optional Gemini refinement with the API key stored in Windows Credential Locker.
 - Configurable file logging for support and debugging.
 
@@ -59,7 +61,7 @@ Copy-Item -Recurse -Force models publish\win-x64\models
 publish\win-x64\MeetVault.exe
 ```
 
-The publish brings in the native libraries the app loads (`libvosk.dll` via the Vosk package).
+The publish brings in the native libraries the app loads (`libvosk.dll` via the Vosk package, `onnxruntime.dll` via `Microsoft.ML.OnnxRuntime`, and ScreenRecorderLib's x64 mixed-mode assembly). Screen recording additionally needs the Microsoft Visual C++ 2015-2022 x64 redistributable at runtime; without it the app reports "screen capture unavailable" and records audio-only.
 
 The portable build has no package identity, so Windows Credential Locker is unavailable and a Gemini key may not persist across runs. Install the MSIX for the full feature set.
 

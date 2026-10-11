@@ -183,9 +183,14 @@ public sealed partial class DashboardPage : Page
     }
 
     // Content column: fill up to a 1100 DIP reading width and stay centered in the page.
-    // (Stretch + MaxWidth does not center reliably in WinUI 3; an explicit clamped width is deterministic.)
+    // (Stretch + MaxWidth does not center reliably in WinUI 3; an explicit clamped width is
+    // deterministic.) Size from the VIEWPORT width: e.NewSize.Width includes the vertical
+    // scrollbar's gutter, which would let the right edge slip past the visible area (review r4).
     private void RootScroll_SizeChanged(object sender, SizeChangedEventArgs e)
-        => ContentColumn.Width = Math.Min(1100, e.NewSize.Width);
+    {
+        var width = RootScroll.ViewportWidth > 0 ? RootScroll.ViewportWidth : e.NewSize.Width;
+        ContentColumn.Width = Math.Min(1100, width);
+    }
 
     private void RefreshList()
     {
