@@ -58,7 +58,7 @@
                         <DataTemplate>
                             <Grid Padding="0,6" ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="160" />
+                                    <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <ComboBox x:Uid="DetSpeakerName" Width="160" HorizontalAlignment="Stretch"

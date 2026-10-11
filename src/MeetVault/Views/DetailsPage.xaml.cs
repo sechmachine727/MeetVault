@@ -21,6 +21,9 @@ public sealed partial class DetailsPage : Page
     private readonly List<string> _segmentSpeakerIds = new(); // original speaker id per line: safe fallback on save
     private readonly List<(string Id, long StartMs, long EndMs)> _timings = new();
     private readonly Dictionary<string, string> _speakerIdByName = new();
+    // The meeting's speaker rows decide whether names/pickers show at all: a meeting
+    // recorded without diarization has none and must render nameless (no spk_N fallback).
+    private bool _hasSpeakers;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _saveTimer;
 
     public DetailsPage()
@@ -52,12 +55,13 @@ public sealed partial class DetailsPage : Page
 
         var repoSegs = AppStore.Repo.LoadSegments(_meeting.Id).ToList();
         var repoSpks = AppStore.Repo.LoadSpeakers(_meeting.Id).ToList();
+        _hasSpeakers = repoSpks.Count > 0;
         foreach (var s in repoSpks) { _speakerIdByName[s.DisplayName] = s.Id; Speakers.Add(s.DisplayName); }
         if (Speakers.Count == 0) Speakers.Add("Speaker 1");
         var names = repoSpks.ToDictionary(s => s.Id, s => s.DisplayName);
         foreach (var s in repoSegs)
         {
-            Lines.Add(new TranscriptLine(names.TryGetValue(s.SpeakerId, out var n) ? n : s.SpeakerId, s.Text));
+            Lines.Add(new TranscriptLine(repoSpks.Count == 0 ? "" : (names.TryGetValue(s.SpeakerId, out var n) ? n : s.SpeakerId), s.Text));
             _originalText.Add(s.Text);
             _segmentIds.Add(s.Id);
             _segmentSpeakerIds.Add(s.SpeakerId);
@@ -125,6 +129,7 @@ public sealed partial class DetailsPage : Page
     private void SpeakerPicker_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is not ComboBox box || box.DataContext is not TranscriptLine line) return;
+        box.Visibility = _hasSpeakers ? Visibility.Visible : Visibility.Collapsed;
         box.ItemsSource = Speakers.ToArray(); // never hand the live collection across the ABI.
         box.SelectedItem = line.Speaker;
     }
@@ -282,7 +287,7 @@ public sealed partial class DetailsPage : Page
 
     private bool TryTranscript(out string text)
     {
-        text = string.Join(Environment.NewLine, Lines.Select(l => $"{l.Speaker}: {l.Text}"));
+        text = string.Join(Environment.NewLine, Lines.Select(l => l.Speaker.Length == 0 ? l.Text : $"{l.Speaker}: {l.Text}"));
         if (Lines.Count > 0) return true;
         Status(InfoBarSeverity.Warning, Loc.T("Det.EmptyTranscript"));
         return false;
