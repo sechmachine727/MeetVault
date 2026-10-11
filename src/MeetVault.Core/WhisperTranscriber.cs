@@ -171,7 +171,7 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
         await foreach (var result in processor.ProcessAsync(stream, linked.Token))
         {
             var text = result.Text.Trim();
-            if (IsNonSpeech(text)) continue; // silence tokens must not become transcript lines
+            if (SpeechText.IsNonSpeech(text)) continue; // silence tokens must not become transcript lines
             SegmentReady?.Invoke(new Segment($"{meetingId}-w{windowStartMs}-{index++}", "", windowStartMs + (long)result.Start.TotalMilliseconds, windowStartMs + (long)result.End.TotalMilliseconds, text, true));
         }
         // Per-window cost on the loaded accelerator: the only way to tell a GPU that is
@@ -179,14 +179,6 @@ private static readonly HashSet<string> Known = new(StringComparer.OrdinalIgnore
         AppLog.Debug("whisper: window " + (floats.Length / 16000.0).ToString("0.0") + "s on " + LoadedBackend
             + " -> " + (long)System.Diagnostics.Stopwatch.GetElapsedTime(startedTicks).TotalMilliseconds + "ms lang="
             + (lang ?? "?") + " " + prob.ToString("0.00") + " segments=" + index);
-    }
-
-    // whisper.cpp emits bracketed silence markers on quiet windows; they are not speech.
-    private static bool IsNonSpeech(string text)
-    {
-        if (text.Length == 0) return true;
-        var normalized = new string(text.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
-        return normalized is "blankaudio" or "silence" or "inaudible";
     }
 
     // whisper.net consumes WAV files; capture pipelines hand us raw PCM.
