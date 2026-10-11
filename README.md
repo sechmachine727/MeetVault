@@ -91,6 +91,7 @@ Place these under `models/`. They are gitignored and must be staged next to the 
 
 Settings persist in `%APPDATA%\MeetVault\meetings.db` (SQLite, `settings` table). The Settings screen covers:
 
+- **Display language**: the interface language — English or Japanese. **System default** follows the Windows display language; an explicit choice applies after a restart.
 - **Audio**: microphone device, record-microphone on/off, record-system-audio on/off, and the system-audio source (all apps, or one running app). Microphone and system audio are mixed; disabling one records the other alone.
 - **Transcription**: model (tiny or base), device (CPU, or a detected GPU), speaker diarization.
 - **Overlay**: keep on top, opacity, font size, lines shown.
