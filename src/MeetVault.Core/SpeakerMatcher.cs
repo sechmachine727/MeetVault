@@ -53,6 +53,11 @@ public sealed class SpeakerMatcher
             var count = p.Count + 1;
             if (count >= ConfirmCount)
             {
+                // Keep BOTH sightings: the candidate's first utterance (p.Emb) and the one
+                // that confirms it. Storing only the confirmer dropped the voice's first
+                // sample from the search store, so later utterances matched on half the
+                // evidence. The store caps at 5 embeddings per id (oldest dropped).
+                _store.Add(p.Reserved, p.Emb);
                 _store.Add(p.Reserved, embedding);
                 _pending.RemoveAt(i);
                 _last = p.Reserved;

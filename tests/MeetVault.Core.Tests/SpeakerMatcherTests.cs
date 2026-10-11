@@ -82,4 +82,21 @@ public sealed class SpeakerMatcherTests
         Assert.Equal("spk_2", r.SpeakerId);
         Assert.Equal("spk_1", m.Assign(Vec(1, 0), 300).SpeakerId);
     }
+
+    [Fact]
+    public void ConfirmedCandidate_KeepsFirstSightingEmbedding()
+    {
+        var store = new FakeStore();
+        var m = new SpeakerMatcher(store);
+        var a = Vec(1, 0); var b = Vec(0, 1);
+        m.Assign(a, 0);
+        m.Assign(b, 1000);                    // first sighting of the new voice
+        var confirm = Jitter(b, 0.01f);
+        m.Assign(confirm, 2000);              // second sighting confirms it
+
+        Assert.True(store.ById.TryGetValue("spk_2", out var embeddings));
+        Assert.Equal(2, embeddings.Count);    // both sightings, not only the confirmer
+        Assert.Contains(embeddings, e => SpeakerMatcher.Cosine(e, b) == 1f);
+        Assert.Contains(embeddings, e => SpeakerMatcher.Cosine(e, confirm) == 1f);
+    }
 }
