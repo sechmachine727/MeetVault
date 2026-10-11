@@ -40,6 +40,11 @@ public sealed partial class LivePage : Page
     private string _modelLabel = "tiny";
     private readonly SemaphoreSlim _transcribeGate = new(1, 1);
     private int _droppedWindows;
+    // Index of the OPEN SENTENCE's row in Lines (streaming engines): the interim text
+    // renders as a NORMAL transcript row — same template as finals — and the final
+    // replaces it in place, so the current sentence never appears as a special caption.
+    // -1 = no open row.
+    private int _partialRowIndex = -1;
     private volatile bool _acceleratorReported;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _checkpoint;
     private LiveState _state = LiveState.Idle;
@@ -227,6 +232,7 @@ public sealed partial class LivePage : Page
             // numbering and can match the old voices). Recovery (RecoverAsync) never resets:
             // it continues the same meeting's ids and names.
             _speakerNames.Clear();
+            _partialRowIndex = -1; // no row from a previous meeting may be mistaken for the open sentence
             _sherpaDiarizer?.Reset();
             _session = new MeetingSession(_audio, _transcriber, _diarizer, new NeutralSpeakerLabeler(), AppStore.Repo, singleSpeaker: _singleSpeaker);
             await _session.StartAsync(MicId, AppSource, CancellationToken.None);
@@ -254,6 +260,7 @@ public sealed partial class LivePage : Page
             if (AppStore.Repo.Load(id)?.MediaPath is { Length: > 0 } mediaPath && _capture is not null) _capture.ReuseFile(mediaPath);
             _session = await MeetingSession.RecoverAsync(id, _audio, _transcriber, _diarizer, new NeutralSpeakerLabeler(), AppStore.Repo, MicId, AppSource, singleSpeaker: _singleSpeaker);
             foreach (var sp in _session.Speakers) _speakerNames[sp.Id] = sp.DisplayName;
+            _partialRowIndex = -1; // backlog lines are finals; none of them is an open sentence
             foreach (var s in _session.Segments) AddLine(s.SpeakerId, s.Text);
             WireSession(clearOverlay: false); // keep the recovered backlog for a late-opened overlay
             _windowOffsetMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
@@ -459,18 +466,38 @@ public sealed partial class LivePage : Page
             AddLine(segment.SpeakerId, segment.Text);
         });
 
-    // Streaming engines publish the open utterance's interim text; an empty string clears
-    // the line (never back to "Listening…" while idle — same rule as the transcribe path).
+    // Streaming engines publish the open utterance's interim text. It shows up as a normal
+    // transcript row (updated in place, replaced by the final when the sentence closes);
+    // an empty string clears the open row. The overlay keeps its own dimmed partial line.
     private void OnPartial(string text) => DispatcherQueue.TryEnqueue(() =>
     {
-        PartialLine.Text = text.Length > 0 ? text : (_state != LiveState.Idle ? Loc.T("Live.Listening") : "");
+        if (text.Length > 0)
+        {
+            var live = new TranscriptLine("", text);
+            if (_partialRowIndex >= 0 && _partialRowIndex < Lines.Count) Lines[_partialRowIndex] = live;
+            else { Lines.Add(live); _partialRowIndex = Lines.Count - 1; }
+        }
+        else ClearPartialRow();
         LiveBridge.NotifyPartial(text);
     });
+
+    private void ClearPartialRow()
+    {
+        if (_partialRowIndex >= 0 && _partialRowIndex < Lines.Count) Lines.RemoveAt(_partialRowIndex);
+        _partialRowIndex = -1;
+    }
 
     private void AddLine(string speakerId, string text)
     {
         var name = _singleSpeaker ? "" : (_speakerNames.TryGetValue(speakerId, out var n) ? n : speakerId);
-        Lines.Add(new TranscriptLine(name, text));
+        // The open sentence's row BECOMES its final: no duplicated row, no restyle.
+        if (_partialRowIndex >= 0)
+        {
+            if (_partialRowIndex < Lines.Count) Lines[_partialRowIndex] = new TranscriptLine(name, text);
+            else Lines.Add(new TranscriptLine(name, text));
+            _partialRowIndex = -1;
+        }
+        else Lines.Add(new TranscriptLine(name, text));
         LiveBridge.Publish(name, text);
     }
 
