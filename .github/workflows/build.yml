@@ -47,9 +47,10 @@ jobs:
         run: dotnet test tests/MeetVault.Core.Tests/MeetVault.Core.Tests.csproj -c Release --nologo -v q
 
       - name: Publish (win-x64)
-        # Exercises the packaging paths a build+test never touches (Platforms/RID pinning,
-        # the vcruntime Content+Link, TrimForeignRuntimesPublish) (review r12).
-        run: dotnet publish src/MeetVault/MeetVault.csproj -c Release -r win-x64 --self-contained false -o "$env:RUNNER_TEMP/mv-publish"
+        # The documented/shipped publish command (self-contained), so the payload check
+        # exercises the real packaging paths: Platforms/RID pinning, the vcruntime
+        # Content+Link, TrimForeignRuntimesPublish (review r12/r13).
+        run: dotnet publish src/MeetVault/MeetVault.csproj -c Release -r win-x64 --self-contained true -o "$env:RUNNER_TEMP/mv-publish"
 
       - name: Verify publish payload
         shell: pwsh

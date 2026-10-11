@@ -97,11 +97,12 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
         }
         var winner = await Task.WhenAny(done!.Task, Task.Delay(3000, ct)).ConfigureAwait(false);
         if (winner == done.Task) return await done.Task.ConfigureAwait(false);
-        // Timed out: the MP4 may be unfinalized, but the native recorder must still be
-        // released instead of abandoned (review r6).
+        // Timed out: the finalize may still complete (a long MP4's moov/faststart rewrite
+        // can outlast 3 s). The native recorder is released, and the result is marked
+        // Indeterminate so the caller KEEPS the file instead of deleting it (review r13).
         var abandoned = EndRun();
         abandoned?.DisposeOnce();
-        return new RecordingResult(false, path, ElapsedMs(), "stop timed out");
+        return new RecordingResult(false, path, ElapsedMs(), "stop timed out", Indeterminate: true);
     }
 
     public void Dispose()

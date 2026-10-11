@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using MeetVault.Core;
 using Microsoft.UI;
@@ -248,8 +249,8 @@ public sealed partial class OverlayWindow : Window
         {
             var repo = AppStore.Repo;
             Vm.IsPinned = repo.GetSetting("overlay.pin") != "off";
-            if (double.TryParse(repo.GetSetting("overlay.opacity"), out var op)) Vm.Opacity = op;
-            if (double.TryParse(repo.GetSetting("overlay.font"), out var font)) Vm.FontSize = font;
+            if (double.TryParse(repo.GetSetting("overlay.opacity"), NumberStyles.Float, CultureInfo.InvariantCulture, out var op)) Vm.Opacity = op;
+            if (double.TryParse(repo.GetSetting("overlay.font"), NumberStyles.Float, CultureInfo.InvariantCulture, out var font)) Vm.FontSize = font;
             // One visible-line setting for the whole app: this window's cogwheel flyout
             // slider and the Settings row both read/write overlay.viewlines. overlay.lines
             // is the retired key; an install that saved it keeps its value — read the new
@@ -262,7 +263,7 @@ public sealed partial class OverlayWindow : Window
                 viewLines = repo.GetSetting("overlay.lines");
                 if (!string.IsNullOrEmpty(viewLines)) repo.SetSetting("overlay.viewlines", viewLines);
             }
-            if (double.TryParse(viewLines, out var lines)) Vm.ViewLines = lines;
+            if (double.TryParse(viewLines, NumberStyles.Float, CultureInfo.InvariantCulture, out var lines)) Vm.ViewLines = lines;
             var family = repo.GetSetting("overlay.fontfamily");
             if (!string.IsNullOrWhiteSpace(family)) Vm.FontFamily = family;
         }
@@ -408,7 +409,7 @@ public sealed partial class OverlayWindow : Window
     {
         var darknessValue = new TextBlock { Text = Vm.Opacity.ToString("0.00"), Opacity = 0.7, VerticalAlignment = VerticalAlignment.Center };
         _backdropSlider.Value = Vm.Opacity;
-        _backdropSlider.ValueChanged += (_, e) => { Vm.Opacity = e.NewValue; darknessValue.Text = e.NewValue.ToString("0.00"); Persist("overlay.opacity", e.NewValue.ToString()); };
+        _backdropSlider.ValueChanged += (_, e) => { Vm.Opacity = e.NewValue; darknessValue.Text = e.NewValue.ToString("0.00"); Persist("overlay.opacity", e.NewValue.ToString(CultureInfo.InvariantCulture)); };
         AutomationProperties.SetName(_backdropSlider, Loc.T("Ov.Darkness"));
 
         var textSizeSlider = new Slider { Minimum = 12, Maximum = 48, StepFrequency = 2, Value = Vm.FontSize };

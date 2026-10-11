@@ -84,6 +84,28 @@ public sealed class BulkDeleteTests : IDisposable
         Assert.Equal(path, _repo.Load("a")!.MediaPath);  // the row is untouched
     }
 
+    [Fact]
+    public void Open_ReclaimsOrphanedAsideWhenADeleteMarkerIsSet()
+    {
+        // Empty db + a delete marker: the emptiness is a committed delete, not db loss —
+        // reclaim the aside, never resurrect it (review r13).
+        _repo.SetSetting("repo.deletePending", "1");
+        var staged = Path.Combine(_dir, "gone.m4a.deleting");
+        File.WriteAllText(staged, "bytes");
+        using var repo2 = new LocalMeetingRepository(_db, _dir);
+        Assert.False(File.Exists(staged));
+        Assert.False(File.Exists(Path.Combine(_dir, "gone.m4a")));
+    }
+
+    [Fact]
+    public void Delete_ClearsThePendingMarker()
+    {
+        var path = NewMedia("a");
+        _repo.Save(NewMeeting("a", path), Array.Empty<Speaker>(), Array.Empty<Segment>());
+        _repo.DeleteMeetings(new[] { "a" });
+        Assert.True(string.IsNullOrEmpty(_repo.GetSetting("repo.deletePending")));
+    }
+
     private static Meeting NewMeeting(string id, string? media, MeetingStatus status = MeetingStatus.Ready) =>
         new(id, "t-" + id, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, status, media, "audio/m4a");
 

@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using System.Globalization;
 
 namespace MeetVault.Views;
 
@@ -286,7 +287,7 @@ public sealed partial class SettingsPage : Page
     {
         if (_loading) return;
         if (!_ready) return;
-        Persist("overlay.opacity", OpacitySlider.Value.ToString());
+        Persist("overlay.opacity", OpacitySlider.Value.ToString(CultureInfo.InvariantCulture));
         Refresh();
     }
 
@@ -294,8 +295,8 @@ public sealed partial class SettingsPage : Page
     {
         if (_loading) return;
         if (!_ready) return;
-        if (ReferenceEquals(sender, LinesBox)) Persist("overlay.viewlines", LinesBox.Value.ToString());
-        else if (ReferenceEquals(sender, FontSizeBox)) Persist("overlay.font", FontSizeBox.Value.ToString());
+        if (ReferenceEquals(sender, LinesBox)) Persist("overlay.viewlines", LinesBox.Value.ToString(CultureInfo.InvariantCulture));
+        else if (ReferenceEquals(sender, FontSizeBox)) Persist("overlay.font", FontSizeBox.Value.ToString(CultureInfo.InvariantCulture));
         Refresh();
     }
 
@@ -328,8 +329,11 @@ public sealed partial class SettingsPage : Page
         var repo = AppStore.Repo;
         LanguagePicker.SelectedIndex = (repo.GetSetting("ui.language") ?? "system") switch { "en" => 1, "ja" => 2, _ => 0 };
         PinSwitch.IsOn = repo.GetSetting("overlay.pin") != "off";
-        if (double.TryParse(repo.GetSetting("overlay.opacity"), out var op)) OpacitySlider.Value = op;
-        if (double.TryParse(repo.GetSetting("overlay.font"), out var font)) FontSizeBox.Value = font;
+        // Numeric settings round-trip with the INVARIANT culture: the UI language choice
+        // changes DefaultThreadCurrentCulture, and "0,2" parsed as en-US would become 2
+        // (review r13).
+        if (double.TryParse(repo.GetSetting("overlay.opacity"), NumberStyles.Float, CultureInfo.InvariantCulture, out var op)) OpacitySlider.Value = op;
+        if (double.TryParse(repo.GetSetting("overlay.font"), NumberStyles.Float, CultureInfo.InvariantCulture, out var font)) FontSizeBox.Value = font;
         // The overlay's VISIBLE line count: one key drives both the cogwheel flyout slider
         // and this row (overlay.viewlines). overlay.lines is the retired key; an install
         // that saved it keeps its value — read the new key first, fall back to the old one
@@ -340,7 +344,7 @@ public sealed partial class SettingsPage : Page
             viewLines = repo.GetSetting("overlay.lines");
             if (!string.IsNullOrEmpty(viewLines)) repo.SetSetting("overlay.viewlines", viewLines);
         }
-        if (double.TryParse(viewLines, out var lines)) LinesBox.Value = lines;
+        if (double.TryParse(viewLines, NumberStyles.Float, CultureInfo.InvariantCulture, out var lines)) LinesBox.Value = lines;
         StoragePathBox.Text = repo.GetSetting("storage.path") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "MeetVault");
         // Speech language × size; one-time forward-migration of the retired single model
         // key (the overlay.viewlines migration above is the precedent).
@@ -481,9 +485,9 @@ public sealed partial class SettingsPage : Page
         {
             var repo = AppStore.Repo;
             repo.SetSetting("overlay.pin", OnOff(PinSwitch.IsOn));
-            repo.SetSetting("overlay.opacity", OpacitySlider.Value.ToString());
-            repo.SetSetting("overlay.font", FontSizeBox.Value.ToString());
-            repo.SetSetting("overlay.viewlines", LinesBox.Value.ToString());
+            repo.SetSetting("overlay.opacity", OpacitySlider.Value.ToString(CultureInfo.InvariantCulture));
+            repo.SetSetting("overlay.font", FontSizeBox.Value.ToString(CultureInfo.InvariantCulture));
+            repo.SetSetting("overlay.viewlines", LinesBox.Value.ToString(CultureInfo.InvariantCulture));
             repo.SetSetting("storage.path", StoragePathBox.Text);
             repo.SetSetting("transcription.language", CurrentLanguage());
             repo.SetSetting("transcription.size", SizeTier());

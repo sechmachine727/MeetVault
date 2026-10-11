@@ -1,8 +1,9 @@
 namespace MeetVault.Core;
 
 /// <summary>One finished screen-recording run. The app maps each draft to a
-/// media_tracks row (kind "screen", mime "video/mp4").</summary>
-public sealed record MediaTrackDraft(string MeetingId, string Kind, string Path, long StartOffsetMs, long DurationMs, bool Ok, string? Error);
+/// media_tracks row (kind "screen", mime "video/mp4"). Indeterminate: finalize may still
+/// be running — the caller keeps the file and still writes the row (review r13).</summary>
+public sealed record MediaTrackDraft(string MeetingId, string Kind, string Path, long StartOffsetMs, long DurationMs, bool Ok, string? Error, bool Indeterminate = false);
 
 /// <summary>Decides when screen-video runs start and stop (meeting state × enabled × user
 /// toggle), builds run output paths, computes per-run timeline offsets, and finalizes
@@ -177,6 +178,13 @@ public sealed class ScreenCaptureController : IDisposable
             Warn("screen: could not start recording (" + ex.Message + ")");
             return;
         }
+        // The adapter can fail synchronously (a failure event during Record clears its
+        // state before returning): don't claim a run that captured nothing (review r13).
+        if (!_recorder.IsRecording)
+        {
+            Warn("screen: recorder failed during start");
+            return;
+        }
         _run = run;
         AppLog.Info("screen: run started -> " + path + " (offset " + run.StartOffsetMs + " ms; " + reason + ")");
         StartWatchdog(source);
@@ -192,7 +200,7 @@ public sealed class ScreenCaptureController : IDisposable
         try { result = await _recorder.StopAsync(CancellationToken.None).ConfigureAwait(false); }
         catch (Exception ex) { result = new RecordingResult(false, run.Path, _clock() - run.StartWallMs, ex.Message); }
         var duration = result.DurationMs > 0 ? result.DurationMs : Math.Max(0, _clock() - run.StartWallMs);
-        var draft = new MediaTrackDraft(_meetingId ?? "", "screen", result.Path ?? run.Path, run.StartOffsetMs, duration, result.Ok, result.Error);
+        var draft = new MediaTrackDraft(_meetingId ?? "", "screen", result.Path ?? run.Path, run.StartOffsetMs, duration, result.Ok, result.Error, result.Indeterminate);
         lock (_drafts) _drafts.Add(draft);
         if (!result.Ok) Warn("screen: run failed (" + (result.Error ?? "unknown") + ")");
         AppLog.Info("screen: run stopped (" + reason + ") ok=" + result.Ok + " -> " + draft.Path);

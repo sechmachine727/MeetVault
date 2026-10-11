@@ -14,6 +14,7 @@ public sealed class ScreenCaptureControllerTests : IDisposable
         public bool IsRecording { get; private set; }
         public bool Overlapped { get; private set; }
         public bool FailStops { get; set; }
+        public bool IndeterminateStops { get; set; }
         public List<(CaptureSource Source, string Path)> Starts { get; } = new();
         public event Action<string>? Failed;
 #pragma warning disable CS0067 // the fake produces no preview frames
@@ -34,7 +35,9 @@ public sealed class ScreenCaptureControllerTests : IDisposable
             var path = Starts.Count > 0 ? Starts[^1].Path : null;
             return Task.FromResult(FailStops
                 ? new RecordingResult(false, path, 4000, "encoder boom")
-                : new RecordingResult(true, path, 4000, null));
+                : IndeterminateStops
+                    ? new RecordingResult(false, path, 4000, "stop timed out", true)
+                    : new RecordingResult(true, path, 4000, null));
         }
 
         public void RaiseFailed(string error)
@@ -154,6 +157,20 @@ public sealed class ScreenCaptureControllerTests : IDisposable
         await c.MeetingStoppedAsync();
         Assert.Single(rec.Starts);
         Assert.Equal(100, Assert.Single(c.FinishedTracks).StartOffsetMs);
+    }
+
+    [Fact]
+    public async Task StopIndeterminate_KeepsTheDraftForTheCaller()
+    {
+        // A stop timeout must not read as a failure: the draft is kept (Indeterminate) so
+        // the caller never deletes a possibly-finalized MP4 (review r13).
+        var (c, rec, _) = Make(new long[] { 1_000_100, 1_000_200 });
+        rec.IndeterminateStops = true;
+        await c.MeetingStartedAsync("m1", 1_000_000);
+        await c.MeetingStoppedAsync();
+        var draft = Assert.Single(c.FinishedTracks);
+        Assert.False(draft.Ok);
+        Assert.True(draft.Indeterminate);
     }
 
     [Fact]

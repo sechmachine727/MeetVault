@@ -65,6 +65,9 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
                 cnt.CommandText = "SELECT (SELECT COUNT(*) FROM meetings) + (SELECT COUNT(*) FROM media_tracks)";
                 anyRows = Convert.ToInt64(cnt.ExecuteScalar()) > 0;
             }
+            // A delete marker means an empty db is a committed delete, not db loss (r13).
+            var deletePending = false;
+            try { deletePending = !string.IsNullOrEmpty(GetSetting("repo.deletePending")); } catch { }
             foreach (var path in Directory.EnumerateFiles(_mediaRoot, "*.deleting"))
             {
                 string orig;
@@ -87,11 +90,14 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
                 // (original present) is always deleted.
                 try
                 {
-                    if (!anyRows && !File.Exists(orig)) { File.Move(path, orig); AppLog.Info("repo: recovered orphaned staged deletion " + path + " -> " + orig); }
+                    if (!anyRows && !deletePending && !File.Exists(orig)) { File.Move(path, orig); AppLog.Info("repo: recovered orphaned staged deletion " + path + " -> " + orig); }
                     else { File.Delete(path); AppLog.Info("repo: swept staged deletion " + path); }
                 }
                 catch (Exception ex) { AppLog.Warn("repo: staged deletion still locked: " + path + " :: " + ex.Message); }
             }
+            // The window is resolved; a stale marker must not block a future genuine
+            // recovery (review r13).
+            if (deletePending) { try { SetSetting("repo.deletePending", ""); } catch { } }
         }
         catch (Exception ex) { AppLog.Warn("repo: staged-deletion sweep failed: " + ex.Message); }
     }
@@ -245,6 +251,10 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         var deleted = new List<string>();
         var failed = new Dictionary<string, string>(StringComparer.Ordinal);
         var skipped = new List<(string Id, string Path)>();
+        // A committed delete that crashes before unlinking its asides must be distinguishable
+        // from a lost database on the next open: this marker (cleared at batch end) tells
+        // the sweep that an empty db is due to a delete, not db loss (review r13).
+        try { SetSetting("repo.deletePending", "1"); } catch { }
         foreach (var id in meetingIds.Distinct(StringComparer.Ordinal))
         {
             // Junk entries are skipped: null/empty can never name a meeting and the
@@ -355,6 +365,8 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
             }
             catch (Exception ex) { failed[id] = ex.Message; }
         }
+        // The batch is done; only the crash window keeps the marker alive (review r13).
+        try { SetSetting("repo.deletePending", ""); } catch { }
         AppLog.Info($"repo: bulk delete {deleted.Count} deleted, {failed.Count} failed, {skipped.Count} media left in place");
         return new BulkDeleteResult(deleted, failed, skipped);
     }

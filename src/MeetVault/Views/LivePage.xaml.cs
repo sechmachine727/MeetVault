@@ -273,17 +273,16 @@ public sealed partial class LivePage : Page
                 LiveBridge.SetLanguage(new LiveBridge.LanguageInfo(_activeLanguage, _autoMode, false));
             }
             SetLangStatus();
-            _starting = false;
         }
         catch (Exception ex)
         {
-            _starting = false;
             try { if (_session is not null) { _session.MarkFailed(); _session.Dispose(); _session = null; } } catch { }
             SetState(LiveState.Idle);
             LiveBridge.SetMeetingState(LiveBridge.MeetingState.Idle);
             MeetVault.Core.AppLog.Error("live: start capture failed", ex);
             Status(Loc.Tf("Live.CouldNotStart", Short(ex)));
         }
+        finally { _starting = false; } // also on the auto-wait early return (review r13)
     }
 
     // The language monitor is built wherever AUTO becomes relevant: at load when the
@@ -532,7 +531,7 @@ public sealed partial class LivePage : Page
         if (_screen is null) return;
         foreach (var draft in _screen.FinishedTracks)
         {
-            if (!draft.Ok)
+            if (!draft.Ok && !draft.Indeterminate)
             {
                 // A failed run's partial MP4 would otherwise sit under the media root with
                 // no row and no way to delete it (review r12).
@@ -540,6 +539,10 @@ public sealed partial class LivePage : Page
                 Status(Loc.Tf("Live.ScreenFailed", draft.Error ?? ""));
                 continue;
             }
+            // Indeterminate (the stop timed out while the finalize may still be running):
+            // keep the file AND give it a row — it plays if valid and is deletable either
+            // way (review r13).
+            if (!draft.Ok) Status(Loc.Tf("Live.ScreenFailed", draft.Error ?? ""));
             try
             {
                 AppStore.Repo.AddMediaTrack(new MeetVault.Core.MediaTrack(

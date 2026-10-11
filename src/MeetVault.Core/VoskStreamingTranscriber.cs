@@ -27,7 +27,9 @@ public sealed class VoskStreamingTranscriber : IStreamingTranscriber
         // the meeting (review r6).
         for (var attempt = 0; ; attempt++)
         {
-            if (_runner.FlushAndWait()) break;
+            // The wait joins the decode thread (up to 5 s when it is behind): never on the
+            // UI thread (review r13).
+            if (await Task.Run(() => _runner.FlushAndWait()).ConfigureAwait(false)) break;
             if (attempt >= 2)
                 throw new InvalidOperationException("The previous speech decode thread did not finish; transcription could not start.");
             AppLog.Warn("vosk: previous decode thread still draining; retrying the start");
@@ -37,7 +39,13 @@ public sealed class VoskStreamingTranscriber : IStreamingTranscriber
         IsRunning = true;
     }
 
-    public Task StopAsync(CancellationToken ct) { _runner.Flush(); IsRunning = false; return Task.CompletedTask; }
+    public Task StopAsync(CancellationToken ct)
+    {
+        IsRunning = false;
+        // The flush joins the decode thread (up to 5 s when it is behind): run it off the
+        // caller — Pause/Stop/Resume await this on the UI thread (review r13).
+        return Task.Run(() => _runner.Flush());
+    }
     public void Push(float[] samples16k) => _runner.Push(samples16k);
     public void Flush() => _runner.Flush();
     public void Dispose() { IsRunning = false; _runner.Dispose(); }

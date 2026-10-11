@@ -5,8 +5,10 @@ namespace MeetVault.Core;
 /// Label is the human-readable form shown in pickers.</summary>
 public sealed record CaptureSource(string Kind, string Id, string Label);
 
-/// <summary>Outcome of a recording run's finalization.</summary>
-public sealed record RecordingResult(bool Ok, string? Path, long DurationMs, string? Error);
+/// <summary>Outcome of a recording run's finalization. Indeterminate: the stop timed out
+/// while the finalize may still be completing — the file is kept, never deleted on this
+/// result (review r13).</summary>
+public sealed record RecordingResult(bool Ok, string? Path, long DurationMs, string? Error, bool Indeterminate = false);
 
 /// <summary>Screen-video recorder seam. The only production implementation is
 /// <see cref="ScreenRecorderLibAdapter"/>; tests fake this interface.</summary>
