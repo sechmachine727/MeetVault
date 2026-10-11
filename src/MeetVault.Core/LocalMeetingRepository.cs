@@ -192,9 +192,14 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
     // delete. Anything else (exports, user copies, malformed rows) is refused so a
     // bad database record can never turn into deletion of an arbitrary path.
     // The check is deliberately lexical AND physical: the path must be fully
-    // qualified, resolve under the root, and pass through no reparse point
-    // (symlink/junction) — including AT the root itself, which would otherwise
-    // redirect every delete elsewhere while all components below it look clean.
+    // qualified and resolve under the configured root, and no component BELOW the
+    // boundary may be a reparse point (symlink/junction) — a link below the root
+    // could otherwise redirect a delete outside it. The ROOT itself may be a link:
+    // that is the user's own media location (e.g. relocated to another drive with a
+    // junction), so it is resolved to its final target and the file is judged under
+    // that target — otherwise every recording on a relocated root would read as
+    // unmanaged and deleting it would silently leave the audio behind. Rows still
+    // cannot escape the boundary or pass through links below it.
     public bool IsManagedMedia(string path)
     {
         string full, root;
@@ -205,20 +210,32 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
             root = Path.GetFullPath(_mediaRoot);
         }
         catch { return false; }
-        // HasReparsePoint walks only the components BELOW the root, so a junction or
-        // symlink sitting AT the root is checked here. A missing root is not a refusal
-        // (no file can exist under it); an unreadable root is.
+        if (!full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) return false;
+        var relative = full.Substring(root.Length + 1);
+
+        var boundary = root;
+        var candidate = full;
         try
         {
-            if ((File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0) return false;
+            var rootInfo = new DirectoryInfo(root);
+            if (rootInfo.Exists && (rootInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+            {
+                // A reparse root that cannot be resolved refuses the delete: without a
+                // boundary the file's real location is unknowable.
+                var resolved = rootInfo.ResolveLinkTarget(returnFinalTarget: true);
+                if (resolved is null) return false;
+                boundary = Path.TrimEndingDirectorySeparator(resolved.FullName);
+                candidate = Path.Combine(boundary, relative);
+            }
         }
-        catch (FileNotFoundException) { }        // root absent: nothing can exist under it
-        catch (DirectoryNotFoundException) { }   // ditto
-        catch { return false; }                  // unreadable: refuse
-        return full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-               && !HasReparsePoint(full, root);
+        catch { return false; }   // resolve/attribute errors: refuse
+        // A missing root is not a refusal (no file can exist under it; callers guard
+        // File.Exists); an unreadable one is (HasReparsePoint refuses on errors).
+        return !HasReparsePoint(candidate, boundary);
     }
 
+    // True when any component strictly BELOW `boundary` is a reparse point. The
+    // boundary itself is judged by the caller (it may be the user's own relocated root).
     private static bool HasReparsePoint(string full, string root)
     {
         var current = root;
