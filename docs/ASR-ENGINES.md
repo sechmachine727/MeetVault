@@ -1,70 +1,35 @@
-# Speech model — Vosk small (English / Japanese / Vietnamese)
+# Speech models — Vosk tier matrix (English / Japanese / Vietnamese)
 
-MeetVault ships exactly one engine family: **Vosk small** — offline, streaming, CPU-only.
-The model is selected in Settings → Transcription → Model (`transcription.model`); the
-catalog (`EngineCatalog`) is the single source of truth. Earlier engine families
-(whisper, moonshine, zipformer) and the sherpa diarization/VAD pipeline were removed —
-their code, packages and models are gone.
+MeetVault ships one engine family: **Vosk** — offline, streaming, CPU-only. Settings →
+Transcription selects **Language** (`transcription.language`) and **Model size**
+(`transcription.size`); the catalog (`src/MeetVault.Core/EngineCatalog.cs`) is the single
+source of truth. Earlier engine families and the diarization/VAD pipeline were removed.
 
-## Model table
+## Tiers
 
-| Model id | Language | Staged folder | Staged size | Source |
-|---|---|---|---|---|
-| `small-en` (default) | English | `vosk/small-en` | ~50 MB | `vosk-model-small-en-us-0.15.zip`, alphacephei.com/vosk/models |
-| `small-ja` | Japanese | `vosk/small-ja` | ~62 MB | `vosk-model-small-ja-0.22.zip` |
-| `small-vi` | Vietnamese | `vosk/small-vi` | ~50 MB | `vosk-model-small-vn-0.4.zip` |
+| Tier | English | Japanese | Vietnamese |
+|---|---|---|---|
+| small | `small-en` — `vosk-model-small-en-us-0.15` (~40 MB) | `small-ja` — `vosk-model-small-ja-0.22` (~48 MB) | `small-vi` — `vosk-model-small-vn-0.4` (~32 MB) |
+| medium | `medium-en` — `vosk-model-en-us-0.22-lgraph` (~128 MB) | — (no medium model exists) | — (no medium model exists) |
+| large | `large-en` — `vosk-model-en-us-0.22` (~1.8 GB) | `large-ja` — `vosk-model-ja-0.22` (~1 GB) | `large-vi` — `vosk-model-vn-0.4` (~78 MB) |
 
-One language per meeting (the model is fixed-language). A missing/unstaged model shows
-"— not installed" in the picker; if the selected one is missing, Live falls back to any
-installed model (`live: model <id> missing; falling back to <id>` in the log) and runs
-demo mode only when none is staged. A legacy `transcription.model` value from a removed
-engine (tiny, base, 20m-en, …) resolves to the default with no migration.
+Vosk's own test numbers (word/character error rate, lower is better): English 9.85 → 7.82 →
+5.69 for small → medium → large; Japanese 9.52 → 8.40; Vietnamese 15.70 for both.
 
-## Staging (gitignored; never commit)
+## Staging
 
-```sh
-cd <repo>/models
-mkdir -p vosk
-# downloads:
-#   https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip   39.3 MB
-#   https://alphacephei.com/vosk/models/vosk-model-small-ja-0.22.zip      47.4 MB
-#   https://alphacephei.com/vosk/models/vosk-model-small-vn-0.4.zip       32.1 MB
-# extract each with the SYSTEM bsdtar (it handles .zip; strip the top folder):
-/c/Windows/System32/tar.exe -xf vosk-model-small-en-us-0.15.zip -C vosk/small-en --strip-components 1
-# layout the catalog requires (EngineCatalog.RequiredFiles):
-#   vosk/<model>/am/final.mdl
-#   vosk/<model>/conf/model.conf
-#   vosk/<model>/graph/HCLr.fst + graph/Gr.fst     (dynamic graph — NO HCLG.fst)
-#   vosk/<model>/ivector/final.ie
-```
+Models live under `models/vosk/<tier>-<lang>/` at the repo root (gitignored; copied into the
+publish folder by hand). To stage one (example: the English medium model; use the system
+bsdtar — GNU tar cannot read `.zip`):
 
-Publish note: the portable build needs the staged tree copied in —
-`cp -r models publish/win-x64/models` (the exe resolves models from its own folder).
+    curl -L --fail --retry 3 -C - -o /tmp/model.zip https://alphacephei.com/vosk/models/vosk-model-en-us-0.22-lgraph.zip
+    mkdir -p models/vosk/_tmp && /c/Windows/System32/tar.exe -xf /tmp/model.zip -C models/vosk/_tmp
+    mv models/vosk/_tmp/vosk-model-en-us-0.22-lgraph models/vosk/medium-en && rmdir models/vosk/_tmp
 
-## Behavior
-
-- The engine consumes the raw 16 kHz stream through `StreamingRunner` (bounded 1024-chunk
-  queue ≈10 s, dedicated decode thread, drop-oldest with a rate-limited warn). It emits
-  interim text (`PartialReady` → a NORMAL transcript row in the Live list, updated in
-  place and replaced by its final — never a special caption; the overlay keeps its dimmed
-  partial line) and finalized utterances on Vosk's own silence endpoints (`SegmentReady` →
-  the session's normal segment path).
-- Single-speaker by construction: every segment carries the constant `spk_1` id and no
-  speaker rows are minted. Legacy meetings with speaker rows still render them read-only.
-- Timestamps are wall-clock (utterance start = previous endpoint, end = now).
-- **Sentence case**: the small models emit all-lowercase, unpunctuated text; every
-  partial and final passes `SpeechText.SentenceCase` (lowercase + first-letter capital +
-  the English pronoun I), so every surface reads as sentence case.
-- **`IsReady() => false`**: Vosk decodes inside `AcceptWaveform`; a `true` there would
-  spin the runner's drain loop.
-- The engine line in Live reads `live: vosk <model>`.
-
-## Measured facts (this box, 2026-10-11)
-
-- Vosk small decodes faster than real time on CPU and needs no preroll or VAD.
-- The small models ship the dynamic-graph layout (`graph/HCLr.fst` + `graph/Gr.fst`,
-  composed at load); there is no `HCLG.fst`. `libvosk.dll` ships through the `Vosk`
-  NuGet package.
-- Streaming segment ids are minted as `s<random8>-<n>` per runner instance: the
-  `transcript_segments.id` column is a global PRIMARY KEY, so parallel meetings/engines
-  must never both start at `s0`.
+An unstaged tier shows "— not installed" in Settings; Live falls back to an installed model
+of the same language. Required files per model are the ones the catalog lists for it
+(dynamic-graph models: `graph/Gr.fst` + `graph/HCLr.fst`; composed models: `graph/HCLG.fst`).
+A legacy `transcription.model` value is migrated once to the language/size pair (unknown ids
+fall back to English/Small). Big models need more RAM (roughly 1–2 GB when running) and take
+longer to load; the small models stay the lightest option. Overlay/feed rendering is
+unchanged by the model choice.

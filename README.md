@@ -75,13 +75,19 @@ The package lands at `src/MeetVault/AppPackages/MeetVault_1.0.0.0_x64_Test/MeetV
 
 Place these under `models/`. They are gitignored and must be staged next to the executable for a portable run.
 
-| Folder | Language | Size |
-| --- | --- | --- |
-| `vosk/small-en` | English | ~50 MB |
-| `vosk/small-ja` | Japanese | ~62 MB |
-| `vosk/small-vi` | Vietnamese | ~50 MB |
+| Folder | Language | Size tier | Download |
+| --- | --- | --- | --- |
+| `vosk/small-en` | English | Small | ~40 MB |
+| `vosk/medium-en` | English | Medium | ~128 MB |
+| `vosk/large-en` | English | Large | ~1.8 GB |
+| `vosk/small-ja` | Japanese | Small | ~48 MB |
+| `vosk/large-ja` | Japanese | Large | ~1 GB |
+| `vosk/small-vi` | Vietnamese | Small | ~32 MB |
+| `vosk/large-vi` | Vietnamese | Large | ~78 MB |
 
-All three are the Vosk small models (alphacephei.com/vosk/models), offline and streaming. Staging commands and the exact required files: [docs/ASR-ENGINES.md](docs/ASR-ENGINES.md).
+All are Vosk models (alphacephei.com/vosk/models), offline and streaming. Japanese and
+Vietnamese have no medium tier — the picker shows those rows disabled. Staging commands and
+the exact required files: [docs/ASR-ENGINES.md](docs/ASR-ENGINES.md).
 
 ## Configuration
 
@@ -89,7 +95,7 @@ Settings persist in `%APPDATA%\MeetVault\meetings.db` (SQLite, `settings` table)
 
 - **Display language**: the interface language — English or Japanese. **System default** follows the Windows display language; an explicit choice applies after a restart.
 - **Audio**: microphone device, record-microphone on/off, record-system-audio on/off, and the system-audio source (all apps, or one running app). Microphone and system audio are mixed; disabling one records the other alone.
-- **Transcription**: the speech model — Vosk small for English, Japanese, or Vietnamese. Offline streaming, runs on CPU. A selected model whose files are missing shows "— not installed" and Live falls back to any installed model. Model staging: [docs/ASR-ENGINES.md](docs/ASR-ENGINES.md).
+- **Transcription**: Language (English / Japanese / Vietnamese) and Model size (Small / Medium / Large). Offline streaming, runs on CPU. The caption under the controls explains what each size means; a tier whose files are missing shows "— not installed" and Live falls back to an installed model. Model staging: [docs/ASR-ENGINES.md](docs/ASR-ENGINES.md).
 - **Overlay**: keep on top, background darkness (default 0.20), font size (default 18), lines shown.
 - **Storage**: export folder.
 - **Logging**: log level (default `debug`), open log folder, show log.

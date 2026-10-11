@@ -4,9 +4,9 @@ Launch the single canonical portable release:
 
     publish/win-x64/MeetVault.exe
 
-- Self-contained, no dotnet needed. The native (`libvosk.dll`) sits at the app root; models under `models/vosk/` — `small-en` (English, ~50 MB), `small-ja` (Japanese, ~62 MB), `small-vi` (Vietnamese, ~50 MB). Staging: docs/ASR-ENGINES.md.
+- Self-contained, no dotnet needed. The native (`libvosk.dll`) sits at the app root; models under `models/vosk/` — small (~32–48 MB), medium (English only, ~128 MB), large (~78 MB–1.8 GB). Staging: docs/ASR-ENGINES.md.
 - This is the only portable build. Do not create extra publish folders; rebuild in place with the commands below.
-- Live starts only when you press Start recording; leaving Live pauses the meeting and keeps it as a recoverable draft on the Dashboard. Settings -> Model picks English / Japanese / Vietnamese (applies the next time Live is opened).
+- Live starts only when you press Start recording; leaving Live pauses the meeting and keeps it as a recoverable draft on the Dashboard. Settings -> Language and Model size pick the speech model (applies the next time Live is opened).
 - Audio: the microphone and system output are recorded together and mixed at 48 kHz mono. Settings -> Audio has record-microphone and record-system-audio toggles, and the system-audio source picks all apps or one running app.
 - Recordings: the working file is a WAV; on Stop and save it is encoded to `.m4a` (AAC 256 kbps) and the WAV is removed. If Media Foundation cannot encode, the WAV is kept instead.
 - Logging: Settings -> Logging sets the level (default debug) and opens or shows the log. App log: `%TEMP%\MeetVault\app.log` (rotates at 2 MB into `app.log.1`).
