@@ -22,7 +22,7 @@ public interface ISpeechTranscriber
 
 // A transcriber that processes one finalized utterance at a time (the VAD-utterance
 // pipeline). Whisper and Moonshine implement this; streaming engines do not.
-public interface IUtteranceTranscriber : ISpeechTranscriber
+public interface IUtteranceTranscriber : ISpeechTranscriber, IDisposable
 {
     Task TranscribeWindowAsync(byte[] pcm16kMono, long windowStartMs, string meetingId, CancellationToken ct = default);
 }
