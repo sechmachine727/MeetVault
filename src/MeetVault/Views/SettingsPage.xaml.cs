@@ -88,7 +88,22 @@ public sealed partial class SettingsPage : Page
         if (_loading) return;
         if (!_ready) return;
         var value = LanguagePicker.SelectedIndex switch { 1 => "en", 2 => "ja", _ => "system" };
-        AppStore.Repo.SetSetting("ui.language", value);
+        try
+        {
+            AppStore.Repo.SetSetting("ui.language", value);
+        }
+        catch (Exception ex)
+        {
+            // A read-only/full data folder must not terminate the app (the global
+            // UnhandledException hook logs but never marks the event handled): report the
+            // failed write instead of the restart message, and do not apply the override
+            // for a setting that was not saved — this process would then render a
+            // language the store does not agree with.
+            StatusBar.Severity = InfoBarSeverity.Error;
+            StatusBar.Message = Loc.Tf("Set.SaveFailed", DescribeStorage(ex));
+            StatusBar.IsOpen = true;
+            return;
+        }
         try
         {
             Microsoft.Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride =
