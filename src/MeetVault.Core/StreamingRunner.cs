@@ -10,6 +10,11 @@ public sealed class StreamingRunner : IDisposable
 {
     private readonly IStreamingBackend _backend;
     private readonly Func<long> _nowMs;
+    // Segment ids must be unique across meetings AND engines: transcript_segments.id is a
+    // global PRIMARY KEY, and every runner instance restarts its own sequence at 0 — two
+    // meetings would both mint "s0" and the second meeting's saves would die on the UNIQUE
+    // constraint (hit live: the vosk test run could not save or stop at all).
+    private readonly string _idPrefix = "s" + Guid.NewGuid().ToString("n").Substring(0, 8);
     private BlockingCollection<float[]>? _queue;
     private Thread? _thread;
     private volatile bool _running;
@@ -95,7 +100,7 @@ public sealed class StreamingRunner : IDisposable
     private void Finalize(string text)
     {
         var now = _nowMs();
-        SegmentReady?.Invoke(new Segment("s" + _utteranceSeq++, "", _utteranceStartMs, now, text, true));
+        SegmentReady?.Invoke(new Segment(_idPrefix + "-" + _utteranceSeq++, "", _utteranceStartMs, now, text, true));
         _utteranceStartMs = now;
         _lastPartial = "";
         PartialReady?.Invoke("");

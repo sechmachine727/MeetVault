@@ -86,4 +86,35 @@ public sealed class StreamingRunnerTests
         r.Flush();
         Assert.Equal(0, r.DroppedChunks);
     }
+
+    [Fact]
+    public void SegmentIds_DoNotCollideAcrossRunnerInstances()
+    {
+        // transcript_segments.id is a global PRIMARY KEY: two runners (two meetings, or two
+        // engines on the same page) must never mint the same id — the first live run of this
+        // feature hit UNIQUE-constraint failures exactly this way (both runners started at "s0").
+        var b1 = new FakeBackend();
+        var segs1 = new List<Segment>();
+        using (var r1 = new StreamingRunner(b1, Next))
+        {
+            r1.SegmentReady += segs1.Add;
+            r1.Start();
+            b1.EndpointText = "one";
+            r1.Push(new float[] { 1 });
+            r1.Flush();
+        }
+        var b2 = new FakeBackend();
+        var segs2 = new List<Segment>();
+        using (var r2 = new StreamingRunner(b2, Next))
+        {
+            r2.SegmentReady += segs2.Add;
+            r2.Start();
+            b2.EndpointText = "two";
+            r2.Push(new float[] { 1 });
+            r2.Flush();
+        }
+        Assert.NotEmpty(segs1);
+        Assert.NotEmpty(segs2);
+        Assert.Empty(segs1.Select(s => s.Id).Intersect(segs2.Select(s => s.Id)));
+    }
 }
