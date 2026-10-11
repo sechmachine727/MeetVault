@@ -169,7 +169,7 @@
                         <TextBlock x:Uid="SetFontDesc" Opacity="0.7" TextWrapping="Wrap" />
                     </StackPanel>
                     <NumberBox x:Name="FontSizeBox" x:Uid="SetFontBox" Grid.Column="1" Width="140" HorizontalAlignment="Left"
-                               Minimum="10" Maximum="36" Value="16" SmallChange="1"
+                               Minimum="12" Maximum="48" Value="16" SmallChange="1"
                                SpinButtonPlacementMode="Compact" ValueChanged="Number_ValueChanged" />
                 </Grid>
                 <Grid ColumnSpacing="24">
