@@ -33,19 +33,31 @@ public sealed class SherpaDiarizer : ISpeakerDiarizer, IDisposable
 
     // Assigns the dominant speaker of one finalized 16 kHz mono turn as a stable spk_N id.
     // Empty audio carries no speaker: returns an Unknown hint rather than throwing, and
-    // never invents an identity for a turn it cannot hear.
+    // never invents an identity for a turn it cannot hear. A failure inside the sherpa
+    // natives degrades the same way (Warn + Unknown, keeping the caller's previous
+    // speaker): the LABEL is lost, never the caller's transcription — a throw here would
+    // abort the live path and silently lose the utterance's whole text. The old
+    // WindowDiarizer degraded identically (kept the current label on failure).
     public SpeakerHint AssignTurn(TurnAudio turn)
     {
         if (turn.Samples16kMono.IsEmpty) return Unknown;
-        var samples = turn.Samples16kMono;
-        var segments = _diar.Process(samples.ToArray());
-        if (segments.Length == 0) return Unknown;
+        try
+        {
+            var samples = turn.Samples16kMono;
+            var segments = _diar.Process(samples.ToArray());
+            if (segments.Length == 0) return Unknown;
 
-        var dominant = segments.OrderByDescending(s => s.End - s.Start).First().Speaker;
-        var emb = EmbeddingFor(samples.Span, segments.Where(s => s.Speaker == dominant));
+            var dominant = segments.OrderByDescending(s => s.End - s.Start).First().Speaker;
+            var emb = EmbeddingFor(samples.Span, segments.Where(s => s.Speaker == dominant));
 
-        var match = _matcher.Assign(emb, turn.StartMs);
-        return new SpeakerHint(match.SpeakerId, match.Origin);
+            var match = _matcher.Assign(emb, turn.StartMs);
+            return new SpeakerHint(match.SpeakerId, match.Origin);
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn("diarizer: AssignTurn failed, using the Unknown hint :: " + ex.Message);
+            return Unknown;
+        }
     }
 
     // Union of this local speaker's spans within the turn -> one embedding per turn.

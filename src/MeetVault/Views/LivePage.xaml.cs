@@ -335,8 +335,12 @@ public sealed partial class LivePage : Page
                 if (_session?.MeetingId is not { Length: > 0 } meetingId) return;
                 // One diarization + one transcription per finalized utterance; the session keeps
                 // the resolved speaker for every segment this sentence produces (empty turns
-                // stay with the previous one).
-                _session.NoteTurnAudio(new TurnAudio(utterance.Samples16k, utterance.StartMs, utterance.EndMs));
+                // stay with the previous one). The diarizer drives sherpa natives synchronously:
+                // its own guard degrades a failure to the carried-over speaker, and this guard
+                // keeps ANY diarizer throw from aborting the transcription below — the outer
+                // catch would silently lose the utterance's whole text.
+                try { _session.NoteTurnAudio(new TurnAudio(utterance.Samples16k, utterance.StartMs, utterance.EndMs)); }
+                catch (Exception ex) { MeetVault.Core.AppLog.Warn("live: speaker hint failed :: " + ex.Message); }
                 DispatcherQueue.TryEnqueue(() => PartialLine.Text = Loc.T("Live.Transcribing"));
                 await _whisper.TranscribeWindowAsync(Pcm16.FromFloats(utterance.Samples16k), utterance.StartMs, meetingId);
                 ReportAcceleratorOnce();

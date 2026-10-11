@@ -27,6 +27,34 @@ public sealed class DiarizerContractTests
     }
 
     [Fact]
+    public void AssignTurn_InternalFailure_DegradesToUnknown_NoThrow()
+    {
+        // A diarizer failure must degrade the LABEL, never abort the caller's transcription:
+        // in the live path a throw from here used to propagate into a catch { } that dropped
+        // the utterance's whole text. Fault injection: null the private native diarizer
+        // handle so the body throws a managed NullReferenceException at its first native use
+        // (a real sherpa failure is not reproducible deterministically; a disposed handle
+        // would risk a native access violation instead of a managed throw).
+        using var dz = TryOpen();
+        if (dz is null) return;
+        var field = typeof(SherpaDiarizer).GetField("_diar", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        var real = field.GetValue(dz);
+        try
+        {
+            field.SetValue(dz, null);
+
+            var hint = dz.AssignTurn(new TurnAudio(new float[16000], 0, 1000));
+
+            Assert.Equal("", hint.SpeakerId);
+            Assert.Equal(SpeakerOrigin.Unknown, hint.Origin);
+        }
+        finally
+        {
+            field.SetValue(dz, real); // restore so Dispose() can run
+        }
+    }
+
+    [Fact]
     public void AssignTurn_TwoVoices_DistinguishesAndStabilizes()
     {
         // Synthetic A/B/A fixture (Windows TTS voices; committed, no consent required).
