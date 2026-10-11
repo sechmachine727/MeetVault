@@ -71,6 +71,7 @@
   <data name="DetTranscript.Text" xml:space="preserve"><value>Transcript</value></data>
   <data name="DetEmpty.Text" xml:space="preserve"><value>No meeting to show yet. Start one in Live and its transcript lands here.</value></data>
   <data name="DetSpeakerName.AutomationProperties.Name" xml:space="preserve"><value>Speaker</value></data>
+  <data name="Det.SpeakerFallback" xml:space="preserve"><value>Speaker 1</value></data>
   <data name="DetSpeakerName.ToolTipService.ToolTip" xml:space="preserve"><value>Reassign this line to another speaker</value></data>
   <data name="DetLineName.AutomationProperties.Name" xml:space="preserve"><value>Transcript line</value></data>
   <data name="DetLineName.ToolTipService.ToolTip" xml:space="preserve"><value>Edit this line</value></data>

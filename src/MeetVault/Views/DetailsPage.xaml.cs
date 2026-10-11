@@ -60,7 +60,7 @@ public sealed partial class DetailsPage : Page
         var repoSpks = AppStore.Repo.LoadSpeakers(_meeting.Id).ToList();
         _hasSpeakers = repoSpks.Count > 0;
         foreach (var s in repoSpks) { _speakerIdByName[s.DisplayName] = s.Id; Speakers.Add(s.DisplayName); }
-        if (Speakers.Count == 0) Speakers.Add("Speaker 1");
+        if (Speakers.Count == 0) Speakers.Add(Loc.T("Det.SpeakerFallback"));
         var names = repoSpks.ToDictionary(s => s.Id, s => s.DisplayName);
         foreach (var s in repoSegs)
         {

@@ -554,8 +554,9 @@ public sealed partial class OverlayWindow : Window
             return;
         }
         var overflow = h + _conversationPanel.Margin.Bottom - cell.ActualHeight;
-        _conversationPanel.Clip = overflow <= 0
+        var cut = Math.Clamp(overflow, 0, h); // never a negative-height rect (review r15)
+        _conversationPanel.Clip = cut <= 0
             ? null
-            : new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, overflow, w, h - overflow) };
+            : new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, cut, w, h - cut) };
     }
 }

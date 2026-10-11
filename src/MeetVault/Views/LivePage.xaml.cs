@@ -123,6 +123,19 @@ public sealed partial class LivePage : Page
         _resolvedOption = option;
         if (resolution.IsFallback)
             MeetVault.Core.AppLog.Warn("live: model " + resolution.Requested.Model + " missing; falling back to " + option.Model);
+        // Screen capture is ASR-independent: create the controller before the demo branch,
+        // so the section (picker/preview) works even with no staged ASR models (review r15).
+        _adapter = new MeetVault.Core.ScreenRecorderLibAdapter();
+        _screen = new MeetVault.Core.ScreenCaptureController(
+            _adapter,
+            () => AppStore.MediaDir,
+            () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            ResolveScreenSource,
+            MeetVault.Core.CaptureSourceResolver.FindWindowHandle,
+            MeetVault.Core.CaptureSourceResolver.IsWindowAlive);
+        _screen.Enabled = AppStore.Repo.GetSetting("screen.enabled") != "false";
+        _screen.Warning += message => DispatcherQueue.TryEnqueue(() => { Status(message); RefreshScreenStatus(); });
+        _screen.FramePreview += OnScreenFrame;
         if (resolution.Demo)
         {
             _transcriber = transcriber; _audio = audio; // demo (no models)
@@ -154,17 +167,6 @@ public sealed partial class LivePage : Page
             capture.CaptureFailed += OnCaptureFailed;
             _capture = capture;
             _audio = capture;
-            _adapter = new MeetVault.Core.ScreenRecorderLibAdapter();
-            _screen = new MeetVault.Core.ScreenCaptureController(
-                _adapter,
-                () => AppStore.MediaDir,
-                () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                ResolveScreenSource,
-                MeetVault.Core.CaptureSourceResolver.FindWindowHandle,
-                MeetVault.Core.CaptureSourceResolver.IsWindowAlive);
-            _screen.Enabled = AppStore.Repo.GetSetting("screen.enabled") != "false";
-            _screen.Warning += message => DispatcherQueue.TryEnqueue(() => { Status(message); RefreshScreenStatus(); });
-            _screen.FramePreview += OnScreenFrame;
         }
         catch (Exception ex)
         {
@@ -203,6 +205,7 @@ public sealed partial class LivePage : Page
 
     private async void Start_Click(object sender, RoutedEventArgs e)
     {
+        var started = false; // only a session that never started may be MarkFailed'd (review r15)
         try
         {
             // A second click during the multi-second lazy-engine load must not start a
@@ -226,6 +229,7 @@ public sealed partial class LivePage : Page
             if (_autoMode) EnsureLangMonitor();
             _session = new MeetingSession(_audio, _transcriber, AppStore.Repo);
             await _session.StartAsync(MicId, AppSource, CancellationToken.None);
+            started = true;
             WireSession(clearOverlay: true);
             SetState(LiveState.Recording);
             LiveBridge.SetMeetingState(LiveBridge.MeetingState.Recording);
@@ -264,7 +268,11 @@ public sealed partial class LivePage : Page
                         _activeLanguage = "en";
                         _engineMode = "live: vosk " + fallback.Model;
                         _langMonitor.SetActive("en");
-                        if (_session?.MeetingId is { } mid) AppStore.Repo.SetMeetingLanguage(mid, "en");
+                        if (_session?.MeetingId is { } mid)
+                        {
+                            try { AppStore.Repo.SetMeetingLanguage(mid, "en"); }
+                            catch (Exception dbex) { MeetVault.Core.AppLog.Warn("live: could not persist the meeting language: " + dbex.Message); }
+                        }
                         LiveBridge.SetLanguage(new LiveBridge.LanguageInfo("en", true, false));
                         EngineStatus.Text = _engineMode;
                         MeetVault.Core.AppLog.Info("langid: no speech in 3.5 s; starting en/small (fallback)");
@@ -275,16 +283,25 @@ public sealed partial class LivePage : Page
             else if (_relay is not null && _relay.ActiveModelDir is not null)
             {
                 // Manual (or preloaded) engine: record which language the meeting runs.
-                if (_session?.MeetingId is { } mid) AppStore.Repo.SetMeetingLanguage(mid, _activeLanguage);
+                if (_session?.MeetingId is { } mid)
+                {
+                    try { AppStore.Repo.SetMeetingLanguage(mid, _activeLanguage); }
+                    catch (Exception dbex) { MeetVault.Core.AppLog.Warn("live: could not persist the meeting language: " + dbex.Message); }
+                }
                 LiveBridge.SetLanguage(new LiveBridge.LanguageInfo(_activeLanguage, _autoMode, false));
             }
             SetLangStatus();
         }
         catch (Exception ex)
         {
-            try { if (_session is not null) { _session.MarkFailed(); _session.Dispose(); _session = null; } } catch { }
-            SetState(LiveState.Idle);
-            LiveBridge.SetMeetingState(LiveBridge.MeetingState.Idle);
+            if (!started)
+            {
+                try { if (_session is not null) { _session.MarkFailed(); _session.Dispose(); _session = null; } } catch { }
+                SetState(LiveState.Idle);
+                LiveBridge.SetMeetingState(LiveBridge.MeetingState.Idle);
+            }
+            // A session that DID start keeps recording: report the failure, never tear the
+            // live capture down (review r15).
             MeetVault.Core.AppLog.Error("live: start capture failed", ex);
             Status(Loc.Tf("Live.CouldNotStart", Short(ex)));
         }
@@ -323,8 +340,8 @@ public sealed partial class LivePage : Page
         {
             if (AppStore.Repo.Load(id)?.MediaPath is { Length: > 0 } mediaPath && _capture is not null) _capture.ReuseFile(mediaPath);
             _session = await MeetingSession.RecoverAsync(id, _audio, _transcriber, AppStore.Repo, MicId, AppSource);
+            WireSession(clearOverlay: true); // clear the bridge before replaying the backlog (review r15)
             foreach (var s in _session.Segments) AddLine(s.Text);
-            WireSession(clearOverlay: false); // keep the recovered backlog for a late-opened overlay
             _utteranceBaseMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
             _streamWatch.Restart(); // active recovery restarts capture: stream timeline starts here
             SetState(_session.IsPaused ? LiveState.Paused : LiveState.Recording);
@@ -566,7 +583,7 @@ public sealed partial class LivePage : Page
         if (_screen is null) return;
         var active = _screen.IsRecording;
         ScreenRunButton.Content = Loc.T(active ? "LiveScreenStop.Content" : "LiveScreenStart.Content");
-        ScreenRunButton.IsEnabled = _state != LiveState.Idle;
+        ScreenRunButton.IsEnabled = _state == LiveState.Recording;
         ScreenSourceCombo.IsEnabled = _state == LiveState.Idle;
         ScreenToggle.IsEnabled = _state == LiveState.Idle;
         ScreenStatus.Text = active ? Loc.Tf("Live.ScreenOn", SelectedSourceLabel())
@@ -721,6 +738,8 @@ public sealed partial class LivePage : Page
                 // Do not persist a mode the app cannot run (review r8): keep the effective
                 // manual language and show it in the combo instead of a stale "auto".
                 Status(Loc.T("Set.LangIdMissing"));
+                // The overlay combo must show the effective manual language too (review r15).
+                LiveBridge.SetLanguage(new LiveBridge.LanguageInfo(_activeLanguage, false, false));
                 SyncLanguageCombo(_activeLanguage);
                 SetLangStatus();
                 return;

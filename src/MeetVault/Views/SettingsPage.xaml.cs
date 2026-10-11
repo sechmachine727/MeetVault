@@ -511,8 +511,11 @@ public sealed partial class SettingsPage : Page
             write();
             _saveFailed = false;
         }
-        catch (Exception ex) when (!_saveFailed)
+        catch (Exception ex)
         {
+            // Never let a second failing write escape into an async-void handler (review
+            // r15): the report is gated, the catch is not.
+            if (_saveFailed) return;
             _saveFailed = true; // report once, not on every keystroke
             StatusBar.Severity = InfoBarSeverity.Warning;
             StatusBar.Message = Loc.Tf("Set.SaveFailed", DescribeStorage(ex));

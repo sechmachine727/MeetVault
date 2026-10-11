@@ -71,6 +71,7 @@
   <data name="DetTranscript.Text" xml:space="preserve"><value>文字起こし</value></data>
   <data name="DetEmpty.Text" xml:space="preserve"><value>まだ表示する会議がありません。ライブで会議を開始すると、ここに文字起こしが表示されます。</value></data>
   <data name="DetSpeakerName.AutomationProperties.Name" xml:space="preserve"><value>話者</value></data>
+  <data name="Det.SpeakerFallback" xml:space="preserve"><value>話者 1</value></data>
   <data name="DetSpeakerName.ToolTipService.ToolTip" xml:space="preserve"><value>この行を別の話者に再割り当てします</value></data>
   <data name="DetLineName.AutomationProperties.Name" xml:space="preserve"><value>文字起こし行</value></data>
   <data name="DetLineName.ToolTipService.ToolTip" xml:space="preserve"><value>この行を編集します</value></data>
