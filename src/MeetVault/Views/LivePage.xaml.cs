@@ -311,7 +311,11 @@ public sealed partial class LivePage : Page
         }
         if (utterances is null)
         {
-            // Fallback: the old fixed 3 s window behavior when the VAD model is absent.
+            // Fallback when the VAD model is absent (silero_vad.onnx not staged): cut fixed
+            // 3 s windows — WindowBytes is 3 s today (6 s on main; the handoff base moved
+            // live windows to 3 s, and the README documents the 3 s fallback), so this is
+            // the live cadence on a model-less install, not a legacy path. Each window
+            // enters the same per-utterance diarize+transcribe loop as a VAD utterance below.
             lock (_window) _window.AddRange(chunk);
             byte[] w;
             lock (_window)
