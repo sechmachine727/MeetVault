@@ -68,6 +68,7 @@ public sealed partial class LivePage : Page
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
         LiveBridge.LanguageRequested += OnLanguageRequested;
+        LiveBridge.ScreenToggleRequested += OnScreenToggleRequested;
     }
 
     // Leaving Live pauses an active meeting; a draft stays recoverable on the Dashboard.
@@ -79,6 +80,7 @@ public sealed partial class LivePage : Page
         LiveBridge.SetLive(false); // leaving Live ends active transcription
         LiveBridge.SetMeetingState(_state == LiveState.Idle ? LiveBridge.MeetingState.Idle : LiveBridge.MeetingState.Paused);
         LiveBridge.LanguageRequested -= OnLanguageRequested;
+        LiveBridge.ScreenToggleRequested -= OnScreenToggleRequested;
         try { _capture?.Dispose(); } catch { }
         try { _streaming?.Dispose(); } catch { }
         try { _langMonitor?.Dispose(); } catch { } _langMonitor = null;
@@ -649,6 +651,21 @@ public sealed partial class LivePage : Page
     }
 
     private static void PersistLanguage(string code) => AppStore.Repo.SetSetting("transcription.language", code);
+
+    // Overlay screen button (F): same controller as the Live section; the state goes back
+    // out through LiveBridge.SetScreenState (via RefreshScreenStatus) — never set directly.
+    private void OnScreenToggleRequested() => DispatcherQueue.TryEnqueue(async () =>
+    {
+        if (_screen is null) return;
+        if (_session is null || _state == LiveState.Idle)
+        {
+            Status(Loc.T("Ov.NotRecording"));
+            return;
+        }
+        try { await _screen.ToggleAsync(); PersistFinishedTracks(); }
+        catch (Exception ex) { MeetVault.Core.AppLog.Warn("screen: overlay toggle failed: " + ex.Message); }
+        RefreshScreenStatus();
+    });
 
     private void BuildLanguageCombo(string current)
     {

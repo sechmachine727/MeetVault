@@ -306,6 +306,7 @@
   <data name="Live.ScreenUnavailable" xml:space="preserve"><value>この環境では画面収録を利用できません。</value></data>
   <data name="Live.ScreenPaused" xml:space="preserve"><value>画面収録は一時停止に連動して停止します。</value></data>
   <data name="Ov.Rec" xml:space="preserve"><value>録画中</value></data>
+  <data name="Ov.ScreenToggle" xml:space="preserve"><value>画面収録の開始/停止</value></data>
   <data name="Set.SizeAutoNote" xml:space="preserve"><value>サイズは言語ごとに適用され、未導入のサイズは Small にフォールバックします。</value></data>
   <data name="Set.LangIdMissing" xml:space="preserve"><value>言語検出モデルが未導入のため、自動検出は英語で開始します。</value></data>
   <data name="SetScreen.Text" xml:space="preserve"><value>画面収録</value></data>

@@ -7,6 +7,7 @@ public sealed partial class OverlayWindow
     public static void ShowOrActivate()
     {
         if (_current is null) { _current = new OverlayWindow(); _current.Closed += (_, _) => _current = null; }
+        MeetVault.Core.AppLog.Info("overlay: show-or-activate");
         _current.Activate();
     }
 

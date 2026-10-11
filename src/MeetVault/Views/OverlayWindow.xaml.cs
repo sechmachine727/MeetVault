@@ -52,6 +52,12 @@ public sealed partial class OverlayWindow : Window
     // single applier as the Live page combo, through LiveBridge.RequestLanguage.
     private ComboBox? _langCombo;
     private bool _suppressLang;
+    // Screen-recording control (F): code-built like the cogwheel; the indicator + button
+    // mirror LiveBridge.ScreenStateChanged only (single source of truth).
+    private Button? _screenButton;
+    private Microsoft.UI.Xaml.Shapes.Ellipse? _screenDot;
+    private TextBlock? _screenRecText;
+    private StackPanel? _screenIndicator;
     // Conversation view: a bottom-anchored stack of recent lines at one uniform
     // size and weight (brightness marks the newest). Code-built — XamlCompiler 1.8
     // rejects new direct children of the root Grid in XAML; Border AND Rectangle
@@ -109,7 +115,7 @@ public sealed partial class OverlayWindow : Window
         AutomationProperties.SetName(_settingsButton, Loc.T("Ov.Settings"));
         ToolTipService.SetToolTip(_settingsButton, Loc.T("Ov.Settings"));
         _settingsButton.Flyout = BuildSettingsFlyout();
-        Grid.SetColumn(_settingsButton, 2);
+        Grid.SetColumn(_settingsButton, 4);
         HeaderBar.Children.Add(_settingsButton);
         // Language combo: a meeting control (not an overlay-display setting), so it sits
         // in the header beside the title — the one-settings-entry rule stays intact.
@@ -128,6 +134,20 @@ public sealed partial class OverlayWindow : Window
         MeetVault.Core.AppLog.Info("overlay: language combo added (" + _langCombo.Items.Count + " items)");
         LiveBridge.LanguageChanged += OnLanguageChanged;
         Closed += (_, _) => LiveBridge.LanguageChanged -= OnLanguageChanged;
+        _screenDot = new Microsoft.UI.Xaml.Shapes.Ellipse { Width = 8, Height = 8, Fill = new SolidColorBrush(Colors.Red), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 2, 0), Visibility = Visibility.Collapsed };
+        _screenRecText = new TextBlock { Text = Loc.T("Ov.Rec"), VerticalAlignment = VerticalAlignment.Center, FontSize = 12, Visibility = Visibility.Collapsed };
+        _screenIndicator = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        _screenIndicator.Children.Add(_screenDot);
+        _screenIndicator.Children.Add(_screenRecText);
+        Grid.SetColumn(_screenIndicator, 2);
+        HeaderBar.Children.Add(_screenIndicator);
+        _screenButton = new Button { Content = "⏺", Width = 32, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 0) };
+        ToolTipService.SetToolTip(_screenButton, Loc.T("Ov.ScreenToggle"));
+        _screenButton.Click += (_, _) => LiveBridge.RequestScreenToggle();
+        Grid.SetColumn(_screenButton, 3);
+        HeaderBar.Children.Add(_screenButton);
+        LiveBridge.ScreenStateChanged += OnScreenStateChanged;
+        Closed += (_, _) => LiveBridge.ScreenStateChanged -= OnScreenStateChanged;
         // NOTE: visual-parent lookup is null in the ctor (proven twice by
         // crash-log NRE) — the tree is only attached at Loaded. Host the
         // conversation panel then; text state is already correct via BuildConversation.
@@ -136,6 +156,7 @@ public sealed partial class OverlayWindow : Window
             if (HeaderBar.Children.Count > 0 && HeaderBar.Children[0] is TextBlock headerTitle) headerTitle.Text = Loc.T("Ov.Title");
             UpdateTitleLanguage(LiveBridge.CurrentLanguage);
             SyncOverlayLanguageCombo(LiveBridge.CurrentLanguage);
+            OnScreenStateChanged(LiveBridge.ScreenRecording);
             ConversationCell.Children.Add(_conversationPanel);
             // The ctor's build ran on the estimate (no ActualHeight yet): re-fit
             // against the real cell height now, and keep both the fit and the clip
@@ -314,6 +335,18 @@ public sealed partial class OverlayWindow : Window
         }
         catch (Exception ex) { MeetVault.Core.AppLog.Warn("overlay: drag rects failed: " + ex.Message); }
     }
+
+    private void OnScreenStateChanged(bool active)
+        => DispatcherQueue.TryEnqueue(() =>
+        {
+            try
+            {
+                var visibility = active ? Visibility.Visible : Visibility.Collapsed;
+                _screenDot!.Visibility = visibility;
+                _screenRecText!.Visibility = visibility;
+            }
+            catch (Exception ex) { AppLog.Warn("overlay: screen state update failed: " + ex.Message); }
+        });
 
     // Language mirror: the combo and the title suffix follow LiveBridge (the Live page is
     // the owner of the meeting language; the overlay only requests changes).
