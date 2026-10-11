@@ -211,7 +211,7 @@ public sealed class BulkDeleteTests : IDisposable
     }
 
     [Fact]
-    public void DeleteMeetings_RelativeMediaPath_RowDeleted_FileUntouched()
+    public void DeleteMeetings_MissingUnmanagedPath_RowDeleted_NotReported()
     {
         _repo.Save(NewMeeting("a", "sub" + Path.DirectorySeparatorChar + "rel.m4a"),
             new[] { new Speaker("spk_1", "Speaker 1") },
@@ -219,13 +219,12 @@ public sealed class BulkDeleteTests : IDisposable
 
         var result = _repo.DeleteMeetings(new[] { "a" });
 
-        // A relative path is unmanaged (never a delete target); the row still goes and
-        // the surviving path is reported so the UI can say the recording stayed.
+        // A relative path is unmanaged (never a delete target) and the file never
+        // existed: the row still goes, and with nothing surviving there is nothing to
+        // report — "could not be removed" would be false.
         Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
         Assert.Empty(result.FailedIds);
-        var skip = Assert.Single(result.SkippedMedia);
-        Assert.Equal("a", skip.Id);
-        Assert.Equal("sub" + Path.DirectorySeparatorChar + "rel.m4a", skip.Path);
+        Assert.Empty(result.SkippedMedia);
         Assert.Null(_repo.Load("a"));
     }
 
@@ -303,6 +302,32 @@ public sealed class BulkDeleteTests : IDisposable
         Assert.Null(_repo.Load("a"));
         Assert.False(File.Exists(aside), "the retry must reclaim the stale aside");
         Assert.False(File.Exists(media));
+    }
+
+    [Fact]
+    public void DeleteMeetings_AsideCleanupBlocked_RowDeleted_SurvivorReported()
+    {
+        // Row delete succeeds but the aside unlink is blocked (AV/indexer lock): after the
+        // brief retries the row must still be deleted and the leftover bytes at
+        // <media>.deleting must be reported like any skipped survivor — silence here would
+        // contradict the BulkDeleteResult contract (Domain.cs).
+        Save("a");
+        var media = _repo.Load("a")!.MediaPath!;
+        var aside = media + ".deleting";
+        File.Move(media, aside);
+        using (var hold = new FileStream(aside, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            var result = _repo.DeleteMeetings(new[] { "a" });
+
+            Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
+            Assert.Empty(result.FailedIds);
+            var skip = Assert.Single(result.SkippedMedia);
+            Assert.Equal("a", skip.Id);
+            Assert.Equal(aside, skip.Path);
+            Assert.Null(_repo.Load("a"));
+            Assert.True(File.Exists(aside));
+        }
+        File.Delete(aside);
     }
 
     // --- review round 6 (stale aside vs failed row delete) ---

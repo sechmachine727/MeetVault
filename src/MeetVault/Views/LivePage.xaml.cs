@@ -74,23 +74,14 @@ public sealed partial class LivePage : Page
         // (English/small), so a legacy install whose transcription.model still names an
         // older model keeps working (the legacy id is the third argument).
         var repo = AppStore.Repo;
-        var option = MeetVault.Core.EngineCatalog.Resolve(
-            repo.GetSetting("transcription.language"),
-            repo.GetSetting("transcription.size"),
-            repo.GetSetting("transcription.model"));
-        if (!EngineModels.CanRun(option))
-        {
-            // Prefer an installed model of the same language (small first), then any installed.
-            var fallback =
-                MeetVault.Core.EngineCatalog.Options.FirstOrDefault(o => o.Language == option.Language && EngineModels.CanRun(o))
-                ?? MeetVault.Core.EngineCatalog.Options.FirstOrDefault(o => EngineModels.CanRun(o));
-            if (fallback is not null)
-            {
-                MeetVault.Core.AppLog.Warn("live: model " + option.Model + " missing; falling back to " + fallback.Model);
-                option = fallback;
-            }
-        }
-        if (!EngineModels.CanRun(option))
+        // One shared resolution (EngineModels.ResolveLive) — Dashboard and Live must
+        // agree on the effective model; the fallback preference is same-language small
+        // first, then any installed.
+        var resolution = EngineModels.ResolveLive(repo);
+        var option = resolution.Option;
+        if (resolution.IsFallback)
+            MeetVault.Core.AppLog.Warn("live: model " + resolution.Requested.Model + " missing; falling back to " + option.Model);
+        if (resolution.Demo)
         {
             _transcriber = transcriber; _audio = audio; // demo (no models)
             MeetVault.Core.AppLog.Info("live: engines resolved -> " + _engineMode);
@@ -194,7 +185,9 @@ public sealed partial class LivePage : Page
     {
         _session!.LiveSegment += OnLiveSegment;
         if (clearOverlay) LiveBridge.Clear();
-        LiveBridge.SetLive(true); // overlay shows "Listening…" instead of looking dead
+        // Demo mode has no engine: the overlay must not claim "Listening…" when nothing
+        // can transcribe. It opens fine for reading; the live state stays off.
+        if (_streaming is not null) LiveBridge.SetLive(true);
         StartCheckpointTimer();
     }
 

@@ -27,15 +27,16 @@ public sealed partial class DashboardPage : Page
         var micIdx = AppStore.Repo.GetSetting("audio.mic") ?? "";
         var mic = MeetVault.Core.NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == micIdx).Name ?? Loc.T("Dash.WindowsDefault");
         MicStatus.Text = string.IsNullOrWhiteSpace(mic) ? Loc.T("Dash.MicNotStarted") : mic;
-        var option = MeetVault.Core.EngineCatalog.Resolve(
-            AppStore.Repo.GetSetting("transcription.language"),
-            AppStore.Repo.GetSetting("transcription.size"),
-            AppStore.Repo.GetSetting("transcription.model"));
+        // Same resolution Live runs (EngineModels.ResolveLive): the dashboard must show
+        // the effective model, not the configured one, or the two pages disagree.
+        var resolution = EngineModels.ResolveLive(AppStore.Repo);
         // Intentionally English (scope cut): an engine/diagnostic identifier, not UI copy — a future localization pass should leave it as is.
-        EngineStatus.Text = option.Label;
-        ModelStatus.Text = EngineModels.CanRun(option)
-            ? Loc.Tf("Dash.ModelReady", option.Label)
-            : Loc.T("Dash.ModelMissing");
+        EngineStatus.Text = resolution.Option.Label;
+        ModelStatus.Text = resolution.Demo
+            ? Loc.T("Dash.ModelMissing")
+            : resolution.IsFallback
+                ? Loc.Tf("Dash.ModelFallback", resolution.Option.Label)
+                : Loc.Tf("Dash.ModelReady", resolution.Option.Label);
     }
 
     private MeetingCard[] VisibleRows => RecentMeetings.ItemsSource as MeetingCard[] ?? Array.Empty<MeetingCard>();

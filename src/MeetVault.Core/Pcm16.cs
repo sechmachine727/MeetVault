@@ -1,7 +1,7 @@
 namespace MeetVault.Core;
 
 // PCM16 little-endian <-> normalized float conversion; the capture chain emits PCM16
-// bytes while the VAD and the diarizer speak floats. Lives in Core so the live page
+// bytes while the recognizers speak floats. Lives in Core so the live page
 // and tests share one implementation.
 public static class Pcm16
 {

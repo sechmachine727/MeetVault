@@ -44,7 +44,7 @@ public sealed class StreamingRunner : IDisposable
     public void Start()
     {
         if (_disposed) throw new ObjectDisposedException(nameof(StreamingRunner));
-        _queue = new BlockingCollection<float[]>(boundedCapacity: 1024); // ~10 s of 10 ms chunks: absorbs the engine's cold-start decode lag without dropping the head of the first utterance (measured: the zipformer's first decodes run far slower than real time)
+        _queue = new BlockingCollection<float[]>(boundedCapacity: 1024); // ~10 s of 10 ms chunks: absorbs the engine's cold-start decode lag without dropping the head of the first utterance (measured: cold-start decodes can run far slower than real time)
         _lastPartial = "";
         _utteranceStartMs = _nowMs();
         _running = true;

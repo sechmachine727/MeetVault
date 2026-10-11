@@ -44,13 +44,41 @@ public sealed class LocalizationResourceTests
     public void EveryLocCall_HasAnEntry()
     {
         var en = Load("en-US");
+        var callStart = new System.Text.RegularExpressions.Regex("Loc\\.Tf?\\(");
         foreach (var file in Directory.GetFiles(Path.Combine(Root, "src", "MeetVault"), "*.cs", SearchOption.AllDirectories))
         {
             if (file.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar)
                 || file.Contains(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar)) continue;
             var text = File.ReadAllText(file);
-            foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(text, "Loc\\.Tf?\\(\"([^\"]+)\""))
-                Assert.True(en.ContainsKey(m.Groups[1].Value), Path.GetFileName(file) + ": Loc key missing from resw: " + m.Groups[1].Value);
+            foreach (System.Text.RegularExpressions.Match call in callStart.Matches(text))
+            {
+                // The call's argument region, paren-balanced (Tf arguments can nest calls).
+                var i = call.Index + call.Length;
+                var depth = 1;
+                var end = i;
+                while (end < text.Length && depth > 0)
+                {
+                    if (text[end] == '(') depth++;
+                    else if (text[end] == ')') depth--;
+                    if (depth == 0) break;
+                    end++;
+                }
+                var region = text[i..end];
+                // Key literals: the FIRST literal, plus switch/ternary arms (after => ? :)
+                // that look like keys. Literal switch INPUTS (before =>) and plain value
+                // arguments are not keys.
+                foreach (System.Text.RegularExpressions.Match lit in System.Text.RegularExpressions.Regex.Matches(region, "\"([^\"]+)\""))
+                {
+                    var after = region[(lit.Index + lit.Length)..].TrimStart();
+                    var before = region[..lit.Index].TrimEnd();
+                    var isFirst = lit.Index == region.IndexOf('"');
+                    var precededByArm = before.EndsWith("=>") || before.EndsWith("?") || before.EndsWith(":");
+                    var looksLikeKey = System.Text.RegularExpressions.Regex.IsMatch(lit.Groups[1].Value, "^[A-Za-z][A-Za-z0-9]*\\.[A-Za-z0-9.]+$");
+                    var isKey = !after.StartsWith("=>") && (isFirst || (precededByArm && looksLikeKey));
+                    if (isKey)
+                        Assert.True(en.ContainsKey(lit.Groups[1].Value), Path.GetFileName(file) + ": Loc key missing from resw: " + lit.Groups[1].Value);
+                }
+            }
         }
     }
 

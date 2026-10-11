@@ -187,6 +187,7 @@
   <data name="Dash.WindowsDefault" xml:space="preserve"><value>Windows 既定</value></data>
   <data name="Dash.ModelReady" xml:space="preserve"><value>音声エンジン {0} の準備完了。文字起こしはすべてデバイス上で実行されます。</value></data>
   <data name="Dash.ModelMissing" xml:space="preserve"><value>音声モデルが未ダウンロードです。モデルが揃うまでライブはデモモードで動作します。</value></data>
+  <data name="Dash.ModelFallback" xml:space="preserve"><value>設定モデルが未ダウンロードのため {0} を使用します。文字起こしはすべてデバイス上で実行されます。</value></data>
   <data name="Dash.CannotOpenLive" xml:space="preserve"><value>ここからライブを開けません。ナビゲーションの「ライブ」を使用してください。</value></data>
 
   <!-- L4.3: Live page code strings -->

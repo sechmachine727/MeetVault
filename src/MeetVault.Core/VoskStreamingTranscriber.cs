@@ -81,7 +81,7 @@ public sealed class VoskStreamingBackend : IStreamingBackend
     public bool IsReady() => false;
     public void Decode() { }
     // Vosk's small models emit all-lowercase, unpunctuated text; sentence case restores
-    // the first letter (same rule as the zipformer above).
+    // the first letter of each utterance.
     public string CurrentText() => SpeechText.SentenceCase(VoskJson.Text(_recognizer.PartialResult(), "partial"));
 
     public bool TryTakeFinal(out string text)

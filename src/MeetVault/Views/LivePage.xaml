@@ -16,11 +16,8 @@
             <ItemsControl x:Name="TranscriptList">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <StackPanel Orientation="Horizontal" Spacing="0">
-                            <TextBlock Text="{Binding Speaker}" FontWeight="SemiBold" VerticalAlignment="Top"
-                                       Visibility="{Binding SpeakerVisibility}" MinWidth="{Binding NameWidth}" Margin="{Binding NameMargin}" />
-                            <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Margin="{Binding TextMargin}" />
-                        </StackPanel>
+                        <!-- Single-speaker pipeline: no name column; the 8px left inset is kept for visual parity. -->
+                        <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Margin="8,0,0,0" />
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>

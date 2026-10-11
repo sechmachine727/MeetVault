@@ -262,18 +262,42 @@ public sealed partial class OverlayWindow : Window
         _ = DwmSetWindowAttribute(hwnd, DwmwaBorderColor, ref none, sizeof(int));
     }
 
-    // Extending content into the title bar removes the default drag region,
-    // so the header is the drag handle. Recomputed on resize for DPI moves.
+    // Extending content into the title bar removes the default drag region, so the header
+    // is the drag handle. Interactive children inside a drag rectangle never receive a
+    // real mouse click — the OS hit-tests the rectangle as the caption instead (UIA
+    // Invoke bypasses hit-testing, so walkthroughs do not catch it). Every control child
+    // is carved OUT of the region; only the gaps (including the title text) drag.
+    // Recomputed on resize for DPI moves.
     private void UpdateDragRects()
     {
         if (!AppWindowTitleBar.IsCustomizationSupported()) return;
-        var t = HeaderBar.TransformToVisual(RootSurface);
-        var p = t.TransformPoint(new Windows.Foundation.Point(0, 0));
-        AppWindow.TitleBar.SetDragRectangles(new[]
+        try
         {
-            new RectInt32((int)(p.X * _scale), (int)(p.Y * _scale),
-                          (int)(HeaderBar.ActualWidth * _scale), (int)(HeaderBar.ActualHeight * _scale)),
-        });
+            var p = HeaderBar.TransformToVisual(RootSurface).TransformPoint(new Windows.Foundation.Point(0, 0));
+            var left = p.X * _scale;
+            var top = p.Y * _scale;
+            var right = left + HeaderBar.ActualWidth * _scale;
+            var bottom = top + HeaderBar.ActualHeight * _scale;
+            var carve = new List<(double X, double Right)>();
+            foreach (var child in HeaderBar.Children)
+            {
+                if (child is not FrameworkElement { Visibility: Visibility.Visible } fe) continue;
+                if (fe is TextBlock || fe.ActualWidth <= 0 || fe.ActualHeight <= 0) continue;
+                var q = fe.TransformToVisual(RootSurface).TransformPoint(new Windows.Foundation.Point(0, 0));
+                carve.Add((q.X * _scale, q.X * _scale + fe.ActualWidth * _scale));
+            }
+            var rects = new List<RectInt32>();
+            var cursor = left;
+            foreach (var (x, r) in carve.OrderBy(c => c.X))
+            {
+                if (x - cursor >= 1) rects.Add(new RectInt32((int)cursor, (int)top, (int)(x - cursor), (int)(bottom - top)));
+                cursor = Math.Max(cursor, r);
+            }
+            if (right - cursor >= 1) rects.Add(new RectInt32((int)cursor, (int)top, (int)(right - cursor), (int)(bottom - top)));
+            if (rects.Count == 0) rects.Add(new RectInt32((int)left, (int)top, (int)(right - left), (int)(bottom - top)));
+            AppWindow.TitleBar.SetDragRectangles(rects.ToArray());
+        }
+        catch (Exception ex) { MeetVault.Core.AppLog.Warn("overlay: drag rects failed: " + ex.Message); }
     }
 
     // Every overlay setting in one place (owner-requested): background darkness,

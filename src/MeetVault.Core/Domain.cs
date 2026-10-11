@@ -17,9 +17,10 @@ public sealed record Meeting(string Id, string Title, DateTimeOffset StartedAt, 
 
 // DeletedIds: rows actually deleted (their managed recording was removed too, or there
 // was none). FailedIds: rows kept, keyed by the reason. SkippedMedia: rows that WERE
-// deleted but whose recording file survives because it is unmanaged (foreign path,
-// relative, or behind a link below the media root) — the UI must say so instead of
-// promising the audio went away.
+// deleted but whose recording file survives — either because it is unmanaged (foreign
+// path, relative, or behind a link below the media root) and still exists, or because
+// the managed cleanup failed and the bytes remain at <media>.deleting — the UI must
+// say so instead of promising the audio went away.
 public sealed record BulkDeleteResult(
     IReadOnlyList<string> DeletedIds,
     IReadOnlyDictionary<string, string> FailedIds,

@@ -84,7 +84,12 @@ public sealed partial class SettingsPage : Page
         var rows = MeetVault.Core.EngineCatalog.Tiers.Select(t =>
         {
             var option = MeetVault.Core.EngineCatalog.Find(lang, t);
-            var label = Loc.T(t switch { "medium" => "Set.SizeMedium", "large" => "Set.SizeLarge", _ => "Set.SizeSmall" });
+            var label = t switch
+            {
+                "medium" => Loc.T("Set.SizeMedium"),
+                "large" => Loc.T("Set.SizeLarge"),
+                _ => Loc.T("Set.SizeSmall"),
+            };
             if (option is null) return new SizeRow(t, label + " " + Loc.T("Set.SizeRowUnavailable"), false);
             return new SizeRow(t, label + (MeetVault.Core.EngineCatalog.IsAvailable(option, ModelsRoot) ? "" : " " + Loc.T("Set.SizeRowNotInstalled")), true);
         }).ToArray();
@@ -369,12 +374,12 @@ public sealed partial class SettingsPage : Page
             _ => Loc.T("Set.AudioNone"),
         };
         var tier = SizeTier();
-        ModelDetails.Text = Loc.T(tier switch
+        ModelDetails.Text = tier switch
         {
-            "medium" => "Set.SizeMediumDetails",
-            "large" => "Set.SizeLargeDetails",
-            _ => "Set.SizeSmallDetails",
-        });
+            "medium" => Loc.T("Set.SizeMediumDetails"),
+            "large" => Loc.T("Set.SizeLargeDetails"),
+            _ => Loc.T("Set.SizeSmallDetails"),
+        };
         var option = MeetVault.Core.EngineCatalog.Find(CurrentLanguage(), tier);
         if (option is not null)
         {

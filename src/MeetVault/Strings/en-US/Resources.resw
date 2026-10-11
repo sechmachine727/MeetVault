@@ -187,6 +187,7 @@
   <data name="Dash.WindowsDefault" xml:space="preserve"><value>Windows default</value></data>
   <data name="Dash.ModelReady" xml:space="preserve"><value>Speech engine {0} ready. Live transcription runs on-device.</value></data>
   <data name="Dash.ModelMissing" xml:space="preserve"><value>Speech model not downloaded. Live runs in demo mode until models arrive.</value></data>
+  <data name="Dash.ModelFallback" xml:space="preserve"><value>Configured model not downloaded — using {0}. Live transcription runs on-device.</value></data>
   <data name="Dash.CannotOpenLive" xml:space="preserve"><value>Cannot open Live from here. Use the Live item in the navigation pane.</value></data>
 
   <!-- L4.3: Live page code strings -->
