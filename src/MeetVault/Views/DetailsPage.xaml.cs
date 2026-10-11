@@ -26,12 +26,16 @@ public sealed partial class DetailsPage : Page
     public DetailsPage()
     {
         InitializeComponent();
+        // Code-set, not XAML: the job placeholder must localize even though ShowPriorJob
+        // returns before overwriting it when there is no job (a literal would show English).
+        JobState.Text = Loc.T("Det.NoJobSent");
 
         var targetId = PendingDetails.MeetingId;
         PendingDetails.MeetingId = null;
         _meeting = targetId is null ? AppStore.Repo.ListMeetings().FirstOrDefault() : AppStore.Repo.Load(targetId);
         if (_meeting is null)
         {
+            MeetingTitle.Text = Loc.T("Det.NoMeetingSelected");
             UpdateLineStatus();
             SetActionsEnabled(false);
             EmptyState.Text = Loc.T("Det.NoMeeting");
