@@ -1,22 +1,21 @@
 # MeetVault
 
-A local-first Windows meeting recorder and transcriber. It captures audio, transcribes it on-device, separates speakers, shows the transcript live, and can send a finished meeting to Gemini for a refined summary. Nothing leaves the machine except a manual Gemini upload.
+A local-first Windows meeting recorder and transcriber. It captures audio, transcribes it on-device, shows the transcript live, and can send a finished meeting to Gemini for a refined summary. Nothing leaves the machine except a manual Gemini upload.
 
 Built with C# and WinUI 3 on .NET 8. There is no login, no subscription, and no cloud storage.
 
 ## Status
 
-Working MVP, tested on Windows 11. The solution builds with 0 errors; six pre-existing `CA1416` warnings remain in the GPU probe and the process-loopback capture. The Core test suite passes 95 tests. The portable build launches and records, transcribes, and saves meetings. See [BLOCKERS.md](BLOCKERS.md) for what still needs a specific machine to verify.
+Working MVP, tested on Windows 11. The solution builds with 0 errors and 0 warnings. The Core test suite passes 159 tests. The portable build launches and records, transcribes, and saves meetings. See [BLOCKERS.md](BLOCKERS.md) for what still needs a specific machine to verify.
 
-Per-process audio capture is implemented but has not been exercised against a machine with the target app playing. No gender classifier ships, so speaker labels stay neutral, and the Gemini upload is manual by design. The app supports English, Japanese, and Vietnamese; JA/VI accuracy has not been verified with real speech.
+Per-process audio capture is implemented but has not been exercised against a machine with the target app playing. The app supports English, Japanese, and Vietnamese (Vosk small models); JA/VI accuracy has not been verified with real speech.
 
 ## Features
 
 - Record the microphone and system output together, mixed into one track, so your own voice is never lost. The system side can capture every app or a single chosen app (a conference call).
-- On-device transcription (whisper.cpp via Whisper.net), so transcription runs offline.
-- Speaker separation (sherpa-onnx diarization) with renameable speaker labels.
-- Live transcript view with a Pinnable, always-on-top overlay.
-- Meetings list with per-meeting delete; Details view with audio playback, transcript edit, speaker reassignment, copy, and export.
+- On-device streaming transcription (Vosk small), so transcription runs offline. The open sentence appears live as a normal transcript line while you speak.
+- Live transcript view with a pinnable, always-on-top overlay.
+- Meetings list with per-meeting delete; Details view with audio playback, transcript edit, copy, and export.
 - Optional Gemini refinement with the API key stored in Windows Credential Locker.
 - Configurable file logging for support and debugging.
 
@@ -24,31 +23,30 @@ Per-process audio capture is implemented but has not been exercised against a ma
 
 - Windows 10 version 2004 (build 19041) or later, or Windows 11.
 - The .NET 8 SDK to build. Running the published portable build needs no .NET install.
-- Speech models in `models/` for live transcription and diarization. They are not committed; see [Speech models](#speech-models).
-- Staged third-party runtimes in `cuda/` and `vcruntime/` to build a package that can use CUDA without the CUDA Toolkit or the Visual C++ Redistributable installed on the target machine. They are not committed; see [CUDA setup](docs/CUDA-SETUP.md).
+- Speech models in `models/` for live transcription. They are not committed; see [Speech models](#speech-models).
 
 ## Layout
 
 ```text
 src/MeetVault              WinUI 3 app: views, navigation, overlay window
-src/MeetVault.Core         Domain, session, engines, storage, Gemini, logging
+src/MeetVault.Core         Domain, session, engine, storage, Gemini, logging
 tests/MeetVault.Core.Tests xUnit tests for Core
 docs/                      Spec (docs/mvp-winui) and living status documents
 publish/win-x64            Canonical portable build (gitignored)
 ```
 
-The app calls `MeetingSession`; engines and storage sit behind interfaces and never touch the UI.
+The app calls `MeetingSession`; the engine and storage sit behind interfaces and never touch the UI.
 
 ## Build and test
 
-Replace `dotnet` with your SDK path if it is not on `PATH` (for example `D:\dotnet\dotnet.exe`).
+Replace `dotnet` with your SDK path if it is not on `PATH`.
 
 ```powershell
 dotnet build MeetVault.sln -c Release
 dotnet test tests\MeetVault.Core.Tests\MeetVault.Core.Tests.csproj -c Release --nologo -v q
 ```
 
-The test suite includes smoke tests that load the real Whisper model when `models/ggml-tiny.bin` is present and skip when it is not.
+The suite skips the Vosk contract tests silently when the staged models are absent.
 
 ## Run
 
@@ -61,7 +59,7 @@ Copy-Item -Recurse -Force models publish\win-x64\models
 publish\win-x64\MeetVault.exe
 ```
 
-The publish brings in the native libraries the app loads, including every Whisper backend. To add CUDA to the package, stage `cuda/` and `vcruntime/` as described in [CUDA setup](docs/CUDA-SETUP.md) before publishing.
+The publish brings in the native libraries the app loads (`libvosk.dll` via the Vosk package).
 
 The portable build has no package identity, so Windows Credential Locker is unavailable and a Gemini key may not persist across runs. Install the MSIX for the full feature set.
 
@@ -77,15 +75,13 @@ The package lands at `src/MeetVault/AppPackages/MeetVault_1.0.0.0_x64_Test/MeetV
 
 Place these under `models/`. They are gitignored and must be staged next to the executable for a portable run.
 
-| File | Purpose | Size |
+| Folder | Language | Size |
 | --- | --- | --- |
-| `ggml-tiny.bin` | Live transcription (fast) | ~78 MB |
-| `ggml-base.bin` | Post-meeting refinement (accurate) | ~148 MB |
-| `sherpa-seg.onnx` | Speaker segmentation | ~6 MB |
-| `sherpa-emb.onnx` | Speaker embeddings | ~40 MB |
-| `silero_vad.onnx` | Sentence segmentation (VAD) for sentence-length live lines | ~0.6 MB |
+| `vosk/small-en` | English | ~50 MB |
+| `vosk/small-ja` | Japanese | ~62 MB |
+| `vosk/small-vi` | Vietnamese | ~50 MB |
 
-`WhisperTranscriber.DownloadModelAsync` fetches a Whisper model. The sherpa models come from the sherpa-onnx project; `silero_vad.onnx` is the VAD asset of its `asr-models` release (sha256 `9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6`). Without it, live transcription falls back to 3 s windows.
+All three are the Vosk small models (alphacephei.com/vosk/models), offline and streaming. Staging commands and the exact required files: [docs/ASR-ENGINES.md](docs/ASR-ENGINES.md).
 
 ## Configuration
 
@@ -93,30 +89,17 @@ Settings persist in `%APPDATA%\MeetVault\meetings.db` (SQLite, `settings` table)
 
 - **Display language**: the interface language — English or Japanese. **System default** follows the Windows display language; an explicit choice applies after a restart.
 - **Audio**: microphone device, record-microphone on/off, record-system-audio on/off, and the system-audio source (all apps, or one running app). Microphone and system audio are mixed; disabling one records the other alone.
-- **Transcription**: engine and model — Whisper tiny/base (multilingual, the default), Moonshine tiny/base (English or Japanese, lowest latency), Zipformer 20M (English, streaming with live partial captions), or Vosk small (English or Japanese, streaming, lightest on old CPUs). Streaming engines always run single-speaker. Device (CPU, or a detected GPU) applies to Whisper only. Model staging: docs/ASR-ENGINES.md.
-- **Performance**: speaker diarization (on by default). Turn it off to remove the diarization engine from the pipeline — transcription runs faster and stays closer to realtime, and the transcript shows no speaker names (live list, overlay, details, copy/export). The change applies the next time Live is opened (a draft resumed later picks it up).
-- **Overlay**: keep on top, opacity, font size, lines shown.
+- **Transcription**: the speech model — Vosk small for English, Japanese, or Vietnamese. Offline streaming, runs on CPU. A selected model whose files are missing shows "— not installed" and Live falls back to any installed model. Model staging: [docs/ASR-ENGINES.md](docs/ASR-ENGINES.md).
+- **Overlay**: keep on top, background darkness (default 0.20), font size (default 18), lines shown.
 - **Storage**: export folder.
 - **Logging**: log level (default `debug`), open log folder, show log.
 - **Gemini**: API key.
-
-## GPU inference
-
-Transcription can run on a GPU. The Settings device picker lists what each backend can actually drive, and every device index is that backend's own.
-
-CUDA needs no toolkit install: cuBLAS, cuBLASLt and the CUDA runtime ship with the app, next to the ggml CUDA native. What CUDA does need is an NVIDIA driver that supports CUDA 13 (driver 580 or newer) and a GPU the shipped CUDA native has code for: sm_8.6-8.9 (RTX 30 and 40 series) or sm_120/121 (RTX 50 series). The native is SASS-only with no PTX, so Turing (RTX 20 series), A100 and H100 are refused rather than offered and then silently run on CPU. Both are queried from the driver rather than guessed from the card's name, and the picker stays greyed out with the reason when they do not hold. Vulkan devices come from `vulkan-1.dll` in that loader's order. Whether the loader's index is the one ggml applies, or whether ggml compacts its device list first, is unverified on hosts with more than one Vulkan device. The Live screen reports the backend that actually loaded, so a requested GPU that falls back to CPU is visible in the status line, and the startup log records the driver version, the detected compute capability, and why a backend was rejected.
-
-The device picker offers the backends Whisper.net supports: CPU, CUDA, and Vulkan. DirectML is not a Whisper.net backend and is not offered.
-
-Vulkan passthrough is often unavailable on a paravirtualized GPU (Hyper-V GPU-P), so the backend can load while the GPU stays idle. Use CUDA or a physical GPU there.
-
-To build a package that carries the CUDA runtime, so CUDA works without the CUDA Toolkit installed, see [CUDA setup](docs/CUDA-SETUP.md).
 
 ## Data and logs
 
 | Path | Contents |
 | --- | --- |
-| `%APPDATA%\MeetVault\meetings.db` | Meetings, transcripts, speakers, jobs, settings |
+| `%APPDATA%\MeetVault\meetings.db` | Meetings, transcripts, jobs, settings |
 | `%APPDATA%\MeetVault\media` | Recordings: `.m4a` (AAC 256 kbps), plus the working `.wav` when encoding was unavailable |
 | `%APPDATA%\MeetVault\gemini` | Saved Gemini results |
 | `%TEMP%\MeetVault\app.log` | Application log |
@@ -125,9 +108,9 @@ To build a package that carries the CUDA runtime, so CUDA works without the CUDA
 ## Documentation
 
 - [docs/mvp-winui](docs/mvp-winui/00-spec-index.md): the frozen MVP specification.
+- [docs/ASR-ENGINES.md](docs/ASR-ENGINES.md): the speech model — staging, behavior, measured facts.
 - [docs/COVERAGE.md](docs/COVERAGE.md): requirement-to-evidence ledger and change history.
 - [docs/BUILD-LEDGER.md](docs/BUILD-LEDGER.md): historical build log with engine measurements.
-- [docs/CUDA-SETUP.md](docs/CUDA-SETUP.md): stage the CUDA and C++ runtimes and build them into the app.
 - [docs/progress/](docs/progress/SKILL.md): per-contributor work log, one file per contributor per day.
 - [RUN-GUIDE.md](RUN-GUIDE.md): launch steps and location of data.
 - [BLOCKERS.md](BLOCKERS.md): open items that need a specific machine.
@@ -135,9 +118,9 @@ To build a package that carries the CUDA runtime, so CUDA works without the CUDA
 ## Known gaps
 
 - Audio capture mixes the microphone and system output. Capturing one application uses the WASAPI process-loopback API (`ProcessLoopbackCapture`), which falls back to system-wide capture when the API is unavailable; the per-app path is not yet confirmed on a machine with the target app playing.
-- No gender classifier ships, so speaker labels are neutral (`Speaker 1`, `Speaker 2`).
-- Two-speaker separation and JA/VI accuracy need validation with real speech.
+- JA/VI accuracy needs validation with real speech.
 - The Gemini call has been tested against stubs, not against the live API.
+- Meetings recorded by the retired diarized pipeline still show their speaker rows read-only; new meetings are single-speaker by construction.
 
 ## Links
 
