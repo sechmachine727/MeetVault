@@ -27,6 +27,7 @@ public sealed class SpeakerMatcherTests
 
     private static float[] Vec(params float[] v) { var r = new float[8]; Array.Copy(v, r, v.Length); return r; }
     private static float[] Jitter(float[] v, float d) { var r = (float[])v.Clone(); r[0] += d; return r; }
+    private static float[] Dir(double deg) => Vec((float)Math.Cos(deg * Math.PI / 180), (float)Math.Sin(deg * Math.PI / 180));
 
     [Fact]
     public void SameEmbedding_Twice_KeepsOneIdentity()
@@ -98,5 +99,38 @@ public sealed class SpeakerMatcherTests
         Assert.Equal(2, embeddings.Count);    // both sightings, not only the confirmer
         Assert.Contains(embeddings, e => SpeakerMatcher.Cosine(e, b) == 1f);
         Assert.Contains(embeddings, e => SpeakerMatcher.Cosine(e, confirm) == 1f);
+    }
+
+    // --- review round 2 (argmax pending commit) ---
+
+    // Two voices pending at once, both clearing 0.5 against the confirmer, and the newer
+    // one is the better match (cos 0.866 vs 0.766). First-wins would commit the older
+    // candidate; the closest one must win. Angles: a=0deg, P1=95deg, P2=165deg, C=135deg.
+    [Fact]
+    public void PendingCandidates_CloserOneCommits()
+    {
+        var m = new SpeakerMatcher(new FakeStore());
+        m.Assign(Vec(1, 0), 0);                    // first sighting of voice 1 (spk_1)
+        m.Assign(Dir(95), 1000);                   // pending A (spk_2)
+        m.Assign(Dir(165), 2000);                  // pending B (spk_3)
+        var r = m.Assign(Dir(135), 3000);          // clears both; closer to B
+
+        Assert.Equal("spk_3", r.SpeakerId);
+        Assert.True(r.IsNew);
+    }
+
+    // An exact tie keeps the older (first-scanned) candidate: P1/P2 are mirror images
+    // around C, so both cosines are bit-identical (the shared x-component carries the
+    // whole dot product). Angles: a=180deg, C=0deg, P1=45deg, P2=-45deg.
+    [Fact]
+    public void PendingCandidates_Tie_CommitsOldest()
+    {
+        var m = new SpeakerMatcher(new FakeStore());
+        m.Assign(Vec(-1, 0), 0);                   // pending spk_1
+        m.Assign(Dir(45), 1000);                   // pending spk_2
+        m.Assign(Dir(-45), 2000);                  // pending spk_3
+        var r = m.Assign(Vec(1, 0), 3000);         // equidistant
+
+        Assert.Equal("spk_2", r.SpeakerId);
     }
 }

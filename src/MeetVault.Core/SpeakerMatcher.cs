@@ -46,10 +46,21 @@ public sealed class SpeakerMatcher
         }
 
         _pending.RemoveAll(p => atMs - p.LastMs > PendingTtlMs);
+        // Commit the CLOSEST pending candidate that clears the threshold, not merely the
+        // first in scan order: with two voices pending at once, first-wins let an older,
+        // less-similar candidate win the confirmation. A tie keeps the older entry
+        // (strictly-greater comparison over the append-ordered list).
+        var best = -1;
+        var bestSim = PendingThreshold;
         for (var i = 0; i < _pending.Count; i++)
         {
-            var p = _pending[i];
-            if (Cosine(embedding, p.Emb) < PendingThreshold) continue;
+            var sim = Cosine(embedding, _pending[i].Emb);
+            if (sim < PendingThreshold) continue;
+            if (best < 0 || sim > bestSim) { best = i; bestSim = sim; }
+        }
+        if (best >= 0)
+        {
+            var p = _pending[best];
             var count = p.Count + 1;
             if (count >= ConfirmCount)
             {
@@ -59,13 +70,13 @@ public sealed class SpeakerMatcher
                 // evidence. The store caps at 5 embeddings per id (oldest dropped).
                 _store.Add(p.Reserved, p.Emb);
                 _store.Add(p.Reserved, embedding);
-                _pending.RemoveAt(i);
+                _pending.RemoveAt(best);
                 _last = p.Reserved;
                 AppLog.Debug("matcher: confirmed new speaker " + p.Reserved);
                 return new SpeakerMatch(p.Reserved, SpeakerOrigin.Embedding, true);
             }
             // Unreachable while ConfirmCount == 2 (the first match already reaches count 2); kept so raising ConfirmCount still behaves.
-            _pending[i] = (p.Emb, count, p.FirstMs, atMs, p.Reserved);
+            _pending[best] = (p.Emb, count, p.FirstMs, atMs, p.Reserved);
             return new SpeakerMatch(_last, SpeakerOrigin.Embedding, false);
         }
 
