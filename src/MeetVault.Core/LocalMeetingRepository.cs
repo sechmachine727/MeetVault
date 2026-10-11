@@ -154,7 +154,8 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
     // bad database record can never turn into deletion of an arbitrary path.
     // The check is deliberately lexical AND physical: the path must be fully
     // qualified, resolve under the root, and pass through no reparse point
-    // (symlink/junction), which could otherwise redirect the delete elsewhere.
+    // (symlink/junction) — including AT the root itself, which would otherwise
+    // redirect every delete elsewhere while all components below it look clean.
     public bool IsManagedMedia(string path)
     {
         string full, root;
@@ -165,6 +166,16 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
             root = Path.GetFullPath(_mediaRoot);
         }
         catch { return false; }
+        // HasReparsePoint walks only the components BELOW the root, so a junction or
+        // symlink sitting AT the root is checked here. A missing root is not a refusal
+        // (no file can exist under it); an unreadable root is.
+        try
+        {
+            if ((File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0) return false;
+        }
+        catch (FileNotFoundException) { }        // root absent: nothing can exist under it
+        catch (DirectoryNotFoundException) { }   // ditto
+        catch { return false; }                  // unreadable: refuse
         return full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
                && !HasReparsePoint(full, root);
     }
