@@ -123,9 +123,18 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         var wasPaused = unfinished.Status == MeetingStatus.Paused;
         session._meeting = unfinished with { Status = wasPaused ? MeetingStatus.Paused : MeetingStatus.Recording };
         session._paused = wasPaused;
-        session._speakers.AddRange(store.LoadSpeakers(meetingId));
-        session._segments.AddRange(store.LoadSegments(meetingId));
+        var speakers = store.LoadSpeakers(meetingId);
+        var segments = store.LoadSegments(meetingId);
+        session._speakers.AddRange(speakers);
+        session._segments.AddRange(segments);
         session._micId = micId; session._appSource = appSource;
+        // The recovered meeting keeps its spk_N ids: seed the diarizer's matcher above
+        // every persisted id BEFORE capture restarts — a fresh matcher would reserve
+        // spk_1/spk_2 again and the first voice confirmed after the resume could mint an
+        // id that collides with a persisted row (two voices swapping identities for the
+        // rest of the meeting). Never done in StartAsync: a NEW meeting resets the
+        // matcher instead (LivePage.Start_Click).
+        diarizer.SeedForRecovery(speakers, segments);
         AppLog.Info("session: recover " + meetingId + " paused=" + wasPaused + " segments=" + session._segments.Count);
         if (!wasPaused)
         {

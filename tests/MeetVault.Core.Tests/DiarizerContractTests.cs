@@ -138,6 +138,76 @@ public sealed class DiarizerContractTests
         Assert.Equal("spk_1", dz.AssignTurn(Slice(all, 95520, 183040)).SpeakerId);
     }
 
+    // --- review round 5 (recovery seeding) ---
+
+    // A crashed two-voice meeting (spk_1 = A, spk_2 = B, B spoke last) is recovered. The
+    // resumed matcher must not mint ids that collide with the persisted rows: unseeded, a
+    // fresh matcher (what the app builds at page load; Reset() leaves exactly that state)
+    // would reserve spk_1 for the first voice confirmed after the resume — B would
+    // silently become A, and later A would become B (the identity swap). Seeded, the
+    // reappearing voice mints a NEW id instead (recall cannot be restored: embeddings are
+    // not persisted, so both voices come back as fresh ids above the draft).
+    [Fact]
+    public void SeedForRecovery_TwoVoiceDraft_ReappearingVoiceMintsNewId_NoCollision()
+    {
+        var wavPath = Path.Combine(TestAudio.RepoRoot, "tests", "MeetVault.Core.Tests", "fixtures", "diarizer_two_speakers_16k.wav");
+        Assert.True(File.Exists(wavPath), "fixture missing: " + wavPath);
+        using var dz = TryOpen();
+        if (dz is null) return;
+
+        var all = TestAudio.ReadWav16k(wavPath);
+        // Meeting one produced the draft's rows: A confirmed as spk_1, B as spk_2.
+        dz.AssignTurn(Slice(all, 0, 90720));
+        Assert.Equal("spk_1", dz.AssignTurn(Slice(all, 0, 90720)).SpeakerId);
+        dz.AssignTurn(Slice(all, 95520, 183040));
+        Assert.Equal("spk_2", dz.AssignTurn(Slice(all, 95520, 183040)).SpeakerId);
+
+        // Crash + relaunch: a fresh matcher (Reset leaves exactly the state a new page's
+        // diarizer has) is seeded from the draft's rows before capture restarts.
+        dz.Reset();
+        dz.SeedForRecovery(
+            new[] { new Speaker("spk_1", "A"), new Speaker("spk_2", "B") },
+            new[] { new Segment("s1", "spk_1", 0, 2000, "a", true), new Segment("s2", "spk_2", 2000, 4000, "b", true) });
+
+        // B reappears: its first sighting keeps the seeded last speaker (its own old row)...
+        var b1 = dz.AssignTurn(Slice(all, 95520, 183040));
+        Assert.Equal("spk_2", b1.SpeakerId);
+        // ...and its confirmation mints a NEW id ABOVE every persisted row. Without the
+        // seed this is "spk_1" — the collision that swaps A and B for the rest of the meeting.
+        var b2 = dz.AssignTurn(Slice(all, 95520, 183040));
+        Assert.Equal("spk_3", b2.SpeakerId);
+        Assert.Equal(SpeakerOrigin.Embedding, b2.Origin);
+        // A reappears: a fresh id too (spk_4), never its old colliding row.
+        Assert.Equal("spk_3", dz.AssignTurn(Slice(all, 0, 90720)).SpeakerId); // first sighting keeps the previous speaker
+        var a2 = dz.AssignTurn(Slice(all, 0, 90720));
+        Assert.Equal("spk_4", a2.SpeakerId);
+        Assert.Equal(SpeakerOrigin.Embedding, a2.Origin);
+    }
+
+    // A single-voice draft: the continuing voice keeps the last speaker's id on its first
+    // sighting (the resumed tail does not suddenly read as a brand-new speaker), then the
+    // normal two-sighting rule mints a fresh id (spk_2) — recall cannot be restored
+    // without persisted embeddings. The point is that nothing collides with spk_1.
+    [Fact]
+    public void SeedForRecovery_SingleVoiceDraft_ContinuationKeepsTheLastId()
+    {
+        var wavPath = Path.Combine(TestAudio.RepoRoot, "tests", "MeetVault.Core.Tests", "fixtures", "diarizer_two_speakers_16k.wav");
+        Assert.True(File.Exists(wavPath), "fixture missing: " + wavPath);
+        using var dz = TryOpen();
+        if (dz is null) return;
+
+        var all = TestAudio.ReadWav16k(wavPath);
+        // A fresh diarizer (as at page load) seeded from a crashed single-voice draft.
+        dz.SeedForRecovery(
+            new[] { new Speaker("spk_1", "A") },
+            new[] { new Segment("s1", "spk_1", 0, 2000, "a", true) });
+
+        var a1 = dz.AssignTurn(Slice(all, 0, 90720));
+        Assert.Equal("spk_1", a1.SpeakerId);   // keeps the last speaker's id
+        var a2 = dz.AssignTurn(Slice(all, 0, 90720));
+        Assert.Equal("spk_2", a2.SpeakerId);   // two-sighting confirmation: fresh id above the draft
+    }
+
     private static TurnAudio Slice(float[] all, int start, int end)
         => new(new ReadOnlyMemory<float>(all, start, end - start), start * 1000L / 16000, end * 1000L / 16000);
 }

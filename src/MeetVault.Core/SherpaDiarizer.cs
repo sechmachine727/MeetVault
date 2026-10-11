@@ -69,6 +69,14 @@ public sealed class SherpaDiarizer : ISpeakerDiarizer, IDisposable
         AppLog.Info("diarizer: matcher reset for a new meeting (ids restart at spk_1)");
     }
 
+    // Recovery seeding (called by MeetingSession.RecoverAsync, never on a new meeting):
+    // continues the recovered meeting's spk_N id space instead of restarting it — see
+    // SpeakerMatcher.SeedForRecovery. NEVER call Reset() on a recovery path.
+    public void SeedForRecovery(IReadOnlyList<Speaker> speakers, IReadOnlyList<Segment> segments)
+    {
+        _matcher.SeedForRecovery(speakers, segments);
+    }
+
     // Union of this local speaker's spans within the turn -> one embedding per turn.
     private float[] EmbeddingFor(ReadOnlySpan<float> samples, IEnumerable<OfflineSpeakerDiarizationSegment> spans)
     {

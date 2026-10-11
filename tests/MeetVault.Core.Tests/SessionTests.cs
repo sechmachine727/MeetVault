@@ -51,6 +51,32 @@ sealed class RecordingDiarizer : ISpeakerDiarizer
     public SpeakerHint AssignTurn(TurnAudio turn) { Turns.Add(turn); return new("spk_1", SpeakerOrigin.Unknown); }
 }
 
+// A store holding one recoverable draft: the unfinished meeting plus its loaded rows.
+sealed class DraftStore : IMeetingStore
+{
+    private readonly Meeting _draft;
+    private readonly IReadOnlyList<Speaker> _speakers;
+    private readonly IReadOnlyList<Segment> _segments;
+    public DraftStore(Meeting draft, IReadOnlyList<Speaker> speakers, IReadOnlyList<Segment> segments) { _draft = draft; _speakers = speakers; _segments = segments; }
+    public void Save(Meeting m, IReadOnlyList<Speaker> sp, IReadOnlyList<Segment> se) { }
+    public IReadOnlyList<Segment> LoadSegments(string id) => _segments;
+    public IReadOnlyList<Speaker> LoadSpeakers(string id) => _speakers;
+    public IReadOnlyList<Meeting> LoadUnfinished() => new[] { _draft };
+}
+
+// Records the recovery seed it is handed — the interface's default no-op would swallow it.
+sealed class SeedingDiarizer : ISpeakerDiarizer
+{
+    private readonly FakeAudio _audio;
+    public SeedingDiarizer(FakeAudio audio) => _audio = audio;
+    public IReadOnlyList<Speaker>? SeededSpeakers;
+    public IReadOnlyList<Segment>? SeededSegments;
+    public bool CapturingAtSeed;
+    public SpeakerHint AssignTurn(TurnAudio turn) => new("spk_1", SpeakerOrigin.Unknown);
+    public void SeedForRecovery(IReadOnlyList<Speaker> speakers, IReadOnlyList<Segment> segments)
+    { SeededSpeakers = speakers; SeededSegments = segments; CapturingAtSeed = _audio.IsCapturing; }
+}
+
 
 // Fires SegmentReady even while stopped: only the session guard may drop segments.
 sealed class RawTranscriber : ISpeechTranscriber
@@ -206,6 +232,43 @@ public sealed class SessionTests
 
         Assert.Equal(2, ui.Drain());
         Assert.Equal(new[] { "spk_a", "spk_b" }, session.Segments.Select(s => s.SpeakerId).ToArray());
+        await session.StopAsync();
+    }
+
+    // --- review round 5 (recovery seeding) ---
+
+    // The recovered meeting's rows must reach the diarizer BEFORE capture restarts, or a
+    // resumed voice can mint ids that collide with the persisted spk_N rows.
+    [Fact]
+    public async Task RecoverAsync_SeedsTheDiarizerWithTheDraftRows_BeforeCaptureRestarts()
+    {
+        var draft = new Meeting("m1", "Meeting", DateTimeOffset.Now, null, MeetingStatus.Recording, null, null);
+        var speakers = new[] { new Speaker("spk_1", "A"), new Speaker("spk_2", "B") };
+        var segments = new[] { new Segment("s1", "spk_2", 0, 1000, "hello", true) };
+        var audio = new FakeAudio();
+        var diarizer = new SeedingDiarizer(audio);
+
+        var session = await MeetingSession.RecoverAsync("m1", audio, new RawTranscriber(), diarizer, new FakeGender(),
+            new DraftStore(draft, speakers, segments), "mic", "app");
+
+        Assert.Equal(new[] { "spk_1", "spk_2" }, diarizer.SeededSpeakers!.Select(s => s.Id).ToArray());
+        Assert.Equal(new[] { "s1" }, diarizer.SeededSegments!.Select(s => s.Id).ToArray());
+        Assert.False(diarizer.CapturingAtSeed); // seeded BEFORE capture restarted
+        Assert.True(audio.IsCapturing);
+        Assert.Equal(2, session.Speakers.Count);
+        await session.StopAsync();
+    }
+
+    // A NEW meeting must never seed: StartAsync's contract is a clean identity space
+    // (LivePage resets the diarizer instead — see the per-meeting reset contract).
+    [Fact]
+    public async Task StartAsync_NeverSeedsTheDiarizer()
+    {
+        var diarizer = new SeedingDiarizer(new FakeAudio());
+        var session = new MeetingSession(new FakeAudio(), new RawTranscriber(), diarizer, new FakeGender(), new FakeStore());
+        await session.StartAsync("mic", "app");
+        Assert.Null(diarizer.SeededSpeakers);
+        Assert.Null(diarizer.SeededSegments);
         await session.StopAsync();
     }
 }

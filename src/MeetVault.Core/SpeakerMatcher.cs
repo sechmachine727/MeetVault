@@ -49,6 +49,47 @@ public sealed class SpeakerMatcher
         _store.Clear();
     }
 
+    // Prepares this matcher to CONTINUE an existing meeting after a crash (recovery).
+    // The persisted draft rows define the identity space: the id counter restarts ABOVE
+    // every existing spk_N (speakers and segment ids alike; malformed ids are ignored)
+    // and the last id follows the draft's tail. A fresh matcher would otherwise reserve
+    // spk_1/spk_2 again, so the first voice confirmed after a resume could mint an id
+    // that already belongs to another voice's persisted row — two voices swapping
+    // identities (and display names) for the rest of the meeting.
+    // Pending candidates and the embedding store are cleared (the same rule Reset
+    // enforces), and nothing is seeded INTO the store: embeddings are never persisted
+    // with a draft, so recall cannot be restored. Honest consequences: a reappearing
+    // voice mints a NEW id rather than colliding with its old row, and a single-voice
+    // continuation keeps the last speaker's id on its first sighting (the normal
+    // two-sighting rule applies from there).
+    // NEVER call this for a new meeting — that is Reset()'s job; never call Reset() on
+    // a recovery (it would restart the ids at spk_1).
+    public void SeedForRecovery(IReadOnlyList<Speaker> speakers, IReadOnlyList<Segment> segments)
+    {
+        _pending.Clear();
+        _store.Clear();
+        var max = 0;
+        foreach (var s in speakers) max = Math.Max(max, ParseId(s.Id));
+        foreach (var s in segments) max = Math.Max(max, ParseId(s.SpeakerId));
+        _next = max + 1;
+        _last = "spk_1";
+        var last = "";
+        for (var i = segments.Count - 1; i >= 0 && last.Length == 0; i--) last = segments[i].SpeakerId ?? "";
+        if (last.Length == 0)
+            for (var i = speakers.Count - 1; i >= 0 && last.Length == 0; i--) last = speakers[i].Id ?? "";
+        if (last.Length > 0) _last = last;
+        AppLog.Info("matcher: seeded for recovery next=spk_" + _next + " last=" + _last
+            + " speakers=" + speakers.Count + " segments=" + segments.Count);
+    }
+
+    // "spk_N" -> N; anything else -> 0, and an absurd N cannot overflow the counter.
+    // A malformed row must never move the id space.
+    private static int ParseId(string? id)
+    {
+        if (id is null || !id.StartsWith("spk_", StringComparison.Ordinal)) return 0;
+        return int.TryParse(id.AsSpan(4), out var n) ? Math.Min(n, int.MaxValue - 1) : 0;
+    }
+
     public SpeakerMatch Assign(float[] embedding, long atMs)
     {
         var id = _store.Search(embedding, MatchThreshold);

@@ -37,6 +37,14 @@ public interface ISpeakerDiarizer
     // Assigns a stable speaker for one finalized turn. Must never throw for valid
     // input; empty audio returns an Unknown hint instead of throwing.
     SpeakerHint AssignTurn(TurnAudio turn);
+
+    // Recovery hook: hands the persisted draft rows to the diarizer before capture
+    // restarts, so a recovered meeting continues its spk_N id space instead of minting
+    // ids that collide with the persisted rows (see SpeakerMatcher.SeedForRecovery).
+    // Called ONLY by MeetingSession.RecoverAsync — never for a new meeting (that path
+    // resets instead, via the concrete diarizer's Reset). Default no-op so simple and
+    // fake diarizers need no change.
+    void SeedForRecovery(IReadOnlyList<Speaker> speakers, IReadOnlyList<Segment> segments) { }
 }
 
 public interface IGenderLabeler

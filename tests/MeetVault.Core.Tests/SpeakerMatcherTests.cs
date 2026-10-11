@@ -173,4 +173,64 @@ public sealed class SpeakerMatcherTests
         Assert.Equal("spk_2", cSecond.SpeakerId);
         Assert.True(cSecond.IsNew);
     }
+
+    // --- review round 5 (recovery seeding) ---
+
+    // A recovery must continue the draft's id space: the counter restarts ABOVE every
+    // persisted spk_N (speakers and segment ids alike; malformed ids ignored) and the
+    // last id follows the draft's tail. Without the seed, the first voice confirmed
+    // after a resume reserves spk_1/spk_2 again and collides with a persisted row.
+    [Fact]
+    public void SeedForRecovery_SetsNextAboveExistingIds_AndLastFromSegments()
+    {
+        var store = new FakeStore();
+        var m = new SpeakerMatcher(store);
+        var a = Vec(1, 0); var b = Vec(0, 1);
+
+        // Leftovers from the crashed run: voice b confirmed as spk_1 (store entry) and a
+        // pending candidate similar to voice a (reserved spk_2).
+        m.Assign(b, 0);
+        m.Assign(b, 1000);
+        m.Assign(Jitter(a, 0.05f), 2000);
+
+        var speakers = new[] { new Speaker("spk_1", "A"), new Speaker("spk_3", "B"), new Speaker("host_5", "malformed") };
+        var segments = new[] { new Segment("s1", "spk_3", 0, 1000, "x", true) };
+        m.SeedForRecovery(speakers, segments);   // _next = spk_4, _last = spk_3
+
+        // The store is cleared: b's next sighting is not a recall hit (that would return
+        // spk_1 — the pre-seed row — instead of the seeded tail id).
+        var b1 = m.Assign(Jitter(b, 0.01f), 3000);
+        Assert.Equal("spk_3", b1.SpeakerId);
+        Assert.False(b1.IsNew);
+        // The stale pending candidate is gone: a's first sighting does not confirm it on
+        // the spot (that would return spk_2) and keeps the seeded tail id instead.
+        var a1 = m.Assign(Jitter(a, 0.01f), 3500);
+        Assert.Equal("spk_3", a1.SpeakerId);
+        Assert.False(a1.IsNew);
+        // The counter sits above max(spk_1, spk_3, segment spk_3) — "host_5" must NOT
+        // move it (a tail-number parse would reserve spk_6 and fail here).
+        var b2 = m.Assign(Jitter(b, 0.02f), 4000);
+        Assert.Equal("spk_4", b2.SpeakerId);
+        Assert.True(b2.IsNew);
+        // The other voice mints the NEXT id: two fresh ids, neither colliding with a row.
+        var a2 = m.Assign(Jitter(a, 0.02f), 4500);
+        Assert.Equal("spk_5", a2.SpeakerId);
+        Assert.True(a2.IsNew);
+    }
+
+    // Fallbacks: with no segments the last id comes from the last speaker row; with an
+    // empty draft the placeholder and the counter stay at spk_1.
+    [Fact]
+    public void SeedForRecovery_NoSegments_UsesLastSpeakerRow_ElseKeepsPlaceholder()
+    {
+        var m = new SpeakerMatcher(new FakeStore());
+        m.SeedForRecovery(new[] { new Speaker("spk_1", "A"), new Speaker("spk_4", "B") }, Array.Empty<Segment>());
+        Assert.Equal("spk_4", m.Assign(Vec(1, 0), 0).SpeakerId);      // last speaker row
+        Assert.Equal("spk_5", m.Assign(Vec(1, 0), 1000).SpeakerId);   // counter above spk_4
+
+        var m2 = new SpeakerMatcher(new FakeStore());
+        m2.SeedForRecovery(Array.Empty<Speaker>(), Array.Empty<Segment>());
+        Assert.Equal("spk_1", m2.Assign(Vec(1, 0), 0).SpeakerId);     // placeholder kept
+        Assert.Equal("spk_1", m2.Assign(Vec(1, 0), 1000).SpeakerId);  // reserved spk_1 confirms as spk_1
+    }
 }
