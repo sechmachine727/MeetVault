@@ -464,6 +464,7 @@ public sealed partial class LivePage : Page
     private void OnPartial(string text) => DispatcherQueue.TryEnqueue(() =>
     {
         PartialLine.Text = text.Length > 0 ? text : (_state != LiveState.Idle ? Loc.T("Live.Listening") : "");
+        LiveBridge.NotifyPartial(text);
     });
 
     private void AddLine(string speakerId, string text)

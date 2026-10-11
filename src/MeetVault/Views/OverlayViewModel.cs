@@ -30,6 +30,10 @@ public sealed partial class OverlayViewModel : ObservableObject
     [ObservableProperty]
     private string _fontFamily = "Segoe UI";
 
+    // Interim (partial) text of the open streaming utterance; "" clears. Plain property:
+    // the overlay updates/rebuilds explicitly on partials — no INPC needed.
+    public string Partial { get; set; } = "";
+
     public ObservableCollection<TranscriptLine> Lines { get; } = [];
 
     public void AddLine(string speaker, string text)

@@ -68,6 +68,9 @@ public sealed partial class OverlayWindow : Window
         VerticalAlignment = VerticalAlignment.Center,
         Opacity = 0.7,
     };
+    // The streaming partial line: updated IN PLACE on every partial (no rebuild), so
+    // partial churn cannot dismiss an open rename flyout — a final line still rebuilds.
+    private TextBlock? _partialBlock;
     // One cogwheel; every overlay setting lives in its flyout (owner-requested
     // consolidation — nothing is scattered in the header/footer anymore).
     private readonly Button _settingsButton = new()
@@ -203,7 +206,8 @@ public sealed partial class OverlayWindow : Window
         LiveBridge.Cleared += OnLiveCleared;
         LiveBridge.Renamed += OnRenamed;
         LiveBridge.LiveChanged += OnLiveChanged;
-        Closed += (_, _) => { LiveBridge.LineAdded -= OnLiveLine; LiveBridge.Cleared -= OnLiveCleared; LiveBridge.Renamed -= OnRenamed; LiveBridge.LiveChanged -= OnLiveChanged; _acrylic?.Dispose(); };
+        LiveBridge.PartialChanged += OnPartial;
+        Closed += (_, _) => { LiveBridge.LineAdded -= OnLiveLine; LiveBridge.Cleared -= OnLiveCleared; LiveBridge.Renamed -= OnRenamed; LiveBridge.LiveChanged -= OnLiveChanged; LiveBridge.PartialChanged -= OnPartial; _acrylic?.Dispose(); };
         foreach (var (speaker, text) in LiveBridge.Recent()) Vm.AddLine(speaker, text); // catch up mid-meeting
         RefreshListState();
         BuildConversation();
@@ -241,13 +245,30 @@ public sealed partial class OverlayWindow : Window
         => DispatcherQueue.TryEnqueue(() => Vm.AddLine(speaker, text));
 
     private void OnLiveCleared()
-        => DispatcherQueue.TryEnqueue(() => Vm.Lines.Clear());
+        => DispatcherQueue.TryEnqueue(() => { Vm.Lines.Clear(); Vm.Partial = ""; });
 
     private void OnRenamed(string oldName, string newName)
         => DispatcherQueue.TryEnqueue(() => { Vm.RenameSpeaker(oldName, newName); BuildConversation(); });
 
     private void OnLiveChanged(bool live)
-        => DispatcherQueue.TryEnqueue(BuildConversation);
+        => DispatcherQueue.TryEnqueue(() => { Vm.Partial = ""; BuildConversation(); });
+
+    // Partial updates touch only the dedicated block (in place), so an open rename flyout
+    // survives; only the first partial after a rebuild (or an unexpected state) rebuilds.
+    private void OnPartial(string text)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            Vm.Partial = text;
+            if (_partialBlock is not null)
+            {
+                _partialBlock.Text = text;
+                _partialBlock.Visibility = text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+                UpdateConversationClip();
+            }
+            else BuildConversation();
+        });
+    }
 
     public OverlayViewModel Vm { get; }
 
@@ -401,7 +422,8 @@ public sealed partial class OverlayWindow : Window
     private void BuildConversation()
     {
         _conversationPanel.Children.Clear();
-        if (Vm.Lines.Count == 0)
+        _partialBlock = null;
+        if (Vm.Lines.Count == 0 && Vm.Partial.Length == 0)
         {
             _noLines.Text = LiveBridge.IsLive
                 ? Loc.T("Ov.Listening")
@@ -411,7 +433,10 @@ public sealed partial class OverlayWindow : Window
             return;
         }
         var available = ConversationCellHeight() - _conversationPanel.Margin.Bottom;
-        var fitting = OverlayLayout.FittingLines(available, Vm.FontSize, Vm.FontSize + LatestLineExtraDip, _conversationPanel.Spacing);
+        // A shown partial line occupies one regular line box (font x 1.35 + spacing, the
+        // same box OverlayLayout.FittingLines counts); reserve it before fitting finals.
+        var reserve = Vm.Partial.Length > 0 ? Vm.FontSize * 1.35 + _conversationPanel.Spacing : 0;
+        var fitting = OverlayLayout.FittingLines(Math.Max(0, available - reserve), Vm.FontSize, Vm.FontSize + LatestLineExtraDip, _conversationPanel.Spacing);
         var take = Math.Clamp(Math.Min((int)Vm.ViewLines, fitting), 1, 12);
         for (var i = Math.Max(0, Vm.Lines.Count - take); i < Vm.Lines.Count; i++)
         {
@@ -447,6 +472,21 @@ public sealed partial class OverlayWindow : Window
             button.Click += Rename_Click;
             ToolTipService.SetToolTip(button, Loc.T("Ov.RenameTip"));
             _conversationPanel.Children.Add(button);
+        }
+        if (Vm.Partial.Length > 0)
+        {
+            _partialBlock = new TextBlock
+            {
+                Text = Vm.Partial,
+                TextWrapping = TextWrapping.WrapWholeWords,
+                TextAlignment = TextAlignment.Left,
+                Margin = new Thickness(16, 0, 16, 0),
+                Foreground = new SolidColorBrush(Colors.White),
+                FontFamily = new FontFamily(Vm.FontFamily),
+                FontSize = Vm.FontSize,
+                Opacity = 0.72,
+            };
+            _conversationPanel.Children.Add(_partialBlock);
         }
         UpdateConversationClip();
     }

@@ -12,6 +12,7 @@ public static class LiveBridge
     public static event Action? Cleared;
     public static event Action<string, string>? Renamed;      // oldName, newName (page -> overlay)
     public static Func<string, string, bool>? RenameByName;   // oldName, newName -> handled
+    public static event Action<string>? PartialChanged;       // interim text of the current utterance ("" clears)
 
     // Whether a recording session is currently open (set by LivePage). The overlay
     // uses it to explain an empty conversation instead of looking silently broken.
@@ -50,4 +51,7 @@ public static class LiveBridge
 
     // Fired after the page renames a speaker so an open overlay reflects it (FR3 both ways).
     public static void NotifyRenamed(string oldName, string newName) => Renamed?.Invoke(oldName, newName);
+
+    // Fired on every streaming partial (and with "" when the open utterance closes).
+    public static void NotifyPartial(string text) => PartialChanged?.Invoke(text);
 }
