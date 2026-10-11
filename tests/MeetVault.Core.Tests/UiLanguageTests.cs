@@ -25,4 +25,18 @@ public sealed class UiLanguageTests
         Assert.Equal("en-US", UiLanguage.ToTag("en"));
         Assert.Equal("en-US", UiLanguage.ToTag("whatever"));
     }
+
+    // The App sets the thread CULTURE (date/number formats) to the resolved tag only for
+    // an explicit choice; in system mode the machine's own formats stay.
+    [Theory]
+    [InlineData("en", true)]
+    [InlineData("ja", true)]
+    [InlineData("JA", true)]      // case-insensitive, same rule as Resolve
+    [InlineData(" ja ", true)]    // whitespace-tolerant
+    [InlineData("system", false)]
+    [InlineData("de", false)]     // unknown value: system behavior
+    [InlineData(null, false)]
+    [InlineData("", false)]
+    public void IsExplicit_OnlyEnAndJaCount(string? setting, bool expected)
+        => Assert.Equal(expected, UiLanguage.IsExplicit(setting));
 }

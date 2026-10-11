@@ -54,8 +54,12 @@ public partial class App : Application
     public App()
     {
         // Display language: ui.language (en|ja) wins; otherwise the Windows language list
-        // decides. Must run before any XAML or resource-map use — this is the first
-        // statement in the ctor for that reason. Restart-to-apply is the documented behavior.
+        // decides. The UI language (resource lookup) always follows the resolved tag; the
+        // thread CULTURE (date/number formats) follows it only for an explicit en/ja
+        // choice — in system mode the machine's own formats stay (a de-DE/en-GB/vi system
+        // is not forced to en-US formats; a ja-JP system still resolves ja-JP). Must run
+        // before any XAML or resource-map use — this is the first statement in the ctor
+        // for that reason. Restart-to-apply is the documented behavior.
         // Unpackaged apps must use Microsoft.Windows.Globalization.ApplicationLanguages:
         // the Windows.Globalization variant throws InvalidOperationException here (L0 probe).
         try
@@ -65,9 +69,11 @@ public partial class App : Application
             var tag = MeetVault.Core.UiLanguage.ToTag(resolved);
             Microsoft.Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride = tag;
             var culture = new System.Globalization.CultureInfo(tag);
-            System.Globalization.CultureInfo.DefaultThreadCurrentCulture = culture;
             System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = culture;
-            LogStartup("ui language: setting=" + (langSetting ?? "(none)") + " resolved=" + tag);
+            var explicitChoice = MeetVault.Core.UiLanguage.IsExplicit(langSetting);
+            if (explicitChoice)
+                System.Globalization.CultureInfo.DefaultThreadCurrentCulture = culture;
+            LogStartup("ui language: setting=" + (langSetting ?? "(none)") + " resolved=" + tag + " culture=" + (explicitChoice ? tag : "(system)"));
         }
         catch (Exception ex) { LogStartup("ui language init failed: " + ex.Message); }
         // Pin the app's own onnxruntime before the WindowsAppRuntime framework copy
