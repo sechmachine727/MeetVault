@@ -6,7 +6,7 @@ namespace MeetVault.Core;
 
 // Real transcription behind ISpeechTranscriber: whisper.cpp v1.9.4 via Whisper.net 1.9.1.
 // ponytail: file-based finalized windows; streaming partials arrive with the VAD sliding-window upgrade.
-public sealed class WhisperTranscriber : ISpeechTranscriber, IDisposable
+public sealed class WhisperTranscriber : IUtteranceTranscriber, IDisposable
 {
     public event Action<Segment>? SegmentReady;
     public bool IsRunning { get; private set; }

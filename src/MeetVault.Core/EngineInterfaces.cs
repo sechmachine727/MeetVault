@@ -20,6 +20,35 @@ public interface ISpeechTranscriber
     bool IsRunning { get; }
 }
 
+// A transcriber that processes one finalized utterance at a time (the VAD-utterance
+// pipeline). Whisper and Moonshine implement this; streaming engines do not.
+public interface IUtteranceTranscriber : ISpeechTranscriber
+{
+    Task TranscribeWindowAsync(byte[] pcm16kMono, long windowStartMs, string meetingId, CancellationToken ct = default);
+}
+
+// A transcriber that consumes the live 16 kHz stream continuously and emits interim
+// text plus finalized utterances (endpointed by the engine). Push is called from the
+// capture pump thread and MUST only enqueue; decoding happens on the engine's own thread.
+public interface IStreamingTranscriber : ISpeechTranscriber, IDisposable
+{
+    event Action<string>? PartialReady; // full interim text of the open utterance; "" clears it
+    void Push(float[] samples16k);
+    void Flush(); // close pending speech (pause/stop/unload); the stream stays usable
+}
+
+// The engine-specific slice of a streaming recognizer. ALL calls happen on the runner's
+// single decode thread (no locking needed).
+public interface IStreamingBackend : IDisposable
+{
+    void AcceptWaveform(float[] samples16k);
+    bool IsReady();                     // ready to decode more frames
+    void Decode();                      // decode one step
+    string CurrentText();               // interim text of the open utterance ("" when none)
+    bool TryTakeFinal(out string text); // the engine closed an utterance (endpoint); resets it
+    bool TryFlushFinal(out string text);// the CALLER closes it now (pause/stop); resets it
+}
+
 // Where a speaker id came from. Asserted as mint-origin evidence by the contract
 // tests (DiarizerContractTests, SpeakerMatcherTests); keep the values meaningful.
 public enum SpeakerOrigin { Manual, SourceHint, Embedding, Unknown }
