@@ -14,11 +14,14 @@ public sealed partial class SettingsPage : Page
     // XAML parse fires Toggled/SelectionChanged before all fields exist.
     // Handlers stay silent until init completes.
     private bool _ready;
-    // Load-time guard: set while the ctor seeds the controls from persisted settings and
-    // renders the first summary. Every value-changed handler early-returns and Refresh()
-    // writes nothing back while it is set, so loading never persists programmatic values
-    // (the old 0.3 darkness floor clamped a saved 0 on load and the load-time Refresh
-    // then silently rewrote overlay.opacity to 0.3).
+    // Load-time guard for the value-changed handlers: set while the ctor seeds the
+    // controls from persisted settings, so a programmatic selection cannot fire a
+    // Refresh per control (load must not storm refreshes). The ctor's Refresh() still
+    // runs its persist block — deliberately, and safe now that every control range
+    // matches its flyout counterpart: a clamped value (a stale mic index, a vanished
+    // device) is repaired in the store, while a value that loaded un-clamped round-trips
+    // to itself. (The write-back was briefly suppressed when the Settings darkness
+    // slider still had a 0.3 floor that clamped a saved 0 and then rewrote it.)
     private bool _loading;
 
     public SettingsPage()
@@ -49,9 +52,11 @@ public sealed partial class SettingsPage : Page
         try { LoadPersisted(); } catch { }
         _ready = true;
         try { WarnIfSavedDeviceUnavailable(); } catch { }
-        // First render: shows the loaded values; the persist block in Refresh is skipped
-        // while _loading is set, so a programmatic (possibly clamped) value is never
-        // written back over the setting it was read from.
+        // After the warning: Refresh persists the picker's current value, which SelectDevice
+        // may have already downgraded to CPU — the warning must read the setting before that
+        // write, and the write-back itself is what repairs a clamped value (a stale mic
+        // index, a vanished device) in the store on load. Handlers stay suppressed while
+        // _loading is set, so seeding the controls does not storm refreshes.
         Refresh();
         _loading = false;
     }
@@ -154,8 +159,7 @@ public sealed partial class SettingsPage : Page
         // The overlay's VISIBLE line count: one key drives both the cogwheel flyout slider
         // and this row (overlay.viewlines). overlay.lines is the retired key; an install
         // that saved it keeps its value — read the new key first, fall back to the old one
-        // once, and persist the fallback forward so the old row stops being read. This is
-        // the one deliberate load-time write: the _loading guard suppresses every other.
+        // once, and persist the fallback forward so the old row stops being read.
         var viewLines = repo.GetSetting("overlay.viewlines");
         if (string.IsNullOrEmpty(viewLines))
         {
@@ -264,11 +268,11 @@ public sealed partial class SettingsPage : Page
             ? Loc.T("Set.GeminiNoKey")
             : Loc.T("Set.KeyStored");
 
-        // Load-time render only: while _loading the control values came from the store,
-        // not from the user — writing them back could silently rewrite a setting that a
-        // programmatic value (a clamp) changed, and load must never do that.
-        if (_loading) return;
         // Persist after the summary renders so a storage failure degrades to a warning, never a dead page.
+        // This runs once at load too (the ctor's Refresh), deliberately: writing the controls back
+        // repairs a value they had to clamp — a stored mic index past the device list falls to the
+        // picker's first entry, a vanished device falls to CPU — while a value that loaded un-clamped
+        // round-trips to itself (every range matches its flyout counterpart, so nothing rewrites it).
         try
         {
             var repo = AppStore.Repo;
