@@ -93,7 +93,7 @@ Settings persist in `%APPDATA%\MeetVault\meetings.db` (SQLite, `settings` table)
 
 - **Display language**: the interface language — English or Japanese. **System default** follows the Windows display language; an explicit choice applies after a restart.
 - **Audio**: microphone device, record-microphone on/off, record-system-audio on/off, and the system-audio source (all apps, or one running app). Microphone and system audio are mixed; disabling one records the other alone.
-- **Transcription**: model (tiny or base), device (CPU, or a detected GPU).
+- **Transcription**: engine and model — Whisper tiny/base (multilingual, the default), Moonshine tiny/base (English or Japanese, lowest latency), Zipformer 20M (English, streaming with live partial captions), or Vosk small (English or Japanese, streaming, lightest on old CPUs). Streaming engines always run single-speaker. Device (CPU, or a detected GPU) applies to Whisper only. Model staging: docs/ASR-ENGINES.md.
 - **Performance**: speaker diarization (on by default). Turn it off to remove the diarization engine from the pipeline — transcription runs faster and stays closer to realtime, and the transcript shows no speaker names (live list, overlay, details, copy/export). The change applies the next time Live is opened (a draft resumed later picks it up).
 - **Overlay**: keep on top, opacity, font size, lines shown.
 - **Storage**: export folder.
