@@ -15,6 +15,9 @@ public sealed partial class OverlayViewModel : ObservableObject
     [ObservableProperty]
     private double _fontSize = 16;
 
+    // History-buffer retention for the overlay's own list — NOT the visible count
+    // (that is ViewLines, the single overlay.viewlines setting the Settings row and
+    // the cogwheel flyout share; overlay.lines is retired and no longer read).
     [ObservableProperty]
     private double _lineCount = 40;
 

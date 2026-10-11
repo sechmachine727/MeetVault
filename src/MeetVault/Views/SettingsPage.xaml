@@ -182,7 +182,7 @@
                         <TextBlock x:Uid="SetLinesDesc" Opacity="0.7" TextWrapping="Wrap" />
                     </StackPanel>
                     <NumberBox x:Name="LinesBox" x:Uid="SetLinesBox" Grid.Column="1" Width="140" HorizontalAlignment="Left"
-                               Minimum="1" Maximum="10" Value="3" SmallChange="1"
+                               Minimum="1" Maximum="10" Value="4" SmallChange="1"
                                SpinButtonPlacementMode="Compact" ValueChanged="Number_ValueChanged" />
                 </Grid>
                 <TextBlock x:Name="OverlayStatus" Opacity="0.7" TextWrapping="Wrap" />
