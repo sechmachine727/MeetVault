@@ -282,6 +282,16 @@ public sealed partial class MeetingsPage : Page
     private async void DeleteMeeting_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement { DataContext: MeetingCard card }) return;
+        if (card.IsDraft)
+        {
+            // Same rule as the bulk path and the repository: a resumable draft is deleted
+            // by finishing or stopping it in Live, never here. Refused BEFORE the confirm
+            // dialog so the user is never asked to confirm the impossible.
+            StatusBar.Message = Loc.T("Mtg.DraftNoDelete");
+            StatusBar.Severity = InfoBarSeverity.Warning;
+            StatusBar.IsOpen = true;
+            return;
+        }
         var confirm = new ContentDialog
         {
             Title = Loc.T("Mtg.DelOneTitle"),

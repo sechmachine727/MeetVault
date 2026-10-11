@@ -91,14 +91,24 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
 
     // Deletes the meeting and everything that belongs to it, in one transaction.
     // Returns the recording path (if any) so the caller can remove the audio file.
+    // Refuses active or resumable recordings (Recording/Paused) with the same message
+    // the bulk path reports, so both callers share one rule: a draft is deleted by
+    // stopping or discarding it in Live, never through a delete path.
     public string? DeleteMeeting(string meetingId)
     {
         string? media = null;
         using (var q = _db.CreateCommand())
         {
-            q.CommandText = "SELECT media_path FROM meetings WHERE id=$m";
+            q.CommandText = "SELECT media_path,status FROM meetings WHERE id=$m";
             q.Parameters.AddWithValue("$m", meetingId);
-            media = q.ExecuteScalar() as string;
+            using var r = q.ExecuteReader();
+            if (r.Read())
+            {
+                if (!r.IsDBNull(1) && Enum.TryParse<MeetingStatus>(r.GetString(1), out var st)
+                    && st is MeetingStatus.Recording or MeetingStatus.Paused)
+                    throw new InvalidOperationException("active or resumable recording");
+                media = r.IsDBNull(0) ? null : r.GetString(0);
+            }
         }
         using var tx = _db.BeginTransaction();
         foreach (var table in new[] { "transcript_segments", "speakers", "gemini_jobs", "meetings" })

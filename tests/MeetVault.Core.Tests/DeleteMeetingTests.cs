@@ -24,5 +24,22 @@ public sealed class DeleteMeetingTests : IDisposable
         Assert.Empty(_repo.LoadSpeakers("del-me"));
         Assert.DoesNotContain(_repo.ListMeetings(), x => x.Id == "del-me");
     }
+
+    [Theory]
+    [InlineData(MeetingStatus.Recording)]
+    [InlineData(MeetingStatus.Paused)]
+    public void DeleteMeeting_ActiveOrResumable_Refused_RowKept(MeetingStatus status)
+    {
+        // One shared rule with the bulk path: a resumable draft cannot be deleted through
+        // the repository either (stop or discard it in Live first) — same message the
+        // bulk path reports for the same state.
+        var m = new Meeting("draft", "t", DateTimeOffset.UtcNow, null, status, "/tmp/rec.wav", "audio/wav");
+        _repo.Save(m, new[] { new Speaker("spk_1", "Speaker 1") }, Array.Empty<Segment>());
+
+        var ex = Assert.Throws<InvalidOperationException>(() => _repo.DeleteMeeting("draft"));
+
+        Assert.Equal("active or resumable recording", ex.Message);
+        Assert.NotNull(_repo.Load("draft"));
+    }
 }
 

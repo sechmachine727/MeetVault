@@ -153,6 +153,7 @@
   <data name="Mtg.FromRepo" xml:space="preserve"><value>ローカルリポジトリの会議 {0} 件。</value></data>
   <data name="Mtg.SelectHint" xml:space="preserve"><value>削除する会議を選択し、「選択した会議を削除」を選んでください。</value></data>
   <data name="Mtg.DraftReason" xml:space="preserve"><value>録音中または再開可能な下書きです。先にライブで終了するか破棄してください。</value></data>
+  <data name="Mtg.DraftNoDelete" xml:space="preserve"><value>この下書きはまだ再開できます — 削除する前に終了するか停止してください。</value></data>
   <data name="Mtg.DelTitle" xml:space="preserve"><value>会議を削除しますか？</value></data>
   <data name="Mtg.DelBody" xml:space="preserve"><value>{0} 件の会議を削除しますか？録音と文字起こしがこのデバイスから削除されます。</value></data>
   <data name="Mtg.DelConfirm" xml:space="preserve"><value>削除</value></data>
