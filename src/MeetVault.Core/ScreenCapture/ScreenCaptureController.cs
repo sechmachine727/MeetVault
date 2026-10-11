@@ -228,9 +228,14 @@ public sealed class ScreenCaptureController : IDisposable
         {
             try
             {
-                while (!token.IsCancellationRequested && _run is not null)
+                while (!token.IsCancellationRequested)
                 {
+                    var watched = _run;
+                    if (watched is null) return;
                     await Task.Delay(_watchdogPollMs, token).ConfigureAwait(false);
+                    // Act only on the run this iteration observed (review r10): a pause/
+                    // resume retires it, and its replacement must not be stopped by us.
+                    if (token.IsCancellationRequested || !ReferenceEquals(_run, watched)) continue;
                     if (_isWindowAlive(hwnd)) continue;
                     Warn("screen: target window closed; stopping the screen run");
                     await StopViaGate("window closed").ConfigureAwait(false);

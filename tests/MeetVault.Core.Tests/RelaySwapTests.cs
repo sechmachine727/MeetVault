@@ -16,7 +16,8 @@ public sealed class RelaySwapTests
         public event Action<string>? PartialReady;
 #pragma warning restore CS0067
         public Task StartAsync(CancellationToken ct) { IsRunning = true; return Task.CompletedTask; }
-        public Task StopAsync(CancellationToken ct) { IsRunning = false; return Task.CompletedTask; }
+        public TaskCompletionSource? StopGate;
+        public Task StopAsync(CancellationToken ct) { IsRunning = false; return StopGate?.Task ?? Task.CompletedTask; }
         public void Push(float[] samples16k) => Pushes.Add(samples16k);
         public void Flush() { }
         public void Dispose() { }
@@ -38,6 +39,22 @@ public sealed class RelaySwapTests
 
         Assert.Equal(3, first.Pushes.Count);        // the old engine never stopped serving
         Assert.Equal("a", relay.ActiveModelDir);    // and the failure did not take over the id
+    }
+
+    [Fact]
+    public async Task StopAsync_AwaitsTheInnerEngine()
+    {
+        // The pause latch ordering depends on the relay's stop really waiting for the
+        // engine's flush; StopAsync used to return an already-completed task (review r10).
+        var a = new Rec();
+        var relay = new SwitchableStreamingTranscriber(_ => a);
+        Assert.True(await Task.Run(() => relay.SwapTo("a")));
+        await relay.StartAsync(CancellationToken.None);
+        a.StopGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stop = relay.StopAsync(CancellationToken.None);
+        Assert.False(stop.IsCompleted);          // still waiting on the engine
+        a.StopGate.SetResult();
+        await stop;
     }
 
     [Fact]

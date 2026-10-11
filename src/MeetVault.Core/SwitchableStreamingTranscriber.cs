@@ -19,7 +19,8 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
     private const int PreRollMs = 6000;
     private IStreamingTranscriber? _inner;
     private string? _activeModelDir;
-    private bool _disposed;                                          // guarded by _swapOne
+    private volatile bool _disposed;                                 // set synchronously in Dispose; read by SwapTo
+    private bool _coreDone;                                          // guarded by _swapOne
 
     public SwitchableStreamingTranscriber(Func<string, IStreamingTranscriber> factory)
     { _factory = factory; }
@@ -37,8 +38,11 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
         {
             IsRunning = true;
             inner = _inner;
-            replay = _preRoll.ToArray();
-            _preRoll.Clear();
+            // No engine yet (the auto "listen first" window): keep the pre-roll for the
+            // first swap to replay — clearing it here dropped up to 6 s of captured speech
+            // on an Auto-mode pause/resume (review r10).
+            replay = inner is null ? Array.Empty<float[]>() : _preRoll.ToArray();
+            if (inner is not null) _preRoll.Clear();
         }
         if (inner is not null)
         {
@@ -49,12 +53,14 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
         }
     }
 
-    public Task StopAsync(CancellationToken ct)
+    public async Task StopAsync(CancellationToken ct)
     {
         IStreamingTranscriber? inner;
         lock (_swapLock) { IsRunning = false; inner = _inner; }
-        inner?.StopAsync(ct);
-        return Task.CompletedTask;
+        // Await the engine's stop: its flush joins the decode thread and delivers the final
+        // through this relay BEFORE the caller's next step, so the pause latch ordering is
+        // enforced instead of inferred from the dispatcher queue (review r10).
+        if (inner is not null) await inner.StopAsync(ct).ConfigureAwait(false);
     }
 
     public void Push(float[] samples16k)
@@ -158,10 +164,13 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
 
     public void Dispose()
     {
+        // Set synchronously: a swap queued behind an in-flight one must refuse IMMEDIATELY
+        // (review r10 — the deferred core used to set the flag only after winning the gate).
+        _disposed = true;
         // Bounded wait: OnUnloaded runs this on the UI thread while a language switch may
         // be mid-model-load (~16.5 s large tier) — never block the UI for that (review r9).
         // If the swap is still in flight, the teardown is handed to the pool; the in-flight
-        // swap completes first either way, and _disposed makes later swaps no-ops.
+        // swap completes first either way.
         if (_swapOne.Wait(TimeSpan.FromSeconds(2)))
         {
             try { DisposeCore(); } finally { _swapOne.Release(); }
@@ -176,8 +185,8 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
 
     private void DisposeCore()
     {
-        if (_disposed) return;
-        _disposed = true;
+        if (_coreDone) return;
+        _coreDone = true;
         IStreamingTranscriber? inner;
         lock (_swapLock)
         {

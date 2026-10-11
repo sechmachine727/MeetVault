@@ -115,7 +115,10 @@ public static class AppStore
             {
                 var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MeetVault");
                 Directory.CreateDirectory(dir);
-                _repo = new LocalMeetingRepository(Path.Combine(dir, "meetings.db"));
+                // Pass the media root explicitly: the repository only runs its staged-deletion
+                // sweep for an explicit root, so a db-only construction (tests) can never
+                // touch the real media directory (review r10).
+                _repo = new LocalMeetingRepository(Path.Combine(dir, "meetings.db"), MediaDir);
             }
             return _repo;
         }

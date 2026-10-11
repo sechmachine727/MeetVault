@@ -166,7 +166,12 @@ public static class CaptureSourceResolver
 
     private static string ExeName(int pid)
     {
-        try { return pid <= 0 ? "" : Process.GetProcessById(pid).ProcessName; }
+        try
+        {
+            if (pid <= 0) return "";
+            using var p = Process.GetProcessById(pid); // the handle must not leak per window (review r10)
+            return p.ProcessName;
+        }
         catch { return ""; }
     }
 

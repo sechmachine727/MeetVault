@@ -100,6 +100,10 @@ public sealed partial class LivePage : Page
             _adapter = null;
         }
         _relay = null;
+        // The page is gone: nothing may act on this session/state again (review r10 — the
+        // auto-start continuation used to NRE on the nulled relay and MarkFailed the draft).
+        _session = null;
+        _state = LiveState.Idle;
     }
 
     // The engine resolves at load; recording starts only on an explicit action or a resume.
@@ -241,7 +245,7 @@ public sealed partial class LivePage : Page
                 await Task.Delay(6500);
                 // Pause/Stop during the wait must not let the continuation swap an engine
                 // into an ended meeting (review r7).
-                if (!ReferenceEquals(_session, waitOwner) || _state != LiveState.Recording) return;
+                if (_relay is null || !ReferenceEquals(_session, waitOwner) || _state != LiveState.Recording) return;
                 if (_relay.ActiveModelDir is null)
                 {
                     var fallback = EngineCatalog.Find("en", "small");

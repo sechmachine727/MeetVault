@@ -8,10 +8,16 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
 {
     private readonly SqliteConnection _db;
     private readonly string _mediaRoot;
+    private readonly bool _sweepStagedDeletions;
 
     public LocalMeetingRepository(string path, string? mediaRoot = null)
     {
         _mediaRoot = Path.TrimEndingDirectorySeparator(mediaRoot ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MeetVault", "media"));
+        // Only an explicitly passed media root may be swept: a db-only construction (many
+        // tests) would otherwise sweep the REAL media directory against a database that
+        // knows nothing about its rows and could delete the only copy of a recording
+        // (review r10).
+        _sweepStagedDeletions = mediaRoot is not null;
         _db = new SqliteConnection($"Data Source={path}");
         _db.Open();
         AppLog.Info("repo: opened " + path);
@@ -32,7 +38,7 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         // A recording staged by a partially-failed batch delete (<file>.deleting) has no
         // row pointing at it anymore; without a sweep it leaks on disk silently and a
         // later delete of that id reports "not found" (review r7).
-        SweepStagedDeletions();
+        if (_sweepStagedDeletions) SweepStagedDeletions();
     }
 
     private void SweepStagedDeletions()

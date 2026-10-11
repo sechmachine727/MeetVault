@@ -12,7 +12,22 @@ namespace MeetVault.Core;
 public sealed class ScreenRecorderLibAdapter : IVideoRecorder
 {
     private readonly object _gate = new();
-    private Recorder? _recorder;
+    private RunRecorder? _recorder;
+
+    // One native recorder per run, disposed exactly once (review r10): the C++/CLI wrapper
+    // must not be freed twice (a synchronous failure event plus a Record throw can both try)
+    // and never from inside its own completion callback.
+    private sealed class RunRecorder
+    {
+        private int _disposed;
+        public Recorder Recorder { get; }
+        public RunRecorder(Recorder recorder) { Recorder = recorder; }
+        public void DisposeOnce()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+            try { Recorder.Dispose(); } catch { }
+        }
+    }
     private string? _outputPath;
     private TaskCompletionSource<RecordingResult>? _done;
     private long _startTicks;
@@ -38,7 +53,8 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
             _startTicks = Stopwatch.GetTimestamp();
             // Publish the recorder before Record: a throw from Record (e.g. the missing-CRT
             // path) must not leak the native recorder or leave _done dangling (review r7).
-            _recorder = recorder;
+            var run = new RunRecorder(recorder);
+            _recorder = run;
             IsRecording = true;
             try { recorder.Record(outputPath); }
             catch
@@ -46,7 +62,7 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
                 _recorder = null;
                 IsRecording = false;
                 _done = null;
-                try { recorder.Dispose(); } catch { }
+                run.DisposeOnce(); // idempotent with a synchronous failure event (review r10)
                 throw;
             }
         }
@@ -55,7 +71,7 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
 
     public async Task<RecordingResult> StopAsync(CancellationToken ct = default)
     {
-        Recorder? recorder;
+        RunRecorder? recorder;
         TaskCompletionSource<RecordingResult>? done;
         string? path;
         bool notRecording;
@@ -72,11 +88,11 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
             if (done is not null && done.Task.IsCompleted) return await done.Task.ConfigureAwait(false);
             return new RecordingResult(false, path, 0, "not recording");
         }
-        try { recorder!.Stop(); }
+        try { recorder!.Recorder.Stop(); }
         catch (Exception ex)
         {
             var failed = EndRun();
-            try { failed?.Dispose(); } catch { }
+            failed?.DisposeOnce();
             return new RecordingResult(false, path, ElapsedMs(), ex.Message);
         }
         var winner = await Task.WhenAny(done!.Task, Task.Delay(3000, ct)).ConfigureAwait(false);
@@ -84,22 +100,22 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
         // Timed out: the MP4 may be unfinalized, but the native recorder must still be
         // released instead of abandoned (review r6).
         var abandoned = EndRun();
-        try { abandoned?.Dispose(); } catch { }
+        abandoned?.DisposeOnce();
         return new RecordingResult(false, path, ElapsedMs(), "stop timed out");
     }
 
     public void Dispose()
     {
-        Recorder? rec;
+        RunRecorder? rec;
         lock (_gate) { rec = _recorder; _recorder = null; IsRecording = false; }
-        try { rec?.Stop(); } catch { }
-        try { rec?.Dispose(); } catch { } // release the native recorder, not just the run (review r6)
+        try { rec?.Recorder.Stop(); } catch { }
+        rec?.DisposeOnce(); // release the native recorder exactly once (review r10)
     }
 
     private void Finish(bool ok, string? path, string? error)
     {
         TaskCompletionSource<RecordingResult>? done;
-        Recorder? rec;
+        RunRecorder? rec;
         lock (_gate)
         {
             done = _done;
@@ -110,12 +126,14 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
             done.TrySetResult(new RecordingResult(ok, path ?? _outputPath, ElapsedMs(), error));
         }
         if (!ok && error is not null) Failed?.Invoke(error);
-        try { rec?.Dispose(); } catch { } // finalized; release it after the events (review r6)
+        // Hand the dispose off this callback thread: freeing the wrapper inside its own
+        // completion event is unsafe (review r10). DisposeOnce keeps it exactly-once.
+        if (rec is not null) _ = Task.Run(rec.DisposeOnce);
     }
 
-    private Recorder? EndRun()
+    private RunRecorder? EndRun()
     {
-        Recorder? rec;
+        RunRecorder? rec;
         lock (_gate) { rec = _recorder; IsRecording = false; _recorder = null; }
         return rec;
     }
@@ -222,7 +240,12 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
 
     private static string ExeName(int? pid)
     {
-        try { return pid is null or <= 0 ? "" : Process.GetProcessById(pid.Value).ProcessName; }
+        try
+        {
+            if (pid is null or <= 0) return "";
+            using var p = Process.GetProcessById(pid.Value); // the handle must not leak per window (review r10)
+            return p.ProcessName;
+        }
         catch { return ""; }
     }
 }
