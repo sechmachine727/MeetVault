@@ -22,7 +22,7 @@ sealed class FakeTranscriber : ISpeechTranscriber
 
 sealed class FakeDiarizer : ISpeakerDiarizer
 {
-    public SpeakerHint AssignTurn(TurnAudio turn) => new("spk_1", SpeakerOrigin.Unknown, null);
+    public SpeakerHint AssignTurn(TurnAudio turn) => new("spk_1", SpeakerOrigin.Unknown);
 }
 
 sealed class FakeGender : IGenderLabeler
@@ -41,14 +41,14 @@ sealed class ScriptedDiarizer : ISpeakerDiarizer
 {
     private readonly Queue<string> _turns;
     public ScriptedDiarizer(params string[] turns) { _turns = new Queue<string>(turns); }
-    public SpeakerHint AssignTurn(TurnAudio turn) => new(_turns.Count > 0 ? _turns.Dequeue() : "spk_x", SpeakerOrigin.Embedding, null);
+    public SpeakerHint AssignTurn(TurnAudio turn) => new(_turns.Count > 0 ? _turns.Dequeue() : "spk_x", SpeakerOrigin.Embedding);
 }
 
 // Records every turn it is asked to resolve; used to prove one diarization per turn.
 sealed class RecordingDiarizer : ISpeakerDiarizer
 {
     public readonly List<TurnAudio> Turns = new();
-    public SpeakerHint AssignTurn(TurnAudio turn) { Turns.Add(turn); return new("spk_1", SpeakerOrigin.Unknown, null); }
+    public SpeakerHint AssignTurn(TurnAudio turn) { Turns.Add(turn); return new("spk_1", SpeakerOrigin.Unknown); }
 }
 
 

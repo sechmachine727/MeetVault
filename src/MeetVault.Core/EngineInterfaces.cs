@@ -20,6 +20,8 @@ public interface ISpeechTranscriber
     bool IsRunning { get; }
 }
 
+// Where a speaker id came from. Asserted as mint-origin evidence by the contract
+// tests (DiarizerContractTests, SpeakerMatcherTests); keep the values meaningful.
 public enum SpeakerOrigin { Manual, SourceHint, Embedding, Unknown }
 
 // One finalized turn's audio (16 kHz mono) and its position in the recording timeline.
@@ -27,9 +29,8 @@ public sealed record TurnAudio(ReadOnlyMemory<float> Samples16kMono, long StartM
 
 // A stable speaker association for one turn. SpeakerId is opaque and stable for the
 // meeting ("spk_1", ...); an empty SpeakerId means no association (Origin Unknown).
-// Confidence is null when the engine reports no score. Display names live in the
-// repository rename map, never here.
-public sealed record SpeakerHint(string SpeakerId, SpeakerOrigin Origin, float? Confidence);
+// Display names live in the repository rename map, never here.
+public sealed record SpeakerHint(string SpeakerId, SpeakerOrigin Origin);
 
 public interface ISpeakerDiarizer
 {

@@ -549,6 +549,6 @@ public sealed partial class LivePage : Page
 
     private sealed class FakeDiarizer : ISpeakerDiarizer
     {
-        public SpeakerHint AssignTurn(TurnAudio turn) => new("spk_1", SpeakerOrigin.Unknown, null);
+        public SpeakerHint AssignTurn(TurnAudio turn) => new("spk_1", SpeakerOrigin.Unknown);
     }
 }

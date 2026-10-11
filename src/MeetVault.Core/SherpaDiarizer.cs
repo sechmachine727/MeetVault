@@ -45,7 +45,7 @@ public sealed class SherpaDiarizer : ISpeakerDiarizer, IDisposable
         var emb = EmbeddingFor(samples.Span, segments.Where(s => s.Speaker == dominant));
 
         var match = _matcher.Assign(emb, turn.StartMs);
-        return new SpeakerHint(match.SpeakerId, match.Origin, null);
+        return new SpeakerHint(match.SpeakerId, match.Origin);
     }
 
     // Union of this local speaker's spans within the turn -> one embedding per turn.
@@ -98,7 +98,7 @@ public sealed class SherpaDiarizer : ISpeakerDiarizer, IDisposable
         }
     }
 
-    private static readonly SpeakerHint Unknown = new("", SpeakerOrigin.Unknown, null);
+    private static readonly SpeakerHint Unknown = new("", SpeakerOrigin.Unknown);
 
     public void Dispose() { _embed.Dispose(); _diar.Dispose(); }
 }

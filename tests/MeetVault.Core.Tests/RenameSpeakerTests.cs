@@ -33,7 +33,7 @@ public sealed class RenameSpeakerTests
         public void Emit(Segment s) => SegmentReady?.Invoke(s);
     }
 
-    private sealed class OneSpeaker : ISpeakerDiarizer { public SpeakerHint AssignTurn(TurnAudio turn) => new("spk_1", SpeakerOrigin.Unknown, null); }
+    private sealed class OneSpeaker : ISpeakerDiarizer { public SpeakerHint AssignTurn(TurnAudio turn) => new("spk_1", SpeakerOrigin.Unknown); }
     private sealed class NeutralGender : IGenderLabeler { public string Label(string speakerId, Gender estimate) => "Male 1"; }
 
     [Fact]
