@@ -87,12 +87,31 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <StackPanel Spacing="2" VerticalAlignment="Top">
-                        <TextBlock x:Uid="SetEngine" FontWeight="SemiBold" />
-                        <TextBlock x:Uid="SetEngineDesc" Opacity="0.7" TextWrapping="Wrap" />
+                        <TextBlock x:Uid="SetLanguage" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetLanguageDesc" Opacity="0.7" TextWrapping="Wrap" />
                     </StackPanel>
-                    <ComboBox x:Name="ModelPicker" x:Uid="SetEnginePicker" Grid.Column="1" Width="360" HorizontalAlignment="Left"
+                    <ComboBox x:Name="SpeechLangPicker" x:Uid="SetLanguagePicker" Grid.Column="1" Width="360" HorizontalAlignment="Left"
                               SelectionChanged="Picker_SelectionChanged" />
                 </Grid>
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetSize" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetSizeDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ComboBox x:Name="SizePicker" x:Uid="SetSizePicker" Grid.Column="1" Width="360" HorizontalAlignment="Left"
+                              SelectionChanged="Picker_SelectionChanged">
+                        <ComboBox.ItemContainerStyle>
+                            <Style TargetType="ComboBoxItem">
+                                <Setter Property="IsEnabled" Value="{Binding Enabled}" />
+                            </Style>
+                        </ComboBox.ItemContainerStyle>
+                    </ComboBox>
+                </Grid>
+                <TextBlock x:Name="ModelDetails" Opacity="0.7" TextWrapping="Wrap" />
                 <TextBlock x:Name="TranscriptionStatus" Opacity="0.7" TextWrapping="Wrap" />
             </StackPanel>
 

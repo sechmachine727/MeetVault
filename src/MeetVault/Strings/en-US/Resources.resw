@@ -101,9 +101,12 @@
   <data name="SetSysSrcDesc.Text" xml:space="preserve"><value>All apps, or one running app such as a conference app.</value></data>
   <data name="SetSysSrcPicker.AutomationProperties.Name" xml:space="preserve"><value>System audio source</value></data>
   <data name="SetTranscription.Text" xml:space="preserve"><value>Transcription</value></data>
-  <data name="SetEngine.Text" xml:space="preserve"><value>Model</value></data>
-  <data name="SetEngineDesc.Text" xml:space="preserve"><value>Speech recognition model. Vosk small — offline and streaming; one language per meeting.</value></data>
-  <data name="SetEnginePicker.AutomationProperties.Name" xml:space="preserve"><value>Speech model</value></data>
+  <data name="SetLanguage.Text" xml:space="preserve"><value>Language</value></data>
+  <data name="SetLanguageDesc.Text" xml:space="preserve"><value>Which language the meeting is in. One language per meeting.</value></data>
+  <data name="SetLanguagePicker.AutomationProperties.Name" xml:space="preserve"><value>Speech language</value></data>
+  <data name="SetSize.Text" xml:space="preserve"><value>Model size</value></data>
+  <data name="SetSizeDesc.Text" xml:space="preserve"><value>Small, Medium or Large — the caption below explains what each choice means.</value></data>
+  <data name="SetSizePicker.AutomationProperties.Name" xml:space="preserve"><value>Model size</value></data>
   <data name="SetOverlay.Text" xml:space="preserve"><value>Overlay</value></data>
   <data name="SetOverlayNote.Text" xml:space="preserve"><value>These values apply the next time the overlay window opens.</value></data>
   <data name="SetPin.Text" xml:space="preserve"><value>Keep on top</value></data>
@@ -272,7 +275,12 @@
   <data name="Set.AudioMicOnly" xml:space="preserve"><value>Recording {0} only.</value></data>
   <data name="Set.AudioSysOnly" xml:space="preserve"><value>Recording system audio ({0}) only.</value></data>
   <data name="Set.AudioNone" xml:space="preserve"><value>No audio source enabled; nothing will be recorded.</value></data>
-  <data name="Set.TranscriptionStatus" xml:space="preserve"><value>{0} · offline streaming, runs on CPU</value></data>
+  <data name="Set.TranscriptionStatus" xml:space="preserve"><value>{0} · {1} download · {2}</value></data>
+  <data name="Set.SizeSmallDetails" xml:space="preserve"><value>Small — the lightest and fastest to load, with basic accuracy. Vosk's test sets: English 9.9% word error rate, Japanese 9.5% character error rate.</value></data>
+  <data name="Set.SizeMediumDetails" xml:space="preserve"><value>Medium — noticeably more accurate than Small and still realtime on CPU. English only: 7.8% vs 9.9% word error rate for a ~128 MB download.</value></data>
+  <data name="Set.SizeLargeDetails" xml:space="preserve"><value>Large — the most accurate tier; heavier to load and run. English 5.7% word error rate (~1.8 GB), Japanese 8.4% character error rate (~1 GB).</value></data>
+  <data name="Set.ModelInstalled" xml:space="preserve"><value>installed</value></data>
+  <data name="Set.ModelNotInstalled" xml:space="preserve"><value>not installed — Live falls back to an installed model until the files are staged (see docs/ASR-ENGINES.md)</value></data>
   <data name="Set.LogWriting" xml:space="preserve"><value>Writing {0} and above to {1}</value></data>
   <data name="Set.OverlayStatus" xml:space="preserve"><value>Keep on top {0} · opacity {1} · font {2} pt · {3} line(s)</value></data>
   <data name="Set.StorageStatus" xml:space="preserve"><value>Transcripts will be written to {0}.</value></data>

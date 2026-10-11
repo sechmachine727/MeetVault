@@ -70,13 +70,20 @@ public sealed partial class LivePage : Page
         ISpeechTranscriber transcriber = new FakeTranscriber();
         IAudioCapture audio = new FakeAudioCapture();
         _engineMode = "demo (add models to run live)";
-        // The selected model; unknown/missing values resolve to the default (English), so a
-        // legacy install whose transcription.model still names a removed engine keeps working.
-        var option = MeetVault.Core.EngineCatalog.Resolve(AppStore.Repo.GetSetting("transcription.model"));
+        // The selected language × size; unknown/missing values resolve to the default
+        // (English/small), so a legacy install whose transcription.model still names an
+        // older model keeps working (the legacy id is the third argument).
+        var repo = AppStore.Repo;
+        var option = MeetVault.Core.EngineCatalog.Resolve(
+            repo.GetSetting("transcription.language"),
+            repo.GetSetting("transcription.size"),
+            repo.GetSetting("transcription.model"));
         if (!EngineModels.CanRun(option))
         {
-            // Fall back to any installed model before demo mode.
-            var fallback = MeetVault.Core.EngineCatalog.Options.FirstOrDefault(o => EngineModels.CanRun(o));
+            // Prefer an installed model of the same language (small first), then any installed.
+            var fallback =
+                MeetVault.Core.EngineCatalog.Options.FirstOrDefault(o => o.Language == option.Language && EngineModels.CanRun(o))
+                ?? MeetVault.Core.EngineCatalog.Options.FirstOrDefault(o => EngineModels.CanRun(o));
             if (fallback is not null)
             {
                 MeetVault.Core.AppLog.Warn("live: model " + option.Model + " missing; falling back to " + fallback.Model);

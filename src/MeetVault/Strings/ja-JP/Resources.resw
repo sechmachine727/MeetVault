@@ -101,9 +101,12 @@
   <data name="SetSysSrcDesc.Text" xml:space="preserve"><value>すべてのアプリ、または会議アプリなど特定のアプリ。</value></data>
   <data name="SetSysSrcPicker.AutomationProperties.Name" xml:space="preserve"><value>システム音声ソース</value></data>
   <data name="SetTranscription.Text" xml:space="preserve"><value>文字起こし</value></data>
-  <data name="SetEngine.Text" xml:space="preserve"><value>モデル</value></data>
-  <data name="SetEngineDesc.Text" xml:space="preserve"><value>音声認識モデル。Vosk small — オフライン・ストリーミング、会議ごとに1言語。</value></data>
-  <data name="SetEnginePicker.AutomationProperties.Name" xml:space="preserve"><value>音声モデル</value></data>
+  <data name="SetLanguage.Text" xml:space="preserve"><value>言語</value></data>
+  <data name="SetLanguageDesc.Text" xml:space="preserve"><value>会議で話される言語。1つの会議につき1言語です。</value></data>
+  <data name="SetLanguagePicker.AutomationProperties.Name" xml:space="preserve"><value>音声の言語</value></data>
+  <data name="SetSize.Text" xml:space="preserve"><value>モデルサイズ</value></data>
+  <data name="SetSizeDesc.Text" xml:space="preserve"><value>Small・Medium・Large — 各サイズの意味は下の説明に表示されます。</value></data>
+  <data name="SetSizePicker.AutomationProperties.Name" xml:space="preserve"><value>モデルサイズ</value></data>
   <data name="SetOverlay.Text" xml:space="preserve"><value>オーバーレイ</value></data>
   <data name="SetOverlayNote.Text" xml:space="preserve"><value>これらの値は次にオーバーレイを開いたときに適用されます。</value></data>
   <data name="SetPin.Text" xml:space="preserve"><value>常に最前面</value></data>
@@ -272,7 +275,12 @@
   <data name="Set.AudioMicOnly" xml:space="preserve"><value>{0} のみを録音しています。</value></data>
   <data name="Set.AudioSysOnly" xml:space="preserve"><value>システム音声（{0}）のみを録音しています。</value></data>
   <data name="Set.AudioNone" xml:space="preserve"><value>有効な音声ソースがありません。何も録音されません。</value></data>
-  <data name="Set.TranscriptionStatus" xml:space="preserve"><value>{0} · オフライン処理（CPU）</value></data>
+  <data name="Set.TranscriptionStatus" xml:space="preserve"><value>{0} · ダウンロード {1} · {2}</value></data>
+  <data name="Set.SizeSmallDetails" xml:space="preserve"><value>Small — 最も軽く、読み込みも最速。基本精度。Vosk のテスト値: 英語 9.9% WER、日本語 9.5% CER。</value></data>
+  <data name="Set.SizeMediumDetails" xml:space="preserve"><value>Medium — Small より明確に高精度で、CPU でもリアルタイム。英語のみ: WER 7.8%（Small は 9.9%）、ダウンロード約 128 MB。</value></data>
+  <data name="Set.SizeLargeDetails" xml:space="preserve"><value>Large — 最高精度。読み込みと実行は重め。英語 WER 5.7%（約 1.8 GB）、日本語 CER 8.4%（約 1 GB）。</value></data>
+  <data name="Set.ModelInstalled" xml:space="preserve"><value>インストール済み</value></data>
+  <data name="Set.ModelNotInstalled" xml:space="preserve"><value>未インストール — 配置までは Live がインストール済みモデルにフォールバックします（手順: docs/ASR-ENGINES.md）</value></data>
   <data name="Set.LogWriting" xml:space="preserve"><value>{0} 以上を {1} に書き込みます</value></data>
   <data name="Set.OverlayStatus" xml:space="preserve"><value>常に最前面 {0} · 不透明度 {1} · 文字サイズ {2} pt · {3} 行</value></data>
   <data name="Set.StorageStatus" xml:space="preserve"><value>文字起こしは {0} に書き込まれます。</value></data>

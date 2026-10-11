@@ -37,10 +37,8 @@ public sealed partial class SettingsPage : Page
         MicPicker.ItemsSource = mics.Count > 0
             ? mics.Select(m => m.Id + ": " + m.Name).ToArray()
             : new[] { "Demo microphone (Windows default)" };
-        // Intentionally English (scope cut): model names are engine identifiers, not UI copy.
-        ModelPicker.ItemsSource = MeetVault.Core.EngineCatalog.Options
-            .Select(o => o.Label + (MeetVault.Core.EngineCatalog.IsAvailable(o, ModelsRoot) ? "" : " — not installed"))
-            .ToArray();
+        // Endonyms, standard convention; the size rows are rebuilt per language (below).
+        SpeechLangPicker.ItemsSource = MeetVault.Core.EngineCatalog.Languages.Select(l => l.Endonym).ToArray();
         _sourceOptions.Add((Loc.T("Set.SysSrcAllApps"), ""));
         foreach (var (pid, name) in MeetVault.Core.NAudioCapture.ListAudioApps()) _sourceOptions.Add((name + " (" + pid + ")", pid.ToString()));
         SourcePicker.ItemsSource = _sourceOptions.Select(o => o.Label).ToArray();
@@ -49,7 +47,8 @@ public sealed partial class SettingsPage : Page
         // Language names stay endonyms (English / 日本語) — the standard convention.
         LanguagePicker.ItemsSource = new[] { Loc.T("Lang.System"), "English", "日本語" };
         MicPicker.SelectedIndex = 0;
-        ModelPicker.SelectedIndex = 0;
+        SpeechLangPicker.SelectedIndex = 0;
+        RefreshSizeRows();
 
         _loading = true;
         try { LoadPersisted(); } catch { }
@@ -61,6 +60,43 @@ public sealed partial class SettingsPage : Page
 
     private readonly List<(string Label, string Value)> _sourceOptions = new();
 
+    // One row of the model-size dropdown. Enabled=false marks a tier this language has no
+    // artifact for; the suffix strings are English on purpose (engine identifiers, not UI copy).
+    public sealed record SizeRow(string Tier, string Label, bool Enabled);
+
+    private bool _rebuildingSizes;
+
+    private string CurrentLanguage() =>
+        MeetVault.Core.EngineCatalog.Languages[Math.Clamp(Math.Max(0, SpeechLangPicker.SelectedIndex), 0,
+            MeetVault.Core.EngineCatalog.Languages.Length - 1)].Code;
+
+    private string SizeTier() => (SizePicker.SelectedItem as SizeRow)?.Tier ?? "small";
+
+    private static string FormatMb(int mb) =>
+        mb < 1000 ? "~" + mb + " MB" : "~" + (mb / 1000.0).ToString("0.#") + " GB";
+
+    // Sizes the current language actually offers; keep the selected tier when still valid.
+    private void RefreshSizeRows()
+    {
+        var lang = CurrentLanguage();
+        var keep = SizeTier();
+        var rows = MeetVault.Core.EngineCatalog.Tiers.Select(t =>
+        {
+            var option = MeetVault.Core.EngineCatalog.Find(lang, t);
+            var label = char.ToUpperInvariant(t[0]) + t[1..];
+            if (option is null) return new SizeRow(t, label + " — not available for this language", false);
+            return new SizeRow(t, label + (MeetVault.Core.EngineCatalog.IsAvailable(option, ModelsRoot) ? "" : " — not installed"), true);
+        }).ToArray();
+        _rebuildingSizes = true;
+        try
+        {
+            SizePicker.ItemsSource = rows;
+            var idx = Array.FindIndex(rows, r => r.Tier == keep && r.Enabled);
+            SizePicker.SelectedIndex = idx >= 0 ? idx : 0;
+        }
+        finally { _rebuildingSizes = false; }
+    }
+
     // A user-initiated change persists ONLY the key(s) of the control that changed, then
     // re-renders the summary; Refresh() itself writes nothing (see PersistAll for the
     // load-time write-back). This is what stops a Settings control from reverting a
@@ -69,12 +105,17 @@ public sealed partial class SettingsPage : Page
     {
         if (_loading) return;
         if (!_ready) return;
+        if (_rebuildingSizes) return;
         if (ReferenceEquals(sender, MicPicker)) Persist("audio.mic", MicId());
-        else if (ReferenceEquals(sender, ModelPicker))
+        else if (ReferenceEquals(sender, SpeechLangPicker))
         {
-            var o = MeetVault.Core.EngineCatalog.Options[Math.Max(0, ModelPicker.SelectedIndex)];
-            Persist("transcription.model", o.Model);
+            // Coupled write (SourcePicker precedent): the language owns which size tiers
+            // exist, so switching can force a size change — persist both keys.
+            RefreshSizeRows();
+            Persist(() => { AppStore.Repo.SetSetting("transcription.language", CurrentLanguage()); AppStore.Repo.SetSetting("transcription.size", SizeTier()); });
         }
+        else if (ReferenceEquals(sender, SizePicker))
+            Persist("transcription.size", SizeTier());
         else if (ReferenceEquals(sender, LogLevelPicker))
         {
             var level = LogLevelPicker.SelectedItem as string ?? "debug";
@@ -203,7 +244,22 @@ public sealed partial class SettingsPage : Page
         }
         if (double.TryParse(viewLines, out var lines)) LinesBox.Value = lines;
         StoragePathBox.Text = repo.GetSetting("storage.path") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "MeetVault");
-        ModelPicker.SelectedIndex = MeetVault.Core.EngineCatalog.IndexOf(repo.GetSetting("transcription.model"));
+        // Speech language × size; one-time forward-migration of the retired single model
+        // key (the overlay.viewlines migration above is the precedent).
+        var langCode = repo.GetSetting("transcription.language");
+        var sizeTier = repo.GetSetting("transcription.size");
+        if (string.IsNullOrEmpty(langCode) && string.IsNullOrEmpty(sizeTier))
+        {
+            (langCode, sizeTier) = MeetVault.Core.EngineCatalog.MigrateLegacy(repo.GetSetting("transcription.model"));
+            repo.SetSetting("transcription.language", langCode);
+            repo.SetSetting("transcription.size", sizeTier);
+        }
+        var langIdx = Array.FindIndex(MeetVault.Core.EngineCatalog.Languages, l => l.Code == (langCode ?? "").Trim().ToLowerInvariant());
+        SpeechLangPicker.SelectedIndex = langIdx >= 0 ? langIdx : 0;
+        RefreshSizeRows();
+        var sizeIdx = Array.FindIndex(SizePicker.ItemsSource as SizeRow[] ?? Array.Empty<SizeRow>(),
+            r => r.Tier == (sizeTier ?? "").Trim().ToLowerInvariant() && r.Enabled);
+        SizePicker.SelectedIndex = sizeIdx >= 0 ? sizeIdx : 0;
         // Restore persisted mic index; clamp when hardware changed.
         if (int.TryParse(repo.GetSetting("audio.mic"), out var micIdx) && micIdx >= 0 && micIdx < MicPicker.Items.Count) MicPicker.SelectedIndex = micIdx;
         var logLevel = (repo.GetSetting("logging.level") ?? "debug").Trim().ToLowerInvariant();
@@ -253,7 +309,7 @@ public sealed partial class SettingsPage : Page
     private void Refresh()
     {
         if (!_ready) return;
-        if (MicPicker is null || ModelPicker is null
+        if (MicPicker is null || SpeechLangPicker is null || SizePicker is null || ModelDetails is null
             || PinSwitch is null
             || OpacitySlider is null || FontSizeBox is null || LinesBox is null || StoragePathBox is null
             || AudioStatus is null || TranscriptionStatus is null || OverlayStatus is null
@@ -268,7 +324,21 @@ public sealed partial class SettingsPage : Page
             (false, true) => Loc.Tf("Set.AudioSysOnly", sourceLabel),
             _ => Loc.T("Set.AudioNone"),
         };
-        TranscriptionStatus.Text = Loc.Tf("Set.TranscriptionStatus", ModelPicker.SelectedItem);
+        var tier = SizeTier();
+        ModelDetails.Text = Loc.T(tier switch
+        {
+            "medium" => "Set.SizeMediumDetails",
+            "large" => "Set.SizeLargeDetails",
+            _ => "Set.SizeSmallDetails",
+        });
+        var option = MeetVault.Core.EngineCatalog.Find(CurrentLanguage(), tier);
+        if (option is not null)
+        {
+            var availability = MeetVault.Core.EngineCatalog.IsAvailable(option, ModelsRoot)
+                ? Loc.T("Set.ModelInstalled")
+                : Loc.T("Set.ModelNotInstalled");
+            TranscriptionStatus.Text = Loc.Tf("Set.TranscriptionStatus", option.Label, FormatMb(option.DownloadMb), availability);
+        }
         var logLevel = LogLevelPicker.SelectedItem as string ?? "debug";
         LogStatus.Text = Loc.Tf("Set.LogWriting", logLevel, MeetVault.Core.AppLog.Path);
         OverlayStatus.Text = Loc.Tf("Set.OverlayStatus", OnOffDisplay(PinSwitch.IsOn), OpacitySlider.Value.ToString("P0"), FontSizeBox.Value, LinesBox.Value);
@@ -295,7 +365,8 @@ public sealed partial class SettingsPage : Page
             repo.SetSetting("overlay.font", FontSizeBox.Value.ToString());
             repo.SetSetting("overlay.viewlines", LinesBox.Value.ToString());
             repo.SetSetting("storage.path", StoragePathBox.Text);
-            repo.SetSetting("transcription.model", MeetVault.Core.EngineCatalog.Options[Math.Max(0, ModelPicker.SelectedIndex)].Model);
+            repo.SetSetting("transcription.language", CurrentLanguage());
+            repo.SetSetting("transcription.size", SizeTier());
             repo.SetSetting("audio.mic", MicId());
             repo.SetSetting("audio.source", SysSourceValue());
             repo.SetSetting("audio.mic.enabled", OnOff(MicSwitch.IsOn));

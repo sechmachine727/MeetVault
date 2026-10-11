@@ -2,36 +2,63 @@ using MeetVault.Core;
 
 namespace MeetVault.Core.Tests;
 
-// The catalog is the single source of truth for the shipped speech models: Vosk small
-// only (English, Japanese, Vietnamese), default English, legacy keys resolve cleanly.
+// The catalog is the single source of truth for the shipped speech models: one Vosk
+// family, a language × size matrix (English small/medium/large, Japanese small/large,
+// Vietnamese small/large), default English/small, and a one-time migration from the
+// retired single-key `transcription.model`.
 public sealed class EngineCatalogTests
 {
     [Fact]
-    public void Options_AreVoskSmallOnly_DefaultEnglish()
+    public void Options_CoverTheLanguageSizeMatrix()
     {
-        Assert.Equal(3, EngineCatalog.Options.Count);
+        Assert.Equal(new[] { "en", "en", "en", "ja", "ja", "vi", "vi" }, EngineCatalog.Options.Select(o => o.Language).ToArray());
+        Assert.Equal(new[] { "small", "medium", "large", "small", "large", "small", "large" }, EngineCatalog.Options.Select(o => o.Size).ToArray());
+        Assert.All(EngineCatalog.Options, o => Assert.Contains("vosk/" + o.Model + "/am/final.mdl", o.RequiredFiles));
+        Assert.All(EngineCatalog.Options, o => Assert.True(o.DownloadMb > 0));
+    }
+
+    [Fact]
+    public void Find_NeedsTheExactPair()
+    {
+        Assert.Equal("medium-en", EngineCatalog.Find("en", "medium")!.Model);
+        Assert.Equal("large-vi", EngineCatalog.Find(" VI ", "LARGE")!.Model);
+        Assert.Null(EngineCatalog.Find("ja", "medium"));   // no Japanese medium model exists
+        Assert.Null(EngineCatalog.Find("vi", "medium"));   // no Vietnamese medium model exists
+        Assert.Null(EngineCatalog.Find("xx", "small"));
+        Assert.Null(EngineCatalog.Find(null, null));
+    }
+
+    [Fact]
+    public void Resolve_Exact_ThenSameLanguageSmall_ThenLegacy_ThenDefault()
+    {
+        Assert.Equal("medium-en", EngineCatalog.Resolve("en", "medium").Model);
+        Assert.Equal("small-vi", EngineCatalog.Resolve("vi", "medium").Model);            // no vi medium -> vi small
+        Assert.Equal("small-ja", EngineCatalog.Resolve(null, null, "small-ja").Model);    // retired single key
+        Assert.Equal("medium-en", EngineCatalog.Resolve("", "", " MEDIUM-EN ").Model);
+        Assert.Equal("small-en", EngineCatalog.Resolve(null, null, "base").Model);        // retired engine family
+        Assert.Equal("small-en", EngineCatalog.Resolve("xx", "large").Model);
         Assert.Equal("small-en", EngineCatalog.Default.Model);
         Assert.Equal("en", EngineCatalog.Default.Language);
-        Assert.Equal(new[] { "en", "ja", "vi" }, EngineCatalog.Options.Select(o => o.Language).ToArray());
-        Assert.All(EngineCatalog.Options, o => Assert.StartsWith("Vosk small", o.Label));
-        Assert.All(EngineCatalog.Options, o => Assert.Contains("vosk/" + o.Model + "/am/final.mdl", o.RequiredFiles));
     }
 
     [Fact]
-    public void Resolve_ExactModel_Wins()
+    public void MigrateLegacy_MapsStagedIds_ElseDefault()
     {
-        Assert.Equal("small-ja", EngineCatalog.Resolve("small-ja").Model);
-        Assert.Equal("small-vi", EngineCatalog.Resolve(" SMALL-VI ").Model);
+        Assert.Equal(("en", "small"), EngineCatalog.MigrateLegacy("small-en"));
+        Assert.Equal(("en", "medium"), EngineCatalog.MigrateLegacy(" MEDIUM-EN "));
+        Assert.Equal(("en", "large"), EngineCatalog.MigrateLegacy("large-en"));
+        Assert.Equal(("ja", "small"), EngineCatalog.MigrateLegacy("small-ja"));
+        Assert.Equal(("ja", "large"), EngineCatalog.MigrateLegacy("large-ja"));
+        Assert.Equal(("vi", "small"), EngineCatalog.MigrateLegacy("small-vi"));
+        Assert.Equal(("en", "small"), EngineCatalog.MigrateLegacy(null));
+        Assert.Equal(("en", "small"), EngineCatalog.MigrateLegacy("base"));
     }
 
     [Fact]
-    public void Resolve_MissingOrLegacyModel_FallsBackToDefault()
+    public void Labels_AreTierThenLanguage()
     {
-        Assert.Equal("small-en", EngineCatalog.Resolve(null).Model);
-        Assert.Equal("small-en", EngineCatalog.Resolve("").Model);
-        // Every model name from the retired engine families resolves to the default.
-        foreach (var legacy in new[] { "tiny", "base", "tiny-en", "tiny-ja", "base-en", "base-ja", "20m-en" })
-            Assert.Equal("small-en", EngineCatalog.Resolve(legacy).Model);
+        Assert.Equal("Vosk medium — English", EngineCatalog.Find("en", "medium")!.Label);
+        Assert.Equal("Vosk large — Japanese", EngineCatalog.Find("ja", "large")!.Label);
     }
 
     [Fact]
@@ -40,7 +67,7 @@ public sealed class EngineCatalogTests
         var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("n"));
         try
         {
-            var option = EngineCatalog.Options[1]; // small-ja
+            var option = EngineCatalog.Find("en", "medium")!;
             Assert.False(EngineCatalog.IsAvailable(option, dir)); // nothing staged
             foreach (var f in option.RequiredFiles)
             {
@@ -53,14 +80,5 @@ public sealed class EngineCatalogTests
             Assert.False(EngineCatalog.IsAvailable(option, dir)); // one missing file is enough
         }
         finally { try { Directory.Delete(dir, true); } catch { } }
-    }
-
-    [Fact]
-    public void IndexOf_MapsModelToRow_DefaultZero()
-    {
-        Assert.Equal(0, EngineCatalog.IndexOf("small-en"));
-        Assert.Equal(1, EngineCatalog.IndexOf("small-ja"));
-        Assert.Equal(2, EngineCatalog.IndexOf("small-vi"));
-        Assert.Equal(0, EngineCatalog.IndexOf("base")); // legacy -> default row
     }
 }

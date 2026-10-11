@@ -27,7 +27,10 @@ public sealed partial class DashboardPage : Page
         var micIdx = AppStore.Repo.GetSetting("audio.mic") ?? "";
         var mic = MeetVault.Core.NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == micIdx).Name ?? Loc.T("Dash.WindowsDefault");
         MicStatus.Text = string.IsNullOrWhiteSpace(mic) ? Loc.T("Dash.MicNotStarted") : mic;
-        var option = MeetVault.Core.EngineCatalog.Resolve(AppStore.Repo.GetSetting("transcription.model"));
+        var option = MeetVault.Core.EngineCatalog.Resolve(
+            AppStore.Repo.GetSetting("transcription.language"),
+            AppStore.Repo.GetSetting("transcription.size"),
+            AppStore.Repo.GetSetting("transcription.model"));
         // Intentionally English (scope cut): an engine/diagnostic identifier, not UI copy — a future localization pass should leave it as is.
         EngineStatus.Text = option.Label;
         ModelStatus.Text = EngineModels.CanRun(option)
