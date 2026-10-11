@@ -15,7 +15,9 @@ public sealed class MeetingSession : IDisposable
     private string _micId = "";
     private string _appSource = "";
     // Resolved once per finalized turn by NoteTurnAudio; every segment of that turn
-    // carries it. Neutral "spk_1" until the first hint arrives.
+    // carries it — captured into a local at the top of OnSegment, because by the time
+    // a lagging UI queue runs the handler this field may already hold the next turn's
+    // speaker. Neutral "spk_1" until the first hint arrives.
     private string _turnSpeakerId = "spk_1";
     // Captured at construction (UI thread in the app); null in tests, where we run inline.
     private readonly SynchronizationContext? _ui = SynchronizationContext.Current;
@@ -171,25 +173,31 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
 
     private void OnSegment(Segment raw)
     {
+        // Capture THIS turn's speaker now, not when the UI eventually runs the handler:
+        // WhisperTranscriber raises SegmentReady synchronously inside the turn's transcribe
+        // call (WhisperTranscriber.cs:175, inside the await foreach), i.e. before the next
+        // NoteTurnAudio can run — so the field still holds this turn's speaker. Reading the
+        // field later, on the UI thread, stamped a lagging turn's segments with the NEXT
+        // turn's speaker (the race this capture closes).
+        var turnSpeakerId = _turnSpeakerId;
         // Whisper/diarizer callbacks arrive on a worker thread; marshal onto the UI
         // thread so the collections are never mutated while the UI enumerates them.
         if (_ui is not null && _ui != SynchronizationContext.Current)
         {
-            _ui.Post(_ => HandleSegment(raw), null);
+            _ui.Post(_ => HandleSegment(raw, turnSpeakerId), null);
             return;
         }
-        HandleSegment(raw);
+        HandleSegment(raw, turnSpeakerId);
     }
 
-    private void HandleSegment(Segment raw)
+    private void HandleSegment(Segment raw, string turnSpeakerId)
     {
         if (_paused || _meeting is null) return; // gap: paused audio never reappears
-        var speakerId = _turnSpeakerId;
-        var speaker = _speakers.FirstOrDefault(s => s.Id == speakerId);
-        if (speaker is null) { speaker = new Speaker(speakerId, _gender.Label(speakerId, Gender.Unknown)); _speakers.Add(speaker); }
-        var seg = raw with { SpeakerId = speakerId };
+        var speaker = _speakers.FirstOrDefault(s => s.Id == turnSpeakerId);
+        if (speaker is null) { speaker = new Speaker(turnSpeakerId, _gender.Label(turnSpeakerId, Gender.Unknown)); _speakers.Add(speaker); }
+        var seg = raw with { SpeakerId = turnSpeakerId };
         _segments.Add(seg);
-        AppLog.Debug("session: segment " + speakerId + " [" + seg.StartMs + "-" + seg.EndMs + "] " + seg.Text);
+        AppLog.Debug("session: segment " + turnSpeakerId + " [" + seg.StartMs + "-" + seg.EndMs + "] " + seg.Text);
         LiveSegment?.Invoke(seg);
     }
 

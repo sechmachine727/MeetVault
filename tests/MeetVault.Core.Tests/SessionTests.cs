@@ -62,6 +62,20 @@ sealed class RawTranscriber : ISpeechTranscriber
     public void Emit(Segment s) => SegmentReady?.Invoke(s);
 }
 
+// A UI-like context that queues posted callbacks instead of running them inline, so a
+// test can hold the UI "behind" the transcription pump and reproduce the real lag.
+sealed class QueueingSyncContext : SynchronizationContext
+{
+    private readonly Queue<(SendOrPostCallback Callback, object? State)> _queue = new();
+    public override void Post(SendOrPostCallback d, object? state) => _queue.Enqueue((d, state));
+    public int Drain()
+    {
+        var n = 0;
+        while (_queue.Count > 0) { var (cb, st) = _queue.Dequeue(); cb(st); n++; }
+        return n;
+    }
+}
+
 public sealed class SessionTests
 {
     [Fact]
@@ -165,6 +179,33 @@ public sealed class SessionTests
         tx.Emit(new Segment("c", "", 2000, 3000, "three", true));
 
         Assert.Equal(new[] { "spk_1", "spk_1", "spk_2" }, session.Segments.Select(s => s.SpeakerId).ToArray());
+        await session.StopAsync();
+    }
+
+    [Fact]
+    public async Task LaggingUiQueue_StampsEachTurnsSegmentsWithItsOwnSpeaker()
+    {
+        var tx = new RawTranscriber();
+        var diarizer = new ScriptedDiarizer("spk_a", "spk_b");
+        var ui = new QueueingSyncContext();
+        var prev = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(ui); // captured as the session's UI context
+        MeetingSession session;
+        try { session = new MeetingSession(new FakeAudio(), tx, diarizer, new FakeGender(), new FakeStore()); }
+        finally { SynchronizationContext.SetSynchronizationContext(prev); } // emission now runs off the UI context
+        await session.StartAsync("mic", "app");
+
+        // Turn A resolves to spk_a; its segment is posted to the (lagging) UI queue.
+        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 0, 1000));
+        tx.Emit(new Segment("a", "", 0, 1000, "one", true));
+
+        // Turn B is resolved BEFORE the UI drains turn A: with the old code the drain read
+        // the field late and stamped BOTH segments with spk_b (turn B's speaker).
+        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 1000, 2000));
+        tx.Emit(new Segment("b", "", 1000, 2000, "two", true));
+
+        Assert.Equal(2, ui.Drain());
+        Assert.Equal(new[] { "spk_a", "spk_b" }, session.Segments.Select(s => s.SpeakerId).ToArray());
         await session.StopAsync();
     }
 }
