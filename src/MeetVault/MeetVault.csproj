@@ -51,6 +51,12 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.7705" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260317003" />
+    <!-- WindowsAppSDK.ML ships its OWN Microsoft.ML.OnnxRuntime.dll with assembly version
+         0.0.0.0; it wins the publish copy race against Microsoft.ML.OnnxRuntime.Managed's
+         1.31.0.0 and the language detector then fails to load ("Could not load
+         Microsoft.ML.OnnxRuntime, Version=1.31.0.0"). The app uses no WindowsAppSDK ML
+         APIs, so the whole package's assets are excluded. -->
+    <PackageReference Include="Microsoft.WindowsAppSDK.ML" Version="1.8.2141" ExcludeAssets="all" PrivateAssets="all" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinApp" Version="0.3.1" />
   </ItemGroup>
