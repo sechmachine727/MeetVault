@@ -30,7 +30,7 @@ Copy-Item -Recurse -Force models publish\win-x64\models
 publish\win-x64\MeetVault.exe
 ```
 
-The native libraries come from the package references during publish (`libvosk.dll` via the Vosk package). Only `models/` is copied by hand.
+The native libraries come from the package references during publish (`libvosk.dll` via the Vosk package). Copied by hand: `models/` (the Vosk and langid models) and — for a portable build on a machine without the VC++ redistributable — the staged `vcruntime/win-x64` DLLs (see the app project's Content items).
 
 ## 4. Package the MSIX
 
@@ -47,4 +47,5 @@ Run the unit suite, then the manual acceptance pass in `05-test-plan.md` on a ma
 ## 6. Constraints
 
 - Keep `PublishTrimmed` false. ILLink strips the CsWinRT ABI glue the WinUI bindings need and the app crashes at startup. See the repository `AGENTS.md`.
-- No native pins and no foreign runtime payloads: `libvosk.dll` (Vosk NuGet) is the only native, and `models/vosk/` is the only staged payload.
+- Keep the `App.xaml.cs` onnxruntime pin: the app loads its own `onnxruntime.dll` via `NativeLibrary.Load` before `InitializeComponent` (crash prevention against the same-named WindowsAppSDK.ML module).
+- No foreign runtime payloads ship: the natives are `libvosk.dll` (Vosk NuGet) and `onnxruntime.dll` (Microsoft.ML.OnnxRuntime), and the staged payloads are `models/` and `vcruntime/win-x64` (VC++ CRT for ScreenRecorderLib on win-x64 builds).

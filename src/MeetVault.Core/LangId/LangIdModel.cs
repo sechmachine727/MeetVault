@@ -64,10 +64,11 @@ public sealed class LangIdModel : IDisposable
     {
         lock (_lock)
         {
-            var input = _session.InputMetadata.Keys.First();   // pinned name: "audio"
-            using var results = _session.Run(new[] { NamedOnnxValue.CreateFromTensor(input,
-                new Microsoft.ML.OnnxRuntime.Tensors.DenseTensor<float>(samples16k, new[] { 1, samples16k.Length })) });
-            var logits = results[0].AsEnumerable<float>().ToArray();   // pinned output 0: "logits"
+            // Bind by the pinned names (review r12): a re-export with an extra or reordered
+            // tensor must fail loudly instead of silently reading the wrong one.
+            using var results = _session.Run(new[] { NamedOnnxValue.CreateFromTensor("audio",
+                new Microsoft.ML.OnnxRuntime.Tensors.DenseTensor<float>(samples16k, new[] { 1, samples16k.Length })) }, new[] { "logits" });
+            var logits = results[0].AsEnumerable<float>().ToArray();   // pinned output: "logits"
             // Pinned output is log-softmax: probability = exp(logit). Normalize anyway so
             // the reported value is a true probability regardless of export numerics.
             var max = logits.Max();

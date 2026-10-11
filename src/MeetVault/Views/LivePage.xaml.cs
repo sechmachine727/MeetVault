@@ -195,13 +195,17 @@ public sealed partial class LivePage : Page
         else SetState(LiveState.Idle); // do not start on navigation; the user presses Start
     }
 
+    private bool _starting; // held across Start_Click's multi-second lazy-load window (review r12)
+
     private async void Start_Click(object sender, RoutedEventArgs e)
     {
         try
         {
             // A second click during the multi-second lazy-engine load must not start a
-            // parallel session (review r8).
-            if (_state != LiveState.Idle) return;
+            // parallel session (review r8/r12): the state stays Idle until StartAsync
+            // returns, so the guard needs the flag too.
+            if (_state != LiveState.Idle || _starting) return;
+            _starting = true;
             // Reset before StartAsync: the pump (started inside StartAsync) must never push
             // onto the previous meeting's stream state — the rebase base is zeroed, and a
             // stale open-sentence row from a previous meeting must not be reused.
@@ -269,9 +273,11 @@ public sealed partial class LivePage : Page
                 LiveBridge.SetLanguage(new LiveBridge.LanguageInfo(_activeLanguage, _autoMode, false));
             }
             SetLangStatus();
+            _starting = false;
         }
         catch (Exception ex)
         {
+            _starting = false;
             try { if (_session is not null) { _session.MarkFailed(); _session.Dispose(); _session = null; } } catch { }
             SetState(LiveState.Idle);
             LiveBridge.SetMeetingState(LiveBridge.MeetingState.Idle);
@@ -526,7 +532,14 @@ public sealed partial class LivePage : Page
         if (_screen is null) return;
         foreach (var draft in _screen.FinishedTracks)
         {
-            if (!draft.Ok) { Status(Loc.Tf("Live.ScreenFailed", draft.Error ?? "")); continue; }
+            if (!draft.Ok)
+            {
+                // A failed run's partial MP4 would otherwise sit under the media root with
+                // no row and no way to delete it (review r12).
+                try { if (draft.Path is { Length: > 0 } failedPath && File.Exists(failedPath)) File.Delete(failedPath); } catch { }
+                Status(Loc.Tf("Live.ScreenFailed", draft.Error ?? ""));
+                continue;
+            }
             try
             {
                 AppStore.Repo.AddMediaTrack(new MeetVault.Core.MediaTrack(

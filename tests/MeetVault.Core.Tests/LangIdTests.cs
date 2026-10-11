@@ -141,6 +141,20 @@ public sealed class AutoLanguagePolicyTests
         p.Detection("en", 0.9f, 400);
         Assert.Equal("en", p.Detection("en", 0.9f, 500));  // agreement completes: not suppressed
     }
+
+    [Fact]
+    public void ResetAgreement_ClearsTheWindowAndCooldown()
+    {
+        // Pause/stop: two non-active detections before the pause + one after resume must
+        // NOT meet the agreement count (review r12).
+        var p = NewPolicy(); p.SetActive("en");
+        p.Detection("ja", 0.9f, 0);
+        p.Detection("ja", 0.9f, 100);
+        p.ResetAgreement();
+        Assert.Null(p.Detection("ja", 0.9f, 200));   // window starts over — not a switch
+        p.Detection("ja", 0.9f, 300);
+        Assert.Equal("ja", p.Detection("ja", 0.9f, 400));
+    }
 }
 
 public sealed class LanguageMonitorTests
@@ -175,8 +189,10 @@ public sealed class LanguageMonitorTests
     }
 
     [Fact]
-    public void Disabled_ReportsDetections_ButNeverSuggests()
+    public async Task Disabled_SkipsTheDetectorEntirely()
     {
+        // Manual mode: the detector must not keep running — no inference, no events
+        // (review r12; the previous contract reported detections the app discarded).
         var detections = new List<string>();
         var suggestions = new List<string>();
         using var monitor = new LanguageMonitor(
@@ -188,7 +204,8 @@ public sealed class LanguageMonitorTests
         monitor.Detected += (code, _) => { lock (detections) detections.Add(code); };
         monitor.Suggested += code => { lock (suggestions) suggestions.Add(code); };
         monitor.Push(SpeechWindowGateTests.Tone(6000));
-        Assert.True(WaitFor(() => { lock (detections) return detections.Count >= 3; }), "detections did not arrive");
+        await Task.Delay(500); // give the monitor a chance to (wrongly) run
+        lock (detections) Assert.Empty(detections);
         lock (suggestions) Assert.Empty(suggestions);
     }
 }

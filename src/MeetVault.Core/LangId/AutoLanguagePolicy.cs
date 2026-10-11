@@ -27,6 +27,10 @@ public sealed class AutoLanguagePolicy
     public void SetActive(string? active) { _active = active; _recent.Clear(); _lastSwitchMs = null; }
     public void SetActiveKeepCooldown(string? active) { _active = active; _recent.Clear(); }
 
+    // Pause/stop: drop the agreement window and the cooldown so a resume starts clean —
+    // prior agreements must not let a single fresh window trigger a switch (review r12).
+    public void ResetAgreement() { _recent.Clear(); _lastSwitchMs = null; }
+
     // A detection arrived (code already mapped to en/ja/vi; conf = detector probability).
     // Returns the language to switch to, or null.
     public string? Detection(string code, float confidence, long nowMs)

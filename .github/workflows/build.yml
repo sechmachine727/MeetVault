@@ -45,3 +45,18 @@ jobs:
         # models/vosk/small-en is unstaged; CI has no models, so this run never exercises
         # live decoding. Local runs on a staged box cover it (see BLOCKERS.md).
         run: dotnet test tests/MeetVault.Core.Tests/MeetVault.Core.Tests.csproj -c Release --nologo -v q
+
+      - name: Publish (win-x64)
+        # Exercises the packaging paths a build+test never touches (Platforms/RID pinning,
+        # the vcruntime Content+Link, TrimForeignRuntimesPublish) (review r12).
+        run: dotnet publish src/MeetVault/MeetVault.csproj -c Release -r win-x64 --self-contained false -o "$env:RUNNER_TEMP/mv-publish"
+
+      - name: Verify publish payload
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "mv-publish"
+          foreach ($f in @("MeetVault.exe", "ScreenRecorderLib.dll", "Microsoft.ML.OnnxRuntime.dll")) {
+            if (-not (Test-Path (Join-Path $dir $f))) { throw "missing $f in publish output" }
+          }
+          # The VC++ CRT (vcruntime140/msvcp140) is a locally staged payload (vcruntime/win-x64,
+          # not committed): absent on CI by design, present in shipped builds.

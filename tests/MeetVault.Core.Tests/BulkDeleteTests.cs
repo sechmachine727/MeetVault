@@ -43,6 +43,20 @@ public sealed class BulkDeleteTests : IDisposable
     }
 
     [Fact]
+    public void Open_DeletesOrphanedAsideWhenTheDbStillHasRows()
+    {
+        // A committed delete that died before the unlink leaves no row but a NON-empty db:
+        // the aside must be reclaimed, never resurrected — resurrection would make the
+        // user-confirmed delete un-doable and un-sweepable (review r12).
+        _repo.Save(NewMeeting("a", null), Array.Empty<Speaker>(), Array.Empty<Segment>());
+        var staged = Path.Combine(_dir, "gone.m4a.deleting");
+        File.WriteAllText(staged, "bytes");
+        using var repo2 = new LocalMeetingRepository(_db, _dir);
+        Assert.False(File.Exists(staged));
+        Assert.False(File.Exists(Path.Combine(_dir, "gone.m4a")));
+    }
+
+    [Fact]
     public void Open_DeletesOrphanedAsideWhenTheOriginalStillExists()
     {
         var orig = Path.Combine(_dir, "dup.m4a");

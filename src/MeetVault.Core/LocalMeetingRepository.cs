@@ -59,6 +59,12 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
                     try { referenced.Add(Path.GetFullPath(r.GetString(0))); } catch { }
                 }
             }
+            bool anyRows;
+            using (var cnt = _db.CreateCommand())
+            {
+                cnt.CommandText = "SELECT (SELECT COUNT(*) FROM meetings) + (SELECT COUNT(*) FROM media_tracks)";
+                anyRows = Convert.ToInt64(cnt.ExecuteScalar()) > 0;
+            }
             foreach (var path in Directory.EnumerateFiles(_mediaRoot, "*.deleting"))
             {
                 string orig;
@@ -73,12 +79,15 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
                     catch (Exception ex) { AppLog.Warn("repo: could not restore staged deletion: " + path + " :: " + ex.Message); }
                     continue;
                 }
-                // No row references it — but if the original is gone, the aside can still be
-                // the only copy (db lost/reset out-of-band): recover it rather than reclaim
-                // it (review r11). A duplicate (original present) is deleted.
+                // No row references it. Recover only when the whole database is empty (the
+                // lost/reset case this branch was written for): with rows present, no-row +
+                // no-original is the committed-delete window (crash or transient lock before
+                // the unlink), and resurrecting the file would make a user-confirmed delete
+                // un-doable and un-sweepable (review r12). Otherwise reclaim it; a duplicate
+                // (original present) is always deleted.
                 try
                 {
-                    if (!File.Exists(orig)) { File.Move(path, orig); AppLog.Info("repo: recovered orphaned staged deletion " + path + " -> " + orig); }
+                    if (!anyRows && !File.Exists(orig)) { File.Move(path, orig); AppLog.Info("repo: recovered orphaned staged deletion " + path + " -> " + orig); }
                     else { File.Delete(path); AppLog.Info("repo: swept staged deletion " + path); }
                 }
                 catch (Exception ex) { AppLog.Warn("repo: staged deletion still locked: " + path + " :: " + ex.Message); }
@@ -252,6 +261,14 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
                 var candidates = new List<string>();
                 if (meeting.MediaPath is { Length: > 0 } m) candidates.Add(m);
                 foreach (var track in ListMediaTracks(id)) candidates.Add(track.Path);
+                // A kept working WAV (<recording>.wav beside the .m4a) must go with the
+                // meeting too: otherwise a failed unlink leaves an un-sweepable orphan and a
+                // later delete reports success while the bytes survive (review r12).
+                foreach (var p in candidates.Where(p => p.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase)).ToArray())
+                {
+                    var wav = Path.ChangeExtension(p, ".wav");
+                    if (File.Exists(wav)) candidates.Add(wav);
+                }
                 var staged = new List<(string Orig, string Aside, bool Move)>();
                 var unmanaged = new List<string>();
                 foreach (var p in candidates.Distinct(StringComparer.OrdinalIgnoreCase))

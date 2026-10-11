@@ -45,7 +45,7 @@ public sealed class LanguageMonitor : IDisposable
     public void Reset()
     {
         lock (_lock) _pending.Clear();
-        lock (_gateLock) _gate.Reset();
+        lock (_gateLock) { _gate.Reset(); _policy.ResetAgreement(); }
     }
 
     public void Push(float[] samples16k)
@@ -78,13 +78,15 @@ public sealed class LanguageMonitor : IDisposable
             {
                 var now = Environment.TickCount64;
                 if (now - _lastInferMs < _minInferenceGapMs) continue;   // throttle: ≤1 inference per gap
+                if (!Enabled) continue;
+                // A manual language disables auto: skip the inference entirely — the 86 MB
+                // detector must not keep running for the page lifetime (review r12).
                 _lastInferMs = now;
                 (string Code, float Confidence)? result;
                 try { result = _detect(window); }
                 catch (Exception ex) { AppLog.Warn("langid: detect failed: " + ex.Message); continue; }
                 if (result is not { } r) continue;
                 Detected?.Invoke(r.Code, r.Confidence);
-                if (!Enabled) continue;
                 string? suggestion;
                 lock (_gateLock) suggestion = _policy.Detection(r.Code, r.Confidence, now);
                 if (suggestion is not null) Suggested?.Invoke(suggestion);
