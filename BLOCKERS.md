@@ -1,8 +1,8 @@
 # BLOCKERS.md — genuine blockers for user review
 
-> Updated 2026-10-11 (Vosk-only pipeline): the engine surface is one family — **Vosk small**
-> (English / Japanese / Vietnamese), offline streaming, CPU-only, **single-speaker by
-> construction**. Whisper, Moonshine, Zipformer, the sherpa diarization/VAD stack, the GPU
+> Updated 2026-10-11 (Vosk-only pipeline): the engine surface is one family — **Vosk**
+> (English / Japanese / Vietnamese; small/medium/large model tiers, medium English-only),
+> offline streaming, CPU-only, **single-speaker by construction**. Whisper, Moonshine, Zipformer, the sherpa diarization/VAD stack, the GPU
 > backends and their packages/models were removed the same day. Only items that stop
 > progress with no local alternative go here.
 
@@ -13,8 +13,8 @@
 - Next: run `publish/win-x64/MeetVault.exe`, press Start recording, speak, Stop, then open the meeting in Meetings and press play. Report anything that looks wrong.
 
 ### 2. Spoken JA/VI accuracy
-- The three staged models (small-en, small-ja, small-vi) all load and decode: English is live-verified end-to-end (record → sentence-cased segments → save), JA and VI are live-verified to load (`vosk: loaded dir=…`) and produce + save segments. Accuracy on real spoken JA/VI has not been judged.
-- Next: one short spoken JA clip and one VI clip, with the matching model selected in Settings → Model.
+- The staged models: small-en/ja/vi and medium-en load and decode live; large-en loads in ~16 s and decodes faster than realtime (offline probe); large-ja/large-vi are staged with their files verified but not yet exercised. English is live-verified end-to-end (record → sentence-cased segments → save) and small vs medium were compared on a synthetic fixture; JA and VI are live-verified to load (`vosk: loaded dir=…`) and produce + save segments. Accuracy on real spoken JA/VI has not been judged.
+- Next: one short spoken JA clip and one VI clip, with the matching language + size selected in Settings.
 
 ### 3. Gemini live call
 - Transport is implemented and unit-tested against stubs. No live call has run.
