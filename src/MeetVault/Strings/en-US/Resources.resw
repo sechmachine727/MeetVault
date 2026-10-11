@@ -183,6 +183,7 @@
   <data name="Mtg.DurHourMin" xml:space="preserve"><value>{0} h {1} min</value></data>
   <data name="Mtg.SelectedCount" xml:space="preserve"><value>{0} selected</value></data>
   <data name="Mtg.HiddenNote" xml:space="preserve"><value> {0} selected meeting(s) are hidden by the current search and will be deleted too.</value></data>
+  <data name="Mtg.MediaSkipped" xml:space="preserve"><value>Deleted — but {0} recording file(s) could not be removed (outside the managed folder): {1}</value></data>
 
   <!-- L4.2: Dashboard page code strings -->
   <data name="Dash.GreetingMorning" xml:space="preserve"><value>Good morning — ready to capture</value></data>

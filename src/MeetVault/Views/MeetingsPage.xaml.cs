@@ -220,8 +220,19 @@ public sealed partial class MeetingsPage : Page
         if (result.FailedIds.Count == 0)
         {
             ExitSelection();
-            StatusBar.Message = Loc.Tf("Mtg.Deleted", result.DeletedIds.Count);
-            StatusBar.Severity = InfoBarSeverity.Success;
+            if (result.SkippedMedia.Count > 0)
+            {
+                // The rows are gone but their recordings survive outside the managed
+                // folder: warning, not success — the confirm dialog promised the audio
+                // would be removed.
+                StatusBar.Message = Loc.Tf("Mtg.MediaSkipped", result.SkippedMedia.Count, SkippedPaths(result));
+                StatusBar.Severity = InfoBarSeverity.Warning;
+            }
+            else
+            {
+                StatusBar.Message = Loc.Tf("Mtg.Deleted", result.DeletedIds.Count);
+                StatusBar.Severity = InfoBarSeverity.Success;
+            }
         }
         else
         {
@@ -241,6 +252,11 @@ public sealed partial class MeetingsPage : Page
         CancelSelectionButton.IsEnabled = !busy;
         UpdateToolbar();
     }
+
+    // Paths of recordings a delete could not remove (unmanaged media), joined for the
+    // warning InfoBar; the list is per-delete and short.
+    private static string SkippedPaths(BulkDeleteResult result)
+        => string.Join("; ", result.SkippedMedia.Select(s => s.Path));
 
     private void UpdateToolbar()
     {
@@ -315,8 +331,19 @@ public sealed partial class MeetingsPage : Page
             if (result.DeletedIds.Contains(card.Id))
             {
                 ApplyFilter(SearchBox.Text);
-                StatusBar.Message = Loc.Tf("Mtg.DeletedOne", card.Title);
-                StatusBar.Severity = InfoBarSeverity.Success;
+                var skipped = result.SkippedMedia.FirstOrDefault(s => s.Id == card.Id);
+                if (skipped.Path is { Length: > 0 })
+                {
+                    // Row deleted, recording left in place (unmanaged path): the dialog
+                    // said the recording is deleted too — report the survivor honestly.
+                    StatusBar.Message = Loc.Tf("Mtg.MediaSkipped", 1, skipped.Path);
+                    StatusBar.Severity = InfoBarSeverity.Warning;
+                }
+                else
+                {
+                    StatusBar.Message = Loc.Tf("Mtg.DeletedOne", card.Title);
+                    StatusBar.Severity = InfoBarSeverity.Success;
+                }
             }
             else
             {

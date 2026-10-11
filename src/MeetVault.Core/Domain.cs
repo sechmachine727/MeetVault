@@ -15,9 +15,15 @@ public enum MeetingStatus { Recording, Paused, Processing, Ready, Failed }
 
 public sealed record Meeting(string Id, string Title, DateTimeOffset StartedAt, DateTimeOffset? EndedAt, MeetingStatus Status, string? MediaPath, string? MediaMime);
 
+// DeletedIds: rows actually deleted (their managed recording was removed too, or there
+// was none). FailedIds: rows kept, keyed by the reason. SkippedMedia: rows that WERE
+// deleted but whose recording file survives because it is unmanaged (foreign path,
+// relative, or behind a link below the media root) — the UI must say so instead of
+// promising the audio went away.
 public sealed record BulkDeleteResult(
     IReadOnlyList<string> DeletedIds,
-    IReadOnlyDictionary<string, string> FailedIds);
+    IReadOnlyDictionary<string, string> FailedIds,
+    IReadOnlyList<(string Id, string Path)> SkippedMedia);
 
 public enum GeminiJobState { Queued, Uploading, Succeeded, Failed }
 

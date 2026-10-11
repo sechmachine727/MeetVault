@@ -134,12 +134,15 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
     // delete failing after that deletion would destroy the recording's only copy while
     // the row survives), then unlinked on success or moved back on failure. Media
     // outside the managed directory is never touched but never blocks the row either
-    // (export, user copy, malformed path), exactly like the single-row path. Active or
-    // resumable recordings are refused.
+    // (export, user copy, malformed path), exactly like the single-row path; such a row
+    // is still deleted and the surviving file is reported in SkippedMedia, because the
+    // confirmation promised the recording would be removed. Active or resumable
+    // recordings are refused.
     public BulkDeleteResult DeleteMeetings(IReadOnlyCollection<string> meetingIds)
     {
         var deleted = new List<string>();
         var failed = new Dictionary<string, string>(StringComparer.Ordinal);
+        var skipped = new List<(string Id, string Path)>();
         foreach (var id in meetingIds.Distinct(StringComparer.Ordinal))
         {
             // Junk entries are skipped: null/empty can never name a meeting and the
@@ -153,13 +156,18 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
                 { failed[id] = "active or resumable recording"; continue; }
                 string? media = meeting.MediaPath is { Length: > 0 } m ? m : null;
                 string? aside = null;
+                string? unmanagedMedia = null;
                 if (media is not null)
                 {
                     if (!IsManagedMedia(media))
                     {
                         // Never touch a foreign path; the row still goes, so an
-                        // unmanaged-media meeting is not permanently undeletable.
+                        // unmanaged-media meeting is not permanently undeletable. The
+                        // survivor is reported in SkippedMedia (the confirm dialog
+                        // promised the recording would be removed) — only once the row
+                        // is actually deleted below, so a failed row never double-reports.
                         AppLog.Warn("repo: bulk delete leaving unmanaged media in place: " + media + " (meeting " + id + ")");
+                        unmanagedMedia = media;
                     }
                     else if (File.Exists(media))
                     {
@@ -205,11 +213,12 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
                     catch (Exception ex) { AppLog.Warn("repo: bulk delete could not remove media " + aside + " :: " + ex.Message); }
                 }
                 deleted.Add(id);
+                if (unmanagedMedia is not null) skipped.Add((id, unmanagedMedia));
             }
             catch (Exception ex) { failed[id] = ex.Message; }
         }
-        AppLog.Info($"repo: bulk delete {deleted.Count} deleted, {failed.Count} failed");
-        return new BulkDeleteResult(deleted, failed);
+        AppLog.Info($"repo: bulk delete {deleted.Count} deleted, {failed.Count} failed, {skipped.Count} media left in place");
+        return new BulkDeleteResult(deleted, failed, skipped);
     }
 
     // Only recordings under the managed media directory may be removed by batch

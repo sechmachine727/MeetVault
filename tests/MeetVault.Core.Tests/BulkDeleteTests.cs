@@ -51,6 +51,7 @@ public sealed class BulkDeleteTests : IDisposable
 
         Assert.Equal(3, result.DeletedIds.Count);
         Assert.Empty(result.FailedIds);
+        Assert.Empty(result.SkippedMedia);
         foreach (var id in new[] { "a", "b", "c" })
         {
             Assert.Null(_repo.Load(id));
@@ -72,6 +73,7 @@ public sealed class BulkDeleteTests : IDisposable
 
         Assert.Empty(result.DeletedIds);
         Assert.True(result.FailedIds.ContainsKey("nope"));
+        Assert.Empty(result.SkippedMedia);
     }
 
     [Fact]
@@ -83,6 +85,7 @@ public sealed class BulkDeleteTests : IDisposable
 
         Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
         Assert.Empty(result.FailedIds);
+        Assert.Empty(result.SkippedMedia);
         Assert.Null(_repo.Load("a"));
     }
 
@@ -98,6 +101,7 @@ public sealed class BulkDeleteTests : IDisposable
         Assert.Empty(result.DeletedIds);
         Assert.True(result.FailedIds.ContainsKey("a"));
         Assert.NotNull(_repo.Load("a"));
+        Assert.Empty(result.SkippedMedia);
     }
 
     [Theory]
@@ -114,6 +118,7 @@ public sealed class BulkDeleteTests : IDisposable
         Assert.True(result.FailedIds.ContainsKey("a"));
         Assert.NotNull(_repo.Load("a"));
         Assert.True(File.Exists(media));
+        Assert.Empty(result.SkippedMedia);
     }
 
     [Fact]
@@ -130,9 +135,13 @@ public sealed class BulkDeleteTests : IDisposable
             var result = _repo.DeleteMeetings(new[] { "a" });
 
             // Unmanaged media never blocks the row (review fix): the meeting must be
-            // deletable; the foreign file itself is never touched.
+            // deletable; the foreign file itself is never touched. The survivor is
+            // reported (round 9) so the UI can warn instead of claiming the audio went.
             Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
             Assert.Empty(result.FailedIds);
+            var skip = Assert.Single(result.SkippedMedia);
+            Assert.Equal("a", skip.Id);
+            Assert.Equal(outside, skip.Path);
             Assert.Null(_repo.Load("a"));
             Assert.True(File.Exists(outside));
         }
@@ -151,6 +160,7 @@ public sealed class BulkDeleteTests : IDisposable
 
         Assert.Equal(new[] { "good" }, result.DeletedIds.ToArray());
         Assert.Equal(2, result.FailedIds.Count);
+        Assert.Empty(result.SkippedMedia);
         Assert.Null(_repo.Load("good"));
         Assert.NotNull(_repo.Load("locked"));
     }
@@ -166,6 +176,7 @@ public sealed class BulkDeleteTests : IDisposable
 
         Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
         Assert.Empty(result.FailedIds);
+        Assert.Empty(result.SkippedMedia);
         Assert.Null(_repo.Load("a"));
     }
 
@@ -176,6 +187,7 @@ public sealed class BulkDeleteTests : IDisposable
 
         Assert.Empty(result.DeletedIds);
         Assert.Empty(result.FailedIds);
+        Assert.Empty(result.SkippedMedia);
     }
 
     [Fact]
@@ -193,6 +205,7 @@ public sealed class BulkDeleteTests : IDisposable
         var result = repo2.DeleteMeetings(new[] { "a" });
 
         Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
+        Assert.Empty(result.SkippedMedia);
         Assert.False(File.Exists(media));
         Assert.Null(repo2.Load("a"));
     }
@@ -206,9 +219,13 @@ public sealed class BulkDeleteTests : IDisposable
 
         var result = _repo.DeleteMeetings(new[] { "a" });
 
-        // A relative path is unmanaged (never a delete target); the row still goes.
+        // A relative path is unmanaged (never a delete target); the row still goes and
+        // the surviving path is reported so the UI can say the recording stayed.
         Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
         Assert.Empty(result.FailedIds);
+        var skip = Assert.Single(result.SkippedMedia);
+        Assert.Equal("a", skip.Id);
+        Assert.Equal("sub" + Path.DirectorySeparatorChar + "rel.m4a", skip.Path);
         Assert.Null(_repo.Load("a"));
     }
 
@@ -225,9 +242,13 @@ public sealed class BulkDeleteTests : IDisposable
 
             var result = _repo.DeleteMeetings(new[] { "a" });
 
-            // The traversal path never becomes a delete target; the row still goes.
+            // The traversal path never becomes a delete target; the row still goes and
+            // the surviving path is reported.
             Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
             Assert.Empty(result.FailedIds);
+            var skip = Assert.Single(result.SkippedMedia);
+            Assert.Equal("a", skip.Id);
+            Assert.Equal(Path.Combine(_dir, "..", Path.GetFileName(outside)), skip.Path);
             Assert.True(File.Exists(outside));
             Assert.Null(_repo.Load("a"));
         }
@@ -245,6 +266,7 @@ public sealed class BulkDeleteTests : IDisposable
 
         Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
         Assert.Empty(result.FailedIds);
+        Assert.Empty(result.SkippedMedia);
         Assert.Null(_repo.Load("a"));
     }
 
@@ -257,6 +279,7 @@ public sealed class BulkDeleteTests : IDisposable
         var result = _repo.DeleteMeetings(new[] { "a" });
 
         Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
+        Assert.Empty(result.SkippedMedia);
         Assert.Null(_repo.Load("a"));
     }
 
@@ -276,6 +299,7 @@ public sealed class BulkDeleteTests : IDisposable
 
         Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
         Assert.Empty(result.FailedIds);
+        Assert.Empty(result.SkippedMedia);
         Assert.Null(_repo.Load("a"));
         Assert.False(File.Exists(aside), "the retry must reclaim the stale aside");
         Assert.False(File.Exists(media));
@@ -300,6 +324,7 @@ public sealed class BulkDeleteTests : IDisposable
 
         Assert.Empty(failed.DeletedIds);
         Assert.True(failed.FailedIds.ContainsKey("a"));
+        Assert.Empty(failed.SkippedMedia);
         Assert.NotNull(_repo.Load("a"));
         Assert.True(File.Exists(media), "a failed row delete must move the stale aside back to the media path");
         Assert.False(File.Exists(aside), "the restore must not leave the aside behind");
@@ -309,6 +334,7 @@ public sealed class BulkDeleteTests : IDisposable
         var retry = _repo.DeleteMeetings(new[] { "a" });
 
         Assert.Equal(new[] { "a" }, retry.DeletedIds.ToArray());
+        Assert.Empty(retry.SkippedMedia);
         Assert.Null(_repo.Load("a"));
         Assert.False(File.Exists(media));
         Assert.False(File.Exists(aside));
@@ -324,6 +350,7 @@ public sealed class BulkDeleteTests : IDisposable
         var result = _repo.DeleteMeetings(new[] { "a" });
 
         Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
+        Assert.Empty(result.SkippedMedia);
         Assert.Null(_repo.Load("a"));
     }
 
@@ -337,11 +364,13 @@ public sealed class BulkDeleteTests : IDisposable
             var first = _repo.DeleteMeetings(new[] { "a" });
             Assert.Empty(first.DeletedIds);
             Assert.True(first.FailedIds.ContainsKey("a"));
+            Assert.Empty(first.SkippedMedia);
         }
 
         var retry = _repo.DeleteMeetings(new[] { "a" });
 
         Assert.Equal(new[] { "a" }, retry.DeletedIds.ToArray());
+        Assert.Empty(retry.SkippedMedia);
         Assert.False(File.Exists(media));
         Assert.False(File.Exists(media + ".deleting"), "the successful retry must not leave an aside file behind");
         Assert.Null(_repo.Load("a"));
@@ -363,6 +392,7 @@ public sealed class BulkDeleteTests : IDisposable
 
         Assert.Empty(result.DeletedIds);
         Assert.True(result.FailedIds.ContainsKey("a"));
+        Assert.Empty(result.SkippedMedia);
         Assert.NotNull(_repo.Load("a"));
         Assert.True(File.Exists(media), "a failed row delete must restore the renamed recording");
         Assert.False(File.Exists(media + ".deleting"), "a restored delete must not leave an aside file behind");

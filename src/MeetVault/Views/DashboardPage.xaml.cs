@@ -109,8 +109,18 @@ public sealed partial class DashboardPage : Page
         if (result.FailedIds.Count == 0)
         {
             ExitSelection();
-            StatusBar.Message = Loc.Tf("Mtg.Deleted", result.DeletedIds.Count);
-            StatusBar.Severity = InfoBarSeverity.Success;
+            if (result.SkippedMedia.Count > 0)
+            {
+                // Same rule as MeetingsPage: rows deleted but unmanaged recordings left
+                // in place must not read as a clean success.
+                StatusBar.Message = Loc.Tf("Mtg.MediaSkipped", result.SkippedMedia.Count, string.Join("; ", result.SkippedMedia.Select(s => s.Path)));
+                StatusBar.Severity = InfoBarSeverity.Warning;
+            }
+            else
+            {
+                StatusBar.Message = Loc.Tf("Mtg.Deleted", result.DeletedIds.Count);
+                StatusBar.Severity = InfoBarSeverity.Success;
+            }
         }
         else
         {

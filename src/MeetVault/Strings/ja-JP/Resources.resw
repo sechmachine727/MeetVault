@@ -183,6 +183,7 @@
   <data name="Mtg.DurHourMin" xml:space="preserve"><value>{0} 時間 {1} 分</value></data>
   <data name="Mtg.SelectedCount" xml:space="preserve"><value>{0} 件選択</value></data>
   <data name="Mtg.HiddenNote" xml:space="preserve"><value> 現在の検索で非表示になっている選択中の会議 {0} 件も削除されます。</value></data>
+  <data name="Mtg.MediaSkipped" xml:space="preserve"><value>削除しましたが、{0} 件の録音ファイルを削除できませんでした（管理フォルダー外）：{1}</value></data>
 
   <!-- L4.2: Dashboard page code strings -->
   <data name="Dash.GreetingMorning" xml:space="preserve"><value>おはようございます — 録音の準備ができました</value></data>

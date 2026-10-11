@@ -68,6 +68,7 @@ public sealed class MediaRootJunctionTests : IDisposable
 
         Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
         Assert.Empty(result.FailedIds);
+        Assert.Empty(result.SkippedMedia);
         Assert.False(File.Exists(media));
         Assert.False(File.Exists(Path.Combine(target, "a.m4a")));   // the same bytes, seen through the target
         Assert.Null(repo.Load("a"));
@@ -96,8 +97,12 @@ public sealed class MediaRootJunctionTests : IDisposable
         var result = repo.DeleteMeetings(new[] { "a" });
 
         // Unmanaged media never blocks the row; the file behind the below-root junction
-        // is never touched.
+        // is never touched, and the survivor is reported so the UI can say the recording
+        // stayed (the confirm dialog promised it would be removed).
         Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
+        var skip = Assert.Single(result.SkippedMedia);
+        Assert.Equal("a", skip.Id);
+        Assert.Equal(media, skip.Path);
         Assert.True(File.Exists(Path.Combine(elsewhere, "b.m4a")));
         Assert.Null(repo.Load("a"));
     }
