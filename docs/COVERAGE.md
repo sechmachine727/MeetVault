@@ -4,16 +4,18 @@
 
 > Scope: this file is the requirement-to-evidence ledger. Per-session work history moved to [progress/](progress/) on 2026-10-07. The `Deltas` sections below are kept as archived history from before that move and are no longer appended to.
 
+> Note (2026-10-11, Vosk-only consolidation): rows marked "retired 2026-10-11" cite tests or pipelines for features that were removed (gender labeling, diarization, rename, and the whisper/moonshine/zipformer engines); those tests no longer exist. Rows without the mark are believed current — verify against the tree before relying on them.
+
 ## 05-test-plan spine
 
 | Item | Evidence | Status |
 |---|---|---|
-| Counter assignment (Male1/Female1/Male2, Unknown free) | TEST SpeakerLabelerTests + Session_UsesSeparateGenderCounters | proven |
-| Rename propagation | TEST RenameSpeaker_PropagatesToSpeakers + DomainTests | proven (store layer; UI row-sync by inspection) |
+| Counter assignment (Male1/Female1/Male2, Unknown free) | TEST SpeakerLabelerTests + Session_UsesSeparateGenderCounters | retired 2026-10-11 (feature removed) |
+| Rename propagation | TEST RenameSpeaker_PropagatesToSpeakers + DomainTests | retired 2026-10-11 (rename UI removed) |
 | Edit + reassign | TEST DomainTests | proven (record level) |
 | Finish-ordering transaction | TEST Save_RollsBack_OnMidTransactionFault (fault injection) | proven |
 | Pause gap | TEST PauseGap (mutation-verified guard) + 70-min run | proven |
-| Scripted-PCM protocol tests | RUNTIME pipeline harness (TTS->whisper->sherpa->session->SQLite) | proven for transcription path |
+| Scripted-PCM protocol tests | RUNTIME pipeline harness (TTS->whisper->sherpa->session->SQLite) | retired 2026-10-11 (pipeline replaced by Vosk streaming) |
 | 60-min timestamp stability | TEST SeventyMinutes (420 windows, monotonic, exact span) | proven |
 | Chunked-write memory profile | TEST ChunkedWriteTests (file grows pre-dispose) | proven (media side) |
 | Engine handshake/timeout | TEST EngineHandshakeTests (missing-model errors) | proven (presence; timeout untested) |
@@ -223,7 +225,7 @@ cross-checked against `vulkaninfo.exe` ("Failed to detect any valid GPUs").
 - Dashboard: Start new meeting moved top-right; Recent and Meetings tables wrapped in a card container with a "select to open details" tooltip.
 - GPU (FR9): capability detection queries the CUDA device count and enumerates GPUs through DXGI (IDXGIFactory1::EnumAdapters1), which lists the real hardware adapters and excludes indirect/virtual display drivers (Sudomaker, Horizon IDD, Hyper-V Video) and WARP. Not EnumDisplayDevices, whose output includes those virtual adapters. Settings lists each GPU and reports the graphics/inference APIs probed on this PC ('available: CPU, Vulkan, DirectML'); a non-CUDA GPU is offered through the bundled Whisper.net.Runtime.Vulkan backend, and the runtime library order is set per backend so the choice sticks. Documented residual: DXGI has no indirect-display flag, so the strict discriminator is D3DKMT_ADAPTERTYPE.IndirectDisplayDevice; a D3DKMT probe on this host returned no render-capable adapters, so it was not shippable and DXGI (verified here) stays. Multi-GPU device ordinals are backend-specific and unverified; single-GPU is correct.
 - Packaging: single canonical portable at publish/win-x64 (duplicate folders removed); a csproj target trims the linux/macos/arm runtime payload from both the portable and the MSIX.
-- Suite: 63/63 green (adds GPU probe + device-setting encode/parse).
+- Suite at the time: 63/63 green (adds GPU probe + device-setting encode/parse) — superseded; see docs/progress/ for current runs.
 
 ## Deltas 2026-10-06 evening (Observed, working tree)
 

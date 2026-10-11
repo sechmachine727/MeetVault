@@ -17,7 +17,7 @@ dotnet build MeetVault.sln -c Release
 dotnet test tests\MeetVault.Core.Tests\MeetVault.Core.Tests.csproj -c Release --nologo -v q
 ```
 
-Tests that load the real Whisper model skip when `models/ggml-tiny.bin` is absent.
+Tests that need the real Vosk models skip when `models/vosk/` is absent.
 
 ## 3. Publish the portable build
 
@@ -46,5 +46,5 @@ Run the unit suite, then the manual acceptance pass in `05-test-plan.md` on a ma
 
 ## 6. Constraints
 
-- Keep `PublishTrimmed` false. ILLink strips CsWinRT ABI glue and the sherpa-onnx wrapper, which crashes the app. See the repository `AGENTS.md`.
-- `App.xaml.cs` pins the app's own `onnxruntime.dll` before WinUI starts. Keep that pin.
+- Keep `PublishTrimmed` false. ILLink strips the CsWinRT ABI glue the WinUI bindings need and the app crashes at startup. See the repository `AGENTS.md`.
+- No native pins and no foreign runtime payloads: `libvosk.dll` (Vosk NuGet) is the only native, and `models/vosk/` is the only staged payload.
