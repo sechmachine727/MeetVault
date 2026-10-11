@@ -33,6 +33,10 @@ use of the app does not depend on them.
 - **CommunityToolkit.Mvvm** — MIT License.
 - **Microsoft.ML.OnnxRuntime** — the language-detection model runtime (VoxLingua107);
   its native `onnxruntime.dll` ships with the app and is loaded directly. MIT License.
+- **VoxLingua107 language-ID model** — SpeechBrain's `lang-id-voxlingua107-ecapa` checkpoint
+  exported to ONNX (`christopherthompson81/voxlingua107-lid-onnx`); staged under
+  `models/langid/`, not committed to this repository. SpeechBrain is Apache-2.0; the
+  VoxLingua107 dataset is CC BY 4.0.
 - **Windows App SDK / WinUI 3** and the **.NET runtime** — Microsoft licence terms.
 
 The application and its packaged native libraries each keep their own upstream licences.

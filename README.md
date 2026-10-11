@@ -6,9 +6,9 @@ Built with C# and WinUI 3 on .NET 8. There is no login, no subscription, and no 
 
 ## Status
 
-Working MVP, tested on Windows 11. The solution builds with 0 errors; three pre-existing `CA1416` warnings remain in `ProcessLoopbackCapture.cs` (COM release call sites) — do not add more. The Core test suite passes 210 tests. The portable build launches and records, transcribes, and saves meetings. See [BLOCKERS.md](BLOCKERS.md) for what still needs a specific machine to verify.
+Working MVP, tested on Windows 11. The solution builds with 0 errors; three pre-existing `CA1416` warnings remain in `ProcessLoopbackCapture.cs` (COM release call sites) — do not add more. The Core test suite passes 229 tests. The portable build launches and records, transcribes, and saves meetings. See [BLOCKERS.md](BLOCKERS.md) for what still needs a specific machine to verify.
 
-Per-process audio capture is implemented but has not been exercised against a machine with the target app playing. The app supports English, Japanese, and Vietnamese with Vosk's small/medium/large model tiers (medium is English-only); meetings default to Auto-detect, which identifies the spoken language with a bundled VoxLingua107 model and switches the engine live. JA/VI accuracy has not been verified with real speech.
+Per-process audio capture is implemented but has not been exercised against a machine with the target app playing. The app supports English, Japanese, and Vietnamese with Vosk's small/medium/large model tiers (medium is English-only); meetings default to Auto-detect, which identifies the spoken language with a staged VoxLingua107 model (see Speech models) and switches the engine live. JA/VI accuracy has not been verified with real speech.
 
 ## Features
 
@@ -86,6 +86,11 @@ Place these under `models/`. They are gitignored and must be staged next to the 
 | `vosk/large-ja` | Japanese | Large | ~1 GB |
 | `vosk/small-vi` | Vietnamese | Small | ~32 MB |
 | `vosk/large-vi` | Vietnamese | Large | ~78 MB |
+
+The auto-detect language-ID model goes under `models/langid/`: `voxlingua107.onnx` (SpeechBrain
+VoxLingua107 ECAPA checkpoint exported to ONNX, `christopherthompson81/voxlingua107-lid-onnx`)
+and its `lang_map.json`. Without this folder, Auto-detect is unavailable and meetings fall
+back to the configured language.
 
 All are Vosk models (alphacephei.com/vosk/models), offline and streaming. Japanese and
 Vietnamese have no medium tier — the picker shows those rows disabled. Staging commands and

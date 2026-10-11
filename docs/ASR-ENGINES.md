@@ -26,6 +26,12 @@ bsdtar — GNU tar cannot read `.zip`):
     mkdir -p models/vosk/_tmp && /c/Windows/System32/tar.exe -xf /tmp/model.zip -C models/vosk/_tmp
     mv models/vosk/_tmp/vosk-model-en-us-0.22-lgraph models/vosk/medium-en && rmdir models/vosk/_tmp
 
+The auto-detect language-ID model lives under `models/langid/`: `voxlingua107.onnx`
+(86,657,056 B) and `lang_map.json`, from the SpeechBrain VoxLingua107 ECAPA checkpoint
+exported to ONNX (`christopherthompson81/voxlingua107-lid-onnx`). It is staged by hand like
+the Vosk models (gitignored, not committed); without it Auto-detect is unavailable and
+meetings fall back to the configured language.
+
 An unstaged tier shows "— not installed" in Settings; Live falls back to an installed model
 of the same language. Required files per model are the ones the catalog lists for it
 (dynamic-graph models: `graph/Gr.fst` + `graph/HCLr.fst`; composed models: `graph/HCLG.fst`).

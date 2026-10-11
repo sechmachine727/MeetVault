@@ -56,8 +56,12 @@ jobs:
         shell: pwsh
         run: |
           $dir = Join-Path $env:RUNNER_TEMP "mv-publish"
-          foreach ($f in @("MeetVault.exe", "ScreenRecorderLib.dll", "Microsoft.ML.OnnxRuntime.dll")) {
+          foreach ($f in @("MeetVault.exe", "ScreenRecorderLib.dll", "Microsoft.ML.OnnxRuntime.dll", "onnxruntime.dll", "libvosk.dll")) {
             if (-not (Test-Path (Join-Path $dir $f))) { throw "missing $f in publish output" }
+          }
+          # TrimForeignRuntimesPublish must leave no foreign-RID payloads behind (review r16).
+          foreach ($rid in @("linux-x64", "linux-arm64", "osx-x64", "macos-arm64", "win-arm64", "win-x86")) {
+            if (Test-Path (Join-Path $dir "runtimes/$rid")) { throw "foreign runtime payload survived: runtimes/$rid" }
           }
           # The VC++ CRT (vcruntime140/msvcp140) is a locally staged payload (vcruntime/win-x64,
           # not committed): absent on CI by design, present in shipped builds.
