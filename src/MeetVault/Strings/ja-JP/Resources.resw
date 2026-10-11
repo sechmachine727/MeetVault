@@ -109,8 +109,9 @@
   <data name="SetDevice.Text" xml:space="preserve"><value>デバイス</value></data>
   <data name="SetDeviceDesc.Text" xml:space="preserve"><value>推論を実行する場所。</value></data>
   <data name="SetDevicePicker.AutomationProperties.Name" xml:space="preserve"><value>推論デバイス</value></data>
+  <data name="SetPerfHeader.Text" xml:space="preserve"><value>パフォーマンス</value></data>
   <data name="SetDiar.Text" xml:space="preserve"><value>話者分離</value></data>
-  <data name="SetDiarDesc.Text" xml:space="preserve"><value>文字起こしを話者ごとの発話に分割します。</value></data>
+  <data name="SetDiarDesc.Text" xml:space="preserve"><value>文字起こしを話者ごとに分割します。オフにすると話者分離エンジンがパイプラインから外れ、文字起こしが速くなりリアルタイムに近づきます（話者名は表示されません）。</value></data>
   <data name="SetDiarSwitch.AutomationProperties.Name" xml:space="preserve"><value>話者分離</value></data>
   <data name="SetDiarSwitch.OnContent" xml:space="preserve"><value>オン</value></data>
   <data name="SetDiarSwitch.OffContent" xml:space="preserve"><value>オフ</value></data>

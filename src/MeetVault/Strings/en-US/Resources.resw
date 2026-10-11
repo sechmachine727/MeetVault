@@ -109,8 +109,9 @@
   <data name="SetDevice.Text" xml:space="preserve"><value>Device</value></data>
   <data name="SetDeviceDesc.Text" xml:space="preserve"><value>Where inference runs.</value></data>
   <data name="SetDevicePicker.AutomationProperties.Name" xml:space="preserve"><value>Transcription device</value></data>
+  <data name="SetPerfHeader.Text" xml:space="preserve"><value>Performance</value></data>
   <data name="SetDiar.Text" xml:space="preserve"><value>Speaker diarization</value></data>
-  <data name="SetDiarDesc.Text" xml:space="preserve"><value>Split the transcript into speaker turns.</value></data>
+  <data name="SetDiarDesc.Text" xml:space="preserve"><value>Split the transcript into speaker turns. Turn off to remove the diarization engine from the pipeline — transcription runs faster and stays closer to realtime, and lines show no speaker names (single speaker).</value></data>
   <data name="SetDiarSwitch.AutomationProperties.Name" xml:space="preserve"><value>Speaker diarization</value></data>
   <data name="SetDiarSwitch.OnContent" xml:space="preserve"><value>On</value></data>
   <data name="SetDiarSwitch.OffContent" xml:space="preserve"><value>Off</value></data>

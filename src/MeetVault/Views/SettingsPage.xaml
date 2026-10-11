@@ -116,6 +116,11 @@
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                 </Grid>
+                <TextBlock x:Name="TranscriptionStatus" Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock x:Uid="SetPerfHeader" Style="{StaticResource SubtitleTextBlockStyle}" />
                 <Grid ColumnSpacing="24">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="200" />
@@ -128,7 +133,6 @@
                     <ToggleSwitch x:Name="DiarizationSwitch" x:Uid="SetDiarSwitch" Grid.Column="1" HorizontalAlignment="Left"
                                   IsOn="True" Toggled="Diarization_Toggled" />
                 </Grid>
-                <TextBlock x:Name="TranscriptionStatus" Opacity="0.7" TextWrapping="Wrap" />
             </StackPanel>
 
             <StackPanel Spacing="8">
