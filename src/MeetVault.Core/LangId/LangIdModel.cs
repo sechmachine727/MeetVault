@@ -79,5 +79,10 @@ public sealed class LangIdModel : IDisposable
         }
     }
 
-    public void Dispose() => _session.Dispose();
+    public void Dispose()
+    {
+        // The monitor thread may be parked inside TopK's Run; dispose under the same lock
+        // so an in-flight session is never freed underneath it (review r7).
+        lock (_lock) _session.Dispose();
+    }
 }

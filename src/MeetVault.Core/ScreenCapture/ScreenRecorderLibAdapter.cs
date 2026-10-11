@@ -35,9 +35,19 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
             recorder.OnRecordingFailed += (_, e) => Finish(false, e.FilePath, e.Error);
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
             _startTicks = Stopwatch.GetTimestamp();
-            recorder.Record(outputPath);
+            // Publish the recorder before Record: a throw from Record (e.g. the missing-CRT
+            // path) must not leak the native recorder or leave _done dangling (review r7).
             _recorder = recorder;
             IsRecording = true;
+            try { recorder.Record(outputPath); }
+            catch
+            {
+                _recorder = null;
+                IsRecording = false;
+                _done = null;
+                try { recorder.Dispose(); } catch { }
+                throw;
+            }
         }
         StateChanged?.Invoke(true);
         return Task.CompletedTask;

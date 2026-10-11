@@ -22,8 +22,7 @@ public sealed class LanguageMonitor : IDisposable
     private volatile bool _stop;
     private long _lastInferMs;
 
-    public bool Enabled { get; set; } = true;                       // false in manual mode
-    public string? ActiveLanguage { get; private set; }
+    public volatile bool Enabled = true;                            // false in manual mode; UI-written, monitor-read
     public event Action<string, float>? Detected;                   // every accepted detection (indicator)
     public event Action<string>? Suggested;                         // policy agreed (caller swaps at a boundary)
 
@@ -37,19 +36,11 @@ public sealed class LanguageMonitor : IDisposable
         _thread.Start();
     }
 
-    public void SetActive(string? code)
-    {
-        lock (_lock) ActiveLanguage = code;
-        lock (_gateLock) _policy.SetActive(code);
-    }
+    public void SetActive(string? code) { lock (_gateLock) _policy.SetActive(code); }
 
-    // For caller-applied AUTO switches: updates the active language but keeps the
-    // anti-thrash cooldown running through the echo (review r6).
-    public void SetActiveKeepCooldown(string? code)
-    {
-        lock (_lock) ActiveLanguage = code;
-        lock (_gateLock) _policy.SetActiveKeepCooldown(code);
-    }
+    // For caller-applied AUTO switches: keeps the anti-thrash cooldown through the echo
+    // (review r6).
+    public void SetActiveKeepCooldown(string? code) { lock (_gateLock) _policy.SetActiveKeepCooldown(code); }
 
     public void Reset()
     {

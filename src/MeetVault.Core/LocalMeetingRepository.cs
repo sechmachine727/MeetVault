@@ -29,6 +29,24 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         // Existing databases predate the language column; CREATE TABLE IF NOT EXISTS never
         // adds it, so migrate once per open.
         EnsureColumn("meetings", "language", "language TEXT NOT NULL DEFAULT ''");
+        // A recording staged by a partially-failed batch delete (<file>.deleting) has no
+        // row pointing at it anymore; without a sweep it leaks on disk silently and a
+        // later delete of that id reports "not found" (review r7).
+        SweepStagedDeletions();
+    }
+
+    private void SweepStagedDeletions()
+    {
+        try
+        {
+            if (!Directory.Exists(_mediaRoot)) return;
+            foreach (var path in Directory.EnumerateFiles(_mediaRoot, "*.deleting"))
+            {
+                try { File.Delete(path); AppLog.Info("repo: swept staged deletion " + path); }
+                catch (Exception ex) { AppLog.Warn("repo: staged deletion still locked: " + path + " :: " + ex.Message); }
+            }
+        }
+        catch (Exception ex) { AppLog.Warn("repo: staged-deletion sweep failed: " + ex.Message); }
     }
 
     // CREATE TABLE IF NOT EXISTS never adds columns to an existing database; check the

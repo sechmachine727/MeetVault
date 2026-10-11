@@ -42,7 +42,7 @@
             <TextBlock x:Uid="LiveEngineLabel" Style="{StaticResource SubtitleTextBlockStyle}" />
             <TextBlock x:Name="EngineStatus" Text="Checking engines..." TextWrapping="Wrap" />
             <TextBlock x:Uid="LiveLanguageLabel" Style="{StaticResource SubtitleTextBlockStyle}" />
-            <ComboBox x:Name="LanguageCombo" HorizontalAlignment="Stretch" SelectionChanged="LanguageCombo_SelectionChanged" />
+            <ComboBox x:Name="LanguageCombo" x:Uid="LiveLanguageCombo" HorizontalAlignment="Stretch" SelectionChanged="LanguageCombo_SelectionChanged" />
             <TextBlock x:Name="LangStatus" Text="" TextWrapping="Wrap" />
             <TextBlock x:Uid="LiveScreenLabel" Style="{StaticResource SubtitleTextBlockStyle}" />
             <ToggleSwitch x:Name="ScreenToggle" x:Uid="LiveScreenRecord" />
@@ -51,7 +51,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <ComboBox x:Name="ScreenSourceCombo" HorizontalAlignment="Stretch" SelectionChanged="ScreenSource_Changed" />
+                <ComboBox x:Name="ScreenSourceCombo" x:Uid="LiveScreenSourceCombo" HorizontalAlignment="Stretch" SelectionChanged="ScreenSource_Changed" />
                 <Button Grid.Column="1" x:Uid="LiveScreenRefresh" Click="ScreenRefresh_Click" />
             </Grid>
             <Button x:Name="ScreenRunButton" x:Uid="LiveScreenStart" Click="ScreenRun_Click" IsEnabled="False" />

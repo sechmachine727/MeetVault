@@ -154,6 +154,7 @@
   <data name="Mtg.Cancel" xml:space="preserve"><value>Cancel</value></data>
   <data name="Mtg.Deleted" xml:space="preserve"><value>Deleted {0} meeting(s).</value></data>
   <data name="Mtg.Partial" xml:space="preserve"><value>{0} deleted, {1} failed - the remaining meetings could not be deleted.</value></data>
+  <data name="Mtg.PartialSkipped" xml:space="preserve"><value>{0} deleted, {1} failed, {2} recording file(s) could not be removed - check before trusting the cleanup.</value></data>
   <data name="Mtg.CouldNotDeleteSelected" xml:space="preserve"><value>Could not delete the selected meetings.</value></data>
   <data name="Mtg.DelOneTitle" xml:space="preserve"><value>Delete this meeting?</value></data>
   <data name="Mtg.DelOneBody" xml:space="preserve"><value>'{0}' and its transcript will be removed. The recording file is deleted too. This cannot be undone.</value></data>
@@ -298,6 +299,8 @@
   <data name="LiveScreenRecord.OffContent" xml:space="preserve"><value>Off</value></data>
   <data name="LiveScreenRecord.AutomationProperties.Name" xml:space="preserve"><value>Record the screen</value></data>
   <data name="LiveScreenRefresh.Content" xml:space="preserve"><value>Refresh</value></data>
+  <data name="LiveLanguageCombo.AutomationProperties.Name" xml:space="preserve"><value>Language</value></data>
+  <data name="LiveScreenSourceCombo.AutomationProperties.Name" xml:space="preserve"><value>Capture source</value></data>
   <data name="LiveScreenStart.Content" xml:space="preserve"><value>Start screen recording</value></data>
   <data name="LiveScreenStop.Content" xml:space="preserve"><value>Stop screen recording</value></data>
   <data name="Live.ScreenOn" xml:space="preserve"><value>Screen: recording to {0}</value></data>

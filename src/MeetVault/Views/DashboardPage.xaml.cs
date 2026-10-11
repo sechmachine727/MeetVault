@@ -129,7 +129,9 @@ public sealed partial class DashboardPage : Page
         else
         {
             RefreshList();
-            StatusBar.Message = Loc.Tf("Mtg.Partial", result.DeletedIds.Count, result.FailedIds.Count);
+            StatusBar.Message = result.SkippedMedia.Count > 0
+                ? Loc.Tf("Mtg.PartialSkipped", result.DeletedIds.Count, result.FailedIds.Count, result.SkippedMedia.Count)
+                : Loc.Tf("Mtg.Partial", result.DeletedIds.Count, result.FailedIds.Count);
             StatusBar.Severity = InfoBarSeverity.Warning;
         }
         StatusBar.IsOpen = true;

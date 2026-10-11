@@ -14,6 +14,7 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
 {
     private readonly Func<string, IStreamingTranscriber> _factory;   // modelDir -> engine
     private readonly object _swapLock = new();
+    private readonly SemaphoreSlim _swapOne = new(1, 1);              // one swap at a time
     private readonly List<float[]> _preRoll = new();
     private const int PreRollMs = 6000;
     private IStreamingTranscriber? _inner;
@@ -82,60 +83,70 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
 
     public void Flush() { IStreamingTranscriber? inner; lock (_swapLock) inner = _inner; inner?.Flush(); }
 
-    // Swap the ACTIVE engine. Returns false only when creating the new engine failed;
-    // in that case the relay keeps buffering into the pre-roll and the caller may retry
-    // at the next opportunity. Call at an utterance boundary: the old engine's flush
-    // joins its decode thread (typically milliseconds on an idle queue) before disposal.
+    // Swap the ACTIVE engine. Returns false when the replacement could not be built or
+    // started; in that case the OLD engine keeps serving the meeting (review r7: the old
+    // code detached and disposed first, so a factory failure left the relay deaf once the
+    // pre-roll filled). A semaphore serializes swaps so two callers cannot build two
+    // engines and leak the loser. Call off the UI thread: the factory loads a model.
     public bool SwapTo(string modelDir)
     {
-        IStreamingTranscriber? old;
-        lock (_swapLock)
+        _swapOne.Wait();
+        try
         {
-            if (modelDir == _activeModelDir) return true;
-            old = _inner;
-            _inner = null;                 // pushes now buffer into the pre-roll during the swap
-            _activeModelDir = modelDir;
-        }
-        if (old is not null)
-        {
-            // Flush BEFORE detaching: the old engine's last sentence still reaches the
-            // session through this relay. Then detach so no late event surfaces later.
-            try { old.Flush(); } catch (Exception ex) { AppLog.Warn("swap: flush failed: " + ex.Message); }
-            old.PartialReady -= ForwardPartial;
-            old.SegmentReady -= ForwardSegment;
-            try { old.Dispose(); } catch { }
-        }
-        IStreamingTranscriber fresh;
-        try { fresh = _factory(modelDir); }
-        catch (Exception ex)
-        {
-            AppLog.Error("swap: creating engine failed for " + modelDir, ex);
-            lock (_swapLock) { _activeModelDir = null; }   // allow the caller to retry the same model
-            return false;
-        }
-        bool start;
-        lock (_swapLock)
-        {
+            lock (_swapLock) { if (modelDir == _activeModelDir) return true; }
+
+            // Build the replacement BEFORE touching the live engine: a failure must leave
+            // the meeting transcribing on what it already had.
+            IStreamingTranscriber fresh;
+            try { fresh = _factory(modelDir); }
+            catch (Exception ex)
+            {
+                AppLog.Error("swap: creating engine failed for " + modelDir, ex);
+                return false;
+            }
             fresh.PartialReady += ForwardPartial;
             fresh.SegmentReady += ForwardSegment;
-            start = IsRunning;
-        }
-        // Start BEFORE publishing _inner (review r5): pushes arriving while the engine
-        // starts keep buffering into the pre-roll instead of hitting a not-started engine.
-        if (start) fresh.StartAsync(CancellationToken.None);
-        lock (_swapLock)
-        {
-            _inner = fresh;
+            bool start;
+            lock (_swapLock) start = IsRunning;
             if (start)
             {
-                // Replay + clear + publish are one atomic step so the live stream keeps its
-                // order (the pump's Push waits on this lock).
-                foreach (var chunk in _preRoll) fresh.Push(chunk);
-                _preRoll.Clear();
+                try { fresh.StartAsync(CancellationToken.None).GetAwaiter().GetResult(); }
+                catch (Exception ex)
+                {
+                    AppLog.Error("swap: starting engine failed for " + modelDir, ex);
+                    fresh.PartialReady -= ForwardPartial;
+                    fresh.SegmentReady -= ForwardSegment;
+                    try { fresh.Dispose(); } catch { }
+                    return false;   // the old engine keeps serving
+                }
             }
+            IStreamingTranscriber? old;
+            lock (_swapLock)
+            {
+                // Publish + pre-roll replay are atomic with Push (which takes this lock),
+                // so the live stream keeps its order.
+                old = _inner;
+                _inner = fresh;
+                _activeModelDir = modelDir;
+                if (start)
+                {
+                    foreach (var chunk in _preRoll) fresh.Push(chunk);
+                    _preRoll.Clear();
+                }
+            }
+            if (old is not null)
+            {
+                // Flush BEFORE detaching: the old engine's last sentence still reaches the
+                // session through this relay. It is already detached, so no late events.
+                try { old.Flush(); } catch (Exception ex) { AppLog.Warn("swap: flush failed: " + ex.Message); }
+                old.PartialReady -= ForwardPartial;
+                old.SegmentReady -= ForwardSegment;
+                try { old.Dispose(); } catch { }
+            }
+            AppLog.Info("swap: active engine -> " + modelDir);
+            return true;
         }
-        AppLog.Info("swap: active engine -> " + modelDir);
-        return true;
+        finally { _swapOne.Release(); }
     }
 
     private void ForwardPartial(string text) => PartialReady?.Invoke(text);

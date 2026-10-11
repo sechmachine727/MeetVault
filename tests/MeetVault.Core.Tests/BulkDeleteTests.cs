@@ -30,6 +30,17 @@ public sealed class BulkDeleteTests : IDisposable
         return path;
     }
 
+    [Fact]
+    public void Open_SweepsStagedDeletions()
+    {
+        // A recording staged by a partially-failed batch delete has no row left to point
+        // at it; the next open must sweep it so the delete does not leak on disk (r7).
+        var staged = Path.Combine(_dir, "gone.m4a.deleting");
+        File.WriteAllText(staged, "bytes");
+        using var repo2 = new LocalMeetingRepository(_db, _dir);
+        Assert.False(File.Exists(staged));
+    }
+
     private static Meeting NewMeeting(string id, string? media, MeetingStatus status = MeetingStatus.Ready) =>
         new(id, "t-" + id, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, status, media, "audio/m4a");
 

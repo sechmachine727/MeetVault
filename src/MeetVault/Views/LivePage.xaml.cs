@@ -234,11 +234,15 @@ public sealed partial class LivePage : Page
                 // The gate needs a full 4 s window plus inference before any detection can
                 // exist; 3.5 s deterministically lost that race, so the auto start always
                 // fell through to en/small (review r5).
+                var waitOwner = _session;
                 await Task.Delay(6500);
+                // Pause/Stop during the wait must not let the continuation swap an engine
+                // into an ended meeting (review r7).
+                if (!ReferenceEquals(_session, waitOwner) || _state != LiveState.Recording) return;
                 if (_relay.ActiveModelDir is null)
                 {
                     var fallback = EngineCatalog.Find("en", "small");
-                    if (fallback is not null && _relay.SwapTo(Path.Combine(ModelDir, "vosk", fallback.Model)))
+                    if (fallback is not null && await Task.Run(() => _relay.SwapTo(Path.Combine(ModelDir, "vosk", fallback.Model))))
                     {
                         _activeLanguage = "en";
                         _engineMode = "live: vosk " + fallback.Model;
@@ -314,8 +318,8 @@ public sealed partial class LivePage : Page
             var storedLanguage = AppStore.Repo.Load(id)?.Language;
             if (_relay is not null)
             {
-                if (!string.IsNullOrEmpty(storedLanguage)) ApplyLanguage(storedLanguage!, auto: _autoMode, reason: "resume");
-                else if (!_autoMode) ApplyLanguage(_activeLanguage, auto: false, reason: "resume");
+                if (!string.IsNullOrEmpty(storedLanguage)) await ApplyLanguageAsync(storedLanguage!, auto: _autoMode, reason: "resume");
+                else if (!_autoMode) await ApplyLanguageAsync(_activeLanguage, auto: false, reason: "resume");
                 else LiveBridge.SetLanguage(new LiveBridge.LanguageInfo(_activeLanguage, true, false));
             }
             EngineStatus.Text = _engineMode;
@@ -595,9 +599,11 @@ public sealed partial class LivePage : Page
     // Single applier (manual pick, auto suggestion, resume): resolves the (language, size)
     // pair, swaps the relay's active engine, persists the meeting language and publishes
     // the state for the overlay.
-    private void ApplyLanguage(string code, bool auto, string reason)
+    private async Task ApplyLanguageAsync(string code, bool auto, string reason)
     {
         if (_relay is null) return;
+        try
+        {
         var size = AppStore.Repo.GetSetting("transcription.size") ?? "small";
         var option = EngineCatalog.Find(code, size) ?? EngineCatalog.Find(code, "small");
         if (option is null)
@@ -610,9 +616,18 @@ public sealed partial class LivePage : Page
         // vs 0.24 s small); the initial pick and manual picks keep the configured tier.
         if (reason == "auto" && size == "large" && _relay.ActiveModelDir is not null && code != _activeLanguage)
             option = EngineCatalog.Find(code, "small") ?? option;
-        if (!_relay.SwapTo(Path.Combine(ModelDir, "vosk", option.Model)))
+        var relay = _relay;
+        var owner = _session;
+        // The engine build takes seconds on the large tier and must never run on the UI
+        // thread (review r7). The meeting can change while it loads; bail if it did.
+        if (!await Task.Run(() => relay.SwapTo(Path.Combine(ModelDir, "vosk", option.Model))))
         {
             MeetVault.Core.AppLog.Warn("langid: swap failed for " + option.Model);
+            return;
+        }
+        if (!ReferenceEquals(_session, owner))
+        {
+            MeetVault.Core.AppLog.Warn("langid: meeting changed while the engine loaded; apply skipped");
             return;
         }
         _activeLanguage = code;
@@ -626,15 +641,17 @@ public sealed partial class LivePage : Page
         EngineStatus.Text = _engineMode;
         MeetVault.Core.AppLog.Info("live: language -> " + code + " (" + reason + ")");
         SetLangStatus();
+        }
+        catch (Exception ex) { MeetVault.Core.AppLog.Warn("langid: apply failed: " + ex.Message); }
     }
 
     private void OnLangSuggested(string code)
-        => DispatcherQueue.TryEnqueue(() =>
+        => DispatcherQueue.TryEnqueue(async () =>
         {
             if (!_autoMode || _relay is null) return;
             if (_relay.ActiveModelDir is null)
             {
-                ApplyLanguage(code, auto: true, reason: "auto-initial");   // first detection decides the start
+                await ApplyLanguageAsync(code, auto: true, reason: "auto-initial");   // first detection decides the start
                 return;
             }
             _pendingLanguage = code;
@@ -649,20 +666,20 @@ public sealed partial class LivePage : Page
         _pendingLanguage = null;
         if (Environment.TickCount64 - _pendingSinceMs > 20_000)
             MeetVault.Core.AppLog.Warn("langid: switch applied with no endpoint for 20 s");
-        ApplyLanguage(code, auto: true, reason: "auto");
+        _ = ApplyLanguageAsync(code, auto: true, reason: "auto"); // fire-and-forget: applies off the UI thread
     }
 
     private void OnLangDetected(string code, float confidence)
-        => DispatcherQueue.TryEnqueue(() =>
+        => DispatcherQueue.TryEnqueue(async () =>
         {
             if (!_autoMode) return;
             ToolTipService.SetToolTip(LangStatus, Loc.Tf("Live.LangDetected", LiveBridge.LanguageDisplay(code) + " " + confidence.ToString("P0")));
             // First detection while no engine is active decides the starting language.
             if (_relay is not null && _relay.ActiveModelDir is null && _state == LiveState.Recording)
-                ApplyLanguage(code, auto: true, reason: "auto-initial");
+                await ApplyLanguageAsync(code, auto: true, reason: "auto-initial");
         });
 
-    private void OnLanguageRequested(string code)
+    private async void OnLanguageRequested(string code)
     {
         var normalized = (code ?? "").Trim().ToLowerInvariant();
         if (normalized == "auto")
@@ -680,7 +697,7 @@ public sealed partial class LivePage : Page
         _autoMode = false;
         if (_langMonitor is not null) _langMonitor.Enabled = false;
         PersistLanguage(normalized);
-        if (_relay is not null) ApplyLanguage(normalized, auto: false, reason: "manual");
+        if (_relay is not null) await ApplyLanguageAsync(normalized, auto: false, reason: "manual");
         SyncLanguageCombo(normalized);
         SetLangStatus();
     }

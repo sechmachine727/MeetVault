@@ -154,6 +154,7 @@
   <data name="Mtg.Cancel" xml:space="preserve"><value>キャンセル</value></data>
   <data name="Mtg.Deleted" xml:space="preserve"><value>{0} 件の会議を削除しました。</value></data>
   <data name="Mtg.Partial" xml:space="preserve"><value>{0} 件削除、{1} 件失敗 — 残りの会議を削除できませんでした。</value></data>
+  <data name="Mtg.PartialSkipped" xml:space="preserve"><value>{0} 件削除、{1} 件失敗、{2} 件の録音ファイルが削除できませんでした — クリーンアップを確認してください。</value></data>
   <data name="Mtg.CouldNotDeleteSelected" xml:space="preserve"><value>選択した会議を削除できませんでした。</value></data>
   <data name="Mtg.DelOneTitle" xml:space="preserve"><value>この会議を削除しますか？</value></data>
   <data name="Mtg.DelOneBody" xml:space="preserve"><value>「{0}」とその文字起こしを削除します。録音ファイルも削除されます。この操作は元に戻せません。</value></data>
@@ -298,6 +299,8 @@
   <data name="LiveScreenRecord.OffContent" xml:space="preserve"><value>オフ</value></data>
   <data name="LiveScreenRecord.AutomationProperties.Name" xml:space="preserve"><value>画面を録画する</value></data>
   <data name="LiveScreenRefresh.Content" xml:space="preserve"><value>更新</value></data>
+  <data name="LiveLanguageCombo.AutomationProperties.Name" xml:space="preserve"><value>言語</value></data>
+  <data name="LiveScreenSourceCombo.AutomationProperties.Name" xml:space="preserve"><value>キャプチャ元</value></data>
   <data name="LiveScreenStart.Content" xml:space="preserve"><value>画面収録を開始</value></data>
   <data name="LiveScreenStop.Content" xml:space="preserve"><value>画面収録を停止</value></data>
   <data name="Live.ScreenOn" xml:space="preserve"><value>画面: {0} に録画中</value></data>
