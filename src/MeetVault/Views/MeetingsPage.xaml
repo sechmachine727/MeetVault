@@ -90,6 +90,7 @@
                                                  selection (hit testing stays on the row button). -->
                                             <CheckBox IsChecked="{Binding IsSelected, Mode=OneWay}" IsEnabled="{Binding IsSelectable}"
                                                       Visibility="{Binding CheckVisibility}" IsHitTestVisible="False" IsTabStop="False"
+                                                      AutomationProperties.AccessibilityView="Raw"
                                                       MinWidth="0" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="2" Text="{Binding CreatedAt}" Opacity="0.7" VerticalAlignment="Center" TextWrapping="Wrap" />
