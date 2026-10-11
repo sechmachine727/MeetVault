@@ -22,6 +22,7 @@ public sealed partial class LivePage : Page
     private IAudioCapture _audio = null!;
     private ISpeakerDiarizer _diarizer = null!;
     private string _engineMode = "demo (no models)";
+    private bool _singleSpeaker; // diarization off: no speaker identities are minted or shown
     private static readonly string ModelDir = Path.Combine(AppContext.BaseDirectory, "models");
     private long _windowOffsetMs;
     // Adjustment (A): VAD stream time restarts at zero after Reset, so raw utterance times are
@@ -106,7 +107,8 @@ public sealed partial class LivePage : Page
             var vadModel = Path.Combine(ModelDir, "silero_vad.onnx");
             _utterances = File.Exists(vadModel) ? new UtteranceSegmenter(vadModel) : null;
             if (_utterances is null) MeetVault.Core.AppLog.Warn("live: silero_vad.onnx missing; falling back to 3 s windows");
-            if (AppStore.Repo.GetSetting("transcription.diarization") != "off")
+            _singleSpeaker = !MeetVault.Core.TranscriptionPipeline.DiarizationEnabled(AppStore.Repo.GetSetting("transcription.diarization"));
+            if (!_singleSpeaker)
             {
                 sherpaDiarizer = new SherpaDiarizer(Path.Combine(ModelDir, "sherpa-seg.onnx"), Path.Combine(ModelDir, "sherpa-emb.onnx"));
             }
@@ -162,7 +164,7 @@ public sealed partial class LivePage : Page
             // it continues the same meeting's ids and names.
             _speakerNames.Clear();
             _sherpaDiarizer?.Reset();
-            _session = new MeetingSession(_audio, _transcriber, _diarizer, new NeutralSpeakerLabeler(), AppStore.Repo);
+            _session = new MeetingSession(_audio, _transcriber, _diarizer, new NeutralSpeakerLabeler(), AppStore.Repo, singleSpeaker: _singleSpeaker);
             await _session.StartAsync(MicId, AppSource, CancellationToken.None);
             WireSession(clearOverlay: true);
             _windowOffsetMs = 0;
@@ -186,7 +188,7 @@ public sealed partial class LivePage : Page
         try
         {
             if (AppStore.Repo.Load(id)?.MediaPath is { Length: > 0 } mediaPath && _capture is not null) _capture.ReuseFile(mediaPath);
-            _session = await MeetingSession.RecoverAsync(id, _audio, _transcriber, _diarizer, new NeutralSpeakerLabeler(), AppStore.Repo, MicId, AppSource);
+            _session = await MeetingSession.RecoverAsync(id, _audio, _transcriber, _diarizer, new NeutralSpeakerLabeler(), AppStore.Repo, MicId, AppSource, singleSpeaker: _singleSpeaker);
             foreach (var sp in _session.Speakers) _speakerNames[sp.Id] = sp.DisplayName;
             foreach (var s in _session.Segments) AddLine(s.SpeakerId, s.Text);
             WireSession(clearOverlay: false); // keep the recovered backlog for a late-opened overlay
@@ -384,7 +386,7 @@ public sealed partial class LivePage : Page
 
     private void AddLine(string speakerId, string text)
     {
-        var name = _speakerNames.TryGetValue(speakerId, out var n) ? n : speakerId;
+        var name = _singleSpeaker ? "" : (_speakerNames.TryGetValue(speakerId, out var n) ? n : speakerId);
         Lines.Add(new TranscriptLine(name, text));
         LiveBridge.Publish(name, text);
     }
