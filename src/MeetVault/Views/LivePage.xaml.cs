@@ -432,9 +432,15 @@ public sealed partial class LivePage : Page
     }
 
     // Capture died on its own. The meeting is still open so the user can save what was
-    // recorded, but they must not be left believing the microphone is still live.
+    // recorded, but they must not be left believing the microphone is still live: clear
+    // the overlay's live state too (its empty conversation must stop saying "Listening…"),
+    // not only the page's status line.
     private void OnCaptureFailed(string reason)
-        => DispatcherQueue.TryEnqueue(() => Status(Loc.Tf("Live.CaptureFailed", reason)));
+        => DispatcherQueue.TryEnqueue(() =>
+        {
+            LiveBridge.SetLive(false);
+            Status(Loc.Tf("Live.CaptureFailed", reason));
+        });
 
     // Closes any open speech in the segmenter and logs what is dropped, so pause, stop and
     // unload cannot silently lose the pending sentence (the recording still holds the audio).
