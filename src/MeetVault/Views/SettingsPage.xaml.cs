@@ -16,12 +16,16 @@ public sealed partial class SettingsPage : Page
     private bool _ready;
     // Load-time guard for the value-changed handlers: set while the ctor seeds the
     // controls from persisted settings, so a programmatic selection cannot fire a
-    // Refresh per control (load must not storm refreshes). The ctor's Refresh() still
-    // runs its persist block — deliberately, and safe now that every control range
-    // matches its flyout counterpart: a clamped value (a stale mic index, a vanished
-    // device) is repaired in the store, while a value that loaded un-clamped round-trips
-    // to itself. (The write-back was briefly suppressed when the Settings darkness
-    // slider still had a 0.3 floor that clamped a saved 0 and then rewrote it.)
+    // persist + Refresh per control (load must not storm writes). The ctor's load path
+    // still runs the persist-all write-back (PersistAll) — deliberately, and safe now
+    // that every control range matches its flyout counterpart: a clamped value (a stale
+    // mic index, a vanished device) is repaired in the store, while a value that loaded
+    // un-clamped round-trips to itself. (The write-back was briefly suppressed when the
+    // Settings darkness slider still had a 0.3 floor that clamped a saved 0 and then
+    // rewrote it.) User-initiated changes never go through PersistAll: each handler
+    // persists only the key(s) of the control the user actually touched, so touching a
+    // Settings control cannot silently revert a value another surface (the overlay
+    // cogwheel flyout) wrote to a different key.
     private bool _loading;
 
     public SettingsPage()
@@ -52,12 +56,13 @@ public sealed partial class SettingsPage : Page
         try { LoadPersisted(); } catch { }
         _ready = true;
         try { WarnIfSavedDeviceUnavailable(); } catch { }
-        // After the warning: Refresh persists the picker's current value, which SelectDevice
-        // may have already downgraded to CPU — the warning must read the setting before that
-        // write, and the write-back itself is what repairs a clamped value (a stale mic
-        // index, a vanished device) in the store on load. Handlers stay suppressed while
-        // _loading is set, so seeding the controls does not storm refreshes.
+        // After the warning: the load-time write-back persists the picker's current value,
+        // which SelectDevice may have already downgraded to CPU — the warning must read the
+        // setting before that write, and the write-back itself is what repairs a clamped
+        // value (a stale mic index, a vanished device) in the store on load. Handlers stay
+        // suppressed while _loading is set, so seeding the controls does not storm writes.
         Refresh();
+        PersistAll();
         _loading = false;
     }
 
@@ -83,7 +88,29 @@ public sealed partial class SettingsPage : Page
         return list;
     }
 
-    private void Picker_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (_loading) return; if (_ready) Refresh(); }
+    // A user-initiated change persists ONLY the key(s) of the control that changed, then
+    // re-renders the summary; Refresh() itself writes nothing (see PersistAll for the
+    // load-time write-back). This is what stops a Settings control from reverting a
+    // value another surface — the overlay cogwheel flyout — just wrote to a shared key.
+    private void Picker_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading) return;
+        if (!_ready) return;
+        if (ReferenceEquals(sender, MicPicker)) Persist("audio.mic", MicId());
+        else if (ReferenceEquals(sender, ModelPicker)) Persist("transcription.model", ModelPicker.SelectedIndex == 1 ? "base" : "tiny");
+        else if (ReferenceEquals(sender, DevicePicker)) Persist("transcription.device", DeviceValue());
+        else if (ReferenceEquals(sender, LogLevelPicker))
+        {
+            var level = LogLevelPicker.SelectedItem as string ?? "debug";
+            Persist(() => { AppStore.Repo.SetSetting("logging.level", level); MeetVault.Core.AppLog.Configure(level); });
+        }
+        else if (ReferenceEquals(sender, SourcePicker))
+            // The source picker owns two coupled keys: audio.source is the live-format
+            // value the capture path reads, audio.system.app is what seeds this picker on
+            // the next load — both must follow the choice or the reload loses it.
+            Persist(() => { AppStore.Repo.SetSetting("audio.source", SysSourceValue()); AppStore.Repo.SetSetting("audio.system.app", SourceValue()); });
+        Refresh();
+    }
 
     // Persists ui.language and applies the override for the NEXT launch; the InfoBar says so.
     // Unpackaged apps must use the Microsoft.Windows.Globalization variant — the
@@ -120,18 +147,59 @@ public sealed partial class SettingsPage : Page
         StatusBar.IsOpen = true;
     }
 
-    private void Diarization_Toggled(object sender, RoutedEventArgs e) { if (_loading) return; if (_ready) Refresh(); }
+    private void Diarization_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        if (!_ready) return;
+        Persist("transcription.diarization", OnOff(DiarizationSwitch.IsOn));
+        Refresh();
+    }
 
-    private void Audio_Toggled(object sender, RoutedEventArgs e) { if (_loading) return; if (_ready) Refresh(); }
+    private void Audio_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        if (!_ready) return;
+        if (ReferenceEquals(sender, MicSwitch)) Persist("audio.mic.enabled", OnOff(MicSwitch.IsOn));
+        else if (ReferenceEquals(sender, SystemSwitch))
+            // The toggle owns two coupled keys: turning system audio off stores the source
+            // as "off" (the capture path reads it), the enabled flag records the toggle.
+            Persist(() => { AppStore.Repo.SetSetting("audio.system.enabled", OnOff(SystemSwitch.IsOn)); AppStore.Repo.SetSetting("audio.source", SysSourceValue()); });
+        Refresh();
+    }
 
-    private void Pin_Toggled(object sender, RoutedEventArgs e) { if (_loading) return; if (_ready) Refresh(); }
+    private void Pin_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        if (!_ready) return;
+        Persist("overlay.pin", OnOff(PinSwitch.IsOn));
+        Refresh();
+    }
 
-    private void Opacity_ValueChanged(object sender, RangeBaseValueChangedEventArgs e) { if (_loading) return; if (_ready) Refresh(); }
+    private void Opacity_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+    {
+        if (_loading) return;
+        if (!_ready) return;
+        Persist("overlay.opacity", OpacitySlider.Value.ToString());
+        Refresh();
+    }
 
-    private void Number_ValueChanged(object sender, NumberBoxValueChangedEventArgs e) { if (_loading) return; if (_ready) Refresh(); }
+    private void Number_ValueChanged(object sender, NumberBoxValueChangedEventArgs e)
+    {
+        if (_loading) return;
+        if (!_ready) return;
+        if (ReferenceEquals(sender, LinesBox)) Persist("overlay.viewlines", LinesBox.Value.ToString());
+        else if (ReferenceEquals(sender, FontSizeBox)) Persist("overlay.font", FontSizeBox.Value.ToString());
+        Refresh();
+    }
 
     // LostFocus rather than TextChanged: usage walks the folder, and a per-keystroke scan would stall the UI thread.
-    private void Refresh_Storage(object sender, RoutedEventArgs e) { if (_loading) return; if (_ready) Refresh(); }
+    private void Refresh_Storage(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        if (!_ready) return;
+        Persist("storage.path", StoragePathBox.Text);
+        Refresh();
+    }
 
     private void SaveKey_Click(object sender, RoutedEventArgs e)
     {
@@ -234,7 +302,9 @@ public sealed partial class SettingsPage : Page
         Warn(Loc.Tf("Set.SavedDeviceGone", MeetVault.Core.GpuProbe.GpuUnavailableReason()));
     }
 
-    // One place that turns control values into the visible summary, so a section can never drift from its controls.
+    // One place that turns control values into the visible summary, so a section can never
+    // drift from its controls. Render only: persistence is per-control in the handlers,
+    // plus the ctor's PersistAll write-back.
     private void Refresh()
     {
         if (!_ready) return;
@@ -244,10 +314,8 @@ public sealed partial class SettingsPage : Page
             || AudioStatus is null || TranscriptionStatus is null || OverlayStatus is null
             || StorageStatus is null || UsageText is null || GeminiStatus is null) return;
         var device = DevicePicker.SelectedItem as DeviceOption;
-        var deviceValue = device is { Enabled: true } ? device.Value : "cpu";
         var micOn = MicSwitch.IsOn;
         var sysOn = SystemSwitch.IsOn;
-        var sourceValue = SourcePicker.SelectedIndex >= 0 && SourcePicker.SelectedIndex < _sourceOptions.Count ? _sourceOptions[SourcePicker.SelectedIndex].Value : "";
         var sourceLabel = SourcePicker.SelectedItem as string ?? Loc.T("Set.SysSrcAllApps");
         AudioStatus.Text = (micOn, sysOn) switch
         {
@@ -267,13 +335,17 @@ public sealed partial class SettingsPage : Page
         GeminiStatus.Text = GeminiApiKey is null
             ? Loc.T("Set.GeminiNoKey")
             : Loc.T("Set.KeyStored");
+    }
 
-        // Persist after the summary renders so a storage failure degrades to a warning, never a dead page.
-        // This runs once at load too (the ctor's Refresh), deliberately: writing the controls back
-        // repairs a value they had to clamp — a stored mic index past the device list falls to the
-        // picker's first entry, a vanished device falls to CPU — while a value that loaded un-clamped
-        // round-trips to itself (every range matches its flyout counterpart, so nothing rewrites it).
-        try
+    // Load-time write-back, ctor only: persists every control's current value once, after
+    // the controls were seeded, so a value they had to clamp is repaired in the store — a
+    // stored mic index past the device list falls to the picker's first entry, a vanished
+    // device falls to CPU — while a value that loaded un-clamped round-trips to itself
+    // (every range matches its flyout counterpart, so nothing rewrites it). User-initiated
+    // changes never call this; each handler persists only its own key(s).
+    private void PersistAll()
+    {
+        Persist(() =>
         {
             var repo = AppStore.Repo;
             repo.SetSetting("transcription.diarization", OnOff(DiarizationSwitch.IsOn));
@@ -283,16 +355,25 @@ public sealed partial class SettingsPage : Page
             repo.SetSetting("overlay.viewlines", LinesBox.Value.ToString());
             repo.SetSetting("storage.path", StoragePathBox.Text);
             repo.SetSetting("transcription.model", ModelPicker.SelectedIndex == 1 ? "base" : "tiny");
-            var micLabel = MicPicker.SelectedItem as string ?? "0";
-            var micId = micLabel.Contains(":") ? micLabel.Substring(0, micLabel.IndexOf(':')).Trim() : "0";
-            repo.SetSetting("audio.mic", micId);
-            repo.SetSetting("audio.source", sysOn ? (string.IsNullOrEmpty(sourceValue) ? "all" : sourceValue) : "off");
-            repo.SetSetting("audio.mic.enabled", OnOff(micOn));
-            repo.SetSetting("audio.system.enabled", OnOff(sysOn));
-            repo.SetSetting("audio.system.app", sourceValue);
-            repo.SetSetting("transcription.device", deviceValue);
+            repo.SetSetting("audio.mic", MicId());
+            repo.SetSetting("audio.source", SysSourceValue());
+            repo.SetSetting("audio.mic.enabled", OnOff(MicSwitch.IsOn));
+            repo.SetSetting("audio.system.enabled", OnOff(SystemSwitch.IsOn));
+            repo.SetSetting("audio.system.app", SourceValue());
+            repo.SetSetting("transcription.device", DeviceValue());
+            var logLevel = LogLevelPicker.SelectedItem as string ?? "debug";
             repo.SetSetting("logging.level", logLevel);
             MeetVault.Core.AppLog.Configure(logLevel);
+        });
+    }
+
+    // One settings write for the control the user changed; a read-only/full data folder
+    // degrades to a warning (with DescribeStorage(ex)), never a dead page.
+    private void Persist(Action write)
+    {
+        try
+        {
+            write();
             _saveFailed = false;
         }
         catch (Exception ex) when (!_saveFailed)
@@ -303,6 +384,24 @@ public sealed partial class SettingsPage : Page
             StatusBar.IsOpen = true;
         }
     }
+
+    private void Persist(string key, string value) => Persist(() => AppStore.Repo.SetSetting(key, value));
+
+    // Current control values in their persisted formats, shared by PersistAll and the
+    // per-control handlers so the two can never drift.
+    private string MicId()
+    {
+        var micLabel = MicPicker.SelectedItem as string ?? "0";
+        return micLabel.Contains(":") ? micLabel.Substring(0, micLabel.IndexOf(':')).Trim() : "0";
+    }
+
+    private string DeviceValue() => DevicePicker.SelectedItem is DeviceOption { Enabled: true } device ? device.Value : "cpu";
+
+    private string SourceValue() => SourcePicker.SelectedIndex >= 0 && SourcePicker.SelectedIndex < _sourceOptions.Count ? _sourceOptions[SourcePicker.SelectedIndex].Value : "";
+
+    // audio.source's stored value for the current controls: "off" while system audio is
+    // off, otherwise the chosen app (or "all").
+    private string SysSourceValue() => SystemSwitch.IsOn ? (string.IsNullOrEmpty(SourceValue()) ? "all" : SourceValue()) : "off";
 
     private bool _saveFailed;
 
