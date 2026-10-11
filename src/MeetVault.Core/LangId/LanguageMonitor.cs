@@ -48,7 +48,12 @@ public sealed class LanguageMonitor : IDisposable
         lock (_gateLock) _gate.Reset();
     }
 
-    public void Push(float[] samples16k) { lock (_lock) _pending.AddRange(samples16k); _wake.Set(); }
+    public void Push(float[] samples16k)
+    {
+        if (_stop) return; // a straggling pump push must not hit the disposed wake handle (review r8)
+        lock (_lock) _pending.AddRange(samples16k);
+        _wake.Set();
+    }
 
     private void Loop()
     {

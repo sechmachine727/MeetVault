@@ -41,6 +41,21 @@ public sealed class BulkDeleteTests : IDisposable
         Assert.False(File.Exists(staged));
     }
 
+    [Fact]
+    public void Open_RestoresAsideWhenRowStillReferencesIt()
+    {
+        // Crash window: the recording was renamed aside but the row was NOT yet deleted
+        // (process died in between). The aside is the only copy; the next open must
+        // restore it, never sweep it (r8).
+        var path = NewMedia("a");
+        _repo.Save(NewMeeting("a", path), Array.Empty<Speaker>(), Array.Empty<Segment>());
+        File.Move(path, path + ".deleting");
+        using var repo2 = new LocalMeetingRepository(_db, _dir);
+        Assert.True(File.Exists(path));                  // restored to the referenced path
+        Assert.False(File.Exists(path + ".deleting"));
+        Assert.Equal(path, _repo.Load("a")!.MediaPath);  // the row is untouched
+    }
+
     private static Meeting NewMeeting(string id, string? media, MeetingStatus status = MeetingStatus.Ready) =>
         new(id, "t-" + id, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, status, media, "audio/m4a");
 

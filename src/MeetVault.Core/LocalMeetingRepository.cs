@@ -40,8 +40,33 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         try
         {
             if (!Directory.Exists(_mediaRoot)) return;
+            // A row that still points at the original path means the crash happened in the
+            // rename→row-delete window: the aside is the ONLY copy, so it is RESTORED, never
+            // swept (review r8). Only asides no row references are collected.
+            var referenced = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            using (var c = _db.CreateCommand())
+            {
+                c.CommandText = "SELECT media_path FROM meetings WHERE media_path IS NOT NULL UNION SELECT path FROM media_tracks";
+                using var r = c.ExecuteReader();
+                while (r.Read())
+                {
+                    try { referenced.Add(Path.GetFullPath(r.GetString(0))); } catch { }
+                }
+            }
             foreach (var path in Directory.EnumerateFiles(_mediaRoot, "*.deleting"))
             {
+                string orig;
+                try { orig = Path.GetFullPath(path[..^".deleting".Length]); } catch { continue; }
+                if (referenced.Contains(orig))
+                {
+                    try
+                    {
+                        if (!File.Exists(orig)) { File.Move(path, orig); AppLog.Info("repo: restored staged deletion " + path + " -> " + orig); }
+                        else AppLog.Warn("repo: staged deletion left in place (both files exist): " + path);
+                    }
+                    catch (Exception ex) { AppLog.Warn("repo: could not restore staged deletion: " + path + " :: " + ex.Message); }
+                    continue;
+                }
                 try { File.Delete(path); AppLog.Info("repo: swept staged deletion " + path); }
                 catch (Exception ex) { AppLog.Warn("repo: staged deletion still locked: " + path + " :: " + ex.Message); }
             }

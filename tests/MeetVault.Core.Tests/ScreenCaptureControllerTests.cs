@@ -16,7 +16,6 @@ public sealed class ScreenCaptureControllerTests : IDisposable
         public bool FailStops { get; set; }
         public List<(CaptureSource Source, string Path)> Starts { get; } = new();
         public event Action<string>? Failed;
-        public event Action<bool>? StateChanged;
 #pragma warning disable CS0067 // the fake produces no preview frames
         public event Action<byte[], int, int, int>? FramePreview;
 #pragma warning restore CS0067
@@ -26,14 +25,12 @@ public sealed class ScreenCaptureControllerTests : IDisposable
             if (IsRecording) Overlapped = true;
             IsRecording = true;
             Starts.Add((source, outputPath));
-            StateChanged?.Invoke(true);
             return Task.CompletedTask;
         }
 
         public Task<RecordingResult> StopAsync(CancellationToken ct = default)
         {
             IsRecording = false;
-            StateChanged?.Invoke(false);
             var path = Starts.Count > 0 ? Starts[^1].Path : null;
             return Task.FromResult(FailStops
                 ? new RecordingResult(false, path, 4000, "encoder boom")

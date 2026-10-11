@@ -195,6 +195,9 @@ public sealed partial class LivePage : Page
     {
         try
         {
+            // A second click during the multi-second lazy-engine load must not start a
+            // parallel session (review r8).
+            if (_state != LiveState.Idle) return;
             // Reset before StartAsync: the pump (started inside StartAsync) must never push
             // onto the previous meeting's stream state — the rebase base is zeroed, and a
             // stale open-sentence row from a previous meeting must not be reused.
@@ -684,8 +687,16 @@ public sealed partial class LivePage : Page
         var normalized = (code ?? "").Trim().ToLowerInvariant();
         if (normalized == "auto")
         {
-            if (!MeetVault.Core.LangIdModel.IsAvailable(ModelDir)) Status(Loc.T("Set.LangIdMissing"));
-            _autoMode = MeetVault.Core.LangIdModel.IsAvailable(ModelDir);
+            if (!MeetVault.Core.LangIdModel.IsAvailable(ModelDir))
+            {
+                // Do not persist a mode the app cannot run (review r8): keep the effective
+                // manual language and show it in the combo instead of a stale "auto".
+                Status(Loc.T("Set.LangIdMissing"));
+                SyncLanguageCombo(_activeLanguage);
+                SetLangStatus();
+                return;
+            }
+            _autoMode = true;
             EnsureLangMonitor();
             if (_langMonitor is not null) _langMonitor.Enabled = true;
             PersistLanguage("auto");

@@ -154,17 +154,25 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
 
     public void Dispose()
     {
-        IStreamingTranscriber? inner;
-        lock (_swapLock)
+        // Serialize against an in-flight SwapTo (review r8): its Task.Run can be loading a
+        // model while the page unloads; without this, the swap would publish and start a
+        // fresh engine into a disposed relay — a leaked model with a parked decode thread.
+        _swapOne.Wait();
+        try
         {
-            inner = _inner;
-            _inner = null;
-            _preRoll.Clear();
-            IsRunning = false;
+            IStreamingTranscriber? inner;
+            lock (_swapLock)
+            {
+                inner = _inner;
+                _inner = null;
+                _preRoll.Clear();
+                IsRunning = false;
+            }
+            if (inner is null) return;
+            inner.PartialReady -= ForwardPartial;
+            inner.SegmentReady -= ForwardSegment;
+            try { inner.Dispose(); } catch { }
         }
-        if (inner is null) return;
-        inner.PartialReady -= ForwardPartial;
-        inner.SegmentReady -= ForwardSegment;
-        try { inner.Dispose(); } catch { }
+        finally { _swapOne.Release(); }
     }
 }

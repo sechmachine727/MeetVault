@@ -19,7 +19,6 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
 
     public bool IsRecording { get; private set; }
     public event Action<string>? Failed;
-    public event Action<bool>? StateChanged;
     public event Action<byte[], int, int, int>? FramePreview;
 
     public Task StartAsync(CaptureSource source, string outputPath, CancellationToken ct = default)
@@ -28,12 +27,14 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
         lock (_gate)
         {
             if (IsRecording) throw new InvalidOperationException("already recording");
+            // Before the native recorder exists: a bad/long path or permission failure here
+            // must not leak a recorder or leave _done set (review r8).
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
             var recorder = Create(source, OnFrameRecorded);
             _outputPath = outputPath;
             _done = new TaskCompletionSource<RecordingResult>(TaskCreationOptions.RunContinuationsAsynchronously);
             recorder.OnRecordingComplete += (_, e) => Finish(true, e.FilePath, null);
             recorder.OnRecordingFailed += (_, e) => Finish(false, e.FilePath, e.Error);
-            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
             _startTicks = Stopwatch.GetTimestamp();
             // Publish the recorder before Record: a throw from Record (e.g. the missing-CRT
             // path) must not leak the native recorder or leave _done dangling (review r7).
@@ -49,7 +50,6 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
                 throw;
             }
         }
-        StateChanged?.Invoke(true);
         return Task.CompletedTask;
     }
 
@@ -109,7 +109,6 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
             _recorder = null;
             done.TrySetResult(new RecordingResult(ok, path ?? _outputPath, ElapsedMs(), error));
         }
-        StateChanged?.Invoke(false);
         if (!ok && error is not null) Failed?.Invoke(error);
         try { rec?.Dispose(); } catch { } // finalized; release it after the events (review r6)
     }
@@ -118,7 +117,6 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
     {
         Recorder? rec;
         lock (_gate) { rec = _recorder; IsRecording = false; _recorder = null; }
-        StateChanged?.Invoke(false);
         return rec;
     }
 
