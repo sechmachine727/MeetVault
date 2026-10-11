@@ -10,6 +10,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -25,13 +26,16 @@
         <MediaPlayerElement x:Name="Player" Grid.Row="3" AreTransportControlsEnabled="True" MaxHeight="220"
                             Visibility="Collapsed" />
 
-        <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="8">
+        <MediaPlayerElement x:Name="VideoPlayer" Grid.Row="4" AreTransportControlsEnabled="False" MaxHeight="300"
+                            Visibility="Collapsed" />
+
+        <StackPanel Grid.Row="5" Orientation="Horizontal" Spacing="8">
             <Button x:Name="CopyButton" x:Uid="DetCopy" Click="Copy_Click" />
             <Button x:Name="ExportButton" x:Uid="DetExport" Click="Export_Click" />
             <Button x:Name="SendButton" x:Uid="DetSend" Click="Gemini_Click" />
         </StackPanel>
 
-        <Expander x:Name="GeminiExpander" x:Uid="DetGeminiHeader" Grid.Row="5" IsExpanded="False" HorizontalAlignment="Stretch">
+        <Expander x:Name="GeminiExpander" x:Uid="DetGeminiHeader" Grid.Row="6" IsExpanded="False" HorizontalAlignment="Stretch">
             <StackPanel Spacing="6">
                 <TextBlock x:Name="JobState" Text="No job sent yet." TextWrapping="Wrap" />
                 <TextBlock x:Name="JobResult" Text="" FontFamily="Consolas" FontSize="12" Opacity="0.8"
@@ -39,7 +43,7 @@
             </StackPanel>
         </Expander>
 
-        <Grid Grid.Row="6" Margin="0,8,0,0">
+        <Grid Grid.Row="7" Margin="0,8,0,0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
@@ -56,6 +60,7 @@
                 <ItemsControl x:Name="TranscriptList">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
+                            <Border Background="{Binding RowBackground}" CornerRadius="4" Tapped="Row_Tapped">
                             <Grid Padding="0,6" ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
@@ -69,6 +74,7 @@
                                          TextChanged="LineText_TextChanged"
                                          TextWrapping="Wrap" AcceptsReturn="False" />
                             </Grid>
+                            </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>

@@ -117,6 +117,35 @@
             </StackPanel>
 
             <StackPanel Spacing="8">
+                <TextBlock x:Uid="SetScreen" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetScreenEnable" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetScreenEnableDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ToggleSwitch x:Name="ScreenSwitch" x:Uid="SetScreenSwitch" Grid.Column="1" HorizontalAlignment="Left"
+                                  IsOn="True" Toggled="Screen_Toggled" />
+                </Grid>
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetScreenSource" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetScreenSourceDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ComboBox x:Name="ScreenSourcePicker" x:Uid="SetScreenSourcePicker" Grid.Column="1" Width="360" HorizontalAlignment="Left"
+                              SelectionChanged="ScreenSourcePicker_SelectionChanged" />
+                </Grid>
+                <TextBlock x:Uid="SetScreenNote" Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
                 <TextBlock x:Uid="SetOverlay" Style="{StaticResource SubtitleTextBlockStyle}" />
                 <TextBlock x:Uid="SetOverlayNote" Opacity="0.7" TextWrapping="Wrap" />
                 <Grid ColumnSpacing="24">

@@ -308,6 +308,16 @@
   <data name="Ov.Rec" xml:space="preserve"><value>Recording</value></data>
   <data name="Set.SizeAutoNote" xml:space="preserve"><value>Size applies per language; unavailable sizes fall back to Small.</value></data>
   <data name="Set.LangIdMissing" xml:space="preserve"><value>Language detection model is not installed; Auto-detect starts in English.</value></data>
+  <data name="SetScreen.Text" xml:space="preserve"><value>Screen recording</value></data>
+  <data name="SetScreenEnable.Text" xml:space="preserve"><value>Record screens in meetings</value></data>
+  <data name="SetScreenEnableDesc.Text" xml:space="preserve"><value>Applies to every new meeting; turn it off for audio-only recording.</value></data>
+  <data name="SetScreenSwitch.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="SetScreenSwitch.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="SetScreenSwitch.AutomationProperties.Name" xml:space="preserve"><value>Record screens in meetings</value></data>
+  <data name="SetScreenSource.Text" xml:space="preserve"><value>Capture source</value></data>
+  <data name="SetScreenSourceDesc.Text" xml:space="preserve"><value>A display or a specific window; re-resolved at every meeting start (a closed window falls back to the primary display).</value></data>
+  <data name="SetScreenSourcePicker.AutomationProperties.Name" xml:space="preserve"><value>Capture source</value></data>
+  <data name="SetScreenNote.Text" xml:space="preserve"><value>Screen recording is enabled by default for new meetings; video is stored next to the audio and pauses with the meeting.</value></data>
   <data name="Set.LogWriting" xml:space="preserve"><value>Writing {0} and above to {1}</value></data>
   <data name="Set.OverlayStatus" xml:space="preserve"><value>Keep on top {0} · opacity {1} · font {2} pt · {3} line(s)</value></data>
   <data name="Set.StorageStatus" xml:space="preserve"><value>Transcripts will be written to {0}.</value></data>

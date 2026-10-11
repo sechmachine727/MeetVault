@@ -25,6 +25,8 @@ public sealed partial class DetailsPage : Page
     // recorded without diarization has none and must render nameless (no spk_N fallback).
     private bool _hasSpeakers;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _saveTimer;
+    private MediaTrack? _videoTrack;
+    private int _highlightIndex = -1;
 
     public DetailsPage()
     {
@@ -71,9 +73,10 @@ public sealed partial class DetailsPage : Page
         // Array snapshot across the ABI; items mutate in place so no re-set is needed after load.
         TranscriptList.ItemsSource = Lines.ToArray();
         ShowPlayer();
+        ShowVideo();
         ShowPriorJob(_meeting);
         UpdateLineStatus();
-        Unloaded += (_, _) => { try { Player.Source = null; } catch { } };
+        Unloaded += (_, _) => { try { Player.Source = null; } catch { } try { VideoPlayer.Source = null; } catch { } };
     }
 
     private static string FormatDuration(Meeting m)
@@ -92,6 +95,101 @@ public sealed partial class DetailsPage : Page
             Player.Visibility = Visibility.Visible;
         }
         catch { Player.Visibility = Visibility.Collapsed; }
+    }
+
+    // E2: the screen track (first "screen" row with a live file) plays in its own element.
+    // The AUDIO player stays the master; the video follows it via the sync loop, shifted by
+    // the run's start_offset_ms (each run is its own file, so the clip's t=0 is run-start).
+    private void ShowVideo()
+    {
+        if (_meeting is null) return;
+        _videoTrack = AppStore.Repo.ListMediaTracks(_meeting.Id).FirstOrDefault(t => t.Kind == "screen" && File.Exists(t.Path));
+        if (_videoTrack is null) return;
+        try
+        {
+            VideoPlayer.Source = MediaSource.CreateFromUri(new Uri(_videoTrack.Path));
+            VideoPlayer.Visibility = Visibility.Visible;
+            if (VideoPlayer.MediaPlayer is { } vmp) vmp.IsMuted = true; // video-only file: the audio master is the sound
+            var session = Player.MediaPlayer?.PlaybackSession;
+            if (session is not null)
+            {
+                session.PositionChanged += OnAudioPositionChanged;
+                session.PlaybackStateChanged += OnAudioPlaybackStateChanged;
+            }
+        }
+        catch (Exception ex)
+        {
+            MeetVault.Core.AppLog.Warn("details: video track failed to load: " + ex.Message);
+            VideoPlayer.Visibility = Visibility.Collapsed;
+            _videoTrack = null;
+        }
+    }
+
+    private void OnAudioPositionChanged(Windows.Media.Playback.MediaPlaybackSession sender, object args)
+        => DispatcherQueue.TryEnqueue(() => SyncVideoTo(sender.Position));
+
+    private void OnAudioPlaybackStateChanged(Windows.Media.Playback.MediaPlaybackSession sender, object args)
+        => DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_videoTrack is null || VideoPlayer.MediaPlayer is not { } vmp) return;
+            var session = Player.MediaPlayer?.PlaybackSession;
+            if (session is null) return;
+            if (session.PlaybackState == Windows.Media.Playback.MediaPlaybackState.Playing &&
+                session.Position.TotalMilliseconds >= _videoTrack.StartOffsetMs)
+            { try { vmp.Play(); } catch { } }
+            else { try { vmp.Pause(); } catch { } }
+        });
+
+    // Keeps the video within 400 ms of the audio playhead (shifted by the track offset);
+    // before the offset the video holds its first frame, paused.
+    private void SyncVideoTo(TimeSpan audioPosition)
+    {
+        if (_videoTrack is null || VideoPlayer.MediaPlayer is not { } vmp) return;
+        var videoSession = vmp.PlaybackSession;
+        if (videoSession is null) return;
+        var target = audioPosition.TotalMilliseconds - _videoTrack.StartOffsetMs;
+        try
+        {
+            if (target < 0)
+            {
+                if (videoSession.Position != TimeSpan.Zero) videoSession.Position = TimeSpan.Zero;
+            }
+            else if (Math.Abs(videoSession.Position.TotalMilliseconds - target) > 400)
+            {
+                videoSession.Position = TimeSpan.FromMilliseconds(target);
+            }
+        }
+        catch { }
+        HighlightSegment(audioPosition.TotalMilliseconds);
+    }
+
+    // The row whose [StartMs, EndMs) contains the playhead gets the highlight brush; only
+    // boundary transitions touch the lines, so the common tick is one comparison.
+    private void HighlightSegment(double positionMs)
+    {
+        var idx = -1;
+        for (var i = 0; i < _timings.Count; i++)
+        {
+            if (positionMs >= _timings[i].StartMs && positionMs < _timings[i].EndMs) { idx = i; break; }
+        }
+        if (idx == _highlightIndex) return;
+        if (_highlightIndex >= 0 && _highlightIndex < Lines.Count) Lines[_highlightIndex].IsActive = false;
+        _highlightIndex = idx;
+        if (idx >= 0 && idx < Lines.Count) Lines[idx].IsActive = true;
+    }
+
+    // Tapping a transcript row seeks the master (audio) player; the video follows.
+    private void Row_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.DataContext is not TranscriptLine line) return;
+        var idx = Lines.IndexOf(line);
+        if (idx < 0 || idx >= _timings.Count) return;
+        try
+        {
+            var session = Player.MediaPlayer?.PlaybackSession;
+            if (session is not null) session.Position = TimeSpan.FromMilliseconds(_timings[idx].StartMs);
+        }
+        catch { }
     }
 
     private void SetActionsEnabled(bool enabled)

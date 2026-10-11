@@ -308,6 +308,16 @@
   <data name="Ov.Rec" xml:space="preserve"><value>録画中</value></data>
   <data name="Set.SizeAutoNote" xml:space="preserve"><value>サイズは言語ごとに適用され、未導入のサイズは Small にフォールバックします。</value></data>
   <data name="Set.LangIdMissing" xml:space="preserve"><value>言語検出モデルが未導入のため、自動検出は英語で開始します。</value></data>
+  <data name="SetScreen.Text" xml:space="preserve"><value>画面収録</value></data>
+  <data name="SetScreenEnable.Text" xml:space="preserve"><value>会議で画面を録画する</value></data>
+  <data name="SetScreenEnableDesc.Text" xml:space="preserve"><value>新しい会議すべてに適用されます。オフにすると音声のみを録音します。</value></data>
+  <data name="SetScreenSwitch.OnContent" xml:space="preserve"><value>オン</value></data>
+  <data name="SetScreenSwitch.OffContent" xml:space="preserve"><value>オフ</value></data>
+  <data name="SetScreenSwitch.AutomationProperties.Name" xml:space="preserve"><value>会議の画面を録画する</value></data>
+  <data name="SetScreenSource.Text" xml:space="preserve"><value>キャプチャ元</value></data>
+  <data name="SetScreenSourceDesc.Text" xml:space="preserve"><value>ディスプレイまたは特定のウィンドウ。会議の開始ごとに再解決されます（閉じたウィンドウはプライマリディスプレイに戻ります）。</value></data>
+  <data name="SetScreenSourcePicker.AutomationProperties.Name" xml:space="preserve"><value>キャプチャ元</value></data>
+  <data name="SetScreenNote.Text" xml:space="preserve"><value>画面収録は新しい会議で既定で有効です。映像は音声と同じ場所に保存され、一時停止に連動します。</value></data>
   <data name="Set.LogWriting" xml:space="preserve"><value>{0} 以上を {1} に書き込みます</value></data>
   <data name="Set.OverlayStatus" xml:space="preserve"><value>常に最前面 {0} · 不透明度 {1} · 文字サイズ {2} pt · {3} 行</value></data>
   <data name="Set.StorageStatus" xml:space="preserve"><value>文字起こしは {0} に書き込まれます。</value></data>

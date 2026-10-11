@@ -69,6 +69,43 @@ public sealed partial class SettingsPage : Page
 
     private bool _rebuildingSizes;
 
+    // --- Screen recording (E4) ---
+
+    private readonly List<MeetVault.Core.CaptureSource> _screenSources = new();
+    private bool _suppressScreenEvent;
+
+    private void RefreshScreenSources()
+    {
+        _screenSources.Clear();
+        _screenSources.AddRange(MeetVault.Core.CaptureSourceResolver.Displays());
+        _screenSources.AddRange(MeetVault.Core.CaptureSourceResolver.Windows());
+        _suppressScreenEvent = true;
+        try
+        {
+            ScreenSourcePicker.Items.Clear();
+            foreach (var s in _screenSources) ScreenSourcePicker.Items.Add(s.Label);
+            var stored = (AppStore.Repo.GetSetting("screen.source") ?? "").Trim();
+            var idx = 0;
+            if (stored.Length > 0)
+                for (var i = 0; i < _screenSources.Count; i++)
+                    if (string.Equals(MeetVault.Core.CaptureSourceResolver.Format(_screenSources[i]), stored, StringComparison.OrdinalIgnoreCase)) { idx = i; break; }
+            ScreenSourcePicker.SelectedIndex = idx;
+        }
+        finally { _suppressScreenEvent = false; }
+    }
+
+    private void Screen_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_suppressScreenEvent) return;
+        AppStore.Repo.SetSetting("screen.enabled", ScreenSwitch.IsOn ? "true" : "false");
+    }
+
+    private void ScreenSourcePicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressScreenEvent || ScreenSourcePicker.SelectedIndex < 0 || ScreenSourcePicker.SelectedIndex >= _screenSources.Count) return;
+        AppStore.Repo.SetSetting("screen.source", MeetVault.Core.CaptureSourceResolver.Format(_screenSources[ScreenSourcePicker.SelectedIndex]));
+    }
+
     private string CurrentLanguage()
     {
         var idx = Math.Max(0, SpeechLangPicker.SelectedIndex);
@@ -323,6 +360,12 @@ public sealed partial class SettingsPage : Page
         SpeechLangPicker.SelectedIndex = langCode == "auto"
             ? 0
             : Math.Max(0, Array.FindIndex(MeetVault.Core.EngineCatalog.Languages, l => l.Code == langCode) + 1);
+
+        // Screen recording (E4): the global default for new meetings + the source picker.
+        _suppressScreenEvent = true;
+        ScreenSwitch.IsOn = repo.GetSetting("screen.enabled") != "false";
+        _suppressScreenEvent = false;
+        RefreshScreenSources();
         RefreshSizeRows();
         var sizeIdx = Array.FindIndex(SizePicker.ItemsSource as SizeRow[] ?? Array.Empty<SizeRow>(),
             r => r.Tier == (sizeTier ?? "").Trim().ToLowerInvariant() && r.Enabled);
