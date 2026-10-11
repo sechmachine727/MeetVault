@@ -35,6 +35,8 @@ public sealed class DiarizerContractTests
         // handle so the body throws a managed NullReferenceException at its first native use
         // (a real sherpa failure is not reproducible deterministically; a disposed handle
         // would risk a native access violation instead of a managed throw).
+        var wavPath = Path.Combine(TestAudio.RepoRoot, "tests", "MeetVault.Core.Tests", "fixtures", "diarizer_two_speakers_16k.wav");
+        Assert.True(File.Exists(wavPath), "fixture missing: " + wavPath);
         using var dz = TryOpen();
         if (dz is null) return;
         var field = typeof(SherpaDiarizer).GetField("_diar", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
@@ -42,8 +44,13 @@ public sealed class DiarizerContractTests
         try
         {
             field.SetValue(dz, null);
+            Assert.Null(field.GetValue(dz)); // the injection must actually bite (a no-op set would leave the real handle)
 
-            var hint = dz.AssignTurn(new TurnAudio(new float[16000], 0, 1000));
+            // A non-silent two-speaker fixture slice, which normally resolves to a spk_
+            // hint: Unknown can now ONLY come from the injected failure — a silent clip or
+            // a no-op injection would yield Unknown regardless and prove nothing.
+            var all = TestAudio.ReadWav16k(wavPath);
+            var hint = dz.AssignTurn(Slice(all, 0, 90720));
 
             Assert.Equal("", hint.SpeakerId);
             Assert.Equal(SpeakerOrigin.Unknown, hint.Origin);

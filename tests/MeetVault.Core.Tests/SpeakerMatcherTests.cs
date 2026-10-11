@@ -33,10 +33,19 @@ public sealed class SpeakerMatcherTests
     [Fact]
     public void SameEmbedding_Twice_KeepsOneIdentity()
     {
+        // A prior voice already occupies spk_1, so the id this voice RESERVES at its first
+        // sighting differs from the placeholder: with a bare matcher both asserts read
+        // spk_1 (reservation == placeholder) and the test could not fail.
         var m = new SpeakerMatcher(new FakeStore());
-        var a = Vec(1, 0);
-        Assert.Equal("spk_1", m.Assign(a, 0).SpeakerId);
-        Assert.Equal("spk_1", m.Assign(a, 1000).SpeakerId);
+        var prior = Vec(0, 1); var a = Vec(1, 0);
+        m.Assign(prior, 0);
+        Assert.Equal("spk_1", m.Assign(prior, 100).SpeakerId);  // prior voice confirmed
+
+        Assert.Equal("spk_1", m.Assign(a, 1000).SpeakerId);     // first sighting keeps the previous speaker
+        var second = m.Assign(a, 2000);
+        Assert.Equal("spk_2", second.SpeakerId);                // second sighting commits the id reserved at first sighting
+        Assert.True(second.IsNew);
+        Assert.Equal("spk_2", m.Assign(a, 3000).SpeakerId);     // one identity: the voice now recalls as spk_2
     }
 
     [Fact]
