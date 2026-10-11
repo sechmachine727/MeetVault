@@ -37,8 +37,10 @@ public sealed partial class SettingsPage : Page
         MicPicker.ItemsSource = mics.Count > 0
             ? mics.Select(m => m.Id + ": " + m.Name).ToArray()
             : new[] { "Demo microphone (Windows default)" };
-        // Endonyms, standard convention; the size rows are rebuilt per language (below).
-        SpeechLangPicker.ItemsSource = MeetVault.Core.EngineCatalog.Languages.Select(l => l.Endonym).ToArray();
+        // Index 0 is Auto-detect (the default mode for fresh installs); the rest are
+        // endonyms, standard convention. The size rows rebuild per language below.
+        SpeechLangPicker.ItemsSource = new[] { Loc.T("Lang.Auto") }
+            .Concat(MeetVault.Core.EngineCatalog.Languages.Select(l => l.Endonym)).ToArray();
         _sourceOptions.Add((Loc.T("Set.SysSrcAllApps"), ""));
         foreach (var (pid, name) in MeetVault.Core.NAudioCapture.ListAudioApps()) _sourceOptions.Add((name + " (" + pid + ")", pid.ToString()));
         SourcePicker.ItemsSource = _sourceOptions.Select(o => o.Label).ToArray();
@@ -67,9 +69,13 @@ public sealed partial class SettingsPage : Page
 
     private bool _rebuildingSizes;
 
-    private string CurrentLanguage() =>
-        MeetVault.Core.EngineCatalog.Languages[Math.Clamp(Math.Max(0, SpeechLangPicker.SelectedIndex), 0,
-            MeetVault.Core.EngineCatalog.Languages.Length - 1)].Code;
+    private string CurrentLanguage()
+    {
+        var idx = Math.Max(0, SpeechLangPicker.SelectedIndex);
+        return idx == 0
+            ? "auto"
+            : MeetVault.Core.EngineCatalog.Languages[Math.Clamp(idx - 1, 0, MeetVault.Core.EngineCatalog.Languages.Length - 1)].Code;
+    }
 
     private string SizeTier() => (SizePicker.SelectedItem as SizeRow)?.Tier ?? "small";
 
@@ -79,7 +85,10 @@ public sealed partial class SettingsPage : Page
     // Sizes the current language actually offers; keep the selected tier when still valid.
     private void RefreshSizeRows()
     {
+        // Auto mode shows the tiers English offers (the live resolver applies the chosen
+        // size where a language has it and falls back to small otherwise).
         var lang = CurrentLanguage();
+        if (lang == "auto") lang = "en";
         var keep = SizeTier();
         var rows = MeetVault.Core.EngineCatalog.Tiers.Select(t =>
         {
@@ -299,12 +308,18 @@ public sealed partial class SettingsPage : Page
         var sizeTier = repo.GetSetting("transcription.size");
         if (string.IsNullOrEmpty(langCode) && string.IsNullOrEmpty(sizeTier))
         {
-            (langCode, sizeTier) = MeetVault.Core.EngineCatalog.MigrateLegacy(repo.GetSetting("transcription.model"));
+            // Fresh install with no legacy model: Auto-detect is the default mode. An
+            // install that still names a retired transcription.model migrates to its pair.
+            (langCode, sizeTier) = string.IsNullOrEmpty(repo.GetSetting("transcription.model"))
+                ? ("auto", "small")
+                : MeetVault.Core.EngineCatalog.MigrateLegacy(repo.GetSetting("transcription.model"));
             repo.SetSetting("transcription.language", langCode);
             repo.SetSetting("transcription.size", sizeTier);
         }
-        var langIdx = Array.FindIndex(MeetVault.Core.EngineCatalog.Languages, l => l.Code == (langCode ?? "").Trim().ToLowerInvariant());
-        SpeechLangPicker.SelectedIndex = langIdx >= 0 ? langIdx : 0;
+        langCode = (langCode ?? "").Trim().ToLowerInvariant();
+        SpeechLangPicker.SelectedIndex = langCode == "auto"
+            ? 0
+            : Math.Max(0, Array.FindIndex(MeetVault.Core.EngineCatalog.Languages, l => l.Code == langCode) + 1);
         RefreshSizeRows();
         var sizeIdx = Array.FindIndex(SizePicker.ItemsSource as SizeRow[] ?? Array.Empty<SizeRow>(),
             r => r.Tier == (sizeTier ?? "").Trim().ToLowerInvariant() && r.Enabled);
@@ -380,13 +395,20 @@ public sealed partial class SettingsPage : Page
             "large" => Loc.T("Set.SizeLargeDetails"),
             _ => Loc.T("Set.SizeSmallDetails"),
         };
-        var option = MeetVault.Core.EngineCatalog.Find(CurrentLanguage(), tier);
+        var statusLang = CurrentLanguage();
+        var option = MeetVault.Core.EngineCatalog.Find(statusLang == "auto" ? "en" : statusLang, tier);
         if (option is not null)
         {
             var availability = MeetVault.Core.EngineCatalog.IsAvailable(option, ModelsRoot)
                 ? Loc.T("Set.ModelInstalled")
                 : Loc.T("Set.ModelNotInstalled");
             TranscriptionStatus.Text = Loc.Tf("Set.TranscriptionStatus", option.Label, FormatMb(option.DownloadMb), availability);
+            if (statusLang == "auto")
+            {
+                TranscriptionStatus.Text += " · " + Loc.T("Set.SizeAutoNote");
+                if (!MeetVault.Core.LangIdModel.IsAvailable(ModelsRoot))
+                    TranscriptionStatus.Text += " · " + Loc.T("Set.LangIdMissing");
+            }
         }
         var logLevel = LogLevelPicker.SelectedItem as string ?? "debug";
         LogStatus.Text = Loc.Tf("Set.LogWriting", logLevel, MeetVault.Core.AppLog.Path);

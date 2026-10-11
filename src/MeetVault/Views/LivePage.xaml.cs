@@ -30,6 +30,18 @@ public sealed partial class LivePage : Page
     private LiveState _state = LiveState.Idle;
     private string _micLabel = "not started";
 
+    // Language control (auto-detect). The relay swaps the ONE active engine under the
+    // running session; the monitor detects spoken language from the same PCM and
+    // suggests switches in auto mode. Null in demo mode.
+    private SwitchableStreamingTranscriber? _relay;
+    private MeetVault.Core.LangIdModel? _langIdModel;
+    private LanguageMonitor? _langMonitor;
+    private string _activeLanguage = "en";
+    private bool _autoMode;
+    private string? _pendingLanguage;               // auto switch deferred to the next endpoint
+    private long _pendingSinceMs;
+    private bool _suppressLanguageEvent;            // combo <-> setting feedback guard
+
     // Microphone and system audio are recorded together unless switched off in Settings.
     private static string MicId => AppStore.Repo.GetSetting("audio.mic.enabled") == "off"
         ? "off"
@@ -51,6 +63,7 @@ public sealed partial class LivePage : Page
         Lines.CollectionChanged += (_, _) => { TranscriptList.ItemsSource = Lines.ToArray(); TranscriptScroll.ChangeView(null, TranscriptScroll.ScrollableHeight, null); };
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
+        LiveBridge.LanguageRequested += OnLanguageRequested;
     }
 
     // Leaving Live pauses an active meeting; a draft stays recoverable on the Dashboard.
@@ -60,8 +73,13 @@ public sealed partial class LivePage : Page
         try { if (_state != LiveState.Idle && _session is not null) await _session.PauseAsync(); } catch { }
         try { if (_state != LiveState.Idle) _streaming?.Flush(); } catch { } // close pending speech (pause already flushed; safety no-op)
         LiveBridge.SetLive(false); // leaving Live ends active transcription
+        LiveBridge.SetMeetingState(_state == LiveState.Idle ? LiveBridge.MeetingState.Idle : LiveBridge.MeetingState.Paused);
+        LiveBridge.LanguageRequested -= OnLanguageRequested;
         try { _capture?.Dispose(); } catch { }
         try { _streaming?.Dispose(); } catch { }
+        try { _langMonitor?.Dispose(); } catch { } _langMonitor = null;
+        try { _langIdModel?.Dispose(); } catch { } _langIdModel = null;
+        _relay = null;
     }
 
     // The engine resolves at load; recording starts only on an explicit action or a resume.
@@ -89,30 +107,51 @@ public sealed partial class LivePage : Page
             return;
         }
 
-        VoskStreamingTranscriber? vosk = null;
         NAudioCapture? capture = null;
         try
         {
-            vosk = new VoskStreamingTranscriber(
-                Path.Combine(ModelDir, "vosk", option.Model),
-                () => _utteranceBaseMs + (long)_streamWatch.Elapsed.TotalMilliseconds);
-            vosk.PartialReady += OnPartial;
-            _streaming = vosk;
-            _transcriber = vosk;
+            // Auto-detect only runs with the language-ID model staged; without it the
+            // configured language applies from the first second.
+            var autoRequested = string.Equals(repo.GetSetting("transcription.language"), "auto", StringComparison.OrdinalIgnoreCase);
+            _autoMode = autoRequested && MeetVault.Core.LangIdModel.IsAvailable(ModelDir);
+            var now = () => _utteranceBaseMs + (long)_streamWatch.Elapsed.TotalMilliseconds;
+            _relay = new SwitchableStreamingTranscriber(dir => new VoskStreamingTranscriber(dir, now));
+            // In auto mode the engine starts on the first detection (or the fallback after
+            // the collect window on Start); otherwise it starts now.
+            if (!_autoMode && !_relay.SwapTo(Path.Combine(ModelDir, "vosk", option.Model)))
+                throw new InvalidOperationException("engine init failed for " + option.Model);
+            _activeLanguage = option.Language;
+            _relay.PartialReady += OnPartial;
+            _streaming = _relay;
+            _transcriber = _relay;
             _engineMode = "live: vosk " + option.Model;
+            if (_autoMode)
+            {
+                _langIdModel = MeetVault.Core.LangIdModel.Load(ModelDir);
+                _langMonitor = new LanguageMonitor(window =>
+                {
+                    var model = _langIdModel;
+                    return model?.Detect(window);
+                });
+                _langMonitor.SetActive(_activeLanguage);
+                _langMonitor.Detected += OnLangDetected;
+                _langMonitor.Suggested += OnLangSuggested;
+            }
             capture = new NAudioCapture();
             capture.PcmReady += OnPcm;
             capture.CaptureFailed += OnCaptureFailed;
             _capture = capture;
             _audio = capture;
         }
-        catch
+        catch (Exception ex)
         {
-            try { vosk?.Dispose(); } catch { }
+            try { _relay?.Dispose(); } catch { } _relay = null;
+            try { _langMonitor?.Dispose(); } catch { } _langMonitor = null;
+            try { _langIdModel?.Dispose(); } catch { } _langIdModel = null;
             try { capture?.Dispose(); } catch { }
             _streaming = null; _transcriber = transcriber; _audio = audio;
             _engineMode = "demo (engine init failed)";
-            MeetVault.Core.AppLog.Error("live: engine init failed; running demo");
+            MeetVault.Core.AppLog.Error("live: engine init failed; running demo", ex);
         }
         MeetVault.Core.AppLog.Info("live: engines resolved -> " + _engineMode);
         EngineStatus.Text = _engineMode;
@@ -121,6 +160,7 @@ public sealed partial class LivePage : Page
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         ResolveEngines();
+        BuildLanguageCombo((AppStore.Repo.GetSetting("transcription.language") ?? "en").Trim().ToLowerInvariant());
         _micLabel = NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == MicId).Name
             ?? (MicId == "0" ? Loc.T("Dash.WindowsDefault") : Loc.Tf("Live.DeviceN", MicId));
         var id = PendingRecovery.MeetingId;
@@ -143,13 +183,44 @@ public sealed partial class LivePage : Page
             await _session.StartAsync(MicId, AppSource, CancellationToken.None);
             WireSession(clearOverlay: true);
             SetState(LiveState.Recording);
+            LiveBridge.SetMeetingState(LiveBridge.MeetingState.Recording);
             EngineStatus.Text = _engineMode;
             Status(_engineMode.StartsWith("live") ? Loc.T("Live.Recording") : Loc.T("Live.DemoMode"));
+            if (_autoMode && _langMonitor is not null && _relay is not null && _relay.ActiveModelDir is null)
+            {
+                // Auto: collect the first speech windows, then transcribe on the detected
+                // language — or English/small when no speech is detected at all.
+                Status(Loc.T("Live.LangDetecting"));
+                await Task.Delay(3500);
+                if (_relay.ActiveModelDir is null)
+                {
+                    var fallback = EngineCatalog.Find("en", "small");
+                    if (fallback is not null && _relay.SwapTo(Path.Combine(ModelDir, "vosk", fallback.Model)))
+                    {
+                        _activeLanguage = "en";
+                        _engineMode = "live: vosk " + fallback.Model;
+                        _langMonitor.SetActive("en");
+                        if (_session?.MeetingId is { } mid) AppStore.Repo.SetMeetingLanguage(mid, "en");
+                        LiveBridge.SetLanguage(new LiveBridge.LanguageInfo("en", true, false));
+                        EngineStatus.Text = _engineMode;
+                        MeetVault.Core.AppLog.Info("langid: no speech in 3.5 s; starting en/small (fallback)");
+                    }
+                }
+                Status(Loc.T("Live.Recording"));
+            }
+            else if (_relay is not null && _relay.ActiveModelDir is not null)
+            {
+                // Manual (or preloaded) engine: record which language the meeting runs.
+                if (_session?.MeetingId is { } mid) AppStore.Repo.SetMeetingLanguage(mid, _activeLanguage);
+                LiveBridge.SetLanguage(new LiveBridge.LanguageInfo(_activeLanguage, _autoMode, false));
+            }
+            SetLangStatus();
         }
         catch (Exception ex)
         {
             try { if (_session is not null) { _session.MarkFailed(); _session.Dispose(); _session = null; } } catch { }
             SetState(LiveState.Idle);
+            LiveBridge.SetMeetingState(LiveBridge.MeetingState.Idle);
             MeetVault.Core.AppLog.Error("live: start capture failed", ex);
             Status(Loc.Tf("Live.CouldNotStart", Short(ex)));
         }
@@ -168,6 +239,16 @@ public sealed partial class LivePage : Page
             _streamWatch.Restart(); // active recovery restarts capture: stream timeline starts here
             SetState(_session.IsPaused ? LiveState.Paused : LiveState.Recording);
             LiveBridge.SetLive(!_session.IsPaused); // paused recovery: the overlay must not claim "Listening…"
+            LiveBridge.SetMeetingState(_session.IsPaused ? LiveBridge.MeetingState.Paused : LiveBridge.MeetingState.Recording);
+            // The meeting's own language comes back with it — the persisted code is the
+            // engine the draft was last captured with (auto mode included).
+            var storedLanguage = AppStore.Repo.Load(id)?.Language;
+            if (_relay is not null)
+            {
+                if (!string.IsNullOrEmpty(storedLanguage)) ApplyLanguage(storedLanguage!, auto: _autoMode, reason: "resume");
+                else if (!_autoMode) ApplyLanguage(_activeLanguage, auto: false, reason: "resume");
+                else LiveBridge.SetLanguage(new LiveBridge.LanguageInfo(_activeLanguage, true, false));
+            }
             EngineStatus.Text = _engineMode;
             Status(Loc.Tf("Live.ResumedCount", id, _session.Segments.Count));
         }
@@ -175,6 +256,7 @@ public sealed partial class LivePage : Page
         {
             SetState(LiveState.Idle);
             LiveBridge.SetLive(false); // an exception after WireSession must not leave the overlay claiming "Listening…"
+            LiveBridge.SetMeetingState(LiveBridge.MeetingState.Idle);
             _capture?.ClearReuse(); // a recovery that failed must not capture the next meeting into the old file
             MeetVault.Core.AppLog.Error("live: resume failed", ex);
             Status(Loc.Tf("Live.CouldNotResumeMeeting", Short(ex)));
@@ -223,12 +305,19 @@ public sealed partial class LivePage : Page
     // through the session's usual SegmentReady path.
     private void OnPcm(byte[] chunk)
     {
+        var samples = Pcm16.ToFloats(chunk);
         var streaming = _streaming;
-        if (streaming is not null && streaming.IsRunning) streaming.Push(Pcm16.ToFloats(chunk));
+        if (streaming is not null && streaming.IsRunning) streaming.Push(samples);
+        _langMonitor?.Push(samples);   // detection rides the same capture stream
     }
 
     private void OnLiveSegment(Segment segment)
-        => DispatcherQueue.TryEnqueue(() => AddLine(segment.Text));
+        => DispatcherQueue.TryEnqueue(() =>
+        {
+            AddLine(segment.Text);
+            // An endpoint just closed: a pending auto language switch applies now.
+            TryApplyPendingLanguage();
+        });
 
     // Streaming engines publish the open utterance's interim text. It shows up as a normal
     // transcript row (updated in place, replaced by the final when the sentence closes);
@@ -264,6 +353,131 @@ public sealed partial class LivePage : Page
         LiveBridge.Publish("", text);
     }
 
+    // --- Language control ---
+
+    // Single applier (manual pick, auto suggestion, resume): resolves the (language, size)
+    // pair, swaps the relay's active engine, persists the meeting language and publishes
+    // the state for the overlay.
+    private void ApplyLanguage(string code, bool auto, string reason)
+    {
+        if (_relay is null) return;
+        var size = AppStore.Repo.GetSetting("transcription.size") ?? "small";
+        var option = EngineCatalog.Find(code, size) ?? EngineCatalog.Find(code, "small");
+        if (option is null)
+        {
+            MeetVault.Core.AppLog.Warn("langid: " + code + " has no staged model; keeping " + _activeLanguage);
+            SyncLanguageCombo(_autoMode ? "auto" : _activeLanguage);
+            return;
+        }
+        // A MID-MEETING auto switch avoids the large tier (measured: large loads in ~16.5 s
+        // vs 0.24 s small); the initial pick and manual picks keep the configured tier.
+        if (reason == "auto" && size == "large" && _relay.ActiveModelDir is not null && code != _activeLanguage)
+            option = EngineCatalog.Find(code, "small") ?? option;
+        if (!_relay.SwapTo(Path.Combine(ModelDir, "vosk", option.Model)))
+        {
+            MeetVault.Core.AppLog.Warn("langid: swap failed for " + option.Model);
+            return;
+        }
+        _activeLanguage = code;
+        _engineMode = "live: vosk " + option.Model;
+        _langMonitor?.SetActive(code);
+        if (_session?.MeetingId is { } id) AppStore.Repo.SetMeetingLanguage(id, code);
+        LiveBridge.SetLanguage(new LiveBridge.LanguageInfo(code, _autoMode, auto));
+        EngineStatus.Text = _engineMode;
+        MeetVault.Core.AppLog.Info("live: language -> " + code + " (" + reason + ")");
+        SetLangStatus();
+    }
+
+    private void OnLangSuggested(string code)
+        => DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!_autoMode || _relay is null) return;
+            if (_relay.ActiveModelDir is null)
+            {
+                ApplyLanguage(code, auto: true, reason: "auto-initial");   // first detection decides the start
+                return;
+            }
+            _pendingLanguage = code;
+            _pendingSinceMs = Environment.TickCount64;
+            Status(Loc.Tf("Live.LangSwitching", LiveBridge.LanguageDisplay(code)));
+        });
+
+    private void TryApplyPendingLanguage()
+    {
+        if (_pendingLanguage is null || _relay is null) return;
+        var code = _pendingLanguage;
+        _pendingLanguage = null;
+        if (Environment.TickCount64 - _pendingSinceMs > 20_000)
+            MeetVault.Core.AppLog.Warn("langid: switch applied with no endpoint for 20 s");
+        ApplyLanguage(code, auto: true, reason: "auto");
+    }
+
+    private void OnLangDetected(string code, float confidence)
+        => DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!_autoMode) return;
+            ToolTipService.SetToolTip(LangStatus, Loc.Tf("Live.LangDetected", LiveBridge.LanguageDisplay(code) + " " + confidence.ToString("P0")));
+            // First detection while no engine is active decides the starting language.
+            if (_relay is not null && _relay.ActiveModelDir is null && _state == LiveState.Recording)
+                ApplyLanguage(code, auto: true, reason: "auto-initial");
+        });
+
+    private void OnLanguageRequested(string code)
+    {
+        var normalized = (code ?? "").Trim().ToLowerInvariant();
+        if (normalized == "auto")
+        {
+            if (!MeetVault.Core.LangIdModel.IsAvailable(ModelDir)) Status(Loc.T("Set.LangIdMissing"));
+            _autoMode = MeetVault.Core.LangIdModel.IsAvailable(ModelDir);
+            if (_langMonitor is not null) _langMonitor.Enabled = true;
+            PersistLanguage("auto");
+            LiveBridge.SetLanguage(new LiveBridge.LanguageInfo(_activeLanguage, _autoMode, false));
+            SyncLanguageCombo("auto");
+            SetLangStatus();
+            return;
+        }
+        _autoMode = false;
+        if (_langMonitor is not null) _langMonitor.Enabled = false;
+        PersistLanguage(normalized);
+        if (_relay is not null) ApplyLanguage(normalized, auto: false, reason: "manual");
+        SyncLanguageCombo(normalized);
+        SetLangStatus();
+    }
+
+    private static void PersistLanguage(string code) => AppStore.Repo.SetSetting("transcription.language", code);
+
+    private void BuildLanguageCombo(string current)
+    {
+        _suppressLanguageEvent = true;
+        try
+        {
+            LanguageCombo.Items.Clear();
+            LanguageCombo.Items.Add(Loc.T("Lang.Auto"));
+            foreach (var l in EngineCatalog.Languages) LanguageCombo.Items.Add(l.Endonym);
+            LanguageCombo.SelectedIndex = current == "auto" ? 0
+                : Math.Max(0, Array.FindIndex(EngineCatalog.Languages, l => l.Code == current) + 1);
+        }
+        finally { _suppressLanguageEvent = false; }
+        SetLangStatus();
+    }
+
+    private void SyncLanguageCombo(string code) => BuildLanguageCombo(code);
+
+    private void LanguageCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressLanguageEvent) return;
+        var idx = LanguageCombo.SelectedIndex;
+        if (idx < 0) return;
+        LiveBridge.RequestLanguage(idx == 0 ? "auto" : EngineCatalog.Languages[idx - 1].Code);
+    }
+
+    private void SetLangStatus()
+    {
+        if (LangStatus is null) return;
+        var mode = _autoMode ? Loc.T("Live.LangModeAuto") : Loc.T("Live.LangModeManual");
+        LangStatus.Text = LiveBridge.LanguageDisplay(_activeLanguage) + " · " + mode;
+    }
+
     private void Status(string message) => Status(InfoBarSeverity.Informational, message);
 
     private void Status(InfoBarSeverity severity, string message)
@@ -281,6 +495,7 @@ public sealed partial class LivePage : Page
         => DispatcherQueue.TryEnqueue(() =>
         {
             LiveBridge.SetLive(false);
+            LiveBridge.SetMeetingState(LiveBridge.MeetingState.Idle);
             Status(Loc.Tf("Live.CaptureFailed", reason));
         });
 
@@ -293,6 +508,8 @@ public sealed partial class LivePage : Page
             try { _streaming?.Flush(); } catch { } // the session's StopAsync already flushed; safety no-op
             SetState(LiveState.Paused);
             LiveBridge.SetLive(false); // capture is stopped; the overlay must not claim "Listening…"
+            LiveBridge.SetMeetingState(LiveBridge.MeetingState.Paused);
+            _langMonitor?.Reset();
             Status(Loc.T("Live.Paused"));
         }
         catch (Exception ex) { Status(Loc.Tf("Live.CouldNotPause", Short(ex))); }
@@ -310,6 +527,7 @@ public sealed partial class LivePage : Page
             await _session.ResumeAsync();
             SetState(LiveState.Recording);
             LiveBridge.SetLive(true); // capture is back; the overlay's "Listening…" applies again
+            LiveBridge.SetMeetingState(LiveBridge.MeetingState.Recording);
             Status(Loc.T("Live.Resumed"));
         }
         catch (Exception ex) { Status(Loc.Tf("Live.CouldNotResume", Short(ex))); }
@@ -338,6 +556,9 @@ public sealed partial class LivePage : Page
             _session.Dispose(); // unsubscribe from the shared transcriber before dropping it
             _session = null;
             LiveBridge.SetLive(false);
+            LiveBridge.SetMeetingState(LiveBridge.MeetingState.Idle);
+            _langMonitor?.Reset();
+            _pendingLanguage = null;
             _checkpoint?.Stop();
             SetState(LiveState.Idle);
             Status(Loc.Tf("Live.Saved", count));

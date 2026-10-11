@@ -14,6 +14,17 @@ public sealed partial class MainWindow : Window
         AppWindow.SetIcon("Assets/AppIcon.ico");
         RootFrame.Navigate(typeof(DashboardPage));
         Nav.SelectedItem = Nav.MenuItems[0];
+        // Auto lifecycle: the overlay opens when a recording starts and closes when it
+        // stops (paused keeps it open — the overlay dims itself through LiveChanged).
+        LiveBridge.MeetingStateChanged += state =>
+        {
+            try
+            {
+                if (state == LiveBridge.MeetingState.Recording) OverlayWindow.ShowOrActivate();
+                else if (state == LiveBridge.MeetingState.Idle) OverlayWindow.CloseIfOpen();
+            }
+            catch (Exception ex) { MeetVault.Core.AppLog.Warn("overlay auto: " + ex.Message); }
+        };
     }
 
     public void NavigateToLive() => NavigateTo(typeof(LivePage), "live");

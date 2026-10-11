@@ -47,4 +47,50 @@ public static class LiveBridge
 
     // Fired on every streaming partial (and with "" when the open utterance closes).
     public static void NotifyPartial(string text) => PartialChanged?.Invoke(text);
+
+    // --- Meeting lifecycle, language and screen-recording channels. The Live page owns
+    // the session and applies changes; every other surface (overlay, settings) only
+    // requests — so two controls can never drive the meeting differently. ---
+
+    public enum MeetingState { Idle, Recording, Paused }
+    public sealed record LanguageInfo(string Code, bool Auto, bool Detected);
+
+    private static readonly object _stateLock = new();
+    public static MeetingState State { get; private set; } = MeetingState.Idle;
+    public static LanguageInfo? CurrentLanguage { get; private set; }
+    public static bool ScreenRecording { get; private set; }
+
+    public static event Action<MeetingState>? MeetingStateChanged;
+    public static event Action<LanguageInfo>? LanguageChanged;
+    public static event Action<bool>? ScreenStateChanged;
+    public static event Action<string>? LanguageRequested;   // "auto"|"en"|"ja"|"vi" — from any control
+    public static event Action? ScreenToggleRequested;       // from the overlay button
+
+    public static void SetMeetingState(MeetingState state)
+    {
+        lock (_stateLock) { if (State == state) return; State = state; }
+        MeetingStateChanged?.Invoke(state);
+    }
+
+    public static void SetLanguage(LanguageInfo info)
+    {
+        lock (_stateLock) CurrentLanguage = info;
+        LanguageChanged?.Invoke(info);
+    }
+
+    public static void SetScreenState(bool active)
+    {
+        lock (_stateLock) { if (ScreenRecording == active) return; ScreenRecording = active; }
+        ScreenStateChanged?.Invoke(active);
+    }
+
+    public static void RequestLanguage(string code) => LanguageRequested?.Invoke(code);
+    public static void RequestScreenToggle() => ScreenToggleRequested?.Invoke();
+
+    // Endonyms are the display convention (English / 日本語); unknown codes echo back.
+    public static string LanguageDisplay(string code)
+    {
+        var hit = Array.Find(MeetVault.Core.EngineCatalog.Languages, l => l.Code == code);
+        return hit.Endonym ?? code;
+    }
 }

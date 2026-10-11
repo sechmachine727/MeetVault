@@ -285,6 +285,16 @@
   <data name="Set.SizeLarge" xml:space="preserve"><value>Large</value></data>
   <data name="Set.SizeRowUnavailable" xml:space="preserve"><value>— not available for this language</value></data>
   <data name="Set.SizeRowNotInstalled" xml:space="preserve"><value>— not installed</value></data>
+  <data name="Lang.Auto" xml:space="preserve"><value>Auto-detect</value></data>
+  <data name="LiveLanguageLabel.Text" xml:space="preserve"><value>Language</value></data>
+  <data name="Live.LangModeAuto" xml:space="preserve"><value>auto</value></data>
+  <data name="Live.LangModeManual" xml:space="preserve"><value>manual</value></data>
+  <data name="Live.LangDetecting" xml:space="preserve"><value>Listening to detect the language…</value></data>
+  <data name="Live.LangDetected" xml:space="preserve"><value>Detected: {0}</value></data>
+  <data name="Live.LangSwitching" xml:space="preserve"><value>Switching to {0} at the next pause…</value></data>
+  <data name="Ov.LangAuto" xml:space="preserve"><value>auto</value></data>
+  <data name="Set.SizeAutoNote" xml:space="preserve"><value>Size applies per language; unavailable sizes fall back to Small.</value></data>
+  <data name="Set.LangIdMissing" xml:space="preserve"><value>Language detection model is not installed; Auto-detect starts in English.</value></data>
   <data name="Set.LogWriting" xml:space="preserve"><value>Writing {0} and above to {1}</value></data>
   <data name="Set.OverlayStatus" xml:space="preserve"><value>Keep on top {0} · opacity {1} · font {2} pt · {3} line(s)</value></data>
   <data name="Set.StorageStatus" xml:space="preserve"><value>Transcripts will be written to {0}.</value></data>

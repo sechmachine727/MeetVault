@@ -48,6 +48,10 @@ public sealed partial class OverlayWindow : Window
     // never pushed values back to Vm.Opacity (proven: identical pixels at 1.0/0.3).
     private readonly SolidColorBrush _veil = new(Colors.Black);
     private readonly Slider _backdropSlider = new() { Minimum = 0, Maximum = 1, StepFrequency = 0.05 };
+    // Meeting language control in the header (code-built like the cogwheel): the same
+    // single applier as the Live page combo, through LiveBridge.RequestLanguage.
+    private ComboBox? _langCombo;
+    private bool _suppressLang;
     // Conversation view: a bottom-anchored stack of recent lines at one uniform
     // size and weight (brightness marks the newest). Code-built — XamlCompiler 1.8
     // rejects new direct children of the root Grid in XAML; Border AND Rectangle
@@ -111,12 +115,30 @@ public sealed partial class OverlayWindow : Window
         _settingsButton.Flyout = BuildSettingsFlyout();
         Grid.SetColumn(_settingsButton, 2);
         HeaderBar.Children.Add(_settingsButton);
+        // Language combo: a meeting control (not an overlay-display setting), so it sits
+        // in the header beside the title — the one-settings-entry rule stays intact.
+        _langCombo = new ComboBox { Width = 128, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
+        Grid.SetColumn(_langCombo, 1);
+        _langCombo.Items.Add(Loc.T("Lang.Auto"));
+        foreach (var l in MeetVault.Core.EngineCatalog.Languages) _langCombo.Items.Add(l.Endonym);
+        _langCombo.SelectionChanged += (_, _) =>
+        {
+            if (_suppressLang) return;
+            var idx = _langCombo.SelectedIndex;
+            if (idx < 0) return;
+            LiveBridge.RequestLanguage(idx == 0 ? "auto" : MeetVault.Core.EngineCatalog.Languages[idx - 1].Code);
+        };
+        HeaderBar.Children.Add(_langCombo);
+        LiveBridge.LanguageChanged += OnLanguageChanged;
+        Closed += (_, _) => LiveBridge.LanguageChanged -= OnLanguageChanged;
         // NOTE: visual-parent lookup is null in the ctor (proven twice by
         // crash-log NRE) — the tree is only attached at Loaded. Host the
         // conversation panel then; text state is already correct via BuildConversation.
         RootSurface.Loaded += (_, _) =>
         {
             if (HeaderBar.Children.Count > 0 && HeaderBar.Children[0] is TextBlock headerTitle) headerTitle.Text = Loc.T("Ov.Title");
+            UpdateTitleLanguage(LiveBridge.CurrentLanguage);
+            SyncOverlayLanguageCombo(LiveBridge.CurrentLanguage);
             TranscriptList.Visibility = Visibility.Collapsed;
             EmptyState.Visibility = Visibility.Collapsed;
             var conversationCell = (Grid)VisualTreeHelper.GetParent(TranscriptList);
@@ -298,6 +320,44 @@ public sealed partial class OverlayWindow : Window
             AppWindow.TitleBar.SetDragRectangles(rects.ToArray());
         }
         catch (Exception ex) { MeetVault.Core.AppLog.Warn("overlay: drag rects failed: " + ex.Message); }
+    }
+
+    // Language mirror: the combo and the title suffix follow LiveBridge (the Live page is
+    // the owner of the meeting language; the overlay only requests changes).
+    private void SyncOverlayLanguageCombo(LiveBridge.LanguageInfo? info)
+    {
+        if (_langCombo is null) return;
+        _suppressLang = true;
+        try
+        {
+            if (info is null) { _langCombo.SelectedIndex = -1; return; }
+            _langCombo.SelectedIndex = info.Auto
+                ? 0
+                : Math.Max(0, Array.FindIndex(MeetVault.Core.EngineCatalog.Languages, l => l.Code == info.Code) + 1);
+        }
+        finally { _suppressLang = false; }
+    }
+
+    private void OnLanguageChanged(LiveBridge.LanguageInfo info)
+        => DispatcherQueue.TryEnqueue(() =>
+        {
+            try
+            {
+                SyncOverlayLanguageCombo(info);
+                UpdateTitleLanguage(info);
+            }
+            catch (Exception ex) { AppLog.Warn("overlay: language update failed: " + ex.Message); }
+        });
+
+    // "Live transcript · 日本語 (auto)" — the suffix names the ACTIVE language and marks
+    // an automatically detected one.
+    private void UpdateTitleLanguage(LiveBridge.LanguageInfo? info)
+    {
+        if (HeaderBar.Children.Count == 0 || HeaderBar.Children[0] is not TextBlock title) return;
+        var suffix = info is null
+            ? ""
+            : " · " + LiveBridge.LanguageDisplay(info.Code) + (info.Auto && info.Detected ? " (" + Loc.T("Ov.LangAuto") + ")" : "");
+        title.Text = Loc.T("Ov.Title") + suffix;
     }
 
     // Every overlay setting in one place (owner-requested): background darkness,

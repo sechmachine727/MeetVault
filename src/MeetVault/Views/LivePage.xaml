@@ -35,6 +35,9 @@
             <TextBlock x:Name="AudioStatus" Text="Mic: not started." TextWrapping="Wrap" />
             <TextBlock x:Uid="LiveEngineLabel" Style="{StaticResource SubtitleTextBlockStyle}" />
             <TextBlock x:Name="EngineStatus" Text="Checking engines..." TextWrapping="Wrap" />
+            <TextBlock x:Uid="LiveLanguageLabel" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <ComboBox x:Name="LanguageCombo" HorizontalAlignment="Stretch" SelectionChanged="LanguageCombo_SelectionChanged" />
+            <TextBlock x:Name="LangStatus" Text="" TextWrapping="Wrap" />
         </StackPanel>
     </Grid>
 </Page>
