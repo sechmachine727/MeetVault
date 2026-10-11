@@ -293,6 +293,19 @@
   <data name="Live.LangDetected" xml:space="preserve"><value>検出: {0}</value></data>
   <data name="Live.LangSwitching" xml:space="preserve"><value>次の無音区間で {0} に切り替えます…</value></data>
   <data name="Ov.LangAuto" xml:space="preserve"><value>自動</value></data>
+  <data name="LiveScreenLabel.Text" xml:space="preserve"><value>画面収録</value></data>
+  <data name="LiveScreenRecord.OnContent" xml:space="preserve"><value>オン</value></data>
+  <data name="LiveScreenRecord.OffContent" xml:space="preserve"><value>オフ</value></data>
+  <data name="LiveScreenRecord.AutomationProperties.Name" xml:space="preserve"><value>画面を録画する</value></data>
+  <data name="LiveScreenRefresh.Content" xml:space="preserve"><value>更新</value></data>
+  <data name="LiveScreenStart.Content" xml:space="preserve"><value>画面収録を開始</value></data>
+  <data name="LiveScreenStop.Content" xml:space="preserve"><value>画面収録を停止</value></data>
+  <data name="Live.ScreenOn" xml:space="preserve"><value>画面: {0} に録画中</value></data>
+  <data name="Live.ScreenOff" xml:space="preserve"><value>画面: オフ</value></data>
+  <data name="Live.ScreenFailed" xml:space="preserve"><value>画面収録を停止しました: {0}</value></data>
+  <data name="Live.ScreenUnavailable" xml:space="preserve"><value>この環境では画面収録を利用できません。</value></data>
+  <data name="Live.ScreenPaused" xml:space="preserve"><value>画面収録は一時停止に連動して停止します。</value></data>
+  <data name="Ov.Rec" xml:space="preserve"><value>録画中</value></data>
   <data name="Set.SizeAutoNote" xml:space="preserve"><value>サイズは言語ごとに適用され、未導入のサイズは Small にフォールバックします。</value></data>
   <data name="Set.LangIdMissing" xml:space="preserve"><value>言語検出モデルが未導入のため、自動検出は英語で開始します。</value></data>
   <data name="Set.LogWriting" xml:space="preserve"><value>{0} 以上を {1} に書き込みます</value></data>

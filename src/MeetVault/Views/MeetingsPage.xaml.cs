@@ -121,6 +121,18 @@ public static class AppStore
         }
     }
 
+    // The media root LocalMeetingRepository defaults to: screen-run MP4s land beside the
+    // audio recordings (the repository owns deletion + boundary checks for both).
+    public static string MediaDir
+    {
+        get
+        {
+            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MeetVault", "media");
+            Directory.CreateDirectory(dir);
+            return dir;
+        }
+    }
+
     public static IReadOnlyList<MeetingCard> Cards()
         => Repo.ListMeetings().Select(MeetingCards.ToCard).ToArray();
 }

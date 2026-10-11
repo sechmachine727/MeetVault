@@ -40,6 +40,12 @@ public sealed partial class LivePage : Page
     private long _pendingSinceMs;
     private bool _suppressLanguageEvent;            // combo <-> setting feedback guard
 
+    // Screen recording: one controller per page; runs follow the meeting lifecycle.
+    private MeetVault.Core.ScreenCaptureController? _screen;
+    private readonly List<MeetVault.Core.CaptureSource> _screenSources = new();
+    private bool _suppressScreenEvent;
+    private Microsoft.UI.Xaml.Media.Imaging.SoftwareBitmapSource? _previewSink;
+
     // Microphone and system audio are recorded together unless switched off in Settings.
     private static string MicId => AppStore.Repo.GetSetting("audio.mic.enabled") == "off"
         ? "off"
@@ -77,6 +83,16 @@ public sealed partial class LivePage : Page
         try { _streaming?.Dispose(); } catch { }
         try { _langMonitor?.Dispose(); } catch { } _langMonitor = null;
         try { _langIdModel?.Dispose(); } catch { } _langIdModel = null;
+        if (_screen is not null)
+        {
+            // Leaving Live pauses the meeting: the screen run finalizes and its track is
+            // persisted; the controller is page-scoped and goes with the page.
+            try { await _screen.MeetingPausedAsync(); } catch { }
+            PersistFinishedTracks();
+            LiveBridge.SetScreenState(false);
+            try { _screen.Dispose(); } catch { }
+            _screen = null;
+        }
         _relay = null;
     }
 
@@ -140,6 +156,16 @@ public sealed partial class LivePage : Page
             capture.CaptureFailed += OnCaptureFailed;
             _capture = capture;
             _audio = capture;
+            _screen = new MeetVault.Core.ScreenCaptureController(
+                new MeetVault.Core.ScreenRecorderLibAdapter(),
+                () => AppStore.MediaDir,
+                () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                ResolveScreenSource,
+                MeetVault.Core.CaptureSourceResolver.FindWindowHandle,
+                MeetVault.Core.CaptureSourceResolver.IsWindowAlive);
+            _screen.Enabled = AppStore.Repo.GetSetting("screen.enabled") != "false";
+            _screen.Warning += message => DispatcherQueue.TryEnqueue(() => { Status(message); RefreshScreenStatus(); });
+            _screen.FramePreview += OnScreenFrame;
         }
         catch (Exception ex)
         {
@@ -159,6 +185,7 @@ public sealed partial class LivePage : Page
     {
         ResolveEngines();
         BuildLanguageCombo((AppStore.Repo.GetSetting("transcription.language") ?? "en").Trim().ToLowerInvariant());
+        InitScreenSection();
         _micLabel = NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == MicId).Name
             ?? (MicId == "0" ? Loc.T("Dash.WindowsDefault") : Loc.Tf("Live.DeviceN", MicId));
         var id = PendingRecovery.MeetingId;
@@ -191,6 +218,15 @@ public sealed partial class LivePage : Page
             LiveBridge.SetMeetingState(LiveBridge.MeetingState.Recording);
             EngineStatus.Text = _engineMode;
             Status(_engineMode.StartsWith("live") ? Loc.T("Live.Recording") : Loc.T("Live.DemoMode"));
+            if (_screen is not null && _session.MeetingId is { } screenMid)
+            {
+                // Screen start follows SetMeetingState(Recording) above; failures here must
+                // never block audio/transcription (soft requirement of E1).
+                try { await _screen.MeetingStartedAsync(screenMid, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()); }
+                catch (Exception ex) { MeetVault.Core.AppLog.Warn("screen: start hook failed: " + ex.Message); }
+                PersistFinishedTracks();
+            }
+            RefreshScreenStatus();
             if (_autoMode && _langMonitor is not null && _relay is not null && _relay.ActiveModelDir is null)
             {
                 // Auto: collect the first speech windows, then transcribe on the detected
@@ -363,6 +399,164 @@ public sealed partial class LivePage : Page
         LiveBridge.Publish("", text);
     }
 
+    // --- Screen recording (E1) ---
+
+    private void InitScreenSection()
+    {
+        RefreshScreenSources();
+        if (_screen is null)
+        {
+            ScreenToggle.IsEnabled = false;
+            ScreenSourceCombo.IsEnabled = false;
+            ScreenRunButton.IsEnabled = false;
+            ScreenStatus.Text = Loc.T("Live.ScreenUnavailable");
+            return;
+        }
+        _suppressScreenEvent = true;
+        try { ScreenToggle.IsOn = _screen.Enabled; }
+        finally { _suppressScreenEvent = false; }
+        ScreenToggle.Toggled += ScreenToggle_Toggled;
+        RefreshScreenStatus();
+    }
+
+    private void RefreshScreenSources()
+    {
+        _screenSources.Clear();
+        _screenSources.AddRange(MeetVault.Core.CaptureSourceResolver.Displays());
+        _screenSources.AddRange(MeetVault.Core.CaptureSourceResolver.Windows());
+        _suppressScreenEvent = true;
+        try
+        {
+            ScreenSourceCombo.Items.Clear();
+            foreach (var s in _screenSources) ScreenSourceCombo.Items.Add(s.Label);
+            var stored = (AppStore.Repo.GetSetting("screen.source") ?? "").Trim();
+            var idx = 0;
+            if (stored.Length > 0)
+                for (var i = 0; i < _screenSources.Count; i++)
+                    if (MatchesStored(stored, _screenSources[i])) { idx = i; break; }
+            ScreenSourceCombo.SelectedIndex = idx;
+        }
+        finally { _suppressScreenEvent = false; }
+    }
+
+    // Stored-form or retitled-window prefix match, mirroring CaptureSourceResolver.Resolve.
+    private static bool MatchesStored(string stored, MeetVault.Core.CaptureSource s)
+    {
+        if (string.Equals(MeetVault.Core.CaptureSourceResolver.Format(s), stored, StringComparison.OrdinalIgnoreCase)) return true;
+        if (!stored.StartsWith("window:", StringComparison.OrdinalIgnoreCase) || s.Kind != "window") return false;
+        var rest = stored[7..];
+        var sep = rest.IndexOf(':');
+        var exe = sep >= 0 ? rest[..sep] : rest;
+        var title = sep >= 0 ? rest[(sep + 1)..] : "";
+        var sTitle = MeetVault.Core.CaptureSourceResolver.LabelTitle(s);
+        return string.Equals(s.Id, exe, StringComparison.OrdinalIgnoreCase) &&
+               (title.Length == 0 || sTitle.StartsWith(title, StringComparison.Ordinal) || title.StartsWith(sTitle, StringComparison.Ordinal));
+    }
+
+    private void ScreenSource_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressScreenEvent || ScreenSourceCombo.SelectedIndex < 0 || ScreenSourceCombo.SelectedIndex >= _screenSources.Count) return;
+        AppStore.Repo.SetSetting("screen.source", MeetVault.Core.CaptureSourceResolver.Format(_screenSources[ScreenSourceCombo.SelectedIndex]));
+    }
+
+    private void ScreenRefresh_Click(object sender, RoutedEventArgs e) => RefreshScreenSources();
+
+    private void ScreenToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_suppressScreenEvent || _screen is null) return;
+        _screen.Enabled = ScreenToggle.IsOn;
+        AppStore.Repo.SetSetting("screen.enabled", ScreenToggle.IsOn ? "true" : "false");
+        RefreshScreenStatus();
+    }
+
+    private async void ScreenRun_Click(object sender, RoutedEventArgs e)
+    {
+        if (_screen is null) return;
+        try { await _screen.ToggleAsync(); PersistFinishedTracks(); }
+        catch (Exception ex) { MeetVault.Core.AppLog.Warn("screen: toggle failed: " + ex.Message); }
+        RefreshScreenStatus();
+    }
+
+    private void PersistFinishedTracks()
+    {
+        if (_screen is null) return;
+        foreach (var draft in _screen.FinishedTracks)
+        {
+            if (!draft.Ok) { Status(Loc.Tf("Live.ScreenFailed", draft.Error ?? "")); continue; }
+            try
+            {
+                AppStore.Repo.AddMediaTrack(new MeetVault.Core.MediaTrack(
+                    "trk-" + Guid.NewGuid().ToString("N"), draft.MeetingId, draft.Kind, draft.Path,
+                    "video/mp4", draft.StartOffsetMs, draft.DurationMs, DateTimeOffset.UtcNow.ToString("o")));
+                MeetVault.Core.AppLog.Info("screen: track saved offset=" + draft.StartOffsetMs + " ms -> " + draft.Path);
+            }
+            catch (Exception ex) { MeetVault.Core.AppLog.Warn("screen: track persist failed: " + ex.Message); }
+        }
+        _screen.ClearFinishedTracks();
+    }
+
+    private void RefreshScreenStatus()
+    {
+        if (_screen is null) return;
+        var active = _screen.IsRecording;
+        ScreenRunButton.Content = Loc.T(active ? "LiveScreenStop.Content" : "LiveScreenStart.Content");
+        ScreenRunButton.IsEnabled = _state != LiveState.Idle;
+        ScreenSourceCombo.IsEnabled = _state == LiveState.Idle;
+        ScreenToggle.IsEnabled = _state == LiveState.Idle;
+        ScreenStatus.Text = active ? Loc.Tf("Live.ScreenOn", SelectedSourceLabel())
+            : _state == LiveState.Paused ? Loc.T("Live.ScreenPaused")
+            : Loc.T("Live.ScreenOff");
+        LiveBridge.SetScreenState(active);
+        if (!active) { PreviewBox.Visibility = Visibility.Collapsed; PreviewImage.Source = null; }
+    }
+
+    private string SelectedSourceLabel()
+        => ScreenSourceCombo.SelectedIndex >= 0 && ScreenSourceCombo.SelectedIndex < _screenSources.Count
+            ? _screenSources[ScreenSourceCombo.SelectedIndex].Label : "";
+
+    // Start-time source resolution: stored setting -> fresh enumerations -> primary display
+    // with a logged reason (window HWNDs are session-local; this runs at every start).
+    private MeetVault.Core.CaptureSource ResolveScreenSource()
+    {
+        var stored = AppStore.Repo.GetSetting("screen.source");
+        var source = MeetVault.Core.CaptureSourceResolver.Resolve(
+            stored, MeetVault.Core.CaptureSourceResolver.Displays(), MeetVault.Core.CaptureSourceResolver.Windows(), out var reason);
+        if (reason.Length > 0) MeetVault.Core.AppLog.Info("screen: " + reason + "; using " + source.Label);
+        return source;
+    }
+
+    // Preview frames arrive from the recorder's low-rate preview stream; render on the UI
+    // thread. Cosmetic only — failures become log lines and never touch the recording.
+    private void OnScreenFrame(byte[] data, int stride, int width, int height)
+    {
+        if (width <= 0 || height <= 0 || stride < width * 4 || data.Length < stride * (height - 1) + width * 4) return;
+        var bytes = data;
+        if (stride != width * 4)
+        {
+            var tight = new byte[width * height * 4];
+            for (var y = 0; y < height; y++)
+                Array.Copy(bytes, y * stride, tight, y * width * 4, width * 4);
+            bytes = tight;
+        }
+        var w = width;
+        var h = height;
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            if (_screen?.IsRecording != true) return;
+            try
+            {
+                var buffer = Windows.Security.Cryptography.CryptographicBuffer.CreateFromByteArray(bytes);
+                var bitmap = Windows.Graphics.Imaging.SoftwareBitmap.CreateCopyFromBuffer(
+                    buffer, Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8, w, h, Windows.Graphics.Imaging.BitmapAlphaMode.Premultiplied);
+                _previewSink ??= new Microsoft.UI.Xaml.Media.Imaging.SoftwareBitmapSource();
+                await _previewSink.SetBitmapAsync(bitmap);
+                PreviewImage.Source = _previewSink;
+                PreviewBox.Visibility = Visibility.Visible;
+            }
+            catch (Exception ex) { MeetVault.Core.AppLog.Warn("screen: preview frame failed: " + ex.Message); }
+        });
+    }
+
     // --- Language control ---
 
     // Single applier (manual pick, auto suggestion, resume): resolves the (language, size)
@@ -520,6 +714,12 @@ public sealed partial class LivePage : Page
             LiveBridge.SetLive(false); // capture is stopped; the overlay must not claim "Listening…"
             LiveBridge.SetMeetingState(LiveBridge.MeetingState.Paused);
             _langMonitor?.Reset();
+            if (_screen is not null)
+            {
+                try { await _screen.MeetingPausedAsync(); PersistFinishedTracks(); }
+                catch (Exception ex) { MeetVault.Core.AppLog.Warn("screen: pause hook failed: " + ex.Message); }
+            }
+            RefreshScreenStatus();
             Status(Loc.T("Live.Paused"));
         }
         catch (Exception ex) { Status(Loc.Tf("Live.CouldNotPause", Short(ex))); }
@@ -538,6 +738,12 @@ public sealed partial class LivePage : Page
             SetState(LiveState.Recording);
             LiveBridge.SetLive(true); // capture is back; the overlay's "Listening…" applies again
             LiveBridge.SetMeetingState(LiveBridge.MeetingState.Recording);
+            if (_screen is not null)
+            {
+                try { await _screen.MeetingResumedAsync(); PersistFinishedTracks(); }
+                catch (Exception ex) { MeetVault.Core.AppLog.Warn("screen: resume hook failed: " + ex.Message); }
+            }
+            RefreshScreenStatus();
             Status(Loc.T("Live.Resumed"));
         }
         catch (Exception ex) { Status(Loc.Tf("Live.CouldNotResume", Short(ex))); }
@@ -571,6 +777,13 @@ public sealed partial class LivePage : Page
             _pendingLanguage = null;
             _checkpoint?.Stop();
             SetState(LiveState.Idle);
+            if (_screen is not null)
+            {
+                // Finalize the screen run(s) — never let a recorder error block the Stop path.
+                try { await _screen.MeetingStoppedAsync(); PersistFinishedTracks(); }
+                catch (Exception ex) { MeetVault.Core.AppLog.Warn("screen: stop hook failed: " + ex.Message); }
+            }
+            RefreshScreenStatus();
             Status(Loc.Tf("Live.Saved", count));
         }
         catch (Exception ex) { Status(Loc.Tf("Live.CouldNotStop", Short(ex))); }

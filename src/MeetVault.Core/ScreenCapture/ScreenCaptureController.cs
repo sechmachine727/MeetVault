@@ -33,8 +33,14 @@ public sealed class ScreenCaptureController : IDisposable
     /// <summary>Screen recording is on by default for new meetings (screen.enabled).</summary>
     public bool Enabled { get; set; } = true;
 
+    /// <summary>True while a run is active (started and not yet finalized).</summary>
+    public bool IsRecording => _run is not null;
+
     /// <summary>Non-fatal problems: couldn't start, run failed, target window closed.</summary>
     public event Action<string>? Warning;
+
+    /// <summary>Low-rate screen preview frames (BGRA), forwarded from the recorder.</summary>
+    public event Action<byte[], int, int, int>? FramePreview;
 
     public IReadOnlyList<MediaTrackDraft> FinishedTracks { get { lock (_drafts) return _drafts.ToArray(); } }
 
@@ -52,6 +58,7 @@ public sealed class ScreenCaptureController : IDisposable
         _isWindowAlive = isWindowAlive;
         _watchdogPollMs = watchdogPollMs;
         _recorder.Failed += OnRecorderFailed;
+        _recorder.FramePreview += OnFramePreview;
     }
 
     public async Task MeetingStartedAsync(string meetingId, long nowMs)
@@ -124,8 +131,11 @@ public sealed class ScreenCaptureController : IDisposable
     public void Dispose()
     {
         _recorder.Failed -= OnRecorderFailed;
+        _recorder.FramePreview -= OnFramePreview;
         StopWatchdog();
     }
+
+    private void OnFramePreview(byte[] data, int stride, int width, int height) => FramePreview?.Invoke(data, stride, width, height);
 
     private async Task StartRunAsync(string reason)
     {

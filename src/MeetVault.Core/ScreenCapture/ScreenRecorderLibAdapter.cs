@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using ScreenRecorderLib;
 
 namespace MeetVault.Core;
@@ -19,6 +20,7 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
     public bool IsRecording { get; private set; }
     public event Action<string>? Failed;
     public event Action<bool>? StateChanged;
+    public event Action<byte[], int, int, int>? FramePreview;
 
     public Task StartAsync(CaptureSource source, string outputPath, CancellationToken ct = default)
     {
@@ -26,7 +28,7 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
         lock (_gate)
         {
             if (IsRecording) throw new InvalidOperationException("already recording");
-            var recorder = Create(source);
+            var recorder = Create(source, OnFrameRecorded);
             _outputPath = outputPath;
             _done = new TaskCompletionSource<RecordingResult>(TaskCreationOptions.RunContinuationsAsynchronously);
             recorder.OnRecordingComplete += (_, e) => Finish(true, e.FilePath, null);
@@ -102,7 +104,7 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
 
     private long ElapsedMs() => _startTicks == 0 ? 0 : (long)Stopwatch.GetElapsedTime(_startTicks).TotalMilliseconds;
 
-    private static Recorder Create(CaptureSource source)
+    private static Recorder Create(CaptureSource source, EventHandler<FrameRecordedEventArgs> frameHandler)
     {
         RecordingSourceBase src;
         if (source.Kind == "window")
@@ -127,17 +129,35 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
         RecorderOptions opts;
         try { opts = RecorderOptions.Default; }
         catch (Exception ex) { throw new InvalidOperationException("screen capture unavailable: " + ex.Message, ex); }
+        // Low-rate preview frames for the live preview box (320x180, library-throttled).
+        src.IsVideoFramePreviewEnabled = true;
+        src.VideoFramePreviewSize = new ScreenSize(320, 180);
         opts.SourceOptions = new SourceOptions { RecordingSources = new List<RecordingSourceBase> { src } };
         opts.AudioOptions = new AudioOptions { IsAudioEnabled = false }; // video-only; audio stays in NAudioCapture
         opts.VideoEncoderOptions = new VideoEncoderOptions { Framerate = 30, Bitrate = 4_000_000, Quality = 70 };
         try
         {
-            return Recorder.CreateRecorder(opts);
+            var recorder = Recorder.CreateRecorder(opts);
+            recorder.OnFrameRecorded += frameHandler;
+            return recorder;
         }
         catch (Exception ex) // DllNotFound/TypeInit/BadImageFormat when the VC++ x64 redist is missing
         {
             throw new InvalidOperationException("screen capture unavailable: " + ex.Message, ex);
         }
+    }
+
+    private void OnFrameRecorded(object? sender, FrameRecordedEventArgs e)
+    {
+        var b = e.BitmapData;
+        if (b is null || b.Data == IntPtr.Zero || b.Length <= 0) return;
+        try
+        {
+            var bytes = new byte[b.Length];
+            Marshal.Copy(b.Data, bytes, 0, b.Length);
+            FramePreview?.Invoke(bytes, b.Stride, b.Width, b.Height);
+        }
+        catch (Exception ex) { AppLog.Warn("screen: preview frame copy failed: " + ex.Message); }
     }
 
     /// <summary>Display source for a device name ("" = primary). WGC is mandatory here:

@@ -28,4 +28,8 @@ public interface IVideoRecorder : IDisposable
     event Action<string>? Failed;
 
     event Action<bool>? StateChanged;
+
+    /// <summary>Low-rate preview frames while recording: BGRA bytes, stride, width, height.
+    /// Purely cosmetic — a dropped or slow consumer must never affect the recording.</summary>
+    event Action<byte[], int, int, int>? FramePreview;
 }

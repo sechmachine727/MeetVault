@@ -17,6 +17,9 @@ public sealed class ScreenCaptureControllerTests : IDisposable
         public List<(CaptureSource Source, string Path)> Starts { get; } = new();
         public event Action<string>? Failed;
         public event Action<bool>? StateChanged;
+#pragma warning disable CS0067 // the fake produces no preview frames
+        public event Action<byte[], int, int, int>? FramePreview;
+#pragma warning restore CS0067
 
         public Task StartAsync(CaptureSource source, string outputPath, CancellationToken ct = default)
         {

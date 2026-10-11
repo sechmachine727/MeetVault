@@ -44,6 +44,21 @@
             <TextBlock x:Uid="LiveLanguageLabel" Style="{StaticResource SubtitleTextBlockStyle}" />
             <ComboBox x:Name="LanguageCombo" HorizontalAlignment="Stretch" SelectionChanged="LanguageCombo_SelectionChanged" />
             <TextBlock x:Name="LangStatus" Text="" TextWrapping="Wrap" />
+            <TextBlock x:Uid="LiveScreenLabel" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <ToggleSwitch x:Name="ScreenToggle" x:Uid="LiveScreenRecord" />
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ComboBox x:Name="ScreenSourceCombo" HorizontalAlignment="Stretch" SelectionChanged="ScreenSource_Changed" />
+                <Button Grid.Column="1" x:Uid="LiveScreenRefresh" Click="ScreenRefresh_Click" />
+            </Grid>
+            <Button x:Name="ScreenRunButton" x:Uid="LiveScreenStart" Click="ScreenRun_Click" IsEnabled="False" />
+            <Border x:Name="PreviewBox" Visibility="Collapsed" MaxHeight="160" CornerRadius="4">
+                <Image x:Name="PreviewImage" Stretch="Uniform" />
+            </Border>
+            <TextBlock x:Name="ScreenStatus" Text="" TextWrapping="Wrap" />
         </StackPanel>
     </Grid>
 </Page>

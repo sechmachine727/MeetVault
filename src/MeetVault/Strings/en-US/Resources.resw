@@ -293,6 +293,19 @@
   <data name="Live.LangDetected" xml:space="preserve"><value>Detected: {0}</value></data>
   <data name="Live.LangSwitching" xml:space="preserve"><value>Switching to {0} at the next pause…</value></data>
   <data name="Ov.LangAuto" xml:space="preserve"><value>auto</value></data>
+  <data name="LiveScreenLabel.Text" xml:space="preserve"><value>Screen recording</value></data>
+  <data name="LiveScreenRecord.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="LiveScreenRecord.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="LiveScreenRecord.AutomationProperties.Name" xml:space="preserve"><value>Record the screen</value></data>
+  <data name="LiveScreenRefresh.Content" xml:space="preserve"><value>Refresh</value></data>
+  <data name="LiveScreenStart.Content" xml:space="preserve"><value>Start screen recording</value></data>
+  <data name="LiveScreenStop.Content" xml:space="preserve"><value>Stop screen recording</value></data>
+  <data name="Live.ScreenOn" xml:space="preserve"><value>Screen: recording to {0}</value></data>
+  <data name="Live.ScreenOff" xml:space="preserve"><value>Screen: off</value></data>
+  <data name="Live.ScreenFailed" xml:space="preserve"><value>Screen recording stopped: {0}</value></data>
+  <data name="Live.ScreenUnavailable" xml:space="preserve"><value>Screen recording is unavailable on this system.</value></data>
+  <data name="Live.ScreenPaused" xml:space="preserve"><value>Screen recording pauses with the meeting.</value></data>
+  <data name="Ov.Rec" xml:space="preserve"><value>Recording</value></data>
   <data name="Set.SizeAutoNote" xml:space="preserve"><value>Size applies per language; unavailable sizes fall back to Small.</value></data>
   <data name="Set.LangIdMissing" xml:space="preserve"><value>Language detection model is not installed; Auto-detect starts in English.</value></data>
   <data name="Set.LogWriting" xml:space="preserve"><value>Writing {0} and above to {1}</value></data>
