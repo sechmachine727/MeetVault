@@ -103,12 +103,13 @@
                         <TextBlock x:Uid="SetSizeDesc" Opacity="0.7" TextWrapping="Wrap" />
                     </StackPanel>
                     <ComboBox x:Name="SizePicker" x:Uid="SetSizePicker" Grid.Column="1" Width="360" HorizontalAlignment="Left"
-                              SelectionChanged="Picker_SelectionChanged">
-                        <ComboBox.ItemContainerStyle>
-                            <Style TargetType="ComboBoxItem">
-                                <Setter Property="IsEnabled" Value="{Binding Enabled}" />
-                            </Style>
-                        </ComboBox.ItemContainerStyle>
+                              SelectionChanged="Picker_SelectionChanged"
+                              DropDownOpened="SizePicker_DropDownOpened">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Label}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
                     </ComboBox>
                 </Grid>
                 <TextBlock x:Name="ModelDetails" Opacity="0.7" TextWrapping="Wrap" />

@@ -97,6 +97,28 @@ public sealed partial class SettingsPage : Page
         finally { _rebuildingSizes = false; }
     }
 
+    // WinUI style setters cannot carry a {Binding} (an ItemContainerStyle IsEnabled setter
+    // is inert — verified via UIA en=True on the disabled row), and ComboBox is not a
+    // ListViewBase so ContainerContentChanging is unavailable; this is the event that can
+    // reach the container. A tier without an artifact for the current language stays
+    // visible but unselectable.
+    private void SizePicker_DropDownOpened(object sender, object e)
+    {
+        ApplySizeRowEnabled();
+        // Containers are not always realized at the moment the popup opens; re-apply on the
+        // next dispatcher turn so the rows carry their state before any interaction.
+        SizePicker.DispatcherQueue.TryEnqueue(ApplySizeRowEnabled);
+    }
+
+    private void ApplySizeRowEnabled()
+    {
+        for (var i = 0; i < SizePicker.Items.Count; i++)
+        {
+            if (SizePicker.ContainerFromIndex(i) is ComboBoxItem item && SizePicker.Items[i] is SizeRow row)
+                item.IsEnabled = row.Enabled;
+        }
+    }
+
     // A user-initiated change persists ONLY the key(s) of the control that changed, then
     // re-renders the summary; Refresh() itself writes nothing (see PersistAll for the
     // load-time write-back). This is what stops a Settings control from reverting a
@@ -115,7 +137,23 @@ public sealed partial class SettingsPage : Page
             Persist(() => { AppStore.Repo.SetSetting("transcription.language", CurrentLanguage()); AppStore.Repo.SetSetting("transcription.size", SizeTier()); });
         }
         else if (ReferenceEquals(sender, SizePicker))
+        {
+            if (SizePicker.SelectedItem is SizeRow row && !row.Enabled)
+            {
+                // Belt and braces: an unavailable tier must never become the selection, even
+                // if some input path bypasses the row's disabled state.
+                _rebuildingSizes = true;
+                try
+                {
+                    var rows = SizePicker.ItemsSource as SizeRow[] ?? Array.Empty<SizeRow>();
+                    var idx = Array.FindIndex(rows, r => r.Enabled);
+                    if (idx >= 0) SizePicker.SelectedIndex = idx;
+                }
+                finally { _rebuildingSizes = false; }
+                return;
+            }
             Persist("transcription.size", SizeTier());
+        }
         else if (ReferenceEquals(sender, LogLevelPicker))
         {
             var level = LogLevelPicker.SelectedItem as string ?? "debug";
