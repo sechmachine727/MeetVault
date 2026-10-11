@@ -421,21 +421,26 @@ public sealed partial class OverlayWindow : Window
             {
                 Text = CaptionPlacement.FormatCaption(line.Speaker, line.Text),
                 TextWrapping = TextWrapping.WrapWholeWords,
-                TextAlignment = TextAlignment.Center,
+                TextAlignment = TextAlignment.Left,
+                Margin = new Thickness(16, 0, 16, 0),
                 Foreground = new SolidColorBrush(Colors.White),
                 FontFamily = new FontFamily(Vm.FontFamily),
                 FontSize = isLatest ? Vm.FontSize + 12 : Vm.FontSize,
                 FontWeight = isLatest ? FontWeights.Bold : FontWeights.Normal,
                 Opacity = isLatest ? 1.0 : 0.72,
             };
-            if (!isLatest) { _conversationPanel.Children.Add(text); continue; }
+            if (!isLatest || line.Speaker is not { Length: > 0 })
+            {
+                _conversationPanel.Children.Add(text);
+                continue;
+            }
             var button = new Button
             {
                 Background = new SolidColorBrush(Colors.Transparent),
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(0),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                HorizontalContentAlignment = HorizontalAlignment.Center,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
                 DataContext = line,
                 Content = text,
             };
