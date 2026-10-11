@@ -11,8 +11,6 @@ public sealed class StreamingRunnerTests
         public string? EndpointText;   // returned once by TryTakeFinal
         public string? FlushText;      // returned once by TryFlushFinal
         public void AcceptWaveform(float[] s) => Fed.Add(s);
-        public bool IsReady() => false; // fake/Vosk-style: decode happens inside AcceptWaveform
-        public void Decode() { }
         public string CurrentText() => Partial;
         public bool TryTakeFinal(out string text)
         { text = EndpointText ?? ""; var had = EndpointText is not null; EndpointText = null; return had; }
@@ -35,8 +33,6 @@ public sealed class StreamingRunnerTests
             Interlocked.Increment(ref Accepts);
             if (Block) Gate.Wait(TimeSpan.FromSeconds(10));
         }
-        public bool IsReady() => false;
-        public void Decode() { }
         public string CurrentText() { Interlocked.Increment(ref CurrentTextCalls); return ""; }
         public bool TryTakeFinal(out string text) { text = ""; return false; }
         public bool TryFlushFinal(out string text) { text = ""; return false; }

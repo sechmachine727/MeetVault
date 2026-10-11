@@ -47,7 +47,6 @@ public sealed class VoskStreamingTranscriber : IStreamingTranscriber
         return Task.Run(() => _runner.Flush());
     }
     public void Push(float[] samples16k) => _runner.Push(samples16k);
-    public void Flush() => _runner.Flush();
     public void Dispose() { IsRunning = false; _runner.Dispose(); }
 }
 
@@ -87,10 +86,6 @@ public sealed class VoskStreamingBackend : IStreamingBackend
             _pendingFinal = SpeechText.SentenceCase(VoskJson.Text(_recognizer.Result(), "text"));
     }
 
-    // Vosk decodes inside AcceptWaveform; there is no separate drain step (a `true` here
-    // would spin the runner's decode loop forever).
-    public bool IsReady() => false;
-    public void Decode() { }
     // Vosk's small models emit all-lowercase, unpunctuated text; sentence case restores
     // the first letter of each utterance.
     public string CurrentText() => SpeechText.SentenceCase(VoskJson.Text(_recognizer.PartialResult(), "partial"));

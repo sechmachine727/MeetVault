@@ -27,7 +27,6 @@ public interface IStreamingTranscriber : ISpeechTranscriber, IDisposable
 {
     event Action<string>? PartialReady; // full interim text of the open utterance; "" clears it
     void Push(float[] samples16k);
-    void Flush(); // close pending speech (pause/stop/unload); the stream stays usable
 }
 
 // The engine-specific slice of a streaming recognizer. ALL calls happen on the runner's
@@ -35,8 +34,6 @@ public interface IStreamingTranscriber : ISpeechTranscriber, IDisposable
 public interface IStreamingBackend : IDisposable
 {
     void AcceptWaveform(float[] samples16k);
-    bool IsReady();                     // ready to decode more frames
-    void Decode();                      // decode one step
     string CurrentText();               // interim text of the open utterance ("" when none)
     bool TryTakeFinal(out string text); // the engine closed an utterance (endpoint); resets it
     bool TryFlushFinal(out string text);// the CALLER closes it now (pause/stop); resets it

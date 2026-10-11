@@ -230,6 +230,9 @@ public sealed partial class OverlayWindow : Window
             UpdateDragRects();
         };
         RootSurface.SizeChanged += (_, _) => UpdateDragRects();
+        // The header's children change size when the REC indicator toggles: recompute the
+        // carved-out drag rects so no dead zone is left behind (review r17).
+        HeaderBar.SizeChanged += (_, _) => UpdateDragRects();
         _presenter = (OverlappedPresenter)AppWindow.Presenter;
         _presenter.IsAlwaysOnTop = Vm.IsPinned;
         ((INotifyCollectionChanged)Vm.Lines).CollectionChanged += OnLinesChanged;
@@ -238,9 +241,16 @@ public sealed partial class OverlayWindow : Window
         LiveBridge.LiveChanged += OnLiveChanged;
         LiveBridge.PartialChanged += OnPartial;
         Closed += (_, _) => { LiveBridge.LineAdded -= OnLiveLine; LiveBridge.Cleared -= OnLiveCleared; LiveBridge.LiveChanged -= OnLiveChanged; LiveBridge.PartialChanged -= OnPartial; _acrylic?.Dispose(); };
+        // A user dismissal mid-run sticks for the rest of the meeting (review r17): the
+        // auto-open must not resurrect the overlay on the next pause→resume.
+        Closed += (_, _) => { if (LiveBridge.State != LiveBridge.MeetingState.Idle) UserDismissed = true; };
         foreach (var (speaker, text) in LiveBridge.Recent()) Vm.AddLine(speaker, text); // catch up mid-meeting
         BuildConversation();
     }
+
+    // True once the user closed the overlay during an active meeting; reset at Idle
+    // (review r17).
+    public static bool UserDismissed;
 
     // Settings -> Overlay: the controls persist these, so the window must honor them.
     private void SeedFromSettings()

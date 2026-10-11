@@ -93,7 +93,6 @@ public sealed class StreamingRunner : IDisposable
             foreach (var chunk in _queue!.GetConsumingEnumerable())
             {
                 _backend.AcceptWaveform(chunk);
-                while (_backend.IsReady()) _backend.Decode();
                 Emit();
             }
             Emit();

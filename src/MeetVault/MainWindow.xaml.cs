@@ -20,8 +20,16 @@ public sealed partial class MainWindow : Window
         {
             try
             {
-                if (state == LiveBridge.MeetingState.Recording) OverlayWindow.ShowOrActivate();
-                else if (state == LiveBridge.MeetingState.Idle) OverlayWindow.CloseIfOpen();
+                if (state == LiveBridge.MeetingState.Recording)
+                {
+                    // A dismissal mid-run sticks until the next meeting (review r17).
+                    if (!OverlayWindow.UserDismissed) OverlayWindow.ShowOrActivate();
+                }
+                else if (state == LiveBridge.MeetingState.Idle)
+                {
+                    OverlayWindow.UserDismissed = false;
+                    OverlayWindow.CloseIfOpen();
+                }
             }
             catch (Exception ex) { MeetVault.Core.AppLog.Warn("overlay auto: " + ex.Message); }
         };

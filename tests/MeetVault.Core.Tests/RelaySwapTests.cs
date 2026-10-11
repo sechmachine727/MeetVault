@@ -19,7 +19,6 @@ public sealed class RelaySwapTests
         public TaskCompletionSource? StopGate;
         public Task StopAsync(CancellationToken ct) { IsRunning = false; return StopGate?.Task ?? Task.CompletedTask; }
         public void Push(float[] samples16k) => Pushes.Add(samples16k);
-        public void Flush() { }
         public void Dispose() { }
     }
 

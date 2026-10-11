@@ -16,7 +16,7 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
     private readonly object _swapLock = new();
     private readonly SemaphoreSlim _swapOne = new(1, 1);              // one swap at a time
     private readonly List<float[]> _preRoll = new();
-    private const int PreRollMs = 6000;
+    private const int PreRollMs = 30_000; // must cover the 6.5 s detect wait + a large-tier load (~16.5 s) — the first engine publishes only after both (review r17)
     private IStreamingTranscriber? _inner;
     private string? _activeModelDir;
     private volatile bool _disposed;                                 // set synchronously in Dispose; read by SwapTo
@@ -88,8 +88,6 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
         inner.Push(samples16k);
     }
 
-    public void Flush() { IStreamingTranscriber? inner; lock (_swapLock) inner = _inner; inner?.Flush(); }
-
     // Swap the ACTIVE engine. Returns false when the replacement could not be built or
     // started; in that case the OLD engine keeps serving the meeting (review r7: the old
     // code detached and disposed first, so a factory failure left the relay deaf once the
@@ -142,7 +140,11 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
             lock (_swapLock) { old = _inner; _inner = null; }
             if (old is not null)
             {
-                try { old.Flush(); } catch (Exception ex) { AppLog.Warn("swap: flush failed: " + ex.Message); }
+                // Stop (flush + drain) BEFORE detaching: the old engine's last sentence
+                // still reaches the session through this relay (review r9). Terminal for the
+                // old engine, which is disposed right after (review r17).
+                try { old.StopAsync(CancellationToken.None).GetAwaiter().GetResult(); }
+                catch (Exception ex) { AppLog.Warn("swap: flush failed: " + ex.Message); }
                 old.PartialReady -= ForwardPartial;
                 old.SegmentReady -= ForwardSegment;
                 try { old.Dispose(); } catch { }

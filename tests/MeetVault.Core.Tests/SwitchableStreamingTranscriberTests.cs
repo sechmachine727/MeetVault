@@ -12,14 +12,13 @@ public sealed class SwitchableStreamingTranscriberTests
         public bool Started { get; private set; }
         public bool Stopped { get; private set; }
         public bool Disposed { get; private set; }
-        public bool Flushed { get; private set; }
         public bool IsRunning => Started && !Stopped;
         public event Action<Segment>? SegmentReady;
         public event Action<string>? PartialReady;
         public Task StartAsync(CancellationToken ct) { Started = true; Stopped = false; return Task.CompletedTask; }
-        public Task StopAsync(CancellationToken ct) { Stopped = true; return Task.CompletedTask; }
+        public string? FlushFinal; // raised by StopAsync — the flush-drain final (review r17)
+        public Task StopAsync(CancellationToken ct) { Stopped = true; if (FlushFinal is not null) RaiseSegment(FlushFinal); return Task.CompletedTask; }
         public void Push(float[] samples16k) => Received.Add(samples16k);
-        public void Flush() => Flushed = true;
         public void Dispose() => Disposed = true;
         public void RaiseSegment(string text) => SegmentReady?.Invoke(new Segment("s1", "", 0, 1, text, true));
         public void RaisePartial(string text) => PartialReady?.Invoke(text);
@@ -68,13 +67,16 @@ public sealed class SwitchableStreamingTranscriberTests
         Assert.True(relay.SwapTo("dir-A"));
         var a = factory.Created[0];
         a.RaiseSegment("from-A");
-        Assert.True(relay.SwapTo("dir-B"));               // flush-first, then detach
-        Assert.True(a.Flushed);
+        a.FlushFinal = "old-final";                       // the stop-drain final (review r17)
+        Assert.True(relay.SwapTo("dir-B"));               // stop-first (final delivered), then publish
+        Assert.True(a.Stopped);
         Assert.True(a.Disposed);
         a.RaiseSegment("late-from-A");                    // must NOT surface
         var b = factory.Created[1];
         b.RaiseSegment("from-B");
-        Assert.Equal(new[] { "from-A", "from-B" }, segments.ToArray());
+        // The old final lands BEFORE the new engine's first segment — an implementation that
+        // detaches before stopping loses it (review r17).
+        Assert.Equal(new[] { "from-A", "old-final", "from-B" }, segments.ToArray());
     }
 
     [Fact]

@@ -134,7 +134,7 @@ public sealed partial class LivePage : Page
             MeetVault.Core.CaptureSourceResolver.FindWindowHandle,
             MeetVault.Core.CaptureSourceResolver.IsWindowAlive);
         _screen.Enabled = AppStore.Repo.GetSetting("screen.enabled") != "false";
-        _screen.Warning += message => DispatcherQueue.TryEnqueue(() => { Status(message); RefreshScreenStatus(); });
+        _screen.Warning += message => DispatcherQueue.TryEnqueue(() => { Status(message); RefreshScreenStatus(); PersistFinishedTracks(); });
         _screen.FramePreview += OnScreenFrame;
         if (resolution.Demo)
         {
@@ -769,7 +769,7 @@ public sealed partial class LivePage : Page
         catch (Exception ex)
         {
             MeetVault.Core.AppLog.Warn("live: settings write failed (" + key + "): " + ex.Message);
-            Status(Loc.T("Set.SaveFailed"));
+            Status(Loc.Tf("Set.SaveFailed", Loc.T("Set.ErrNotWritten")));
         }
     }
 

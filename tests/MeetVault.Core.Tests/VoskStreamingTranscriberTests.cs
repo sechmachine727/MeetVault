@@ -43,8 +43,7 @@ public sealed class VoskStreamingTranscriberTests
             tx.Push(chunk);
             await Task.Delay(1);
         }
-        tx.Flush();
-        await tx.StopAsync(CancellationToken.None);
+        await tx.StopAsync(CancellationToken.None); // stop = flush + drain (review r17)
         Assert.NotEmpty(partials.Where(p => p.Length > 0));
         Assert.NotEmpty(segs);
         // At least one ENDPOINT final must exist besides the flush final: the fixture holds
