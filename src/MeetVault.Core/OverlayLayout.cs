@@ -13,24 +13,11 @@ public static class OverlayLayout
     public const double LineHeightFactor = 1.35;
 
     // Whole lines of fontDip (with lineSpacingDip between them) that fit in
-    // availableDip: n such that n*font + (n−1)*spacing ≤ available.
-    public static int FittingLines(double availableDip, double fontDip, double lineSpacingDip)
-    {
-        if (!double.IsFinite(availableDip) || !double.IsFinite(fontDip) || !double.IsFinite(lineSpacingDip))
-            return 0;
-        if (availableDip <= 0 || fontDip <= 0)
-            return 0;
-        var spacing = Math.Max(0, lineSpacingDip);
-        var raw = Math.Floor((availableDip + spacing) / (fontDip * LineHeightFactor + spacing));
-        if (raw <= 0) return 0;
-        return raw >= int.MaxValue ? int.MaxValue : (int)raw;
-    }
-
-    // Same, but the newest line renders larger (latestFontDip) — the strip always
-    // shows it, so the older lines only get what remains after its line box. A
-    // latestFontDip ≤ fontDip means every line is base size. Returns at least 1
-    // whenever availableDip > 0: the newest line is the strip's mandatory floor
-    // (the caller clips anything that still does not fit).
+    // availableDip: n such that n*font + (n−1)*spacing ≤ available. The newest line
+    // renders larger (latestFontDip) — the strip always shows it, so the older lines
+    // only get what remains after its line box. A latestFontDip ≤ fontDip means every
+    // line is base size. Returns at least 1 whenever availableDip > 0: the newest line
+    // is the strip's mandatory floor (the caller clips anything that still does not fit).
     public static int FittingLines(double availableDip, double fontDip, double latestFontDip, double lineSpacingDip)
     {
         if (!double.IsFinite(availableDip) || !double.IsFinite(fontDip) || !double.IsFinite(latestFontDip) || !double.IsFinite(lineSpacingDip))

@@ -16,19 +16,19 @@ public sealed class OverlayLayoutTests
     [Fact]
     public void FittingLines_TwelvePt_SevenLinesFit()
     {
-        Assert.Equal(7, OverlayLayout.FittingLines(Budget, 12, Spacing));
+        Assert.Equal(7, OverlayLayout.FittingLines(Budget, 12, 12, Spacing));
     }
 
     [Fact]
     public void FittingLines_SixteenPt_FiveLinesFit()
     {
-        Assert.Equal(5, OverlayLayout.FittingLines(Budget, 16, Spacing));
+        Assert.Equal(5, OverlayLayout.FittingLines(Budget, 16, 16, Spacing));
     }
 
     [Fact]
     public void FittingLines_FortyEightPt_TwoLinesFit()
     {
-        Assert.Equal(2, OverlayLayout.FittingLines(Budget, 48, Spacing));
+        Assert.Equal(2, OverlayLayout.FittingLines(Budget, 48, 48, Spacing));
     }
 
     [Fact]
@@ -101,25 +101,28 @@ public sealed class OverlayLayoutTests
     [Fact]
     public void FittingLines_NoSpacing_TighterPacking()
     {
-        Assert.Equal(7, OverlayLayout.FittingLines(Budget, 16, 0));
+        Assert.Equal(7, OverlayLayout.FittingLines(Budget, 16, 16, 0));
         // A negative spacing is treated as none — never as extra room.
-        Assert.Equal(7, OverlayLayout.FittingLines(Budget, 16, -6));
+        Assert.Equal(7, OverlayLayout.FittingLines(Budget, 16, 16, -6));
     }
 
     [Fact]
     public void FittingLines_ExactBoundary_OneLineFitsAtItsLineBox()
     {
-        Assert.Equal(1, OverlayLayout.FittingLines(21.6, 16, 0)); // exactly one 16 pt line box
-        Assert.Equal(0, OverlayLayout.FittingLines(21.59, 16, 0));
-        Assert.Equal(1, OverlayLayout.FittingLines(21.6, 16, Spacing));
-        Assert.Equal(0, OverlayLayout.FittingLines(21.59, 16, Spacing));
+        Assert.Equal(1, OverlayLayout.FittingLines(21.6, 16, 16, 0)); // exactly one 16 pt line box
+        Assert.Equal(1, OverlayLayout.FittingLines(21.6, 16, 16, Spacing));
+        // Below one line box the newest line is still the mandatory floor (≥1 whenever
+        // available > 0) — the base-only 3-arg overload that returned 0 here is gone.
+        Assert.Equal(1, OverlayLayout.FittingLines(21.59, 16, 16, 0));
+        Assert.Equal(1, OverlayLayout.FittingLines(21.59, 16, 16, Spacing));
     }
 
     [Fact]
     public void FittingLines_NewestNotLarger_MatchesTheBaseCount()
     {
-        Assert.Equal(OverlayLayout.FittingLines(Budget, 16, Spacing), OverlayLayout.FittingLines(Budget, 16, 16, Spacing));
-        Assert.Equal(OverlayLayout.FittingLines(Budget, 16, Spacing), OverlayLayout.FittingLines(Budget, 16, 10, Spacing));
+        // A latestFont at or below the base size never takes more room than a base line.
+        Assert.Equal(5, OverlayLayout.FittingLines(Budget, 16, 16, Spacing));
+        Assert.Equal(OverlayLayout.FittingLines(Budget, 16, 16, Spacing), OverlayLayout.FittingLines(Budget, 16, 10, Spacing));
     }
 
     [Fact]
@@ -138,7 +141,7 @@ public sealed class OverlayLayoutTests
     [InlineData(double.NaN)]
     public void FittingLines_DegenerateAvailable_ReturnsZero(double available)
     {
-        Assert.Equal(0, OverlayLayout.FittingLines(available, 16, Spacing));
+        Assert.Equal(0, OverlayLayout.FittingLines(available, 16, 16, Spacing));
         Assert.Equal(0, OverlayLayout.FittingLines(available, 16, 28, Spacing));
     }
 
@@ -148,14 +151,14 @@ public sealed class OverlayLayoutTests
     [InlineData(double.NaN)]
     public void FittingLines_DegenerateFont_ReturnsZero(double font)
     {
-        Assert.Equal(0, OverlayLayout.FittingLines(Budget, font, Spacing));
+        Assert.Equal(0, OverlayLayout.FittingLines(Budget, font, font, Spacing));
         Assert.Equal(0, OverlayLayout.FittingLines(Budget, font, 28, Spacing));
     }
 
     [Fact]
     public void FittingLines_DegenerateSpacingOrNewest_ReturnsZero()
     {
-        Assert.Equal(0, OverlayLayout.FittingLines(Budget, 16, double.NaN));
+        Assert.Equal(0, OverlayLayout.FittingLines(Budget, 16, 16, double.NaN));
         Assert.Equal(0, OverlayLayout.FittingLines(Budget, 16, 28, double.NaN));
         Assert.Equal(0, OverlayLayout.FittingLines(Budget, 16, double.NaN, Spacing));
     }
@@ -163,7 +166,7 @@ public sealed class OverlayLayoutTests
     [Fact]
     public void FittingLines_AbsurdlyLargeAvailable_Saturates()
     {
-        Assert.Equal(int.MaxValue, OverlayLayout.FittingLines(double.MaxValue, 16, Spacing));
+        Assert.Equal(int.MaxValue, OverlayLayout.FittingLines(double.MaxValue, 16, 16, Spacing));
         Assert.Equal(int.MaxValue, OverlayLayout.FittingLines(double.MaxValue, 16, 28, Spacing));
     }
 }
