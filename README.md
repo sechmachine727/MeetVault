@@ -6,7 +6,7 @@ Built with C# and WinUI 3 on .NET 8. There is no login, no subscription, and no 
 
 ## Status
 
-Working MVP, tested on Windows 11. The solution builds with 0 errors and 0 warnings. The Core test suite passes 159 tests. The portable build launches and records, transcribes, and saves meetings. See [BLOCKERS.md](BLOCKERS.md) for what still needs a specific machine to verify.
+Working MVP, tested on Windows 11. The solution builds with 0 errors; three pre-existing `CA1416` warnings remain in `ProcessLoopbackCapture.cs` (COM release call sites) — do not add more. The Core test suite passes 155 tests. The portable build launches and records, transcribes, and saves meetings. See [BLOCKERS.md](BLOCKERS.md) for what still needs a specific machine to verify.
 
 Per-process audio capture is implemented but has not been exercised against a machine with the target app playing. The app supports English, Japanese, and Vietnamese (Vosk small models); JA/VI accuracy has not been verified with real speech.
 

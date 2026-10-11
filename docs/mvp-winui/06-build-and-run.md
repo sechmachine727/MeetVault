@@ -30,9 +30,7 @@ Copy-Item -Recurse -Force models publish\win-x64\models
 publish\win-x64\MeetVault.exe
 ```
 
-The native libraries and every Whisper backend come from the package references during publish. Only `models/` is copied by hand. To build a package that also carries the CUDA and C++ runtimes, stage `cuda\` and `vcruntime\` first; see [../CUDA-SETUP.md](../CUDA-SETUP.md).
-
-The app project's `TrimForeignRuntimes` targets remove the linux, macOS, and non-x64 native payloads after build and publish.
+The native libraries come from the package references during publish (`libvosk.dll` via the Vosk package). Only `models/` is copied by hand.
 
 ## 4. Package the MSIX
 
