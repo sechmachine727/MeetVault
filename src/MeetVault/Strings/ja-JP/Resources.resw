@@ -37,7 +37,7 @@
   <data name="DashEngineLabel.Text" xml:space="preserve"><value>エンジン</value></data>
   <data name="DashRecent.Text" xml:space="preserve"><value>最近の会議</value></data>
   <data name="DashEmptyTitle.Text" xml:space="preserve"><value>まだ会議がありません</value></data>
-  <data name="DashEmptyBody.Text" xml:space="preserve"><value>最初の会議を開始すると、話者・時刻・Gemini 要約付きの文字起こしがここに表示されます。</value></data>
+  <data name="DashEmptyBody.Text" xml:space="preserve"><value>最初の会議を開始すると、時刻・Gemini 要約付きの文字起こしがここに表示されます。</value></data>
   <data name="DashGreeting.Text" xml:space="preserve"><value>録音の準備ができました</value></data>
 
   <!-- Meetings -->
@@ -200,8 +200,6 @@
   <data name="Live.CouldNotStop" xml:space="preserve"><value>停止できませんでした: {0}</value></data>
   <data name="Live.DemoMode" xml:space="preserve"><value>デモモード: ライブ文字起こしには models/ に Vosk small モデルを追加してください（docs/ASR-ENGINES.md 参照）。</value></data>
   <data name="Live.CaptureFailed" xml:space="preserve"><value>録音が予期せず停止しました（{0}）。「停止」で保存すると録音済みの内容を保持できます。</value></data>
-  <data name="Live.Transcribing" xml:space="preserve"><value>文字起こし中…</value></data>
-  <data name="Live.Listening" xml:space="preserve"><value>聞き取り中…</value></data>
   <data name="Live.StopTitle" xml:space="preserve"><value>この会議を停止して保存しますか？</value></data>
   <data name="Live.StopBody" xml:space="preserve"><value>録音を停止し、会議は {0} 行で保存されます。その後、この会議に追加することはできません。</value></data>
   <data name="Live.StopConfirm" xml:space="preserve"><value>停止して保存</value></data>
@@ -281,6 +279,11 @@
   <data name="Set.SizeLargeDetails" xml:space="preserve"><value>Large — 最高精度。読み込みと実行は重め。英語 WER 5.7%（約 1.8 GB）、日本語 CER 8.4%（約 1 GB）。</value></data>
   <data name="Set.ModelInstalled" xml:space="preserve"><value>インストール済み</value></data>
   <data name="Set.ModelNotInstalled" xml:space="preserve"><value>未インストール — 配置までは Live がインストール済みモデルにフォールバックします（手順: docs/ASR-ENGINES.md）</value></data>
+  <data name="Set.SizeSmall" xml:space="preserve"><value>Small</value></data>
+  <data name="Set.SizeMedium" xml:space="preserve"><value>Medium</value></data>
+  <data name="Set.SizeLarge" xml:space="preserve"><value>Large</value></data>
+  <data name="Set.SizeRowUnavailable" xml:space="preserve"><value>— この言語では利用できません</value></data>
+  <data name="Set.SizeRowNotInstalled" xml:space="preserve"><value>— 未インストール</value></data>
   <data name="Set.LogWriting" xml:space="preserve"><value>{0} 以上を {1} に書き込みます</value></data>
   <data name="Set.OverlayStatus" xml:space="preserve"><value>常に最前面 {0} · 不透明度 {1} · 文字サイズ {2} pt · {3} 行</value></data>
   <data name="Set.StorageStatus" xml:space="preserve"><value>文字起こしは {0} に書き込まれます。</value></data>
@@ -306,12 +309,6 @@
   <data name="Ov.Listening" xml:space="preserve"><value>聞き取り中…</value></data>
   <data name="Ov.On" xml:space="preserve"><value>オン</value></data>
   <data name="Ov.Off" xml:space="preserve"><value>オフ</value></data>
-  <data name="OvPinBtn.Content" xml:space="preserve"><value>固定</value></data>
-  <data name="OvPinBtn.ToolTipService.ToolTip" xml:space="preserve"><value>オーバーレイを他のウィンドウより前面に固定します</value></data>
-  <data name="OvBackdrop.Content" xml:space="preserve"><value>背景</value></data>
-  <data name="OvBackdrop.ToolTipService.ToolTip" xml:space="preserve"><value>背景の暗さを調整します</value></data>
-  <data name="OvFooterFont.Text" xml:space="preserve"><value>文字サイズ</value></data>
-  <data name="OvFooterLines.Text" xml:space="preserve"><value>表示行数</value></data>
 
   <!-- L4.7: MainWindow nav-error dialog -->
   <data name="Nav.ErrorTitle" xml:space="preserve"><value>{0} を開けませんでした</value></data>

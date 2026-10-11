@@ -61,7 +61,8 @@ public sealed partial class SettingsPage : Page
     private readonly List<(string Label, string Value)> _sourceOptions = new();
 
     // One row of the model-size dropdown. Enabled=false marks a tier this language has no
-    // artifact for; the suffix strings are English on purpose (engine identifiers, not UI copy).
+    // artifact for. Tier names and suffixes go through Loc like the Set.Size*Details captions
+    // (tier words stay Latin in ja there too).
     public sealed record SizeRow(string Tier, string Label, bool Enabled);
 
     private bool _rebuildingSizes;
@@ -83,9 +84,9 @@ public sealed partial class SettingsPage : Page
         var rows = MeetVault.Core.EngineCatalog.Tiers.Select(t =>
         {
             var option = MeetVault.Core.EngineCatalog.Find(lang, t);
-            var label = char.ToUpperInvariant(t[0]) + t[1..];
-            if (option is null) return new SizeRow(t, label + " — not available for this language", false);
-            return new SizeRow(t, label + (MeetVault.Core.EngineCatalog.IsAvailable(option, ModelsRoot) ? "" : " — not installed"), true);
+            var label = Loc.T(t switch { "medium" => "Set.SizeMedium", "large" => "Set.SizeLarge", _ => "Set.SizeSmall" });
+            if (option is null) return new SizeRow(t, label + " " + Loc.T("Set.SizeRowUnavailable"), false);
+            return new SizeRow(t, label + (MeetVault.Core.EngineCatalog.IsAvailable(option, ModelsRoot) ? "" : " " + Loc.T("Set.SizeRowNotInstalled")), true);
         }).ToArray();
         _rebuildingSizes = true;
         try

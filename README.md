@@ -6,7 +6,7 @@ Built with C# and WinUI 3 on .NET 8. There is no login, no subscription, and no 
 
 ## Status
 
-Working MVP, tested on Windows 11. The solution builds with 0 errors; three pre-existing `CA1416` warnings remain in `ProcessLoopbackCapture.cs` (COM release call sites) — do not add more. The Core test suite passes 156 tests. The portable build launches and records, transcribes, and saves meetings. See [BLOCKERS.md](BLOCKERS.md) for what still needs a specific machine to verify.
+Working MVP, tested on Windows 11. The solution builds with 0 errors; three pre-existing `CA1416` warnings remain in `ProcessLoopbackCapture.cs` (COM release call sites) — do not add more. The Core test suite passes 157 tests. The portable build launches and records, transcribes, and saves meetings. See [BLOCKERS.md](BLOCKERS.md) for what still needs a specific machine to verify.
 
 Per-process audio capture is implemented but has not been exercised against a machine with the target app playing. The app supports English, Japanese, and Vietnamese with Vosk's small/medium/large model tiers (medium is English-only); JA/VI accuracy has not been verified with real speech.
 
@@ -46,7 +46,7 @@ dotnet build MeetVault.sln -c Release
 dotnet test tests\MeetVault.Core.Tests\MeetVault.Core.Tests.csproj -c Release --nologo -v q
 ```
 
-The suite skips the Vosk contract tests silently when the staged models are absent.
+The suite's Vosk contract test early-returns (reported as passed) when `models/vosk/small-en` is unstaged — a green CI run does not exercise live decoding.
 
 ## Run
 
@@ -126,7 +126,7 @@ Settings persist in `%APPDATA%\MeetVault\meetings.db` (SQLite, `settings` table)
 - Audio capture mixes the microphone and system output. Capturing one application uses the WASAPI process-loopback API (`ProcessLoopbackCapture`), which falls back to system-wide capture when the API is unavailable; the per-app path is not yet confirmed on a machine with the target app playing.
 - JA/VI accuracy needs validation with real speech.
 - The Gemini call has been tested against stubs, not against the live API.
-- Meetings recorded by the retired diarized pipeline still show their speaker rows read-only; new meetings are single-speaker by construction.
+- Meetings recorded by the retired diarized pipeline keep their speaker rows in Details with the speaker picker still editable (only rename was removed); new meetings are single-speaker by construction.
 
 ## Links
 

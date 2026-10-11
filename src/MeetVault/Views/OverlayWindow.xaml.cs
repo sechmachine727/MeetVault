@@ -127,13 +127,6 @@ public sealed partial class OverlayWindow : Window
             conversationCell.SizeChanged += (_, _) => BuildConversation();
             _conversationPanel.SizeChanged += (_, _) => UpdateConversationClip();
             BuildConversation();
-            // Consolidation: the old scattered controls go away — Pin + Backdrop
-            // in the header, Font size + Lines in the footer all live in the
-            // cogwheel flyout now.
-            if (HeaderBar.Children.Count > 1 && HeaderBar.Children[1] is FrameworkElement pinToggle) pinToggle.Visibility = Visibility.Collapsed;
-            BackdropButton.Visibility = Visibility.Collapsed;
-            foreach (var child in RootSurface.Children)
-                if (child is Grid footer && Grid.GetRow(footer) == 2) footer.Visibility = Visibility.Collapsed;
         };
         var hwnd = Win32Interop.GetWindowFromWindowId(AppWindow.Id);
         var scale = GetDpiForWindow(hwnd) / 96.0;
@@ -262,9 +255,6 @@ public sealed partial class OverlayWindow : Window
     }
 
     public OverlayViewModel Vm { get; }
-
-    private void Pin_Click(object sender, RoutedEventArgs e)
-        => _presenter.IsAlwaysOnTop = ((ToggleButton)sender).IsChecked == true;
 
     private static void SuppressWindowFrame(IntPtr hwnd)
     {

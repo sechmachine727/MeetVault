@@ -41,6 +41,7 @@ jobs:
         run: dotnet build MeetVault.sln -c Release
 
       - name: Test Core (Release)
-        # The diarizer/VAD contract tests self-skip when models/ is absent (see
-        # BLOCKERS.md), so a green run does not cover the diarizer contract.
+        # VoskStreamingTranscriberTests early-returns (xUnit reports it as passed) when
+        # models/vosk/small-en is unstaged; CI has no models, so this run never exercises
+        # live decoding. Local runs on a staged box cover it (see BLOCKERS.md).
         run: dotnet test tests/MeetVault.Core.Tests/MeetVault.Core.Tests.csproj -c Release --nologo -v q

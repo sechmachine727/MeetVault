@@ -37,7 +37,7 @@
   <data name="DashEngineLabel.Text" xml:space="preserve"><value>Engine</value></data>
   <data name="DashRecent.Text" xml:space="preserve"><value>Recent meetings</value></data>
   <data name="DashEmptyTitle.Text" xml:space="preserve"><value>No meetings yet</value></data>
-  <data name="DashEmptyBody.Text" xml:space="preserve"><value>Start your first meeting and the transcript lands here with speakers, timing, and Gemini summaries.</value></data>
+  <data name="DashEmptyBody.Text" xml:space="preserve"><value>Start your first meeting and the transcript lands here with timing and Gemini summaries.</value></data>
   <data name="DashGreeting.Text" xml:space="preserve"><value>Ready to capture</value></data>
 
   <!-- Meetings -->
@@ -190,7 +190,7 @@
   <data name="Dash.CannotOpenLive" xml:space="preserve"><value>Cannot open Live from here. Use the Live item in the navigation pane.</value></data>
 
   <!-- L4.3: Live page code strings -->
-  <data name="Live.Recording" xml:space="preserve"><value>Recording. Speaker turns appear below as they are recognized.</value></data>
+  <data name="Live.Recording" xml:space="preserve"><value>Recording. Lines appear below as speech is recognized.</value></data>
   <data name="Live.Paused" xml:space="preserve"><value>Paused. Audio in the gap is not recorded and will not reappear on resume.</value></data>
   <data name="Live.Resumed" xml:space="preserve"><value>Resumed. Capture continues after the gap.</value></data>
   <data name="Live.Saved" xml:space="preserve"><value>Saved. {0} line(s) written to the local repository.</value></data>
@@ -200,8 +200,6 @@
   <data name="Live.CouldNotStop" xml:space="preserve"><value>Could not stop: {0}</value></data>
   <data name="Live.DemoMode" xml:space="preserve"><value>Demo mode: add Vosk small models to models/ (see docs/ASR-ENGINES.md) for live transcription.</value></data>
   <data name="Live.CaptureFailed" xml:space="preserve"><value>Capture stopped unexpectedly ({0}). Press Stop and save to keep what was recorded.</value></data>
-  <data name="Live.Transcribing" xml:space="preserve"><value>Transcribing…</value></data>
-  <data name="Live.Listening" xml:space="preserve"><value>Listening…</value></data>
   <data name="Live.StopTitle" xml:space="preserve"><value>Stop and save this meeting?</value></data>
   <data name="Live.StopBody" xml:space="preserve"><value>Recording stops and the meeting is saved with {0} line(s). You cannot add more to it afterwards.</value></data>
   <data name="Live.StopConfirm" xml:space="preserve"><value>Stop and save</value></data>
@@ -281,6 +279,11 @@
   <data name="Set.SizeLargeDetails" xml:space="preserve"><value>Large — the most accurate tier; heavier to load and run. English 5.7% word error rate (~1.8 GB), Japanese 8.4% character error rate (~1 GB).</value></data>
   <data name="Set.ModelInstalled" xml:space="preserve"><value>installed</value></data>
   <data name="Set.ModelNotInstalled" xml:space="preserve"><value>not installed — Live falls back to an installed model until the files are staged (see docs/ASR-ENGINES.md)</value></data>
+  <data name="Set.SizeSmall" xml:space="preserve"><value>Small</value></data>
+  <data name="Set.SizeMedium" xml:space="preserve"><value>Medium</value></data>
+  <data name="Set.SizeLarge" xml:space="preserve"><value>Large</value></data>
+  <data name="Set.SizeRowUnavailable" xml:space="preserve"><value>— not available for this language</value></data>
+  <data name="Set.SizeRowNotInstalled" xml:space="preserve"><value>— not installed</value></data>
   <data name="Set.LogWriting" xml:space="preserve"><value>Writing {0} and above to {1}</value></data>
   <data name="Set.OverlayStatus" xml:space="preserve"><value>Keep on top {0} · opacity {1} · font {2} pt · {3} line(s)</value></data>
   <data name="Set.StorageStatus" xml:space="preserve"><value>Transcripts will be written to {0}.</value></data>
@@ -306,12 +309,6 @@
   <data name="Ov.Listening" xml:space="preserve"><value>Listening…</value></data>
   <data name="Ov.On" xml:space="preserve"><value>On</value></data>
   <data name="Ov.Off" xml:space="preserve"><value>Off</value></data>
-  <data name="OvPinBtn.Content" xml:space="preserve"><value>Pin</value></data>
-  <data name="OvPinBtn.ToolTipService.ToolTip" xml:space="preserve"><value>Keep the overlay above other windows</value></data>
-  <data name="OvBackdrop.Content" xml:space="preserve"><value>Backdrop</value></data>
-  <data name="OvBackdrop.ToolTipService.ToolTip" xml:space="preserve"><value>Adjust background darkness</value></data>
-  <data name="OvFooterFont.Text" xml:space="preserve"><value>Font size</value></data>
-  <data name="OvFooterLines.Text" xml:space="preserve"><value>Lines</value></data>
 
   <!-- L4.7: MainWindow nav-error dialog -->
   <data name="Nav.ErrorTitle" xml:space="preserve"><value>Could not open {0}</value></data>

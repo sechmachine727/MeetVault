@@ -11,14 +11,14 @@
 | Item | Evidence | Status |
 |---|---|---|
 | Counter assignment (Male1/Female1/Male2, Unknown free) | TEST SpeakerLabelerTests + Session_UsesSeparateGenderCounters | retired 2026-10-11 (feature removed) |
-| Rename propagation | TEST RenameSpeaker_PropagatesToSpeakers + DomainTests | retired 2026-10-11 (rename UI removed) |
+| Rename propagation | TEST RenameSpeaker_PropagatesToSpeakers_KeepsSegmentJoin | proven (repo level; rename UI retired 2026-10-11) |
 | Edit + reassign | TEST DomainTests | proven (record level) |
 | Finish-ordering transaction | TEST Save_RollsBack_OnMidTransactionFault (fault injection) | proven |
 | Pause gap | TEST PauseGap (mutation-verified guard) + 70-min run | proven |
 | Scripted-PCM protocol tests | RUNTIME pipeline harness (TTS->whisper->sherpa->session->SQLite) | retired 2026-10-11 (pipeline replaced by Vosk streaming) |
 | 60-min timestamp stability | TEST SeventyMinutes (420 windows, monotonic, exact span) | proven |
 | Chunked-write memory profile | TEST ChunkedWriteTests (file grows pre-dispose) | proven (media side) |
-| Engine handshake/timeout | TEST EngineHandshakeTests (missing-model errors) | proven (presence; timeout untested) |
+| Engine handshake/timeout | TEST EngineCatalogTests (model availability / download state) | partial (missing-model UX; timeout untested) |
 | Malformed config | TEST ConfigValidationTests | proven |
 | Stop-ack / no leaks | TEST SessionLifecycleTests | proven |
 | Windows manual pass | none | MISSING (needs you: mic + launch) |

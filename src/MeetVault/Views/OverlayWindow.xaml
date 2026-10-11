@@ -18,8 +18,6 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBlock Text="Live transcript" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
-            <primitives:ToggleButton Grid.Column="1" x:Uid="OvPinBtn" Click="Pin_Click" IsChecked="{x:Bind Vm.IsPinned, Mode=TwoWay}" />
-            <Button Grid.Column="2" x:Name="BackdropButton" x:Uid="OvBackdrop" />
         </Grid>
         <Grid Grid.Row="1">
             <ListView x:Name="TranscriptList" FontSize="{x:Bind Vm.FontSize, Mode=OneWay}" SelectionMode="None" Padding="12,0">
@@ -37,20 +35,6 @@
                 </ListView.ItemTemplate>
             </ListView>
             <TextBlock x:Name="EmptyState" Text="No transcript lines yet." Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" />
-        </Grid>
-        <Grid Grid.Row="2" Margin="12,8,12,12" ColumnSpacing="12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="0" Spacing="4">
-                <TextBlock x:Uid="OvFooterFont" FontSize="12" />
-                <NumberBox Minimum="10" Maximum="48" SmallChange="1" SpinButtonPlacementMode="Inline" Value="{x:Bind Vm.FontSize, Mode=TwoWay}" Width="96" />
-            </StackPanel>
-            <StackPanel Grid.Column="1" Spacing="4">
-                <TextBlock x:Uid="OvFooterLines" FontSize="12" />
-                <NumberBox Minimum="1" Maximum="500" SmallChange="5" SpinButtonPlacementMode="Inline" Value="{x:Bind Vm.LineCount, Mode=TwoWay}" Width="96" />
-            </StackPanel>
         </Grid>
     </Grid>
 </Window>
