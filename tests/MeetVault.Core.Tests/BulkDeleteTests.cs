@@ -113,7 +113,7 @@ public sealed class BulkDeleteTests : IDisposable
     }
 
     [Fact]
-    public void DeleteMeetings_MediaOutsideManagedDir_NeverTouched()
+    public void DeleteMeetings_MediaOutsideManagedDir_RowDeleted_FileUntouched()
     {
         var outside = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".m4a");
         File.WriteAllBytes(outside, new byte[] { 9 });
@@ -125,9 +125,11 @@ public sealed class BulkDeleteTests : IDisposable
 
             var result = _repo.DeleteMeetings(new[] { "a" });
 
-            Assert.Empty(result.DeletedIds);
-            Assert.True(result.FailedIds.ContainsKey("a"));
-            Assert.NotNull(_repo.Load("a"));
+            // Unmanaged media never blocks the row (review fix): the meeting must be
+            // deletable; the foreign file itself is never touched.
+            Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
+            Assert.Empty(result.FailedIds);
+            Assert.Null(_repo.Load("a"));
             Assert.True(File.Exists(outside));
         }
         finally { try { File.Delete(outside); } catch { } }
@@ -192,7 +194,7 @@ public sealed class BulkDeleteTests : IDisposable
     }
 
     [Fact]
-    public void DeleteMeetings_RelativeMediaPath_Refused()
+    public void DeleteMeetings_RelativeMediaPath_RowDeleted_FileUntouched()
     {
         _repo.Save(NewMeeting("a", "sub" + Path.DirectorySeparatorChar + "rel.m4a"),
             new[] { new Speaker("spk_1", "Speaker 1") },
@@ -200,13 +202,14 @@ public sealed class BulkDeleteTests : IDisposable
 
         var result = _repo.DeleteMeetings(new[] { "a" });
 
-        Assert.Empty(result.DeletedIds);
-        Assert.True(result.FailedIds.ContainsKey("a"));
-        Assert.NotNull(_repo.Load("a"));
+        // A relative path is unmanaged (never a delete target); the row still goes.
+        Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
+        Assert.Empty(result.FailedIds);
+        Assert.Null(_repo.Load("a"));
     }
 
     [Fact]
-    public void DeleteMeetings_TraversalRow_Refused_OutsideUntouched()
+    public void DeleteMeetings_TraversalRow_RowDeleted_OutsideUntouched()
     {
         var outside = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".m4a");
         File.WriteAllBytes(outside, new byte[] { 9 });
@@ -218,10 +221,11 @@ public sealed class BulkDeleteTests : IDisposable
 
             var result = _repo.DeleteMeetings(new[] { "a" });
 
-            Assert.Empty(result.DeletedIds);
-            Assert.True(result.FailedIds.ContainsKey("a"));
+            // The traversal path never becomes a delete target; the row still goes.
+            Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
+            Assert.Empty(result.FailedIds);
             Assert.True(File.Exists(outside));
-            Assert.NotNull(_repo.Load("a"));
+            Assert.Null(_repo.Load("a"));
         }
         finally { try { File.Delete(outside); } catch { } }
     }

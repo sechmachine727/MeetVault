@@ -116,8 +116,11 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
 
     // Deletes many meetings, reporting per-item failures instead of aborting the batch.
     // Per item the recording file goes first, then the DB rows: a crash never leaves
-    // bytes on disk that were already claimed deleted, and a locked or foreign file
-    // keeps its row so the user can retry. Active or resumable recordings are refused.
+    // bytes on disk that were already claimed deleted, and a locked MANAGED file keeps
+    // its row so the user can retry. Media outside the managed directory is never
+    // touched but no longer blocks the row: a meeting whose media is unmanaged (export,
+    // user copy, malformed path) must still be deletable, exactly like the single-row
+    // path removes such rows. Active or resumable recordings are refused.
     public BulkDeleteResult DeleteMeetings(IReadOnlyCollection<string> meetingIds)
     {
         var deleted = new List<string>();
@@ -135,10 +138,18 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
                 { failed[id] = "active or resumable recording"; continue; }
                 if (meeting.MediaPath is { Length: > 0 } media)
                 {
-                    if (!IsManagedMedia(media)) { failed[id] = "media outside managed directory"; continue; }
-                    try { if (File.Exists(media)) File.Delete(media); }
-                    catch (FileNotFoundException) { }        // vanished mid-flight: already gone
-                    catch (DirectoryNotFoundException) { }   // same, via a vanished parent
+                    if (!IsManagedMedia(media))
+                    {
+                        // Never touch a foreign path; the row still goes, so an
+                        // unmanaged-media meeting is not permanently undeletable.
+                        AppLog.Warn("repo: bulk delete leaving unmanaged media in place: " + media + " (meeting " + id + ")");
+                    }
+                    else
+                    {
+                        try { if (File.Exists(media)) File.Delete(media); }
+                        catch (FileNotFoundException) { }        // vanished mid-flight: already gone
+                        catch (DirectoryNotFoundException) { }   // same, via a vanished parent
+                    }
                 }
                 DeleteMeeting(id);
                 deleted.Add(id);
