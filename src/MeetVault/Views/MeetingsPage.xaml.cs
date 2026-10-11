@@ -274,6 +274,11 @@ public sealed partial class MeetingsPage : Page
     }
 
     // Delete a meeting (and its recording) after an explicit confirmation.
+    // Order (review fix): rename the file ASIDE first, then delete the row, then remove
+    // the aside file. The old order deleted the row first, so a failed file delete
+    // orphaned the recording with no row pointing at it. A failed rename aborts with the
+    // row intact (retry possible); a failed row delete after a successful rename restores
+    // the file (best effort). Unmanaged media is never touched, but never blocks the row.
     private async void DeleteMeeting_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement { DataContext: MeetingCard card }) return;
@@ -289,18 +294,42 @@ public sealed partial class MeetingsPage : Page
         if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
         try
         {
-            var media = AppStore.Repo.DeleteMeeting(card.Id);
+            string? aside = null;
+            var media = AppStore.Repo.Load(card.Id)?.MediaPath;
             if (media is { Length: > 0 })
             {
                 if (!AppStore.Repo.IsManagedMedia(media))
                 {
-                    MeetVault.Core.AppLog.Warn("delete: refused to remove media outside managed directory " + media);
+                    // Foreign path: never touch the file; the row still goes (same rule
+                    // as batch delete, so such meetings are not undeletable).
+                    MeetVault.Core.AppLog.Warn("delete: leaving media outside managed directory in place " + media);
                 }
-                else
+                else if (File.Exists(media))
                 {
-                    try { if (File.Exists(media)) File.Delete(media); }
-                    catch (Exception ex) { MeetVault.Core.AppLog.Warn("delete: could not remove media " + media + " :: " + ex.Message); }
+                    aside = media + ".deleting";
+                    File.Move(media, aside, overwrite: true);
                 }
+            }
+            try
+            {
+                AppStore.Repo.DeleteMeeting(card.Id);
+            }
+            catch
+            {
+                // Row delete failed after the rename: put the recording back (best effort)
+                // so the meeting stays retryable, then let the outer handler report it.
+                if (aside is not null)
+                {
+                    try { File.Move(aside, media!, overwrite: true); }
+                    catch (Exception back) { MeetVault.Core.AppLog.Warn("delete: could not restore media " + aside + " :: " + back.Message); }
+                }
+                throw;
+            }
+            if (aside is not null)
+            {
+                // The row is gone; a failed cleanup here leaves only a *.deleting file.
+                try { File.Delete(aside); }
+                catch (Exception ex) { MeetVault.Core.AppLog.Warn("delete: could not remove media " + aside + " :: " + ex.Message); }
             }
             ApplyFilter(SearchBox.Text);
             StatusBar.Message = Loc.Tf("Mtg.DeletedOne", card.Title);
