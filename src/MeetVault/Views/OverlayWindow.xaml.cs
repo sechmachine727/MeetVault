@@ -21,6 +21,14 @@ public sealed partial class OverlayWindow : Window
 {
     private const double WidthDip = 1100;
     private const double HeightDip = 220;
+    // The conversation's newest line renders this much larger than the rest.
+    private const double LatestLineExtraDip = 12;
+    // Pre-layout fallback for the conversation cell (row 1): the 220 DIP window
+    // minus the header row (20 pt title line ≈ 27 + 8+8 DIP margins = 43) minus
+    // the ~8 DIP the window frame keeps from the XAML surface ≈ 169 DIP — the
+    // live measurement at 100% DPI. Only the ctor's build runs on it; the Loaded
+    // rebuild and every later SizeChanged use the real ActualHeight.
+    private const double EstimatedCellHeightDip = 169;
 
     [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(IntPtr hWnd);
@@ -112,7 +120,14 @@ public sealed partial class OverlayWindow : Window
             if (HeaderBar.Children.Count > 0 && HeaderBar.Children[0] is TextBlock headerTitle) headerTitle.Text = Loc.T("Ov.Title");
             TranscriptList.Visibility = Visibility.Collapsed;
             EmptyState.Visibility = Visibility.Collapsed;
-            ((Grid)VisualTreeHelper.GetParent(TranscriptList)).Children.Add(_conversationPanel);
+            var conversationCell = (Grid)VisualTreeHelper.GetParent(TranscriptList);
+            conversationCell.Children.Add(_conversationPanel);
+            // The ctor's build ran on the estimate (no ActualHeight yet): re-fit
+            // against the real cell height now, and keep both the fit and the clip
+            // honest when the strip is resized or its content reflows.
+            conversationCell.SizeChanged += (_, _) => BuildConversation();
+            _conversationPanel.SizeChanged += (_, _) => UpdateConversationClip();
+            BuildConversation();
             // Consolidation: the old scattered controls go away — Pin + Backdrop
             // in the header, Font size + Lines in the footer all live in the
             // cogwheel flyout now.
@@ -378,6 +393,11 @@ public sealed partial class OverlayWindow : Window
     // Bottom-anchored conversation: newest line big and bold (click to rename
     // its speaker), older lines smaller and dimmer above it. Rename rides the
     // button's DataContext through Rename_Click (null-safe early return).
+    // The strip must never outgrow its cell: WinUI paints a Grid child unclipped,
+    // so a bottom-anchored over-tall panel covers the header and its top lines
+    // leave the window. The shown count is capped by what actually fits (the
+    // newest line renders LatestLineExtraDip larger, so it gets its own term);
+    // UpdateConversationClip is the hard guarantee on top of the clamp.
     private void BuildConversation()
     {
         _conversationPanel.Children.Clear();
@@ -387,9 +407,12 @@ public sealed partial class OverlayWindow : Window
                 ? Loc.T("Ov.Listening")
                 : Loc.T("Ov.NotRecording");
             _conversationPanel.Children.Add(_noLines);
+            UpdateConversationClip();
             return;
         }
-        var take = Math.Clamp((int)Vm.ViewLines, 1, 12);
+        var available = ConversationCellHeight() - _conversationPanel.Margin.Bottom;
+        var fitting = OverlayLayout.FittingLines(available, Vm.FontSize, Vm.FontSize + LatestLineExtraDip, _conversationPanel.Spacing);
+        var take = Math.Clamp(Math.Min((int)Vm.ViewLines, fitting), 1, 12);
         for (var i = Math.Max(0, Vm.Lines.Count - take); i < Vm.Lines.Count; i++)
         {
             var line = Vm.Lines[i];
@@ -420,5 +443,38 @@ public sealed partial class OverlayWindow : Window
             ToolTipService.SetToolTip(button, Loc.T("Ov.RenameTip"));
             _conversationPanel.Children.Add(button);
         }
+        UpdateConversationClip();
+    }
+
+    // The row-1 cell that hosts the conversation panel: measurable once the panel
+    // is parented at Loaded; before that there is no ActualHeight, so the fit runs
+    // on the computed estimate (the ctor's build is invisible pre-layout, and the
+    // Loaded rebuild re-fits against the real height).
+    private double ConversationCellHeight()
+    {
+        var cell = _conversationPanel.Parent as FrameworkElement;
+        return cell is { ActualHeight: > 0 } ? cell.ActualHeight : EstimatedCellHeightDip;
+    }
+
+    // Belt-and-braces: the clamp fits whole lines, but a wrapped line can still
+    // make the panel taller than its cell. UIElement.Clip is in the panel's own
+    // coordinates, where the cell's top edge sits at (height + bottom margin −
+    // cellHeight) from the panel's top — everything above that is cut, so nothing
+    // can overpaint the header even mid-layout. Updated on every rebuild and on
+    // the panel's size changes (which is when a reflow actually lands).
+    private void UpdateConversationClip()
+    {
+        var h = _conversationPanel.ActualHeight;
+        var w = _conversationPanel.ActualWidth;
+        var cell = _conversationPanel.Parent as FrameworkElement;
+        if (cell is not { ActualHeight: > 0 } || h <= 0 || w <= 0)
+        {
+            _conversationPanel.Clip = null;
+            return;
+        }
+        var overflow = h + _conversationPanel.Margin.Bottom - cell.ActualHeight;
+        _conversationPanel.Clip = overflow <= 0
+            ? null
+            : new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, overflow, w, h - overflow) };
     }
 }
