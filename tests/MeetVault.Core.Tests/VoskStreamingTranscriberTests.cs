@@ -48,5 +48,7 @@ public sealed class VoskStreamingTranscriberTests
         // fired (only the flush closed the stream).
         Assert.True(segs.Count >= 2, "expected an endpoint final, got " + segs.Count + " segment(s)");
         Assert.Contains("fox", segs[0].Text, StringComparison.OrdinalIgnoreCase);
+        // Vosk emits all lowercase; the final text must arrive sentence-cased.
+        Assert.True(char.IsUpper(segs[0].Text[0]), "expected sentence case, got: " + segs[0].Text);
     }
 }

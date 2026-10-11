@@ -91,23 +91,27 @@ public sealed class ZipformerStreamingBackend : IStreamingBackend
     public void AcceptWaveform(float[] samples16k) => _stream.AcceptWaveform(16000, samples16k);
     public bool IsReady() => _recognizer.IsReady(_stream);
     public void Decode() => _recognizer.Decode(_stream);
-    public string CurrentText() => _recognizer.GetResult(_stream).Text.Trim();
+    public string CurrentText() => CleanText();
 
     public bool TryTakeFinal(out string text)
     {
         text = "";
         if (!_recognizer.IsEndpoint(_stream)) return false;
-        text = _recognizer.GetResult(_stream).Text.Trim();
+        text = CleanText();
         _recognizer.Reset(_stream);
         return true;
     }
 
     public bool TryFlushFinal(out string text)
     {
-        text = _recognizer.GetResult(_stream).Text.Trim();
+        text = CleanText();
         _recognizer.Reset(_stream);
         return text.Length > 0;
     }
+
+    // The 20M export's vocabulary is ALL CAPS with no punctuation; present sentence case
+    // so every surface (live list row, overlay, saved DB) reads as written English.
+    private string CleanText() => SpeechText.SentenceCase(_recognizer.GetResult(_stream).Text.Trim());
 
     public void Dispose()
     {

@@ -38,5 +38,8 @@ public sealed class ZipformerStreamingTranscriberTests
         // stream with leading silence; without the preroll this segment starts mid-word
         // ("'S LAZY DOG...") and contains no "fox".
         Assert.Contains("fox", segs[0].Text, StringComparison.OrdinalIgnoreCase);
+        // The engine export is ALL CAPS; the final text must arrive sentence-cased.
+        Assert.True(char.IsUpper(segs[0].Text[0]), "expected sentence case, got: " + segs[0].Text);
+        Assert.NotEqual(segs[0].Text, segs[0].Text.ToUpperInvariant());
     }
 }

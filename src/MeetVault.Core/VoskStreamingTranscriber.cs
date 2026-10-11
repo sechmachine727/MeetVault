@@ -67,14 +67,16 @@ public sealed class VoskStreamingBackend : IStreamingBackend
     {
         var bytes = Pcm16.FromFloats(samples16k);
         if (_recognizer.AcceptWaveform(bytes, bytes.Length))
-            _pendingFinal = VoskJson.Text(_recognizer.Result(), "text");
+            _pendingFinal = SpeechText.SentenceCase(VoskJson.Text(_recognizer.Result(), "text"));
     }
 
     // Vosk decodes inside AcceptWaveform; there is no separate drain step (a `true` here
     // would spin the runner's decode loop forever).
     public bool IsReady() => false;
     public void Decode() { }
-    public string CurrentText() => VoskJson.Text(_recognizer.PartialResult(), "partial");
+    // Vosk's small models emit all-lowercase, unpunctuated text; sentence case restores
+    // the first letter (same rule as the zipformer above).
+    public string CurrentText() => SpeechText.SentenceCase(VoskJson.Text(_recognizer.PartialResult(), "partial"));
 
     public bool TryTakeFinal(out string text)
     {
@@ -86,7 +88,7 @@ public sealed class VoskStreamingBackend : IStreamingBackend
 
     public bool TryFlushFinal(out string text)
     {
-        text = VoskJson.Text(_recognizer.FinalResult(), "text");
+        text = SpeechText.SentenceCase(VoskJson.Text(_recognizer.FinalResult(), "text"));
         return text.Length > 0;
     }
 
