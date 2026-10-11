@@ -118,17 +118,18 @@
   </ItemGroup>
   <!-- Foreign-RID native sets must not ship: the portable and MSIX outputs keep only the
        Windows x64 payloads. No-ops when the globs match nothing (they do today) — kept so
-       the AGENTS.md constraint stays true (review r11). -->
+       the AGENTS.md constraint stays true (review r11). RID names must be REAL ones:
+       osx-x64/osx-arm64, not macos-* (review r18). -->
   <Target Name="TrimForeignRuntimes" AfterTargets="Build">
     <ItemGroup>
-      <_ForeignRuntimeDir Include="$(OutDir)runtimes\linux-arm;$(OutDir)runtimes\linux-arm64;$(OutDir)runtimes\linux-x64;$(OutDir)runtimes\macos-arm64;$(OutDir)runtimes\macos-x64;$(OutDir)runtimes\win-arm64;$(OutDir)runtimes\win-x86;$(OutDir)runtimes\vulkan\linux-x64" />
+      <_ForeignRuntimeDir Include="$(OutDir)runtimes\linux-arm;$(OutDir)runtimes\linux-arm64;$(OutDir)runtimes\linux-x64;$(OutDir)runtimes\osx-arm64;$(OutDir)runtimes\osx-x64;$(OutDir)runtimes\win-arm64;$(OutDir)runtimes\win-x86;$(OutDir)runtimes\vulkan\linux-x64" />
     </ItemGroup>
     <RemoveDir Directories="@(_ForeignRuntimeDir)" />
     <Delete Files="$(OutDir)ggml-metal.metal" ContinueOnError="true" />
   </Target>
   <Target Name="TrimForeignRuntimesPublish" AfterTargets="Publish">
     <ItemGroup>
-      <_ForeignPublishDir Include="$(PublishDir)runtimes\linux-arm;$(PublishDir)runtimes\linux-arm64;$(PublishDir)runtimes\linux-x64;$(PublishDir)runtimes\macos-arm64;$(PublishDir)runtimes\macos-x64;$(PublishDir)runtimes\win-arm64;$(PublishDir)runtimes\win-x86;$(PublishDir)runtimes\vulkan\linux-x64" />
+      <_ForeignPublishDir Include="$(PublishDir)runtimes\linux-arm;$(PublishDir)runtimes\linux-arm64;$(PublishDir)runtimes\linux-x64;$(PublishDir)runtimes\osx-arm64;$(PublishDir)runtimes\osx-x64;$(PublishDir)runtimes\win-arm64;$(PublishDir)runtimes\win-x86;$(PublishDir)runtimes\vulkan\linux-x64" />
     </ItemGroup>
     <RemoveDir Directories="@(_ForeignPublishDir)" />
     <Delete Files="$(PublishDir)ggml-metal.metal" ContinueOnError="true" />
