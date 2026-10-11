@@ -119,7 +119,7 @@ public sealed partial class SettingsPage : Page
     {
         if (_loading) return;
         if (!_ready) return;
-        var value = LanguagePicker.SelectedIndex switch { 1 => "en", 2 => "ja", _ => "system" };
+        var value = LanguagePicker.SelectedIndex switch { 1 => "en", 2 => "ja", _ => MeetVault.Core.UiLanguage.SystemDefault };
         try
         {
             AppStore.Repo.SetSetting("ui.language", value);
