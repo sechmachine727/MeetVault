@@ -68,8 +68,14 @@ public sealed partial class LivePage : Page
     {
         _checkpoint?.Stop();
         LiveBridge.RenameByName = null;
-        DropPendingUtterance("unload");
         try { if (_state != LiveState.Idle && _session is not null) await _session.PauseAsync(); } catch { }
+        // Pause first, then drop (the Pause_Click order): PauseAsync stops capture, so the
+        // flush closes the utterance that was open at the pause point — dropping before the
+        // pause reset the segmenter while frames were still arriving, and whatever those
+        // frames pushed was then discarded unlogged by the disposal below. Wrapped like the
+        // pause/stop call sites: Flush() is native, and a throw here must not skip the rest
+        // of OnUnloaded (session left un-paused, engines undisposed).
+        try { DropPendingUtterance("unload"); } catch { }
         try { await _transcribeGate.WaitAsync(); _transcribeGate.Release(); } catch { } // drain in-flight window
         LiveBridge.SetLive(false); // leaving Live ends active transcription
         try { _capture?.Dispose(); } catch { }
