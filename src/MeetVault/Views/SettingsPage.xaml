@@ -87,10 +87,10 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <StackPanel Spacing="2" VerticalAlignment="Top">
-                        <TextBlock x:Uid="SetModel" FontWeight="SemiBold" />
-                        <TextBlock x:Uid="SetModelDesc" Opacity="0.7" TextWrapping="Wrap" />
+                        <TextBlock x:Uid="SetEngine" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetEngineDesc" Opacity="0.7" TextWrapping="Wrap" />
                     </StackPanel>
-                    <ComboBox x:Name="ModelPicker" x:Uid="SetModelPicker" Grid.Column="1" Width="280" HorizontalAlignment="Left"
+                    <ComboBox x:Name="EnginePicker" x:Uid="SetEnginePicker" Grid.Column="1" Width="360" HorizontalAlignment="Left"
                               SelectionChanged="Picker_SelectionChanged" />
                 </Grid>
                 <Grid ColumnSpacing="24">

@@ -103,9 +103,9 @@
   <data name="SetSysSrcDesc.Text" xml:space="preserve"><value>すべてのアプリ、または会議アプリなど特定のアプリ。</value></data>
   <data name="SetSysSrcPicker.AutomationProperties.Name" xml:space="preserve"><value>システム音声ソース</value></data>
   <data name="SetTranscription.Text" xml:space="preserve"><value>文字起こし</value></data>
-  <data name="SetModel.Text" xml:space="preserve"><value>モデル</value></data>
-  <data name="SetModelDesc.Text" xml:space="preserve"><value>ローカル文字起こしに使用する Whisper モデルファイル。</value></data>
-  <data name="SetModelPicker.AutomationProperties.Name" xml:space="preserve"><value>文字起こしモデル</value></data>
+  <data name="SetEngine.Text" xml:space="preserve"><value>エンジン</value></data>
+  <data name="SetEngineDesc.Text" xml:space="preserve"><value>音声認識エンジンとモデル。ストリーミングエンジンは話しながら字幕を表示します。Moonshine・Zipformer・Vosk は言語固定です。</value></data>
+  <data name="SetEnginePicker.AutomationProperties.Name" xml:space="preserve"><value>音声認識エンジン</value></data>
   <data name="SetDevice.Text" xml:space="preserve"><value>デバイス</value></data>
   <data name="SetDeviceDesc.Text" xml:space="preserve"><value>推論を実行する場所。</value></data>
   <data name="SetDevicePicker.AutomationProperties.Name" xml:space="preserve"><value>推論デバイス</value></data>

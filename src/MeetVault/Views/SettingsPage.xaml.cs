@@ -28,6 +28,9 @@ public sealed partial class SettingsPage : Page
     // cogwheel flyout) wrote to a different key.
     private bool _loading;
 
+    // Where the staged engine models live; drives the picker's not-installed suffix.
+    private static readonly string ModelsRoot = Path.Combine(AppContext.BaseDirectory, "models");
+
     public SettingsPage()
     {
         InitializeComponent();
@@ -37,8 +40,10 @@ public sealed partial class SettingsPage : Page
         MicPicker.ItemsSource = mics.Count > 0
             ? mics.Select(m => m.Id + ": " + m.Name).ToArray()
             : new[] { "Demo microphone (Windows default)" };
-        // Intentionally English (scope cut): model identifiers are engine names, not UI copy — a future localization pass should leave them as is.
-        ModelPicker.ItemsSource = new[] { "tiny (live, fast)", "base (refinement, accurate)" };
+        // Intentionally English (scope cut): engine and model names are engine identifiers, not UI copy — a future localization pass should leave them as is.
+        EnginePicker.ItemsSource = MeetVault.Core.EngineCatalog.Options
+            .Select(o => o.Label + (MeetVault.Core.EngineCatalog.IsAvailable(o, ModelsRoot) ? "" : " — not installed"))
+            .ToArray();
         _deviceOptions = BuildDeviceOptions();
         DevicePicker.ItemsSource = _deviceOptions;
         _sourceOptions.Add((Loc.T("Set.SysSrcAllApps"), ""));
@@ -49,7 +54,7 @@ public sealed partial class SettingsPage : Page
         // Language names stay endonyms (English / 日本語) — the standard convention.
         LanguagePicker.ItemsSource = new[] { Loc.T("Lang.System"), "English", "日本語" };
         MicPicker.SelectedIndex = 0;
-        ModelPicker.SelectedIndex = 0;
+        EnginePicker.SelectedIndex = 0;
         DevicePicker.SelectedIndex = 0;
 
         _loading = true;
@@ -97,7 +102,11 @@ public sealed partial class SettingsPage : Page
         if (_loading) return;
         if (!_ready) return;
         if (ReferenceEquals(sender, MicPicker)) Persist("audio.mic", MicId());
-        else if (ReferenceEquals(sender, ModelPicker)) Persist("transcription.model", ModelPicker.SelectedIndex == 1 ? "base" : "tiny");
+        else if (ReferenceEquals(sender, EnginePicker))
+        {
+            var o = MeetVault.Core.EngineCatalog.Options[Math.Max(0, EnginePicker.SelectedIndex)];
+            Persist(() => { AppStore.Repo.SetSetting("transcription.engine", o.Engine); AppStore.Repo.SetSetting("transcription.model", o.Model); });
+        }
         else if (ReferenceEquals(sender, DevicePicker)) Persist("transcription.device", DeviceValue());
         else if (ReferenceEquals(sender, LogLevelPicker))
         {
@@ -236,7 +245,7 @@ public sealed partial class SettingsPage : Page
         }
         if (double.TryParse(viewLines, out var lines)) LinesBox.Value = lines;
         StoragePathBox.Text = repo.GetSetting("storage.path") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "MeetVault");
-        ModelPicker.SelectedIndex = repo.GetSetting("transcription.model") == "base" ? 1 : 0;
+        EnginePicker.SelectedIndex = MeetVault.Core.EngineCatalog.IndexOf(repo.GetSetting("transcription.engine"), repo.GetSetting("transcription.model"));
         // Restore persisted mic index + device; clamp when hardware changed.
         if (int.TryParse(repo.GetSetting("audio.mic"), out var micIdx) && micIdx >= 0 && micIdx < MicPicker.Items.Count) MicPicker.SelectedIndex = micIdx;
         var (backend, index) = MeetVault.Core.TranscriptionDevice.Parse(repo.GetSetting("transcription.device"));
@@ -308,7 +317,7 @@ public sealed partial class SettingsPage : Page
     private void Refresh()
     {
         if (!_ready) return;
-        if (MicPicker is null || ModelPicker is null || DevicePicker is null
+        if (MicPicker is null || EnginePicker is null || DevicePicker is null
             || DiarizationSwitch is null || PinSwitch is null
             || OpacitySlider is null || FontSizeBox is null || LinesBox is null || StoragePathBox is null
             || AudioStatus is null || TranscriptionStatus is null || OverlayStatus is null
@@ -326,7 +335,7 @@ public sealed partial class SettingsPage : Page
         };
         // Show the graphics/inference APIs this PC actually exposes, probed not guessed.
         var gpuNote = Loc.Tf("Set.GpuNote", MeetVault.Core.GpuProbe.ApiSummary());
-        TranscriptionStatus.Text = Loc.Tf("Set.TranscriptionStatus", ModelPicker.SelectedItem, device?.Label ?? "CPU", OnOffDisplay(DiarizationSwitch.IsOn)) + gpuNote;
+        TranscriptionStatus.Text = Loc.Tf("Set.TranscriptionStatus", EnginePicker.SelectedItem, device?.Label ?? "CPU", OnOffDisplay(DiarizationSwitch.IsOn)) + gpuNote;
         var logLevel = LogLevelPicker.SelectedItem as string ?? "debug";
         LogStatus.Text = Loc.Tf("Set.LogWriting", logLevel, MeetVault.Core.AppLog.Path);
         OverlayStatus.Text = Loc.Tf("Set.OverlayStatus", OnOffDisplay(PinSwitch.IsOn), OpacitySlider.Value.ToString("P0"), FontSizeBox.Value, LinesBox.Value);
@@ -354,7 +363,9 @@ public sealed partial class SettingsPage : Page
             repo.SetSetting("overlay.font", FontSizeBox.Value.ToString());
             repo.SetSetting("overlay.viewlines", LinesBox.Value.ToString());
             repo.SetSetting("storage.path", StoragePathBox.Text);
-            repo.SetSetting("transcription.model", ModelPicker.SelectedIndex == 1 ? "base" : "tiny");
+            var engine = MeetVault.Core.EngineCatalog.Options[Math.Max(0, EnginePicker.SelectedIndex)];
+            repo.SetSetting("transcription.engine", engine.Engine);
+            repo.SetSetting("transcription.model", engine.Model);
             repo.SetSetting("audio.mic", MicId());
             repo.SetSetting("audio.source", SysSourceValue());
             repo.SetSetting("audio.mic.enabled", OnOff(MicSwitch.IsOn));
