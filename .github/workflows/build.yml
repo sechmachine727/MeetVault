@@ -1,10 +1,19 @@
 name: Build and test
 
 on:
+  # Push CI runs only on main: a filterless push trigger bills a full runner set for
+  # every branch push AND for the PR event (the concurrency group keys on github.ref,
+  # so the two do not cancel each other), while the PR event below already covers
+  # feature branches.
   push:
+    branches: [main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+
+# Least privilege: this workflow only checks out and tests, so no write scopes.
+permissions:
+  contents: read
 
 concurrency:
   group: build-${{ github.ref }}
