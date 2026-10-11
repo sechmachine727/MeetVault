@@ -21,8 +21,6 @@ public sealed partial class OverlayWindow : Window
 {
     private const double WidthDip = 1100;
     private const double HeightDip = 220;
-    // The conversation's newest line renders this much larger than the rest.
-    private const double LatestLineExtraDip = 12;
     // Pre-layout fallback for the conversation cell (row 1): the 220 DIP window
     // minus the header row (20 pt title line ≈ 27 + 8+8 DIP margins = 43) minus
     // the ~8 DIP the window frame keeps from the XAML surface ≈ 169 DIP — the
@@ -411,14 +409,15 @@ public sealed partial class OverlayWindow : Window
             TranscriptList.ScrollIntoView(TranscriptList.Items[TranscriptList.Items.Count - 1]);
     }
 
-    // Bottom-anchored conversation: newest line big and bold (click to rename
-    // its speaker), older lines smaller and dimmer above it. Rename rides the
-    // button's DataContext through Rename_Click (null-safe early return).
+    // Bottom-anchored conversation: every line — the current sentence included — renders
+    // at the same size and weight (owner convention 2026-10-11: no headline treatment);
+    // only brightness marks recency (newest 1.0, older 0.72). Rename rides the button's
+    // DataContext through Rename_Click (null-safe early return).
     // The strip must never outgrow its cell: WinUI paints a Grid child unclipped,
     // so a bottom-anchored over-tall panel covers the header and its top lines
-    // leave the window. The shown count is capped by what actually fits (the
-    // newest line renders LatestLineExtraDip larger, so it gets its own term);
-    // UpdateConversationClip is the hard guarantee on top of the clamp.
+    // leave the window. The shown count is capped by what actually fits (the fit
+    // runs on one size for every line); UpdateConversationClip is the hard
+    // guarantee on top of the clamp.
     private void BuildConversation()
     {
         _conversationPanel.Children.Clear();
@@ -436,7 +435,7 @@ public sealed partial class OverlayWindow : Window
         // A shown partial line occupies one regular line box (font x 1.35 + spacing, the
         // same box OverlayLayout.FittingLines counts); reserve it before fitting finals.
         var reserve = Vm.Partial.Length > 0 ? Vm.FontSize * 1.35 + _conversationPanel.Spacing : 0;
-        var fitting = OverlayLayout.FittingLines(Math.Max(0, available - reserve), Vm.FontSize, Vm.FontSize + LatestLineExtraDip, _conversationPanel.Spacing);
+        var fitting = OverlayLayout.FittingLines(Math.Max(0, available - reserve), Vm.FontSize, Vm.FontSize, _conversationPanel.Spacing);
         var take = Math.Clamp(Math.Min((int)Vm.ViewLines, fitting), 1, 12);
         for (var i = Math.Max(0, Vm.Lines.Count - take); i < Vm.Lines.Count; i++)
         {
@@ -450,9 +449,9 @@ public sealed partial class OverlayWindow : Window
                 Margin = new Thickness(16, 0, 16, 0),
                 Foreground = new SolidColorBrush(Colors.White),
                 FontFamily = new FontFamily(Vm.FontFamily),
-                FontSize = isLatest ? Vm.FontSize + 12 : Vm.FontSize,
-                FontWeight = isLatest ? FontWeights.Bold : FontWeights.Normal,
-                Opacity = isLatest ? 1.0 : 0.72,
+                FontSize = Vm.FontSize,          // the current sentence is a normal line, not a headline
+                FontWeight = FontWeights.Normal,
+                Opacity = isLatest ? 1.0 : 0.72, // brightness alone marks the newest line
             };
             if (!isLatest || line.Speaker is not { Length: > 0 })
             {
