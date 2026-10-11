@@ -71,8 +71,6 @@
   <data name="DetGeminiHeader.Header" xml:space="preserve"><value>Gemini ジョブ</value></data>
   <data name="DetTranscript.Text" xml:space="preserve"><value>文字起こし</value></data>
   <data name="DetEmpty.Text" xml:space="preserve"><value>まだ表示する会議がありません。ライブで会議を開始すると、ここに文字起こしが表示されます。</value></data>
-  <data name="DetSpeakerTip.ToolTipService.ToolTip" xml:space="preserve"><value>この行を別の話者に再割り当てします</value></data>
-  <data name="DetLineTip.ToolTipService.ToolTip" xml:space="preserve"><value>この行を編集します</value></data>
   <data name="DetSpeakerName.AutomationProperties.Name" xml:space="preserve"><value>話者</value></data>
   <data name="DetSpeakerName.ToolTipService.ToolTip" xml:space="preserve"><value>この行を別の話者に再割り当てします</value></data>
   <data name="DetLineName.AutomationProperties.Name" xml:space="preserve"><value>文字起こし行</value></data>
@@ -216,6 +214,7 @@
   <data name="Live.AudioIdle" xml:space="preserve"><value>マイク: {0}。録音していません。</value></data>
   <data name="Live.AudioPaused" xml:space="preserve"><value>一時停止中。マイク: {0}。</value></data>
   <data name="Live.AudioRecording" xml:space="preserve"><value>{0} から録音しています。</value></data>
+  <data name="Live.DeviceN" xml:space="preserve"><value>デバイス {0}</value></data>
   <data name="Live.RenamePlaceholder" xml:space="preserve"><value>話者名</value></data>
   <data name="Live.RenameAutomation" xml:space="preserve"><value>{0} の名前を変更</value></data>
   <data name="Live.ErrNotActive" xml:space="preserve"><value>会議がアクティブではありません</value></data>

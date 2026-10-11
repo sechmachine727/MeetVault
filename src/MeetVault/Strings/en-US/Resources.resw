@@ -71,8 +71,6 @@
   <data name="DetGeminiHeader.Header" xml:space="preserve"><value>Gemini job</value></data>
   <data name="DetTranscript.Text" xml:space="preserve"><value>Transcript</value></data>
   <data name="DetEmpty.Text" xml:space="preserve"><value>No meeting to show yet. Start one in Live and its transcript lands here.</value></data>
-  <data name="DetSpeakerTip.ToolTipService.ToolTip" xml:space="preserve"><value>Reassign this line to another speaker</value></data>
-  <data name="DetLineTip.ToolTipService.ToolTip" xml:space="preserve"><value>Edit this line</value></data>
   <data name="DetSpeakerName.AutomationProperties.Name" xml:space="preserve"><value>Speaker</value></data>
   <data name="DetSpeakerName.ToolTipService.ToolTip" xml:space="preserve"><value>Reassign this line to another speaker</value></data>
   <data name="DetLineName.AutomationProperties.Name" xml:space="preserve"><value>Transcript line</value></data>
@@ -216,6 +214,7 @@
   <data name="Live.AudioIdle" xml:space="preserve"><value>Mic: {0}. Not recording.</value></data>
   <data name="Live.AudioPaused" xml:space="preserve"><value>Paused. Mic: {0}.</value></data>
   <data name="Live.AudioRecording" xml:space="preserve"><value>Recording from {0}.</value></data>
+  <data name="Live.DeviceN" xml:space="preserve"><value>device {0}</value></data>
   <data name="Live.RenamePlaceholder" xml:space="preserve"><value>Speaker name</value></data>
   <data name="Live.RenameAutomation" xml:space="preserve"><value>Rename {0}</value></data>
   <data name="Live.ErrNotActive" xml:space="preserve"><value>the meeting is not active</value></data>

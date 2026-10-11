@@ -131,7 +131,7 @@ public sealed partial class LivePage : Page
         ResolveEngines();
         UpdateEngineStatus(actual: false);
         _micLabel = NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == MicId).Name
-            ?? (MicId == "0" ? "Windows default" : "device " + MicId);
+            ?? (MicId == "0" ? Loc.T("Dash.WindowsDefault") : Loc.Tf("Live.DeviceN", MicId));
         var id = PendingRecovery.MeetingId;
         PendingRecovery.MeetingId = null;
         if (id is not null) await RecoverAsync(id);
