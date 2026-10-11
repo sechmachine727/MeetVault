@@ -1,23 +1,14 @@
 namespace MeetVault.Core;
 
-// Text shaping shared by the engines: the non-speech filter for whisper.cpp's silence
-// markers plus the sentence-case normalizer for the case-less streaming exports.
+// Text shaping for the recognizer output: sentence-case normalization for the case-less
+// streaming export (see SentenceCase below).
 public static class SpeechText
 {
-    public static bool IsNonSpeech(string? text)
-    {
-        if (string.IsNullOrEmpty(text)) return true;
-        var normalized = new string(text.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
-        return normalized is "blankaudio" or "silence" or "inaudible";
-    }
-
-    // The streaming exports are case-less: the zipformer 20M vocabulary is ALL CAPS and
-    // Vosk emits all lowercase, and neither writes sentence punctuation. Normalize to
-    // sentence case for display/export: lowercase everything, capitalize the first letter
-    // (only when nothing alphanumeric precedes it, so "20 minutes" stays untouched), and
-    // restore the English pronoun "I" (standalone and in 'm/'ve/'ll/'d contractions).
-    // Per-utterance engines (whisper, moonshine) already return real casing and must
-    // never pass through this.
+    // Vosk's small models emit all-lowercase text with no sentence punctuation.
+    // Normalize to sentence case for display/export: lowercase everything, capitalize the
+    // first letter (only when nothing alphanumeric precedes it, so "20 minutes" stays
+    // untouched), and restore the English pronoun "I" (standalone and in 'm/'ve/'ll/'d
+    // contractions).
     public static string SentenceCase(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return text;

@@ -13,7 +13,7 @@ public sealed class LongSessionTests : IDisposable
     public async Task SeventyMinutes_NoResetOrDrift()
     {
         var tx = new RawTranscriber();
-        var session = new MeetingSession(new FakeAudio(), tx, new FakeDiarizer(), new FakeGender(), _repo);
+        var session = new MeetingSession(new FakeAudio(), tx, _repo);
         await session.StartAsync("mic", "app");
         const int windows = 420; // 70 min x 10 s
         for (var i = 0; i < windows; i++)

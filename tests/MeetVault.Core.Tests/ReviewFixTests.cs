@@ -14,7 +14,7 @@ public sealed class ReviewFixTests : IDisposable
     [Fact]
     public async Task Start_PersistsDraft_RecoverableWithoutCheckpoint()
     {
-        var session = new MeetingSession(new FakeAudio(), new RawTranscriber(), new FakeDiarizer(), new FakeGender(), _repo);
+        var session = new MeetingSession(new FakeAudio(), new RawTranscriber(), _repo);
         await session.StartAsync("mic", "app");
         // simulate crash: no Checkpoint, no Stop — draft must already exist
         var unfinished = _repo.LoadUnfinished();
@@ -24,11 +24,11 @@ public sealed class ReviewFixTests : IDisposable
     [Fact]
     public async Task Recover_EmptyMicId_ThrowsActionable()
     {
-        var session = new MeetingSession(new FakeAudio(), new RawTranscriber(), new FakeDiarizer(), new FakeGender(), _repo);
+        var session = new MeetingSession(new FakeAudio(), new RawTranscriber(), _repo);
         await session.StartAsync("mic", "app");
         await session.CheckpointAsync();
         var id = _repo.LoadUnfinished().Single().Id;
-        await Assert.ThrowsAsync<ArgumentException>(() => MeetingSession.RecoverAsync(id, new FakeAudio(), new RawTranscriber(), new FakeDiarizer(), new FakeGender(), _repo, "", ""));
+        await Assert.ThrowsAsync<ArgumentException>(() => MeetingSession.RecoverAsync(id, new FakeAudio(), new RawTranscriber(), _repo, "", ""));
     }
 
     [Fact]

@@ -8,7 +8,7 @@ public sealed class SessionLifecycleTests
     public async Task DoubleStop_Throws_NoDoubleSave()
     {
         var store = new FakeStore();
-        var session = new MeetingSession(new FakeAudio(), new RawTranscriber(), new FakeDiarizer(), new FakeGender(), store);
+        var session = new MeetingSession(new FakeAudio(), new RawTranscriber(), store);
         await session.StartAsync("mic", "app");
         await session.StopAsync();
         await Assert.ThrowsAsync<InvalidOperationException>(() => session.StopAsync());
@@ -18,7 +18,7 @@ public sealed class SessionLifecycleTests
     public async Task Dispose_Unsubscribes_NoFurtherSegments()
     {
         var tx = new RawTranscriber();
-        var session = new MeetingSession(new FakeAudio(), tx, new FakeDiarizer(), new FakeGender(), new FakeStore());
+        var session = new MeetingSession(new FakeAudio(), tx, new FakeStore());
         await session.StartAsync("mic", "app");
         session.Dispose();
         tx.Emit(new Segment("z", "spk_1", 0, 1000, "ghost", true));

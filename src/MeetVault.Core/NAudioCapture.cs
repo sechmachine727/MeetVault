@@ -19,7 +19,7 @@ namespace MeetVault.Core;
 public sealed class NAudioCapture : IAudioCapture, IDisposable
 {
     // 48 kHz keeps the whole audible band; the old 16 kHz mix is what made recordings sound
-    // muffled and telephone-like. Whisper and the diarizer still require 16 kHz mono.
+    // muffled and telephone-like. The recognizer still requires 16 kHz mono.
     private const int ArchiveRate = 48000;
     private const int InferenceRate = 16000;
     private const int ArchiveBitRate = 256000; // AAC, as asked for

@@ -20,35 +20,10 @@ sealed class FakeTranscriber : ISpeechTranscriber
     public void Emit(Segment s) { if (IsRunning) SegmentReady?.Invoke(s); }
 }
 
-sealed class FakeDiarizer : ISpeakerDiarizer
-{
-    public SpeakerHint AssignTurn(TurnAudio turn) => new("spk_1", SpeakerOrigin.Unknown);
-}
-
-sealed class FakeGender : IGenderLabeler
-{
-    public string Label(string speakerId, Gender estimate) => "Male 1";
-}
-
 sealed class FakeStore : IMeetingStore
 {
     public Meeting? Saved; public int SegmentCount; public IReadOnlyList<Speaker>? SavedSpeakers;
     public void Save(Meeting m, IReadOnlyList<Speaker> sp, IReadOnlyList<Segment> se) { Saved = m; SegmentCount = se.Count; SavedSpeakers = sp; } public IReadOnlyList<Segment> LoadSegments(string id) => Array.Empty<Segment>(); public IReadOnlyList<Speaker> LoadSpeakers(string id) => Array.Empty<Speaker>(); public IReadOnlyList<Meeting> LoadUnfinished() => Array.Empty<Meeting>();
-}
-
-
-sealed class ScriptedDiarizer : ISpeakerDiarizer
-{
-    private readonly Queue<string> _turns;
-    public ScriptedDiarizer(params string[] turns) { _turns = new Queue<string>(turns); }
-    public SpeakerHint AssignTurn(TurnAudio turn) => new(_turns.Count > 0 ? _turns.Dequeue() : "spk_x", SpeakerOrigin.Embedding);
-}
-
-// Records every turn it is asked to resolve; used to prove one diarization per turn.
-sealed class RecordingDiarizer : ISpeakerDiarizer
-{
-    public readonly List<TurnAudio> Turns = new();
-    public SpeakerHint AssignTurn(TurnAudio turn) { Turns.Add(turn); return new("spk_1", SpeakerOrigin.Unknown); }
 }
 
 // A store holding one recoverable draft: the unfinished meeting plus its loaded rows.
@@ -63,20 +38,6 @@ sealed class DraftStore : IMeetingStore
     public IReadOnlyList<Speaker> LoadSpeakers(string id) => _speakers;
     public IReadOnlyList<Meeting> LoadUnfinished() => new[] { _draft };
 }
-
-// Records the recovery seed it is handed — the interface's default no-op would swallow it.
-sealed class SeedingDiarizer : ISpeakerDiarizer
-{
-    private readonly FakeAudio _audio;
-    public SeedingDiarizer(FakeAudio audio) => _audio = audio;
-    public IReadOnlyList<Speaker>? SeededSpeakers;
-    public IReadOnlyList<Segment>? SeededSegments;
-    public bool CapturingAtSeed;
-    public SpeakerHint AssignTurn(TurnAudio turn) => new("spk_1", SpeakerOrigin.Unknown);
-    public void SeedForRecovery(IReadOnlyList<Speaker> speakers, IReadOnlyList<Segment> segments)
-    { SeededSpeakers = speakers; SeededSegments = segments; CapturingAtSeed = _audio.IsCapturing; }
-}
-
 
 // Fires SegmentReady even while stopped: only the session guard may drop segments.
 sealed class RawTranscriber : ISpeechTranscriber
@@ -108,7 +69,7 @@ public sealed class SessionTests
     public async Task PauseGap_SkippedAudioNeverReappears()
     {
         var tx = new RawTranscriber();
-        var session = new MeetingSession(new FakeAudio(), tx, new FakeDiarizer(), new FakeGender(), new FakeStore());
+        var session = new MeetingSession(new FakeAudio(), tx, new FakeStore());
         await session.StartAsync("mic", "app");
         tx.Emit(new Segment("a", "spk_1", 0, 1000, "one", true));
         await session.PauseAsync();
@@ -124,7 +85,7 @@ public sealed class SessionTests
     public async Task Stop_FinalizesMeeting()
     {
         var store = new FakeStore();
-        var session = new MeetingSession(new FakeAudio(), new RawTranscriber(), new FakeDiarizer(), new FakeGender(), store);
+        var session = new MeetingSession(new FakeAudio(), new RawTranscriber(), store);
         await session.StartAsync("mic", "app");
         await session.StopAsync();
         Assert.Equal(MeetingStatus.Ready, store.Saved!.Status);
@@ -134,7 +95,7 @@ public sealed class SessionTests
     [Fact]
     public async Task DoubleStart_Throws()
     {
-        var session = new MeetingSession(new FakeAudio(), new RawTranscriber(), new FakeDiarizer(), new FakeGender(), new FakeStore());
+        var session = new MeetingSession(new FakeAudio(), new RawTranscriber(), new FakeStore());
         await session.StartAsync("mic", "app");
         await Assert.ThrowsAsync<InvalidOperationException>(() => session.StartAsync("mic", "app"));
         await session.StopAsync();
@@ -144,7 +105,7 @@ public sealed class SessionTests
     public async Task Resume_RestartsSameSources()
     {
         var audio = new FakeAudio();
-        var session = new MeetingSession(audio, new RawTranscriber(), new FakeDiarizer(), new FakeGender(), new FakeStore());
+        var session = new MeetingSession(audio, new RawTranscriber(), new FakeStore());
         await session.StartAsync("mic-A", "app-Zoom");
         await session.PauseAsync();
         await session.ResumeAsync();
@@ -152,166 +113,41 @@ public sealed class SessionTests
         await session.StopAsync();
     }
 
-
+    // The transcriber raises SegmentReady on its own thread; the session marshals onto
+    // the creating (UI) context. A lagging queue must still deliver every segment, in
+    // order, each stamped with the constant single-speaker id.
     [Fact]
-    public async Task Session_UsesSeparateGenderCounters()
+    public async Task LaggingUiQueue_DeliversEverySegment_StampedOnce()
     {
         var tx = new RawTranscriber();
-        var diarizer = new ScriptedDiarizer("spk_m", "spk_f", "spk_m2");
-        var session = new MeetingSession(new FakeAudio(), tx, diarizer, new CounterGenderLabeler(id => id.StartsWith("spk_m") ? Gender.Male : Gender.Female), new FakeStore());
-        await session.StartAsync("mic", "app");
-        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 0, 1000));
-        tx.Emit(new Segment("a", "", 0, 1000, "one", true));
-        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 1000, 2000));
-        tx.Emit(new Segment("b", "", 1000, 2000, "two", true));
-        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 2000, 3000));
-        tx.Emit(new Segment("c", "", 2000, 3000, "three", true));
-        await session.StopAsync();
-        var names = session.Speakers.OrderBy(s => s.Id).Select(s => s.DisplayName).ToArray();
-        Assert.Equal(new[] { "Female 1", "Male 1", "Male 2" }, names);
-    }
-
-    [Fact]
-    public async Task NoteTurnAudio_OneDiarizationPerTurn_SegmentsShareTheHint()
-    {
-        var tx = new RawTranscriber();
-        var recording = new RecordingDiarizer();
-        var session = new MeetingSession(new FakeAudio(), tx, recording, new FakeGender(), new FakeStore());
-        await session.StartAsync("mic", "app");
-
-        session.NoteTurnAudio(new TurnAudio(new float[160], 0, 100));
-        tx.Emit(new Segment("a", "", 0, 50, "one", true));
-        tx.Emit(new Segment("b", "", 50, 100, "two", true));
-
-        Assert.Single(recording.Turns);
-        Assert.Equal(0, recording.Turns[0].StartMs);
-        Assert.Equal(2, session.Segments.Count);
-        Assert.All(session.Segments, s => Assert.Equal("spk_1", s.SpeakerId));
-        await session.StopAsync();
-    }
-
-    [Fact]
-    public async Task NoteTurnAudio_UnknownHint_KeepsPreviousSpeaker()
-    {
-        var tx = new RawTranscriber();
-        var session = new MeetingSession(new FakeAudio(), tx, new ScriptedDiarizer("spk_1", "", "spk_2"), new FakeGender(), new FakeStore());
-        await session.StartAsync("mic", "app");
-
-        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 0, 1000));
-        tx.Emit(new Segment("a", "", 0, 1000, "one", true));
-        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 1000, 2000));
-        tx.Emit(new Segment("b", "", 1000, 2000, "two", true));  // Unknown hint -> previous speaker
-        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 2000, 3000));
-        tx.Emit(new Segment("c", "", 2000, 3000, "three", true));
-
-        Assert.Equal(new[] { "spk_1", "spk_1", "spk_2" }, session.Segments.Select(s => s.SpeakerId).ToArray());
-        await session.StopAsync();
-    }
-
-    [Fact]
-    public async Task LaggingUiQueue_StampsEachTurnsSegmentsWithItsOwnSpeaker()
-    {
-        var tx = new RawTranscriber();
-        var diarizer = new ScriptedDiarizer("spk_a", "spk_b");
         var ui = new QueueingSyncContext();
         var prev = SynchronizationContext.Current;
         SynchronizationContext.SetSynchronizationContext(ui); // captured as the session's UI context
         MeetingSession session;
-        try { session = new MeetingSession(new FakeAudio(), tx, diarizer, new FakeGender(), new FakeStore()); }
+        try { session = new MeetingSession(new FakeAudio(), tx, new FakeStore()); }
         finally { SynchronizationContext.SetSynchronizationContext(prev); } // emission now runs off the UI context
         await session.StartAsync("mic", "app");
 
-        // Turn A resolves to spk_a; its segment is posted to the (lagging) UI queue.
-        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 0, 1000));
         tx.Emit(new Segment("a", "", 0, 1000, "one", true));
-
-        // Turn B is resolved BEFORE the UI drains turn A: with the old code the drain read
-        // the field late and stamped BOTH segments with spk_b (turn B's speaker).
-        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 1000, 2000));
         tx.Emit(new Segment("b", "", 1000, 2000, "two", true));
 
-        Assert.Equal(2, ui.Drain());
-        Assert.Equal(new[] { "spk_a", "spk_b" }, session.Segments.Select(s => s.SpeakerId).ToArray());
+        Assert.Equal(2, ui.Drain()); // both were posted, none ran inline
+        Assert.Equal(new[] { "one", "two" }, session.Segments.Select(s => s.Text).ToArray());
+        Assert.All(session.Segments, s => Assert.Equal("spk_1", s.SpeakerId));
         await session.StopAsync();
     }
 
-    // --- review round 5 (recovery seeding) ---
-
-    // The recovered meeting's rows must reach the diarizer BEFORE capture restarts, or a
-    // resumed voice can mint ids that collide with the persisted spk_N rows.
+    // The shipped engine has no diarization: the session stamps the schema-required
+    // speaker id on segments but never mints or persists speaker rows — "no speakers"
+    // is what every surface keys the hide-names rule off.
     [Fact]
-    public async Task RecoverAsync_SeedsTheDiarizerWithTheDraftRows_BeforeCaptureRestarts()
-    {
-        var draft = new Meeting("m1", "Meeting", DateTimeOffset.Now, null, MeetingStatus.Recording, null, null);
-        var speakers = new[] { new Speaker("spk_1", "A"), new Speaker("spk_2", "B") };
-        var segments = new[] { new Segment("s1", "spk_2", 0, 1000, "hello", true) };
-        var audio = new FakeAudio();
-        var diarizer = new SeedingDiarizer(audio);
-
-        var session = await MeetingSession.RecoverAsync("m1", audio, new RawTranscriber(), diarizer, new FakeGender(),
-            new DraftStore(draft, speakers, segments), "mic", "app");
-
-        Assert.Equal(new[] { "spk_1", "spk_2" }, diarizer.SeededSpeakers!.Select(s => s.Id).ToArray());
-        Assert.Equal(new[] { "s1" }, diarizer.SeededSegments!.Select(s => s.Id).ToArray());
-        Assert.False(diarizer.CapturingAtSeed); // seeded BEFORE capture restarted
-        Assert.True(audio.IsCapturing);
-        Assert.Equal(2, session.Speakers.Count);
-        await session.StopAsync();
-    }
-
-    // Review round 6: the resumed tail's speaker must seed the TURN stamp too. A first
-    // post-resume turn whose hint is Unknown (short/noisy audio, native failure) keeps
-    // the previous speaker — with the field still at "spk_1" that stamped the line with
-    // the wrong id whenever the draft's tail speaker was spk_2.
-    [Fact]
-    public async Task RecoverAsync_SeedsTheTurnSpeakerFromTheDraftTail_UnknownHintKeepsIt()
-    {
-        var draft = new Meeting("m1", "Meeting", DateTimeOffset.Now, null, MeetingStatus.Recording, null, null);
-        var speakers = new[] { new Speaker("spk_1", "A"), new Speaker("spk_2", "B") };
-        var segments = new[] { new Segment("s1", "spk_2", 0, 1000, "hello", true) };
-        var tx = new RawTranscriber();
-        var diarizer = new ScriptedDiarizer(""); // Unknown hint: an empty id keeps the previous speaker
-
-        var session = await MeetingSession.RecoverAsync("m1", new FakeAudio(), tx, diarizer, new FakeGender(),
-            new DraftStore(draft, speakers, segments), "mic", "app");
-
-        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 1000, 2000));
-        tx.Emit(new Segment("s2", "", 1000, 2000, "world", true));
-
-        Assert.Equal(2, session.Segments.Count);
-        Assert.Equal("s2", session.Segments[^1].Id);
-        Assert.Equal("spk_2", session.Segments[^1].SpeakerId);
-        await session.StopAsync();
-    }
-
-    // A NEW meeting must never seed: StartAsync's contract is a clean identity space
-    // (LivePage resets the diarizer instead — see the per-meeting reset contract).
-    [Fact]
-    public async Task StartAsync_NeverSeedsTheDiarizer()
-    {
-        var diarizer = new SeedingDiarizer(new FakeAudio());
-        var session = new MeetingSession(new FakeAudio(), new RawTranscriber(), diarizer, new FakeGender(), new FakeStore());
-        await session.StartAsync("mic", "app");
-        Assert.Null(diarizer.SeededSpeakers);
-        Assert.Null(diarizer.SeededSegments);
-        await session.StopAsync();
-    }
-
-    // --- single-speaker mode (diarization off) ---
-
-    // No diarization: the session keeps the schema-required spk_1 stamp on segments but
-    // must never mint or persist speaker rows — "no speakers" is what every surface keys
-    // the hide-names rule off.
-    [Fact]
-    public async Task SingleSpeakerMode_StampsSegmentsButMintsNoSpeakers()
+    public async Task SingleSpeaker_StampsSegmentsButMintsNoSpeakers()
     {
         var tx = new RawTranscriber();
-        var diarizer = new ScriptedDiarizer("spk_1"); // single-speaker mode ignores hints anyway
         var store = new FakeStore();
-        var session = new MeetingSession(new FakeAudio(), tx, diarizer, new FakeGender(), store, singleSpeaker: true);
+        var session = new MeetingSession(new FakeAudio(), tx, store);
         await session.StartAsync("mic", "app");
 
-        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 0, 1000));
         tx.Emit(new Segment("s1", "", 0, 1000, "hello", true));
 
         Assert.Single(session.Segments);
@@ -321,33 +157,23 @@ public sealed class SessionTests
         Assert.Empty(store.SavedSpeakers!);       // and none was persisted either
     }
 
-    // The recovery path forwards the mode too: a resumed nameless draft keeps stamping
-    // turns but mints no identities for the new voices.
+    // Recovery loads the draft's rows verbatim (legacy drafts may carry speaker rows
+    // from the retired diarized pipeline) and the new segments keep the constant stamp.
     [Fact]
-    public async Task SingleSpeakerMode_RecoveryPassesTheModeThrough()
+    public async Task RecoverAsync_LoadsDraftRows_AndContinues()
     {
         var draft = new Meeting("m1", "Meeting", DateTimeOffset.Now, null, MeetingStatus.Recording, null, null);
-        var segments = new[] { new Segment("s1", "spk_1", 0, 1000, "hello", true) };
+        var speakers = new[] { new Speaker("spk_1", "A"), new Speaker("spk_2", "B") };
+        var segments = new[] { new Segment("s1", "spk_2", 0, 1000, "hello", true) };
         var tx = new RawTranscriber();
-        var diarizer = new ScriptedDiarizer("spk_2");
 
-        var session = await MeetingSession.RecoverAsync("m1", new FakeAudio(), tx, diarizer, new FakeGender(),
-            new DraftStore(draft, Array.Empty<Speaker>(), segments), "mic", "app", singleSpeaker: true);
+        var session = await MeetingSession.RecoverAsync("m1", new FakeAudio(), tx, new DraftStore(draft, speakers, segments), "mic", "app");
 
-        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 1000, 2000));
+        Assert.Equal(2, session.Speakers.Count);   // legacy rows render, nothing new is minted
         tx.Emit(new Segment("s2", "", 1000, 2000, "world", true));
-
         Assert.Equal(2, session.Segments.Count);
-        Assert.Equal("spk_2", session.Segments[^1].SpeakerId); // the hint still stamps the line
-        Assert.Empty(session.Speakers);                        // but no row is minted
+        Assert.Equal("s2", session.Segments[^1].Id);
+        Assert.Equal("spk_1", session.Segments[^1].SpeakerId);
         await session.StopAsync();
     }
 }
-
-
-
-
-
-
-
-

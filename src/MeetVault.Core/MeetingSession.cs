@@ -1,28 +1,24 @@
 namespace MeetVault.Core;
 
-// ponytail: single-threaded session; thread-safety add when real engines stream concurrently.
+// One live meeting over the single streaming pipeline (Vosk). Single-threaded control
+// surface; the transcriber raises SegmentReady on its decode thread, which is marshalled
+// onto the creating (UI) thread below.
 public sealed class MeetingSession : IDisposable
 {
+    // Every segment carries the schema's speaker id. The shipped engine family has no
+    // diarization (single speaker by construction), so the id is a constant.
+    private const string SpeakerId = "spk_1";
+
     private readonly IAudioCapture _audio;
     private readonly ISpeechTranscriber _transcriber;
-    private readonly ISpeakerDiarizer _diarizer;
-    private readonly IGenderLabeler _gender;
     private readonly IMeetingStore _store;
-    // Diarization off: the session keeps stamping the schema-required speaker id on
-    // segments but never mints or persists speaker rows ("no speakers" is what every
-    // surface keys the hide-names rule off).
-    private readonly bool _singleSpeaker;
     private readonly List<Segment> _segments = new();
+    // Only ever filled by recovery of legacy drafts that still carry speaker rows.
     private readonly List<Speaker> _speakers = new();
     private Meeting? _meeting;
     private bool _paused;
     private string _micId = "";
     private string _appSource = "";
-    // Resolved once per finalized turn by NoteTurnAudio; every segment of that turn
-    // carries it — captured into a local at the top of OnSegment, because by the time
-    // a lagging UI queue runs the handler this field may already hold the next turn's
-    // speaker. Neutral "spk_1" until the first hint arrives.
-    private string _turnSpeakerId = "spk_1";
     // Captured at construction (UI thread in the app); null in tests, where we run inline.
     private readonly SynchronizationContext? _ui = SynchronizationContext.Current;
 
@@ -33,10 +29,9 @@ public sealed class MeetingSession : IDisposable
     public bool IsActive => _meeting is not null;
     public event Action<Segment>? LiveSegment;
 
-    public MeetingSession(IAudioCapture audio, ISpeechTranscriber transcriber, ISpeakerDiarizer diarizer, IGenderLabeler gender, IMeetingStore store, bool singleSpeaker = false)
+    public MeetingSession(IAudioCapture audio, ISpeechTranscriber transcriber, IMeetingStore store)
     {
-        _audio = audio; _transcriber = transcriber; _diarizer = diarizer; _gender = gender; _store = store;
-        _singleSpeaker = singleSpeaker;
+        _audio = audio; _transcriber = transcriber; _store = store;
         _transcriber.SegmentReady += OnSegment;
     }
 
@@ -84,28 +79,6 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         return Task.CompletedTask;
     }
 
-    // FR2: renaming a speaker updates every row and persists with the draft.
-    public void RenameSpeaker(string speakerId, string displayName)
-    {
-        var next = displayName?.Trim() ?? "";
-        if (next.Length == 0) return;
-        var i = _speakers.FindIndex(s => s.Id == speakerId);
-        if (i < 0) return;
-        _speakers[i] = _speakers[i].Rename(next);
-        if (_meeting is not null) Persist();
-        AppLog.Info("session: rename " + speakerId + " -> " + next);
-    }
-
-    // The window owner reports each finalized turn's audio exactly once; the diarizer
-    // resolves one stable speaker for every segment that turn produces. An Unknown hint
-    // keeps the previous speaker, so an uncertain turn stays neutral instead of
-    // inventing a new identity per window.
-    public void NoteTurnAudio(TurnAudio turn)
-    {
-        var hint = _diarizer.AssignTurn(turn);
-        if (hint.SpeakerId.Length > 0) _turnSpeakerId = hint.SpeakerId;
-    }
-
     // Stamps the capture's media path onto the meeting so the recording is linked,
     // then saves. The draft is persisted before audio starts, so MediaPath fills in
     // on the next save once the file exists.
@@ -121,32 +94,18 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         _store.Save(_meeting, _speakers, _segments);
     }
 
-    public static async Task<MeetingSession> RecoverAsync(string meetingId, IAudioCapture audio, ISpeechTranscriber transcriber, ISpeakerDiarizer diarizer, IGenderLabeler gender, IMeetingStore store, string micId = "", string appSource = "", bool singleSpeaker = false, CancellationToken ct = default)
+    public static async Task<MeetingSession> RecoverAsync(string meetingId, IAudioCapture audio, ISpeechTranscriber transcriber, IMeetingStore store, string micId = "", string appSource = "", CancellationToken ct = default)
     {
         var unfinished = store.LoadUnfinished().FirstOrDefault(m => m.Id == meetingId) ?? throw new InvalidOperationException("No recoverable draft for this meeting.");
-        var session = new MeetingSession(audio, transcriber, diarizer, gender, store, singleSpeaker);
+        var session = new MeetingSession(audio, transcriber, store);
         var wasPaused = unfinished.Status == MeetingStatus.Paused;
         session._meeting = unfinished with { Status = wasPaused ? MeetingStatus.Paused : MeetingStatus.Recording };
         session._paused = wasPaused;
-        var speakers = store.LoadSpeakers(meetingId);
-        var segments = store.LoadSegments(meetingId);
-        session._speakers.AddRange(speakers);
-        session._segments.AddRange(segments);
+        // Legacy drafts may carry speaker rows from the retired diarized pipeline; they are
+        // loaded verbatim so old meetings keep rendering, but nothing mints new ones.
+        session._speakers.AddRange(store.LoadSpeakers(meetingId));
+        session._segments.AddRange(store.LoadSegments(meetingId));
         session._micId = micId; session._appSource = appSource;
-        // The recovered meeting keeps its spk_N ids: seed the diarizer's matcher above
-        // every persisted id BEFORE capture restarts — a fresh matcher would reserve
-        // spk_1/spk_2 again and the first voice confirmed after the resume could mint an
-        // id that collides with a persisted row (two voices swapping identities for the
-        // rest of the meeting). Never done in StartAsync: a NEW meeting resets the
-        // matcher instead (LivePage.Start_Click).
-        diarizer.SeedForRecovery(speakers, segments);
-        // The turn stamp is seeded too, from the same tail: a first post-resume turn whose
-        // hint is Unknown (short/noisy audio, native failure) keeps the previous speaker,
-        // and with the field still at its "spk_1" default that stamped the line "spk_1"
-        // even when the meeting's tail speaker was spk_2. Precedence matches the matcher's
-        // seed: last segment's speaker, else the last speaker row, else the placeholder.
-        var tail = DraftTailSpeaker(speakers, segments);
-        if (tail.Length > 0) session._turnSpeakerId = tail;
         AppLog.Info("session: recover " + meetingId + " paused=" + wasPaused + " segments=" + session._segments.Count);
         if (!wasPaused)
         {
@@ -194,34 +153,22 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
 
     private void OnSegment(Segment raw)
     {
-        // Capture THIS turn's speaker now, not when the UI eventually runs the handler:
-        // WhisperTranscriber raises SegmentReady synchronously inside the turn's transcribe
-        // call (WhisperTranscriber.cs:175, inside the await foreach), i.e. before the next
-        // NoteTurnAudio can run — so the field still holds this turn's speaker. Reading the
-        // field later, on the UI thread, stamped a lagging turn's segments with the NEXT
-        // turn's speaker (the race this capture closes).
-        var turnSpeakerId = _turnSpeakerId;
-        // Whisper/diarizer callbacks arrive on a worker thread; marshal onto the UI
+        // The transcriber raises SegmentReady on its decode thread; marshal onto the UI
         // thread so the collections are never mutated while the UI enumerates them.
         if (_ui is not null && _ui != SynchronizationContext.Current)
         {
-            _ui.Post(_ => HandleSegment(raw, turnSpeakerId), null);
+            _ui.Post(_ => HandleSegment(raw), null);
             return;
         }
-        HandleSegment(raw, turnSpeakerId);
+        HandleSegment(raw);
     }
 
-    private void HandleSegment(Segment raw, string turnSpeakerId)
+    private void HandleSegment(Segment raw)
     {
         if (_paused || _meeting is null) return; // gap: paused audio never reappears
-        if (!_singleSpeaker)
-        {
-            var speaker = _speakers.FirstOrDefault(s => s.Id == turnSpeakerId);
-            if (speaker is null) { speaker = new Speaker(turnSpeakerId, _gender.Label(turnSpeakerId, Gender.Unknown)); _speakers.Add(speaker); }
-        }
-        var seg = raw with { SpeakerId = turnSpeakerId };
+        var seg = raw with { SpeakerId = SpeakerId };
         _segments.Add(seg);
-        AppLog.Debug("session: segment " + turnSpeakerId + " [" + seg.StartMs + "-" + seg.EndMs + "] " + seg.Text);
+        AppLog.Debug("session: segment " + SpeakerId + " [" + seg.StartMs + "-" + seg.EndMs + "] " + seg.Text);
         LiveSegment?.Invoke(seg);
     }
 
@@ -239,22 +186,4 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
     }
 
     private void EnsureActive() { if (_meeting is null) throw new InvalidOperationException("No active meeting."); }
-
-    // The draft's tail speaker: the last segment's SpeakerId, else the last speaker row's
-    // id, else "" (the caller keeps its placeholder). Same precedence the matcher's
-    // SeedForRecovery applies to its _last.
-    private static string DraftTailSpeaker(IReadOnlyList<Speaker> speakers, IReadOnlyList<Segment> segments)
-    {
-        var last = "";
-        for (var i = segments.Count - 1; i >= 0 && last.Length == 0; i--) last = segments[i].SpeakerId ?? "";
-        if (last.Length == 0)
-            for (var i = speakers.Count - 1; i >= 0 && last.Length == 0; i--) last = speakers[i].Id ?? "";
-        return last;
-    }
 }
-
-
-
-
-
-

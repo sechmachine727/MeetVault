@@ -49,15 +49,12 @@ public sealed class MediaLinkTests
         public Task StopAsync(CancellationToken ct) { IsRunning = false; return Task.CompletedTask; }
     }
 
-    private sealed class D : ISpeakerDiarizer { public SpeakerHint AssignTurn(TurnAudio t) => new("spk_1", SpeakerOrigin.Unknown); }
-    private sealed class G : IGenderLabeler { public string Label(string id, Gender e) => "Speaker 1"; }
-
     [Fact]
     public async Task Stop_LinksMediaPathAndMime()
     {
         var audio = new AudioWithFile();
         var store = new RecordingStore();
-        var session = new MeetingSession(audio, new T(), new D(), new G(), store);
+        var session = new MeetingSession(audio, new T(), store);
         await session.StartAsync("0", "");
         await session.StopAsync();
         Assert.Equal("/tmp/rec.wav", store.Saved!.MediaPath);
@@ -69,7 +66,7 @@ public sealed class MediaLinkTests
     [Fact]
     public async Task MeetingId_IsSetAfterStart()
     {
-        var session = new MeetingSession(new AudioWithFile(), new T(), new D(), new G(), new RecordingStore());
+        var session = new MeetingSession(new AudioWithFile(), new T(), new RecordingStore());
         await session.StartAsync("0", "");
         Assert.False(string.IsNullOrEmpty(session.MeetingId));
     }
@@ -88,7 +85,7 @@ public sealed class MediaLinkTests
         try
         {
             var store = new RecordingStore();
-            var session = new MeetingSession(new AudioSwitchingToCompacted(wav, m4a), new T(), new D(), new G(), store);
+            var session = new MeetingSession(new AudioSwitchingToCompacted(wav, m4a), new T(), store);
             await session.StartAsync("0", "");
             await session.StopAsync();
 
