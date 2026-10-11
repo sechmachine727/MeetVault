@@ -258,6 +258,7 @@ public sealed partial class LivePage : Page
                 : actual && requested == GpuBackend.Vulkan && !accel.StartsWith("Vulkan", StringComparison.OrdinalIgnoreCase)
                     ? " (requested Vulkan, running " + accel + ")"
                     : "";
+        // Intentionally English (scope cut): the engine line is a diagnostic identifier (backend/model names), not UI copy.
         EngineStatus.Text = "live: whisper " + _modelLabel + " + " + accel + note + (_sherpaDiarizer is null ? ", single speaker" : " + sherpa diarizer");
         if (actual) MeetVault.Core.AppLog.Info("live: accelerator=" + accel + " requested=" + requested + " native=" + loaded);
     }

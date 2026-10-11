@@ -24,12 +24,14 @@ public sealed partial class SettingsPage : Page
         MicPicker.ItemsSource = mics.Count > 0
             ? mics.Select(m => m.Id + ": " + m.Name).ToArray()
             : new[] { "Demo microphone (Windows default)" };
+        // Intentionally English (scope cut): model identifiers are engine names, not UI copy — a future localization pass should leave them as is.
         ModelPicker.ItemsSource = new[] { "tiny (live, fast)", "base (refinement, accurate)" };
         _deviceOptions = BuildDeviceOptions();
         DevicePicker.ItemsSource = _deviceOptions;
         _sourceOptions.Add((Loc.T("Set.SysSrcAllApps"), ""));
         foreach (var (pid, name) in MeetVault.Core.NAudioCapture.ListAudioApps()) _sourceOptions.Add((name + " (" + pid + ")", pid.ToString()));
         SourcePicker.ItemsSource = _sourceOptions.Select(o => o.Label).ToArray();
+        // Intentionally English (scope cut): log levels are diagnostic identifiers (they match the values AppLog accepts), not UI copy.
         LogLevelPicker.ItemsSource = new[] { "trace", "debug", "info", "warning", "error", "off" };
         // Language names stay endonyms (English / 日本語) — the standard convention.
         LanguagePicker.ItemsSource = new[] { Loc.T("Lang.System"), "English", "日本語" };

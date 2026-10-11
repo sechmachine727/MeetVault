@@ -28,6 +28,7 @@ public sealed partial class DashboardPage : Page
         var mic = MeetVault.Core.NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == micIdx).Name ?? Loc.T("Dash.WindowsDefault");
         MicStatus.Text = string.IsNullOrWhiteSpace(mic) ? Loc.T("Dash.MicNotStarted") : mic;
         var model = AppStore.Repo.GetSetting("transcription.model") == "base" ? "base" : "tiny";
+        // Intentionally English (scope cut): an engine/diagnostic identifier, not UI copy — a future localization pass should leave it as is.
         EngineStatus.Text = model == "base" ? "base (refinement)" : "tiny (live)";
         ModelStatus.Text = EngineModels.Available
             ? Loc.Tf("Dash.ModelReady", model)
