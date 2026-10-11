@@ -3,46 +3,22 @@
 MeetVault redistributes the following third-party components. Nothing here changes the licence
 terms of those components.
 
-## NVIDIA CUDA runtime (redistributable)
+## Vosk (speech recognition)
 
-The package ships the CUDA user-mode runtime next to the whisper.cpp CUDA backend, so CUDA
-inference works without the CUDA Toolkit installed on the target machine:
+The app ships `libvosk.dll` through the `Vosk` NuGet package. Vosk and Kaldi are licensed
+under the Apache License 2.0; copyright Alpha Cephei Inc. and contributors.
 
-| File | Component |
-| --- | --- |
-| `cublas64_13.dll` | NVIDIA CUDA Toolkit, libcublas 13.0.2 |
-| `cublasLt64_13.dll` | NVIDIA CUDA Toolkit, libcublas 13.0.2 |
-| `cudart64_13.dll` | NVIDIA CUDA Toolkit, cuda_cudart 13.0.88 |
-
-`cublas64_13.dll` loads through `cublasLt64_13.dll`, so both are required. `cudart64_13.dll` is
-shipped for completeness; nothing in the native chain imported it at the time of writing.
-
-These are redistributable components under the NVIDIA CUDA Toolkit End User Licence Agreement,
-Attachment A (Redistributable Software), which permits distributing them as part of an
-application. They are staged, not committed, under `cuda/win-x64` (see `AGENTS.md`) and copied
-into the build as `Content` items in `src/MeetVault/MeetVault.csproj`.
-
-Not bundled, because it is part of the display driver rather than the toolkit and carries no
-redistribution grant: `nvcuda.dll` and `nvcudart_hybrid64.dll`. They are installed by the
-NVIDIA driver, which is why CUDA requires a suitable driver on the target machine.
+The staged models under `models/vosk/` are the Vosk small models for English, Japanese and
+Vietnamese (`vosk-model-small-en-us-0.15`, `vosk-model-small-ja-0.22`,
+`vosk-model-small-vn-0.4`), distributed by Alpha Cephei under the Apache License 2.0 and not
+committed to this repository.
 
 ## Others
 
-## Microsoft Visual C++ runtime
+- **NAudio** (`NAudio`, `NAudio.Wasapi`) — audio capture and resampling. MIT License.
+- **Microsoft.Data.Sqlite** / SQLite — the meetings database. SQLite is public domain;
+  Microsoft.Data.Sqlite is MIT.
+- **CommunityToolkit.Mvvm** — MIT License.
+- **Windows App SDK / WinUI 3** and the **.NET runtime** — Microsoft licence terms.
 
-The whisper.cpp natives link the MSVC and OpenMP runtimes, which are shipped app-locally beside
-each native set. They are redistributable under the Microsoft Visual Studio licence terms:
-
-| File | Component |
-| --- | --- |
-| `msvcp140.dll` | Microsoft Visual C++ 2015-2022 Redistributable |
-| `vcruntime140.dll` | Microsoft Visual C++ 2015-2022 Redistributable |
-| `vcruntime140_1.dll` | Microsoft Visual C++ 2015-2022 Redistributable |
-| `vcomp140.dll` | Microsoft Visual C++ 2015-2022 OpenMP runtime |
-
-Staged under `vcruntime/win-x64` (see `AGENTS.md`). Without them whisper fails to load on a
-machine that has no VC++ redistributable installed, for CPU and GPU alike.
-
-The application and its packaged native libraries each keep their own upstream licences
-(Whisper.net and whisper.cpp, sherpa-onnx, ONNX Runtime, NAudio, the Windows App SDK, and the
-.NET runtime). Those are unchanged by this repository.
+The application and its packaged native libraries each keep their own upstream licences.
