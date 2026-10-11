@@ -43,6 +43,7 @@
   <!-- Meetings -->
   <data name="MtgTitle.Text" xml:space="preserve"><value>会議</value></data>
   <data name="MtgSearch.PlaceholderText" xml:space="preserve"><value>会議を検索</value></data>
+  <data name="MtgSearch.AutomationProperties.Name" xml:space="preserve"><value>会議を検索</value></data>
 
   <!-- Live -->
   <data name="LiveTitle.Text" xml:space="preserve"><value>ライブ文字起こし</value></data>
