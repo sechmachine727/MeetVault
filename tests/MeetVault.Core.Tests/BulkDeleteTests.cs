@@ -423,6 +423,113 @@ public sealed class BulkDeleteTests : IDisposable
         Assert.False(File.Exists(media + ".deleting"), "a restored delete must not leave an aside file behind");
     }
 
+    // --- screen-video tracks (media_tracks) ---
+
+    private string NewTrackFile(string meetingId, string stamp)
+    {
+        var path = Path.Combine(_dir, meetingId + "-screen-" + stamp + ".mp4");
+        File.WriteAllBytes(path, new byte[] { 9, 9, 9 });
+        return path;
+    }
+
+    private void AddTrack(string meetingId, string path, long offsetMs = 0) =>
+        _repo.AddMediaTrack(new MediaTrack("trk-" + Guid.NewGuid().ToString("N")[..10], meetingId, "screen", path, "video/mp4", offsetMs, 1000, DateTimeOffset.UtcNow.ToString("o")));
+
+    [Fact]
+    public void MediaTracks_AddListRoundTrip_OrderedByOffset()
+    {
+        AddTrack("a", NewTrackFile("a", "20260101010101"), 5000);
+        AddTrack("a", NewTrackFile("a", "20260101010102"), 0);
+        AddTrack("b", NewTrackFile("b", "20260101010103"), 0);
+
+        var a = _repo.ListMediaTracks("a");
+        Assert.Equal(2, a.Count);
+        Assert.Equal(0, a[0].StartOffsetMs);
+        Assert.Equal(5000, a[1].StartOffsetMs);
+        Assert.All(a, t => Assert.Equal("screen", t.Kind));
+        Assert.Single(_repo.ListMediaTracks("b"));
+        Assert.Empty(_repo.ListMediaTracks("nope"));
+    }
+
+    [Fact]
+    public void DeleteMeetings_RemovesTrackFiles_AndRows()
+    {
+        Save("a");
+        var track1 = NewTrackFile("a", "20260101010101");
+        var track2 = NewTrackFile("a", "20260101010202");
+        AddTrack("a", track1);
+        AddTrack("a", track2, 2000);
+
+        var result = _repo.DeleteMeetings(new[] { "a" });
+
+        Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
+        Assert.Empty(result.SkippedMedia);
+        Assert.False(File.Exists(track1));
+        Assert.False(File.Exists(track2));
+        Assert.False(File.Exists(track1 + ".deleting"));
+        Assert.Empty(_repo.ListMediaTracks("a"));
+        Assert.Null(_repo.Load("a"));
+    }
+
+    [Fact]
+    public void DeleteMeetings_UnmanagedTrackPath_RowDeleted_Reported()
+    {
+        Save("a");
+        var foreign = Path.Combine(Path.GetTempPath(), "mv-foreign-track-" + Guid.NewGuid().ToString("N") + ".mp4");
+        File.WriteAllBytes(foreign, new byte[] { 7 });
+        try
+        {
+            AddTrack("a", foreign);
+
+            var result = _repo.DeleteMeetings(new[] { "a" });
+
+            Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
+            Assert.Contains(result.SkippedMedia, s => s.Id == "a" && s.Path == foreign);
+            Assert.True(File.Exists(foreign), "an unmanaged track must be left in place");
+            Assert.Null(_repo.Load("a"));
+        }
+        finally { try { File.Delete(foreign); } catch { } }
+    }
+
+    [Fact]
+    public void DeleteMeetings_LockedTrack_RowKept_EverythingRestored()
+    {
+        // The track fails to rename while the audio was already moved aside: the row must
+        // be kept and BOTH files put back to their original paths.
+        Save("a");
+        var media = _repo.Load("a")!.MediaPath!;
+        var track = NewTrackFile("a", "20260101010101");
+        AddTrack("a", track);
+        using var held = new FileStream(track, FileMode.Open, FileAccess.Read, FileShare.None);
+
+        var result = _repo.DeleteMeetings(new[] { "a" });
+
+        Assert.Empty(result.DeletedIds);
+        Assert.True(result.FailedIds.ContainsKey("a"));
+        Assert.Empty(result.SkippedMedia);
+        Assert.NotNull(_repo.Load("a"));
+        Assert.True(File.Exists(media), "the audio must be restored when a track rename fails");
+        Assert.False(File.Exists(media + ".deleting"));
+        Assert.True(File.Exists(track));
+    }
+
+    [Fact]
+    public void DeleteMeetings_RowDeleteFails_TrackRestoredToo()
+    {
+        Save("a");
+        var track = NewTrackFile("a", "20260101010101");
+        AddTrack("a", track);
+        BlockRowDeletes();
+
+        var result = _repo.DeleteMeetings(new[] { "a" });
+
+        Assert.True(result.FailedIds.ContainsKey("a"));
+        Assert.True(File.Exists(track), "a failed row delete must restore the staged track");
+        Assert.False(File.Exists(track + ".deleting"));
+        Assert.NotNull(_repo.Load("a"));
+        Assert.NotEmpty(_repo.ListMediaTracks("a"));
+    }
+
     // Forced row-delete failure: a BEFORE DELETE trigger on meetings aborts the DELETE
     // deterministically and instantly (a competing write lock would only fail after the
     // 30 s busy timeout). Lives on the schema, so the repo's own connection sees it.

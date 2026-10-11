@@ -22,6 +22,8 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
             CREATE TABLE IF NOT EXISTS transcript_segments(id TEXT PRIMARY KEY, meeting_id TEXT NOT NULL, speaker_id TEXT NOT NULL, start_ms INTEGER NOT NULL, end_ms INTEGER NOT NULL, text TEXT NOT NULL, is_final INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS gemini_jobs(id TEXT PRIMARY KEY, meeting_id TEXT NOT NULL, state TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT NULL, result_paths TEXT NULL, updated_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS media_tracks(id TEXT PRIMARY KEY, meeting_id TEXT NOT NULL, kind TEXT NOT NULL, path TEXT NOT NULL, mime TEXT NOT NULL DEFAULT 'video/mp4', start_offset_ms INTEGER NOT NULL DEFAULT 0, duration_ms INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+            CREATE INDEX IF NOT EXISTS ix_media_tracks_meeting ON media_tracks(meeting_id);
             """;
         cmd.ExecuteNonQuery();
         // Existing databases predate the language column; CREATE TABLE IF NOT EXISTS never
@@ -143,7 +145,7 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
             }
         }
         using var tx = _db.BeginTransaction();
-        foreach (var table in new[] { "transcript_segments", "speakers", "gemini_jobs", "meetings" })
+        foreach (var table in new[] { "transcript_segments", "speakers", "gemini_jobs", "media_tracks", "meetings" })
         {
             using var d = _db.CreateCommand();
             d.Transaction = tx;
@@ -170,8 +172,9 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
     // is still deleted and the surviving file — when it still exists — is reported in
     // SkippedMedia, because the confirmation promised the recording would be removed.
     // A recording whose cleanup fails after the row delete is retried briefly and, if
-    // the bytes remain, reported in SkippedMedia too. Active or resumable
-    // recordings are refused.
+    // the bytes remain, reported in SkippedMedia too. Screen-video tracks recorded with
+    // the meeting — every file in media_tracks — follow the identical protocol, one by
+    // one. Active or resumable recordings are refused.
     public BulkDeleteResult DeleteMeetings(IReadOnlyCollection<string> meetingIds)
     {
         var deleted = new List<string>();
@@ -188,12 +191,16 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
                 if (meeting is null) { failed[id] = "not found"; continue; }
                 if (meeting.Status is MeetingStatus.Recording or MeetingStatus.Paused)
                 { failed[id] = "active or resumable recording"; continue; }
-                string? media = meeting.MediaPath is { Length: > 0 } m ? m : null;
-                string? aside = null;
-                string? unmanagedMedia = null;
-                if (media is not null)
+                // Every file that must disappear with this meeting — the audio recording and
+                // each screen-video track — goes through the same protocol below.
+                var candidates = new List<string>();
+                if (meeting.MediaPath is { Length: > 0 } m) candidates.Add(m);
+                foreach (var track in ListMediaTracks(id)) candidates.Add(track.Path);
+                var staged = new List<(string Orig, string Aside, bool Move)>();
+                var unmanaged = new List<string>();
+                foreach (var p in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
                 {
-                    if (!IsManagedMedia(media))
+                    if (!IsManagedMedia(p))
                     {
                         // Never touch a foreign path; the row still goes, so an
                         // unmanaged-media meeting is not permanently undeletable. A
@@ -202,32 +209,49 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
                         // once the row is actually deleted below, so a failed row never
                         // double-reports. A path whose file is already gone leaves nothing
                         // behind and is not reported.
-                        if (File.Exists(media))
+                        if (File.Exists(p))
                         {
-                            AppLog.Warn("repo: bulk delete leaving unmanaged media in place: " + media + " (meeting " + id + ")");
-                            unmanagedMedia = media;
+                            AppLog.Warn("repo: bulk delete leaving unmanaged media in place: " + p + " (meeting " + id + ")");
+                            unmanaged.Add(p);
                         }
                     }
-                    else if (File.Exists(media))
+                    else if (File.Exists(p))
                     {
                         // Rename aside first (same order as the single-row delete): the row
                         // must never be deleted while its bytes still sit at the original
                         // path. A failed rename keeps the row so the user can retry.
-                        aside = media + ".deleting";
-                        try { File.Move(media, aside, overwrite: true); }
-                        catch (Exception ex) { failed[id] = ex.Message; continue; }
+                        staged.Add((p, p + ".deleting", true));
                     }
-                    else
+                    else if (File.Exists(p + ".deleting"))
                     {
-                        // Media already missing: a crash between the aside rename and the
-                        // row delete left <media>.deleting beside a row pointing at the
-                        // original name. ADOPT the stale aside as this attempt's aside —
+                        // Crash-left aside: ADOPT the stale aside as this attempt's aside —
                         // the success cleanup unlinks it and a failed row delete moves it
-                        // back to the media path. (The old reclaim deleted it up front, so
-                        // a row delete failing afterwards destroyed the only bytes while
-                        // the row survived.)
-                        if (File.Exists(media + ".deleting")) aside = media + ".deleting";
+                        // back to the original path. (The old reclaim deleted it up front,
+                        // so a row delete failing afterwards destroyed the only bytes.)
+                        staged.Add((p, p + ".deleting", false));
                     }
+                }
+                var movedNow = new List<(string Orig, string Aside)>();
+                try
+                {
+                    foreach (var s in staged)
+                    {
+                        if (!s.Move) continue;
+                        File.Move(s.Orig, s.Aside, overwrite: true);
+                        movedNow.Add((s.Orig, s.Aside));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // A failed rename keeps the row (retryable) and puts back everything
+                    // this attempt already moved.
+                    foreach (var (orig, aside) in movedNow)
+                    {
+                        try { File.Move(aside, orig, overwrite: true); }
+                        catch (Exception back) { AppLog.Warn("repo: bulk delete could not restore media " + aside + " :: " + back.Message); }
+                    }
+                    failed[id] = ex.Message;
+                    continue;
                 }
                 try
                 {
@@ -235,26 +259,26 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
                 }
                 catch
                 {
-                    // Row delete failed after the rename: put the recording back (best
-                    // effort) so the meeting stays retryable, then let the outer handler
-                    // record the failure.
-                    if (aside is not null)
+                    // Row delete failed after the renames: put every staged recording back
+                    // (best effort) so the meeting stays retryable, then let the outer
+                    // handler record the failure.
+                    foreach (var s in staged)
                     {
-                        try { File.Move(aside, media!, overwrite: true); }
-                        catch (Exception back) { AppLog.Warn("repo: bulk delete could not restore media " + aside + " :: " + back.Message); }
+                        try { File.Move(s.Aside, s.Orig, overwrite: true); }
+                        catch (Exception back) { AppLog.Warn("repo: bulk delete could not restore media " + s.Aside + " :: " + back.Message); }
                     }
                     throw;
                 }
-                if (aside is not null && !TryDeleteAside(aside))
+                foreach (var s in staged)
                 {
-                    // The row is gone but the bytes survive at <media>.deleting: report the
-                    // survivor like any other skipped media — the confirmation promised the
-                    // recording would be removed, and an unreported leftover contradicts
-                    // the BulkDeleteResult contract (Domain.cs).
-                    skipped.Add((id, aside));
+                    // The row is gone; a survivor at <path>.deleting is reported like any
+                    // other skipped media — the confirmation promised the recording would
+                    // be removed, and an unreported leftover contradicts the
+                    // BulkDeleteResult contract (Domain.cs).
+                    if (!TryDeleteAside(s.Aside)) skipped.Add((id, s.Aside));
                 }
                 deleted.Add(id);
-                if (unmanagedMedia is not null) skipped.Add((id, unmanagedMedia));
+                foreach (var p in unmanaged) skipped.Add((id, p));
             }
             catch (Exception ex) { failed[id] = ex.Message; }
         }
@@ -425,6 +449,48 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         c.CommandText = "DELETE FROM settings WHERE key=$k";
         c.Parameters.AddWithValue("$k", key);
         c.ExecuteNonQuery();
+    }
+
+    public void AddMediaTrack(MediaTrack track)
+    {
+        using var c = _db.CreateCommand();
+        c.CommandText = "INSERT INTO media_tracks(id,meeting_id,kind,path,mime,start_offset_ms,duration_ms,created_at) VALUES($id,$m,$k,$p,$mi,$o,$d,$c)";
+        c.Parameters.AddWithValue("$id", track.Id);
+        c.Parameters.AddWithValue("$m", track.MeetingId);
+        c.Parameters.AddWithValue("$k", track.Kind);
+        c.Parameters.AddWithValue("$p", track.Path);
+        c.Parameters.AddWithValue("$mi", track.Mime);
+        c.Parameters.AddWithValue("$o", track.StartOffsetMs);
+        c.Parameters.AddWithValue("$d", track.DurationMs);
+        c.Parameters.AddWithValue("$c", track.CreatedAt);
+        c.ExecuteNonQuery();
+    }
+
+    public IReadOnlyList<MediaTrack> ListMediaTracks(string meetingId)
+    {
+        var list = new List<MediaTrack>();
+        using var c = _db.CreateCommand();
+        c.CommandText = "SELECT id,meeting_id,kind,path,mime,start_offset_ms,duration_ms,created_at FROM media_tracks WHERE meeting_id=$m ORDER BY start_offset_ms, created_at";
+        c.Parameters.AddWithValue("$m", meetingId);
+        using var r = c.ExecuteReader();
+        while (r.Read())
+            list.Add(new MediaTrack(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4), r.GetInt64(5), r.GetInt64(6), r.GetString(7)));
+        return list;
+    }
+
+    public void RemoveTracksFor(IReadOnlyList<string> meetingIds)
+    {
+        using var tx = _db.BeginTransaction();
+        foreach (var id in meetingIds)
+        {
+            if (string.IsNullOrEmpty(id)) continue;
+            using var d = _db.CreateCommand();
+            d.Transaction = tx;
+            d.CommandText = "DELETE FROM media_tracks WHERE meeting_id=$m";
+            d.Parameters.AddWithValue("$m", id);
+            d.ExecuteNonQuery();
+        }
+        tx.Commit();
     }
 
     public void SetSetting(string key, string value)

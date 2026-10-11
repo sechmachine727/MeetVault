@@ -18,6 +18,10 @@ public enum MeetingStatus { Recording, Paused, Processing, Ready, Failed }
 // upsert so checkpoints cannot clobber it.
 public sealed record Meeting(string Id, string Title, DateTimeOffset StartedAt, DateTimeOffset? EndedAt, MeetingStatus Status, string? MediaPath, string? MediaMime, string Language = "");
 
+// One screen-video run's file (kind "screen"). start_offset_ms is when the run began
+// relative to the meeting start, so playback can align the MP4 against the m4a timeline.
+public sealed record MediaTrack(string Id, string MeetingId, string Kind, string Path, string Mime, long StartOffsetMs, long DurationMs, string CreatedAt);
+
 // DeletedIds: rows actually deleted (their managed recording was removed too, or there
 // was none). FailedIds: rows kept, keyed by the reason. SkippedMedia: rows that WERE
 // deleted but whose recording file survives — either because it is unmanaged (foreign
