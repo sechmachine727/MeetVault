@@ -12,19 +12,24 @@ public static class PendingDetails
     public static string? MeetingId { get; set; }
 }
 
-// Single place that knows whether the real engines can run.
+// Single place that knows whether the configured engine can run.
 public static class EngineModels
 {
-    // Either whisper model unlocks live; base is reserved for refinement.
-    public static bool Available => WhisperModel is not null
-        && System.IO.File.Exists(System.IO.Path.Combine(System.AppContext.BaseDirectory, "models", "sherpa-seg.onnx"))
-        && System.IO.File.Exists(System.IO.Path.Combine(System.AppContext.BaseDirectory, "models", "sherpa-emb.onnx"));
+    private static string ModelsRoot => System.IO.Path.Combine(System.AppContext.BaseDirectory, "models");
+
+    // The selected engine's model files must all exist.
+    public static bool CanRun(MeetVault.Core.EngineOption option) => MeetVault.Core.EngineCatalog.IsAvailable(option, ModelsRoot);
+
+    // The sherpa diarizer pair; absent => single-speaker mode (with a warn), not demo.
+    public static bool DiarizerAvailable =>
+        System.IO.File.Exists(System.IO.Path.Combine(ModelsRoot, "sherpa-seg.onnx"))
+        && System.IO.File.Exists(System.IO.Path.Combine(ModelsRoot, "sherpa-emb.onnx"));
 
     public static string? WhisperModel
     {
         get
         {
-            var dir = System.IO.Path.Combine(System.AppContext.BaseDirectory, "models");
+            var dir = ModelsRoot;
             if (System.IO.File.Exists(System.IO.Path.Combine(dir, "ggml-tiny.bin"))) return "ggml-tiny.bin";
             if (System.IO.File.Exists(System.IO.Path.Combine(dir, "ggml-base.bin"))) return "ggml-base.bin";
             return null;

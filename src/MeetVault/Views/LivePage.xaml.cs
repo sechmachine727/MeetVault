@@ -13,6 +13,9 @@ public sealed partial class LivePage : Page
 
     private MeetingSession? _session;
     private WhisperTranscriber? _whisper;
+    private IUtteranceTranscriber? _windowEngine;   // per-utterance engines (whisper, moonshine)
+    private IStreamingTranscriber? _streaming;      // streaming engines (zipformer, vosk)
+    private readonly System.Diagnostics.Stopwatch _streamWatch = new();
     private NAudioCapture? _capture;
     private readonly List<byte> _window = new();
     private const int WindowBytes = 16000 * 2 * 3; // 3 s of 16 kHz mono
@@ -92,32 +95,86 @@ public sealed partial class LivePage : Page
         IAudioCapture audio = new FakeAudioCapture();
         ISpeakerDiarizer diarizer = new FakeDiarizer();
         _engineMode = "demo (add models to run live)";
-        if (!EngineModels.Available) { _transcriber = transcriber; _audio = audio; _diarizer = diarizer; return; }
+        // The selected engine+model; unknown/missing keys resolve to the default (whisper
+        // tiny), so a legacy install with only `transcription.model` keeps working.
+        var option = MeetVault.Core.EngineCatalog.Resolve(
+            AppStore.Repo.GetSetting("transcription.engine"),
+            AppStore.Repo.GetSetting("transcription.model"));
+        if (!EngineModels.CanRun(option))
+        {
+            MeetVault.Core.AppLog.Warn("live: engine " + option.Engine + "/" + option.Model + " model files missing; falling back to whisper tiny");
+            option = MeetVault.Core.EngineCatalog.Default;
+            // Legacy nuance: whisper tiny absent but base staged — run whisper base.
+            if (!EngineModels.CanRun(option) && EngineModels.WhisperModel == "ggml-base.bin")
+                option = option with { Model = "base" };
+        }
+        if (!EngineModels.CanRun(option)) { _transcriber = transcriber; _audio = audio; _diarizer = diarizer; return; } // demo (no models)
 
         WhisperTranscriber? whisper = null;
         NAudioCapture? capture = null;
         SherpaDiarizer? sherpaDiarizer = null;
         try
         {
-            var picked = AppStore.Repo.GetSetting("transcription.model") == "base" ? "ggml-base.bin" : "ggml-tiny.bin";
-            var modelFile = File.Exists(Path.Combine(ModelDir, picked)) ? picked : EngineModels.WhisperModel!;
-            var (backend, deviceIndex) = TranscriptionDevice.Parse(AppStore.Repo.GetSetting("transcription.device"));
-            whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile), "auto", backend, deviceIndex);
-            capture = new NAudioCapture();
-            var vadModel = Path.Combine(ModelDir, "silero_vad.onnx");
-            _utterances = File.Exists(vadModel) ? new UtteranceSegmenter(vadModel) : null;
-            if (_utterances is null) MeetVault.Core.AppLog.Warn("live: silero_vad.onnx missing; falling back to 3 s windows");
-            _singleSpeaker = !MeetVault.Core.TranscriptionPipeline.DiarizationEnabled(AppStore.Repo.GetSetting("transcription.diarization"));
+            var wantsDiarizer = !option.Streaming
+                && MeetVault.Core.TranscriptionPipeline.DiarizationEnabled(AppStore.Repo.GetSetting("transcription.diarization"));
+            if (wantsDiarizer && !EngineModels.DiarizerAvailable)
+            {
+                MeetVault.Core.AppLog.Warn("live: diarizer models missing; single speaker");
+                wantsDiarizer = false;
+            }
+            _singleSpeaker = !wantsDiarizer;
             if (!_singleSpeaker)
             {
                 sherpaDiarizer = new SherpaDiarizer(Path.Combine(ModelDir, "sherpa-seg.onnx"), Path.Combine(ModelDir, "sherpa-emb.onnx"));
             }
-            _whisper = whisper; _capture = capture; _sherpaDiarizer = sherpaDiarizer;
-            _transcriber = whisper; _audio = capture; _diarizer = (ISpeakerDiarizer?)sherpaDiarizer ?? diarizer;
+            if (!option.Streaming)
+            {
+                var vadModel = Path.Combine(ModelDir, "silero_vad.onnx");
+                _utterances = File.Exists(vadModel) ? new UtteranceSegmenter(vadModel) : null;
+                if (_utterances is null) MeetVault.Core.AppLog.Warn("live: silero_vad.onnx missing; falling back to 3 s windows");
+            }
+            switch (option.Engine)
+            {
+                case "moonshine":
+                    var moonshine = new SherpaOfflineTranscriber(Path.Combine(ModelDir, "moonshine", option.Model), option.Model);
+                    _windowEngine = moonshine;
+                    _transcriber = moonshine;
+                    _modelLabel = option.Model;
+                    _engineMode = "live: moonshine " + option.Model + (_singleSpeaker ? ", single speaker" : " + sherpa diarizer");
+                    break;
+                case "zipformer":
+                    _streaming = new ZipformerStreamingTranscriber(
+                        Path.Combine(ModelDir, "zipformer", option.Model),
+                        () => _utteranceBaseMs + (long)_streamWatch.Elapsed.TotalMilliseconds);
+                    _transcriber = _streaming;
+                    _modelLabel = option.Model;
+                    _engineMode = "live: zipformer " + option.Model + " (streaming)";
+                    break;
+                case "vosk":
+                    _streaming = new VoskStreamingTranscriber(
+                        Path.Combine(ModelDir, "vosk", option.Model),
+                        () => _utteranceBaseMs + (long)_streamWatch.Elapsed.TotalMilliseconds);
+                    _transcriber = _streaming;
+                    _modelLabel = option.Model;
+                    _engineMode = "live: vosk " + option.Model + " (streaming)";
+                    break;
+                default: // whisper — same shape as before, model from the option
+                    var picked = option.Model == "base" ? "ggml-base.bin" : "ggml-tiny.bin";
+                    var modelFile = File.Exists(Path.Combine(ModelDir, picked)) ? picked : EngineModels.WhisperModel!;
+                    var (backend, deviceIndex) = TranscriptionDevice.Parse(AppStore.Repo.GetSetting("transcription.device"));
+                    whisper = new WhisperTranscriber(Path.Combine(ModelDir, modelFile), "auto", backend, deviceIndex);
+                    _whisper = whisper;
+                    _windowEngine = whisper;
+                    _transcriber = whisper;
+                    _modelLabel = modelFile.Replace("ggml-", "").Replace(".bin", "");
+                    _engineMode = "live: whisper " + _modelLabel + (_singleSpeaker ? ", single speaker" : " + sherpa diarizer");
+                    break;
+            }
+            capture = new NAudioCapture();
+            _capture = capture; _sherpaDiarizer = sherpaDiarizer;
+            _audio = capture; _diarizer = (ISpeakerDiarizer?)sherpaDiarizer ?? diarizer;
             capture.PcmReady += OnPcm;
             capture.CaptureFailed += OnCaptureFailed;
-            _modelLabel = modelFile.Replace("ggml-", "").Replace(".bin", "");
-            _engineMode = "live: whisper " + _modelLabel + (sherpaDiarizer is null ? ", single speaker" : " + sherpa diarizer");
             return;
         }
         catch
@@ -125,8 +182,10 @@ public sealed partial class LivePage : Page
             try { capture?.Dispose(); } catch { }
             try { whisper?.Dispose(); } catch { }
             try { sherpaDiarizer?.Dispose(); } catch { }
+            try { if (!ReferenceEquals(_windowEngine, whisper) && _windowEngine is not null) _windowEngine.Dispose(); } catch { }
+            try { _streaming?.Dispose(); } catch { }
             try { lock (_vadLock) { _utterances?.Dispose(); _utterances = null; } } catch { }
-            _whisper = null; _capture = null; _sherpaDiarizer = null;
+            _whisper = null; _capture = null; _sherpaDiarizer = null; _windowEngine = null; _streaming = null;
             _engineMode = "demo (engine init failed)";
             MeetVault.Core.AppLog.Error("live: engine init failed; running demo");
         }
