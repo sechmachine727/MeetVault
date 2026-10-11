@@ -500,7 +500,7 @@ public sealed partial class LivePage : Page
     private void ScreenSource_Changed(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressScreenEvent || ScreenSourceCombo.SelectedIndex < 0 || ScreenSourceCombo.SelectedIndex >= _screenSources.Count) return;
-        AppStore.Repo.SetSetting("screen.source", MeetVault.Core.CaptureSourceResolver.Format(_screenSources[ScreenSourceCombo.SelectedIndex]));
+        PersistSetting("screen.source", MeetVault.Core.CaptureSourceResolver.Format(_screenSources[ScreenSourceCombo.SelectedIndex]));
     }
 
     private void ScreenRefresh_Click(object sender, RoutedEventArgs e) => RefreshScreenSources();
@@ -509,7 +509,7 @@ public sealed partial class LivePage : Page
     {
         if (_suppressScreenEvent || _screen is null) return;
         _screen.Enabled = ScreenToggle.IsOn;
-        AppStore.Repo.SetSetting("screen.enabled", ScreenToggle.IsOn ? "true" : "false");
+        PersistSetting("screen.enabled", ScreenToggle.IsOn ? "true" : "false");
         RefreshScreenStatus();
     }
 
@@ -717,7 +717,19 @@ public sealed partial class LivePage : Page
         SetLangStatus();
     }
 
-    private static void PersistLanguage(string code) => AppStore.Repo.SetSetting("transcription.language", code);
+    // Settings writes from Live must never throw out of an async void handler (review r11):
+    // a read-only/full data folder surfaces as a status message instead of a crash.
+    private void PersistSetting(string key, string value)
+    {
+        try { AppStore.Repo.SetSetting(key, value); }
+        catch (Exception ex)
+        {
+            MeetVault.Core.AppLog.Warn("live: settings write failed (" + key + "): " + ex.Message);
+            Status(Loc.T("Set.SaveFailed"));
+        }
+    }
+
+    private void PersistLanguage(string code) => PersistSetting("transcription.language", code);
 
     // Overlay screen button (F): same controller as the Live section; the state goes back
     // out through LiveBridge.SetScreenState (via RefreshScreenStatus) — never set directly.

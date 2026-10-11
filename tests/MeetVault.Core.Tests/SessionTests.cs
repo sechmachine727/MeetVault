@@ -94,6 +94,19 @@ public sealed class SessionTests
     }
 
     [Fact]
+    public async Task Segments_AreNamespacedByMeetingId()
+    {
+        // Base AGENTS rule: transcript_segments.id is a global primary key and ids are
+        // namespaced by meeting id (review r11).
+        var tx = new RawTranscriber();
+        var session = TestSyncUtil.UiLess(() => new MeetingSession(new FakeAudio(), tx, new FakeStore()));
+        await session.StartAsync("mic", "app");
+        tx.Emit(new Segment("a", "spk_1", 0, 1000, "one", true));
+        var seg = Assert.Single(session.Segments);
+        Assert.Equal(session.MeetingId + "-a", seg.Id);
+    }
+
+    [Fact]
     public async Task Stop_FinalizesMeeting()
     {
         var store = new FakeStore();
@@ -184,7 +197,7 @@ public sealed class SessionTests
         Assert.Equal(2, session.Speakers.Count);   // legacy rows render, nothing new is minted
         tx.Emit(new Segment("s2", "", 1000, 2000, "world", true));
         Assert.Equal(2, session.Segments.Count);
-        Assert.Equal("s2", session.Segments[^1].Id);
+        Assert.Equal("m1-s2", session.Segments[^1].Id);   // meeting-namespaced (review r11)
         Assert.Equal("spk_1", session.Segments[^1].SpeakerId);
         await session.StopAsync();
     }

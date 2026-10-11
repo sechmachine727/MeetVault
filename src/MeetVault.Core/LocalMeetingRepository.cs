@@ -73,7 +73,14 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
                     catch (Exception ex) { AppLog.Warn("repo: could not restore staged deletion: " + path + " :: " + ex.Message); }
                     continue;
                 }
-                try { File.Delete(path); AppLog.Info("repo: swept staged deletion " + path); }
+                // No row references it — but if the original is gone, the aside can still be
+                // the only copy (db lost/reset out-of-band): recover it rather than reclaim
+                // it (review r11). A duplicate (original present) is deleted.
+                try
+                {
+                    if (!File.Exists(orig)) { File.Move(path, orig); AppLog.Info("repo: recovered orphaned staged deletion " + path + " -> " + orig); }
+                    else { File.Delete(path); AppLog.Info("repo: swept staged deletion " + path); }
+                }
                 catch (Exception ex) { AppLog.Warn("repo: staged deletion still locked: " + path + " :: " + ex.Message); }
             }
         }

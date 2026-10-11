@@ -171,7 +171,10 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
     private void HandleSegment(Segment raw)
     {
         if (_paused || _meeting is null) return; // gap: paused audio never reappears
-        var seg = raw with { SpeakerId = SpeakerId };
+        // Namespace the id by meeting (base AGENTS rule: transcript_segments.id is a global
+        // PRIMARY KEY): the runner's per-instance GUID prefix keeps it unique across
+        // engines, the meeting prefix keeps the documented rule intact (review r11).
+        var seg = raw with { SpeakerId = SpeakerId, Id = _meeting.Id + "-" + raw.Id };
         _segments.Add(seg);
         AppLog.Debug("session: segment " + SpeakerId + " [" + seg.StartMs + "-" + seg.EndMs + "] " + seg.Text);
         LiveSegment?.Invoke(seg);

@@ -64,16 +64,22 @@ public sealed class StreamingRunner : IDisposable
         // CaptureFailed and stops the recording.
         try
         {
-            while (!q.TryAdd(samples16k))
+            for (var attempts = 0; attempts < 9; attempts++)
             {
+                if (q.TryAdd(samples16k)) return;
                 if (q.TryTake(out _))
                 {
                     var n = System.Threading.Interlocked.Increment(ref _droppedChunks);
                     if (n == 1 || n % 50 == 0)
                         AppLog.Warn("streaming: decoder behind, dropped " + n + " chunk(s)");
                 }
-                else break;
+                // Else the consumer drained the queue between the failed add and the take:
+                // retry the add — the NEWEST chunk is only ever dropped as a last resort,
+                // counted, never silently (review r11).
             }
+            var d = System.Threading.Interlocked.Increment(ref _droppedChunks);
+            if (d == 1 || d % 50 == 0)
+                AppLog.Warn("streaming: decoder behind, dropped " + d + " chunk(s)");
         }
         // InvalidOperationException = the queue was completed (Stop/pause) mid-call;
         // ObjectDisposedException is its subclass and covered by the same clause.
@@ -95,7 +101,14 @@ public sealed class StreamingRunner : IDisposable
             _lastPartial = "";
             PartialReady?.Invoke("");
         }
-        catch (Exception ex) { AppLog.Error("streaming: decode loop failed", ex); }
+        catch (Exception ex)
+        {
+            AppLog.Error("streaming: decode loop failed", ex);
+            // The consumer is gone: stop claiming running and complete the queue so
+            // pause/stop/restart recover instead of the failure being masked (review r11).
+            _running = false;
+            try { _queue?.CompleteAdding(); } catch { }
+        }
     }
 
     private void Emit()
