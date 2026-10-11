@@ -73,7 +73,7 @@ public sealed partial class SettingsPage : Page
     private string SizeTier() => (SizePicker.SelectedItem as SizeRow)?.Tier ?? "small";
 
     private static string FormatMb(int mb) =>
-        mb < 1000 ? "~" + mb + " MB" : "~" + (mb / 1000.0).ToString("0.#") + " GB";
+        mb < 1000 ? "~" + mb + " MB" : "~" + (mb / 1000.0).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " GB";
 
     // Sizes the current language actually offers; keep the selected tier when still valid.
     private void RefreshSizeRows()
@@ -141,15 +141,20 @@ public sealed partial class SettingsPage : Page
             if (SizePicker.SelectedItem is SizeRow row && !row.Enabled)
             {
                 // Belt and braces: an unavailable tier must never become the selection, even
-                // if some input path bypasses the row's disabled state.
+                // if some input path bypasses the row's disabled state. Restore the tier the
+                // store still holds (nothing was persisted on this path), then re-render so
+                // the caption/status can never describe the rejected pick.
                 _rebuildingSizes = true;
                 try
                 {
                     var rows = SizePicker.ItemsSource as SizeRow[] ?? Array.Empty<SizeRow>();
-                    var idx = Array.FindIndex(rows, r => r.Enabled);
+                    var keep = (AppStore.Repo.GetSetting("transcription.size") ?? "").Trim().ToLowerInvariant();
+                    var idx = Array.FindIndex(rows, r => r.Tier == keep && r.Enabled);
+                    if (idx < 0) idx = Array.FindIndex(rows, r => r.Enabled);
                     if (idx >= 0) SizePicker.SelectedIndex = idx;
                 }
                 finally { _rebuildingSizes = false; }
+                Refresh();
                 return;
             }
             Persist("transcription.size", SizeTier());
