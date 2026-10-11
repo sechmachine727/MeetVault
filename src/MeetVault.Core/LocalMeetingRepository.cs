@@ -24,6 +24,25 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
             CREATE TABLE IF NOT EXISTS gemini_jobs(id TEXT PRIMARY KEY, meeting_id TEXT NOT NULL, state TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT NULL, result_paths TEXT NULL, updated_at TEXT NOT NULL);
             """;
         cmd.ExecuteNonQuery();
+        // Existing databases predate the language column; CREATE TABLE IF NOT EXISTS never
+        // adds it, so migrate once per open.
+        EnsureColumn("meetings", "language", "language TEXT NOT NULL DEFAULT ''");
+    }
+
+    // CREATE TABLE IF NOT EXISTS never adds columns to an existing database; check the
+    // live schema and ALTER once per missing column. Idempotent and safe on every open.
+    private void EnsureColumn(string table, string column, string ddl)
+    {
+        using (var check = _db.CreateCommand())
+        {
+            check.CommandText = "pragma table_info(" + table + ")";
+            using var reader = check.ExecuteReader();
+            while (reader.Read())
+                if (string.Equals(reader.GetString(1), column, StringComparison.OrdinalIgnoreCase)) return;
+        }
+        using var alter = _db.CreateCommand();
+        alter.CommandText = "ALTER TABLE " + table + " ADD COLUMN " + ddl;
+        alter.ExecuteNonQuery();
     }
 
     public void Save(Meeting meeting, IReadOnlyList<Speaker> speakers, IReadOnlyList<Segment> segments)
@@ -62,6 +81,19 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         AppLog.Debug("repo: save committed " + meeting.Id);
     }
 
+    // The meeting's active transcription language (see the Meeting record note). Kept out
+    // of Save's upsert on purpose: checkpoints must never clobber a value only this
+    // setter owns.
+    public void SetMeetingLanguage(string meetingId, string language)
+    {
+        using var c = _db.CreateCommand();
+        c.CommandText = "UPDATE meetings SET language=$l, updated_at=$u WHERE id=$id";
+        c.Parameters.AddWithValue("$l", language);
+        c.Parameters.AddWithValue("$u", DateTimeOffset.UtcNow.ToString("o"));
+        c.Parameters.AddWithValue("$id", meetingId);
+        c.ExecuteNonQuery();
+    }
+
     public int CountSegments(string meetingId)
     {
         using var c = _db.CreateCommand();
@@ -73,11 +105,11 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
     public Meeting? Load(string meetingId)
     {
         using var c = _db.CreateCommand();
-        c.CommandText = "SELECT id,title,started_at,ended_at,status,media_path,media_mime FROM meetings WHERE id=$m";
+        c.CommandText = "SELECT id,title,started_at,ended_at,status,media_path,media_mime,language FROM meetings WHERE id=$m";
         c.Parameters.AddWithValue("$m", meetingId);
         using var r = c.ExecuteReader();
         if (!r.Read()) return null;
-        return new Meeting(r.GetString(0), r.GetString(1), DateTimeOffset.Parse(r.GetString(2)), r.IsDBNull(3) ? null : DateTimeOffset.Parse(r.GetString(3)), Enum.TryParse<MeetingStatus>(r.GetString(4), out var st) ? st : MeetingStatus.Failed, r.IsDBNull(5) ? null : r.GetString(5), r.IsDBNull(6) ? null : r.GetString(6));
+        return new Meeting(r.GetString(0), r.GetString(1), DateTimeOffset.Parse(r.GetString(2)), r.IsDBNull(3) ? null : DateTimeOffset.Parse(r.GetString(3)), Enum.TryParse<MeetingStatus>(r.GetString(4), out var st) ? st : MeetingStatus.Failed, r.IsDBNull(5) ? null : r.GetString(5), r.IsDBNull(6) ? null : r.GetString(6), r.IsDBNull(7) ? "" : r.GetString(7));
     }
 
     public void RenameSpeaker(string meetingId, string speakerId, string displayName)
@@ -337,7 +369,7 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
     public IReadOnlyList<Meeting> ListMeetings()
     {
         using var c = _db.CreateCommand();
-        c.CommandText = "SELECT id,title,started_at,ended_at,status,media_path,media_mime FROM meetings ORDER BY started_at DESC";
+        c.CommandText = "SELECT id,title,started_at,ended_at,status,media_path,media_mime,language FROM meetings ORDER BY started_at DESC";
         using var r = c.ExecuteReader();
         var list = new List<Meeting>();
         while (r.Read()) list.Add(ReadMeeting(r));
@@ -347,7 +379,7 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
     public IReadOnlyList<Meeting> LoadUnfinished()
     {
         using var c = _db.CreateCommand();
-        c.CommandText = "SELECT id,title,started_at,ended_at,status,media_path,media_mime FROM meetings WHERE status IN ('" + nameof(MeetingStatus.Recording) + "','" + nameof(MeetingStatus.Paused) + "') ORDER BY started_at DESC";
+        c.CommandText = "SELECT id,title,started_at,ended_at,status,media_path,media_mime,language FROM meetings WHERE status IN ('" + nameof(MeetingStatus.Recording) + "','" + nameof(MeetingStatus.Paused) + "') ORDER BY started_at DESC";
         using var r = c.ExecuteReader();
         var list = new List<Meeting>();
         while (r.Read()) list.Add(ReadMeeting(r));
@@ -376,7 +408,7 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
     }
 
     // ponytail: unknown enum text falls back to Failed, never throws; surfaces in UI instead of breaking list/load.
-    private static Meeting ReadMeeting(SqliteDataReader r) => new(r.GetString(0), r.GetString(1), DateTimeOffset.Parse(r.GetString(2)), r.IsDBNull(3) ? null : DateTimeOffset.Parse(r.GetString(3)), Enum.TryParse<MeetingStatus>(r.GetString(4), out var st) ? st : MeetingStatus.Failed, r.IsDBNull(5) ? null : r.GetString(5), r.IsDBNull(6) ? null : r.GetString(6));
+    private static Meeting ReadMeeting(SqliteDataReader r) => new(r.GetString(0), r.GetString(1), DateTimeOffset.Parse(r.GetString(2)), r.IsDBNull(3) ? null : DateTimeOffset.Parse(r.GetString(3)), Enum.TryParse<MeetingStatus>(r.GetString(4), out var st) ? st : MeetingStatus.Failed, r.IsDBNull(5) ? null : r.GetString(5), r.IsDBNull(6) ? null : r.GetString(6), r.IsDBNull(7) ? "" : r.GetString(7));
 
 
     public string? GetSetting(string key)
