@@ -33,10 +33,13 @@ public static class EngineModels
 
     public static LiveResolution ResolveLive(MeetVault.Core.LocalMeetingRepository repo)
     {
-        var requested = MeetVault.Core.EngineCatalog.Resolve(
-            repo.GetSetting("transcription.language"),
-            repo.GetSetting("transcription.size"),
-            repo.GetSetting("transcription.model"));
+        // Auto mode's pre-detection default is English at the configured size, and the
+        // retired legacy key must never leak a stale language into an auto meeting
+        // (found live: a leftover transcription.model=small-ja resolved auto -> ja).
+        var language = repo.GetSetting("transcription.language");
+        var requested = string.Equals((language ?? "").Trim(), "auto", StringComparison.OrdinalIgnoreCase)
+            ? MeetVault.Core.EngineCatalog.Resolve("en", repo.GetSetting("transcription.size"), null)
+            : MeetVault.Core.EngineCatalog.Resolve(language, repo.GetSetting("transcription.size"), repo.GetSetting("transcription.model"));
         var option = requested;
         if (!CanRun(option))
         {

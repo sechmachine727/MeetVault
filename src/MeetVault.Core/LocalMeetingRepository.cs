@@ -419,6 +419,14 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         return c.ExecuteScalar() as string;
     }
 
+    public void DeleteSetting(string key)
+    {
+        using var c = _db.CreateCommand();
+        c.CommandText = "DELETE FROM settings WHERE key=$k";
+        c.Parameters.AddWithValue("$k", key);
+        c.ExecuteNonQuery();
+    }
+
     public void SetSetting(string key, string value)
     {
         using var c = _db.CreateCommand();

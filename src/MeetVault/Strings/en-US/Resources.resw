@@ -102,7 +102,7 @@
   <data name="SetSysSrcPicker.AutomationProperties.Name" xml:space="preserve"><value>System audio source</value></data>
   <data name="SetTranscription.Text" xml:space="preserve"><value>Transcription</value></data>
   <data name="SetLanguage.Text" xml:space="preserve"><value>Language</value></data>
-  <data name="SetLanguageDesc.Text" xml:space="preserve"><value>Which language the meeting is in. One language per meeting.</value></data>
+  <data name="SetLanguageDesc.Text" xml:space="preserve"><value>Auto-detect follows the spoken language (it can switch mid-meeting); picking a language pins it.</value></data>
   <data name="SetLanguagePicker.AutomationProperties.Name" xml:space="preserve"><value>Speech language</value></data>
   <data name="SetSize.Text" xml:space="preserve"><value>Model size</value></data>
   <data name="SetSizeDesc.Text" xml:space="preserve"><value>Small, Medium or Large — the caption below explains what each choice means.</value></data>

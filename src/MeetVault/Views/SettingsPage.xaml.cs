@@ -315,6 +315,9 @@ public sealed partial class SettingsPage : Page
                 : MeetVault.Core.EngineCatalog.MigrateLegacy(repo.GetSetting("transcription.model"));
             repo.SetSetting("transcription.language", langCode);
             repo.SetSetting("transcription.size", sizeTier);
+            // The retired key has been consumed; deleting it keeps it out of every later
+            // fallback chain (the auto resolver must never resurrect it).
+            repo.DeleteSetting("transcription.model");
         }
         langCode = (langCode ?? "").Trim().ToLowerInvariant();
         SpeechLangPicker.SelectedIndex = langCode == "auto"

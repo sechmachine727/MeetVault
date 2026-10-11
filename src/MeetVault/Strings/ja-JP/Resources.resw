@@ -102,7 +102,7 @@
   <data name="SetSysSrcPicker.AutomationProperties.Name" xml:space="preserve"><value>システム音声ソース</value></data>
   <data name="SetTranscription.Text" xml:space="preserve"><value>文字起こし</value></data>
   <data name="SetLanguage.Text" xml:space="preserve"><value>言語</value></data>
-  <data name="SetLanguageDesc.Text" xml:space="preserve"><value>会議で話される言語。1つの会議につき1言語です。</value></data>
+  <data name="SetLanguageDesc.Text" xml:space="preserve"><value>自動検出は会話の言語に追随し（会議中に切り替わることがあります）、言語を選ぶとその言語に固定されます。</value></data>
   <data name="SetLanguagePicker.AutomationProperties.Name" xml:space="preserve"><value>音声の言語</value></data>
   <data name="SetSize.Text" xml:space="preserve"><value>モデルサイズ</value></data>
   <data name="SetSizeDesc.Text" xml:space="preserve"><value>Small・Medium・Large — 各サイズの意味は下の説明に表示されます。</value></data>
