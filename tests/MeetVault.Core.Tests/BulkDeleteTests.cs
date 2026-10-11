@@ -45,7 +45,7 @@ public sealed class BulkDeleteTests : IDisposable
     public void DeleteMeetings_RemovesAllMeetingsSegmentsSpeakersAndMedia()
     {
         Save("a"); Save("b"); Save("c");
-        var mediaA = _repo.Load("a")!.MediaPath!;
+        var media = new[] { "a", "b", "c" }.ToDictionary(id => id, id => _repo.Load(id)!.MediaPath!);
 
         var result = _repo.DeleteMeetings(new[] { "a", "b", "c" });
 
@@ -58,7 +58,11 @@ public sealed class BulkDeleteTests : IDisposable
             Assert.Empty(_repo.LoadSpeakers(id));
             Assert.DoesNotContain(_repo.ListMeetings(), x => x.Id == id);
         }
-        Assert.False(File.Exists(mediaA));
+        foreach (var path in media.Values)
+        {
+            Assert.False(File.Exists(path), "media must be deleted: " + path);
+            Assert.False(File.Exists(path + ".deleting"), "a successful delete must not leave an aside file: " + path);
+        }
     }
 
     [Fact]
@@ -256,6 +260,27 @@ public sealed class BulkDeleteTests : IDisposable
         Assert.Null(_repo.Load("a"));
     }
 
+    [Fact]
+    public void DeleteMeetings_StaleAsideAfterCrash_ReclaimedOnRetry()
+    {
+        // The state a crash between the aside rename and the row delete leaves behind:
+        // the media sits at <media>.deleting and the original path is gone. The retry
+        // must delete the row AND reclaim the aside — otherwise the bytes survive with
+        // nothing pointing at them.
+        Save("a");
+        var media = _repo.Load("a")!.MediaPath!;
+        var aside = media + ".deleting";
+        File.Move(media, aside);
+
+        var result = _repo.DeleteMeetings(new[] { "a" });
+
+        Assert.Equal(new[] { "a" }, result.DeletedIds.ToArray());
+        Assert.Empty(result.FailedIds);
+        Assert.Null(_repo.Load("a"));
+        Assert.False(File.Exists(aside), "the retry must reclaim the stale aside");
+        Assert.False(File.Exists(media));
+    }
+
     [Theory]
     [InlineData(MeetingStatus.Failed)]
     [InlineData(MeetingStatus.Processing)]
@@ -285,6 +310,7 @@ public sealed class BulkDeleteTests : IDisposable
 
         Assert.Equal(new[] { "a" }, retry.DeletedIds.ToArray());
         Assert.False(File.Exists(media));
+        Assert.False(File.Exists(media + ".deleting"), "the successful retry must not leave an aside file behind");
         Assert.Null(_repo.Load("a"));
     }
 

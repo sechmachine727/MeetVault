@@ -319,6 +319,18 @@ public sealed partial class MeetingsPage : Page
                     aside = media + ".deleting";
                     File.Move(media, aside, overwrite: true);
                 }
+                else
+                {
+                    // Media already missing (a crash between the aside rename and the row
+                    // delete): reclaim the leftover <media>.deleting before the row goes,
+                    // so the retry does not leave the bytes orphaned.
+                    var stale = media + ".deleting";
+                    if (File.Exists(stale))
+                    {
+                        try { File.Delete(stale); }
+                        catch (Exception ex) { MeetVault.Core.AppLog.Warn("delete: could not remove stale media " + stale + " :: " + ex.Message); }
+                    }
+                }
             }
             try
             {

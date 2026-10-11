@@ -167,6 +167,14 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
                         try { File.Move(media, aside, overwrite: true); }
                         catch (Exception ex) { failed[id] = ex.Message; continue; }
                     }
+                    else
+                    {
+                        // Media already missing: a crash between the aside rename and the
+                        // row delete left <media>.deleting beside a row pointing at the
+                        // original name. The retry must reclaim it, or the bytes survive
+                        // with nothing pointing at them.
+                        ReclaimStaleAside(media);
+                    }
                 }
                 try
                 {
@@ -196,6 +204,18 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         }
         AppLog.Info($"repo: bulk delete {deleted.Count} deleted, {failed.Count} failed");
         return new BulkDeleteResult(deleted, failed);
+    }
+
+    // Removes a leftover <media>.deleting when the media itself is already gone — the
+    // state a crash between the aside rename and the row delete leaves behind. Best
+    // effort: a failed cleanup only warns, so the row delete is never blocked by an
+    // orphan file that nothing points at (mirrors the post-delete cleanup policy).
+    private static void ReclaimStaleAside(string media)
+    {
+        var stale = media + ".deleting";
+        if (!File.Exists(stale)) return;
+        try { File.Delete(stale); }
+        catch (Exception ex) { AppLog.Warn("repo: could not remove stale aside " + stale + " :: " + ex.Message); }
     }
 
     // Only recordings under the managed media directory may be removed by batch
