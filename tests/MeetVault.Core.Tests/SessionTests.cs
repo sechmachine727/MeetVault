@@ -32,8 +32,8 @@ sealed class FakeGender : IGenderLabeler
 
 sealed class FakeStore : IMeetingStore
 {
-    public Meeting? Saved; public int SegmentCount;
-    public void Save(Meeting m, IReadOnlyList<Speaker> sp, IReadOnlyList<Segment> se) { Saved = m; SegmentCount = se.Count; } public IReadOnlyList<Segment> LoadSegments(string id) => Array.Empty<Segment>(); public IReadOnlyList<Speaker> LoadSpeakers(string id) => Array.Empty<Speaker>(); public IReadOnlyList<Meeting> LoadUnfinished() => Array.Empty<Meeting>();
+    public Meeting? Saved; public int SegmentCount; public IReadOnlyList<Speaker>? SavedSpeakers;
+    public void Save(Meeting m, IReadOnlyList<Speaker> sp, IReadOnlyList<Segment> se) { Saved = m; SegmentCount = se.Count; SavedSpeakers = sp; } public IReadOnlyList<Segment> LoadSegments(string id) => Array.Empty<Segment>(); public IReadOnlyList<Speaker> LoadSpeakers(string id) => Array.Empty<Speaker>(); public IReadOnlyList<Meeting> LoadUnfinished() => Array.Empty<Meeting>();
 }
 
 
@@ -294,6 +294,52 @@ public sealed class SessionTests
         await session.StartAsync("mic", "app");
         Assert.Null(diarizer.SeededSpeakers);
         Assert.Null(diarizer.SeededSegments);
+        await session.StopAsync();
+    }
+
+    // --- single-speaker mode (diarization off) ---
+
+    // No diarization: the session keeps the schema-required spk_1 stamp on segments but
+    // must never mint or persist speaker rows — "no speakers" is what every surface keys
+    // the hide-names rule off.
+    [Fact]
+    public async Task SingleSpeakerMode_StampsSegmentsButMintsNoSpeakers()
+    {
+        var tx = new RawTranscriber();
+        var diarizer = new ScriptedDiarizer("spk_1"); // single-speaker mode ignores hints anyway
+        var store = new FakeStore();
+        var session = new MeetingSession(new FakeAudio(), tx, diarizer, new FakeGender(), store, singleSpeaker: true);
+        await session.StartAsync("mic", "app");
+
+        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 0, 1000));
+        tx.Emit(new Segment("s1", "", 0, 1000, "hello", true));
+
+        Assert.Single(session.Segments);
+        Assert.Equal("spk_1", session.Segments[0].SpeakerId);
+        Assert.Empty(session.Speakers);           // no identity was minted
+        await session.StopAsync();
+        Assert.Empty(store.SavedSpeakers!);       // and none was persisted either
+    }
+
+    // The recovery path forwards the mode too: a resumed nameless draft keeps stamping
+    // turns but mints no identities for the new voices.
+    [Fact]
+    public async Task SingleSpeakerMode_RecoveryPassesTheModeThrough()
+    {
+        var draft = new Meeting("m1", "Meeting", DateTimeOffset.Now, null, MeetingStatus.Recording, null, null);
+        var segments = new[] { new Segment("s1", "spk_1", 0, 1000, "hello", true) };
+        var tx = new RawTranscriber();
+        var diarizer = new ScriptedDiarizer("spk_2");
+
+        var session = await MeetingSession.RecoverAsync("m1", new FakeAudio(), tx, diarizer, new FakeGender(),
+            new DraftStore(draft, Array.Empty<Speaker>(), segments), "mic", "app", singleSpeaker: true);
+
+        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 1000, 2000));
+        tx.Emit(new Segment("s2", "", 1000, 2000, "world", true));
+
+        Assert.Equal(2, session.Segments.Count);
+        Assert.Equal("spk_2", session.Segments[^1].SpeakerId); // the hint still stamps the line
+        Assert.Empty(session.Speakers);                        // but no row is minted
         await session.StopAsync();
     }
 }

@@ -8,6 +8,10 @@ public sealed class MeetingSession : IDisposable
     private readonly ISpeakerDiarizer _diarizer;
     private readonly IGenderLabeler _gender;
     private readonly IMeetingStore _store;
+    // Diarization off: the session keeps stamping the schema-required speaker id on
+    // segments but never mints or persists speaker rows ("no speakers" is what every
+    // surface keys the hide-names rule off).
+    private readonly bool _singleSpeaker;
     private readonly List<Segment> _segments = new();
     private readonly List<Speaker> _speakers = new();
     private Meeting? _meeting;
@@ -29,9 +33,10 @@ public sealed class MeetingSession : IDisposable
     public bool IsActive => _meeting is not null;
     public event Action<Segment>? LiveSegment;
 
-    public MeetingSession(IAudioCapture audio, ISpeechTranscriber transcriber, ISpeakerDiarizer diarizer, IGenderLabeler gender, IMeetingStore store)
+    public MeetingSession(IAudioCapture audio, ISpeechTranscriber transcriber, ISpeakerDiarizer diarizer, IGenderLabeler gender, IMeetingStore store, bool singleSpeaker = false)
     {
         _audio = audio; _transcriber = transcriber; _diarizer = diarizer; _gender = gender; _store = store;
+        _singleSpeaker = singleSpeaker;
         _transcriber.SegmentReady += OnSegment;
     }
 
@@ -116,10 +121,10 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         _store.Save(_meeting, _speakers, _segments);
     }
 
-    public static async Task<MeetingSession> RecoverAsync(string meetingId, IAudioCapture audio, ISpeechTranscriber transcriber, ISpeakerDiarizer diarizer, IGenderLabeler gender, IMeetingStore store, string micId = "", string appSource = "", CancellationToken ct = default)
+    public static async Task<MeetingSession> RecoverAsync(string meetingId, IAudioCapture audio, ISpeechTranscriber transcriber, ISpeakerDiarizer diarizer, IGenderLabeler gender, IMeetingStore store, string micId = "", string appSource = "", bool singleSpeaker = false, CancellationToken ct = default)
     {
         var unfinished = store.LoadUnfinished().FirstOrDefault(m => m.Id == meetingId) ?? throw new InvalidOperationException("No recoverable draft for this meeting.");
-        var session = new MeetingSession(audio, transcriber, diarizer, gender, store);
+        var session = new MeetingSession(audio, transcriber, diarizer, gender, store, singleSpeaker);
         var wasPaused = unfinished.Status == MeetingStatus.Paused;
         session._meeting = unfinished with { Status = wasPaused ? MeetingStatus.Paused : MeetingStatus.Recording };
         session._paused = wasPaused;
@@ -209,8 +214,11 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
     private void HandleSegment(Segment raw, string turnSpeakerId)
     {
         if (_paused || _meeting is null) return; // gap: paused audio never reappears
-        var speaker = _speakers.FirstOrDefault(s => s.Id == turnSpeakerId);
-        if (speaker is null) { speaker = new Speaker(turnSpeakerId, _gender.Label(turnSpeakerId, Gender.Unknown)); _speakers.Add(speaker); }
+        if (!_singleSpeaker)
+        {
+            var speaker = _speakers.FirstOrDefault(s => s.Id == turnSpeakerId);
+            if (speaker is null) { speaker = new Speaker(turnSpeakerId, _gender.Label(turnSpeakerId, Gender.Unknown)); _speakers.Add(speaker); }
+        }
         var seg = raw with { SpeakerId = turnSpeakerId };
         _segments.Add(seg);
         AppLog.Debug("session: segment " + turnSpeakerId + " [" + seg.StartMs + "-" + seg.EndMs + "] " + seg.Text);
