@@ -27,6 +27,8 @@ public sealed class ScreenCaptureController : IDisposable
     private MeetingPhase _phase = MeetingPhase.Idle;
     private string? _meetingId;
     private long _meetingStartMs;
+    private long _pausedTotalMs;
+    private long _pauseStartMs;
     private Run? _run;
     private CancellationTokenSource? _watchdog;
 
@@ -69,6 +71,8 @@ public sealed class ScreenCaptureController : IDisposable
             _phase = MeetingPhase.Recording;
             _meetingId = meetingId;
             _meetingStartMs = nowMs;
+            _pausedTotalMs = 0;
+            _pauseStartMs = 0;
             await StartRunAsync("meeting start").ConfigureAwait(false);
         }
         finally { _one.Release(); }
@@ -81,6 +85,7 @@ public sealed class ScreenCaptureController : IDisposable
         {
             if (_phase != MeetingPhase.Recording) return;
             _phase = MeetingPhase.Paused;
+            _pauseStartMs = _clock();
             await StopRunAsync("meeting paused").ConfigureAwait(false);
         }
         finally { _one.Release(); }
@@ -93,6 +98,9 @@ public sealed class ScreenCaptureController : IDisposable
         {
             if (_phase != MeetingPhase.Paused) return;
             _phase = MeetingPhase.Recording;
+            // The recorded-audio timeline excludes paused time; remember how much was
+            // paused so later run offsets stay on that timeline (review r5).
+            _pausedTotalMs += Math.Max(0, _clock() - _pauseStartMs);
             await StartRunAsync("meeting resumed").ConfigureAwait(false);
         }
         finally { _one.Release(); }
@@ -155,7 +163,9 @@ public sealed class ScreenCaptureController : IDisposable
         }
         var now = _clock();
         var path = RunPath(dir!, _meetingId!, now);
-        var run = new Run(path, now - _meetingStartMs, now);
+        // Offset on the RECORDED-audio timeline (wall elapsed minus paused time): the WAV
+        // excludes pauses, and the WAV is what the video must align to (review r5).
+        var run = new Run(path, now - _meetingStartMs - _pausedTotalMs, now);
         try
         {
             await _recorder.StartAsync(source, path, CancellationToken.None).ConfigureAwait(false);

@@ -109,21 +109,26 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
             lock (_swapLock) { _activeModelDir = null; }   // allow the caller to retry the same model
             return false;
         }
-        float[][] replay;
         bool start;
         lock (_swapLock)
         {
             fresh.PartialReady += ForwardPartial;
             fresh.SegmentReady += ForwardSegment;
-            _inner = fresh;
             start = IsRunning;
-            replay = start ? _preRoll.ToArray() : Array.Empty<float[]>();
-            if (start) _preRoll.Clear();
         }
-        if (start)
+        // Start BEFORE publishing _inner (review r5): pushes arriving while the engine
+        // starts keep buffering into the pre-roll instead of hitting a not-started engine.
+        if (start) fresh.StartAsync(CancellationToken.None);
+        lock (_swapLock)
         {
-            fresh.StartAsync(CancellationToken.None);
-            foreach (var chunk in replay) fresh.Push(chunk);
+            _inner = fresh;
+            if (start)
+            {
+                // Replay + clear + publish are one atomic step so the live stream keeps its
+                // order (the pump's Push waits on this lock).
+                foreach (var chunk in _preRoll) fresh.Push(chunk);
+                _preRoll.Clear();
+            }
         }
         AppLog.Info("swap: active engine -> " + modelDir);
         return true;

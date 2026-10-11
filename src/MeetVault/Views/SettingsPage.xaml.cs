@@ -96,14 +96,17 @@ public sealed partial class SettingsPage : Page
 
     private void Screen_Toggled(object sender, RoutedEventArgs e)
     {
-        if (_suppressScreenEvent) return;
-        AppStore.Repo.SetSetting("screen.enabled", ScreenSwitch.IsOn ? "true" : "false");
+        // IsOn="True" fires Toggled during InitializeComponent, before LoadPersisted reads
+        // the key — without the guard a saved "false" is clobbered on every Settings open
+        // (review r5). Persist keeps a read-only store non-fatal.
+        if (!_ready || _suppressScreenEvent) return;
+        Persist("screen.enabled", ScreenSwitch.IsOn ? "true" : "false");
     }
 
     private void ScreenSourcePicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_suppressScreenEvent || ScreenSourcePicker.SelectedIndex < 0 || ScreenSourcePicker.SelectedIndex >= _screenSources.Count) return;
-        AppStore.Repo.SetSetting("screen.source", MeetVault.Core.CaptureSourceResolver.Format(_screenSources[ScreenSourcePicker.SelectedIndex]));
+        if (!_ready || _suppressScreenEvent || ScreenSourcePicker.SelectedIndex < 0 || ScreenSourcePicker.SelectedIndex >= _screenSources.Count) return;
+        Persist("screen.source", MeetVault.Core.CaptureSourceResolver.Format(_screenSources[ScreenSourcePicker.SelectedIndex]));
     }
 
     private string CurrentLanguage()

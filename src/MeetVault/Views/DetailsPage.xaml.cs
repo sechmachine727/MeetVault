@@ -25,6 +25,7 @@ public sealed partial class DetailsPage : Page
     // recorded without diarization has none and must render nameless (no spk_N fallback).
     private bool _hasSpeakers;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _saveTimer;
+    private List<MediaTrack> _videoTracks = new();
     private MediaTrack? _videoTrack;
     private int _highlightIndex = -1;
 
@@ -97,25 +98,52 @@ public sealed partial class DetailsPage : Page
         catch { Player.Visibility = Visibility.Collapsed; }
     }
 
-    // E2: the screen track (first "screen" row with a live file) plays in its own element.
-    // The AUDIO player stays the master; the video follows it via the sync loop, shifted by
-    // the run's start_offset_ms (each run is its own file, so the clip's t=0 is run-start).
+    // E2: screen tracks (every run with a live file) play in one element. The AUDIO player
+    // stays the master; the video follows it, shifted per run. Pause/resume produces
+    // MULTIPLE files, so the track covering the playhead is picked dynamically (review r5:
+    // binding the first track alone left every later run frozen past its end).
     private void ShowVideo()
     {
         if (_meeting is null) return;
-        _videoTrack = AppStore.Repo.ListMediaTracks(_meeting.Id).FirstOrDefault(t => t.Kind == "screen" && File.Exists(t.Path));
-        if (_videoTrack is null) return;
+        _videoTracks = AppStore.Repo.ListMediaTracks(_meeting.Id)
+            .Where(t => t.Kind == "screen" && File.Exists(t.Path))
+            .OrderBy(t => t.StartOffsetMs).ThenBy(t => t.CreatedAt, StringComparer.Ordinal)
+            .ToList();
+        if (_videoTracks.Count == 0) return;
+        SetVideoTrack(_videoTracks[0], 0);
+        var session = Player.MediaPlayer?.PlaybackSession;
+        if (session is not null)
+        {
+            session.PositionChanged += OnAudioPositionChanged;
+            session.PlaybackStateChanged += OnAudioPlaybackStateChanged;
+        }
+    }
+
+    // Swap the element to the run that covers the playhead and seek it to the right spot
+    // once its media opens (mirroring the audio play state).
+    private void SetVideoTrack(MediaTrack track, double playheadMs)
+    {
+        _videoTrack = track;
         try
         {
-            VideoPlayer.Source = MediaSource.CreateFromUri(new Uri(_videoTrack.Path));
+            VideoPlayer.Source = MediaSource.CreateFromUri(new Uri(track.Path));
             VideoPlayer.Visibility = Visibility.Visible;
-            if (VideoPlayer.MediaPlayer is { } vmp) vmp.IsMuted = true; // video-only file: the audio master is the sound
-            var session = Player.MediaPlayer?.PlaybackSession;
-            if (session is not null)
+            if (VideoPlayer.MediaPlayer is not { } vmp) return;
+            vmp.IsMuted = true; // video-only file: the audio master is the sound
+            var target = TimeSpan.FromMilliseconds(Math.Max(0, playheadMs - track.StartOffsetMs));
+            Windows.Foundation.TypedEventHandler<Windows.Media.Playback.MediaPlayer, object>? opened = null;
+            opened = (_, _) =>
             {
-                session.PositionChanged += OnAudioPositionChanged;
-                session.PlaybackStateChanged += OnAudioPlaybackStateChanged;
-            }
+                try
+                {
+                    if (vmp.PlaybackSession is { } vs) vs.Position = target;
+                    var audio = Player.MediaPlayer?.PlaybackSession;
+                    if (audio?.PlaybackState == Windows.Media.Playback.MediaPlaybackState.Playing) vmp.Play();
+                }
+                catch { }
+                vmp.MediaOpened -= opened;
+            };
+            vmp.MediaOpened += opened;
         }
         catch (Exception ex)
         {
@@ -140,27 +168,46 @@ public sealed partial class DetailsPage : Page
             else { try { vmp.Pause(); } catch { } }
         });
 
-    // Keeps the video within 400 ms of the audio playhead (shifted by the track offset);
-    // before the offset the video holds its first frame, paused.
+    // Keeps the video within 400 ms of the audio playhead (shifted by the active run's
+    // offset); before a run's offset the video holds its first frame, paused.
     private void SyncVideoTo(TimeSpan audioPosition)
     {
-        if (_videoTrack is null || VideoPlayer.MediaPlayer is not { } vmp) return;
-        var videoSession = vmp.PlaybackSession;
-        if (videoSession is null) return;
-        var target = audioPosition.TotalMilliseconds - _videoTrack.StartOffsetMs;
-        try
+        var ms = audioPosition.TotalMilliseconds;
+        if (_videoTracks.Count > 0)
         {
-            if (target < 0)
-            {
-                if (videoSession.Position != TimeSpan.Zero) videoSession.Position = TimeSpan.Zero;
-            }
-            else if (Math.Abs(videoSession.Position.TotalMilliseconds - target) > 400)
-            {
-                videoSession.Position = TimeSpan.FromMilliseconds(target);
-            }
+            var pick = TrackFor(ms);
+            if (pick is not null && !ReferenceEquals(pick, _videoTrack)) SetVideoTrack(pick, ms);
         }
-        catch { }
-        HighlightSegment(audioPosition.TotalMilliseconds);
+        if (_videoTrack is not null && VideoPlayer.MediaPlayer is { } vmp && vmp.PlaybackSession is { } videoSession)
+        {
+            var target = ms - _videoTrack.StartOffsetMs;
+            try
+            {
+                if (target < 0)
+                {
+                    if (videoSession.Position != TimeSpan.Zero) videoSession.Position = TimeSpan.Zero;
+                }
+                else if (Math.Abs(videoSession.Position.TotalMilliseconds - target) > 400)
+                {
+                    videoSession.Position = TimeSpan.FromMilliseconds(target);
+                }
+            }
+            catch { }
+        }
+        HighlightSegment(ms);
+    }
+
+    // The last run that has started at the playhead; before the first offset and after the
+    // last run ends, the boundary run is picked (seek clamps to 0 / its final frame).
+    private MediaTrack? TrackFor(double positionMs)
+    {
+        MediaTrack? pick = null;
+        foreach (var t in _videoTracks)
+        {
+            if (t.StartOffsetMs <= positionMs) pick = t;
+            else break;
+        }
+        return pick ?? (_videoTracks.Count > 0 ? _videoTracks[0] : null);
     }
 
     // The row whose [StartMs, EndMs) contains the playhead gets the highlight brush; only

@@ -76,7 +76,10 @@ public sealed class LanguageMonitor : IDisposable
     {
         _stop = true;
         _wake.Set();
-        try { _thread.Join(1500); } catch { }
+        // Join can time out on a wedged decode; disposing the handle while the loop may
+        // still be parked on it would surface ObjectDisposedException on that thread, so
+        // the handle is deliberately leaked in that case (review r5).
+        if (!_thread.Join(1500)) { AppLog.Warn("langid: monitor thread did not exit; leaving the wake handle undisposed"); return; }
         _wake.Dispose();
     }
 }

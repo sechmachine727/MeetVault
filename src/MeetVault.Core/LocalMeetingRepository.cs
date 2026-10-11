@@ -478,21 +478,6 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         return list;
     }
 
-    public void RemoveTracksFor(IReadOnlyList<string> meetingIds)
-    {
-        using var tx = _db.BeginTransaction();
-        foreach (var id in meetingIds)
-        {
-            if (string.IsNullOrEmpty(id)) continue;
-            using var d = _db.CreateCommand();
-            d.Transaction = tx;
-            d.CommandText = "DELETE FROM media_tracks WHERE meeting_id=$m";
-            d.Parameters.AddWithValue("$m", id);
-            d.ExecuteNonQuery();
-        }
-        tx.Commit();
-    }
-
     public void SetSetting(string key, string value)
     {
         using var c = _db.CreateCommand();

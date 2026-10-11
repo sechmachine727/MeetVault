@@ -148,6 +148,8 @@ public sealed partial class OverlayWindow : Window
         HeaderBar.Children.Add(_screenButton);
         LiveBridge.ScreenStateChanged += OnScreenStateChanged;
         Closed += (_, _) => LiveBridge.ScreenStateChanged -= OnScreenStateChanged;
+        LiveBridge.MeetingStateChanged += OnMeetingStateForControls;
+        Closed += (_, _) => LiveBridge.MeetingStateChanged -= OnMeetingStateForControls;
         // NOTE: visual-parent lookup is null in the ctor (proven twice by
         // crash-log NRE) — the tree is only attached at Loaded. Host the
         // conversation panel then; text state is already correct via BuildConversation.
@@ -157,6 +159,7 @@ public sealed partial class OverlayWindow : Window
             UpdateTitleLanguage(LiveBridge.CurrentLanguage);
             SyncOverlayLanguageCombo(LiveBridge.CurrentLanguage);
             OnScreenStateChanged(LiveBridge.ScreenRecording);
+            OnMeetingStateForControls(LiveBridge.State);
             ConversationCell.Children.Add(_conversationPanel);
             // The ctor's build ran on the estimate (no ActualHeight yet): re-fit
             // against the real cell height now, and keep both the fit and the clip
@@ -346,6 +349,16 @@ public sealed partial class OverlayWindow : Window
                 _screenRecText!.Visibility = visibility;
             }
             catch (Exception ex) { AppLog.Warn("overlay: screen state update failed: " + ex.Message); }
+        });
+
+    // Requests are only consumed while the Live page is loaded and recording; outside that
+    // the overlay's meeting controls go inert instead of silently dropping picks (review r5).
+    private void OnMeetingStateForControls(LiveBridge.MeetingState state)
+        => DispatcherQueue.TryEnqueue(() =>
+        {
+            var enabled = state == LiveBridge.MeetingState.Recording;
+            if (_langCombo is not null) _langCombo.IsEnabled = enabled;
+            if (_screenButton is not null) _screenButton.IsEnabled = enabled;
         });
 
     // Language mirror: the combo and the title suffix follow LiveBridge (the Live page is

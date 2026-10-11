@@ -53,9 +53,12 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
     public async Task PauseAsync(CancellationToken ct = default)
     {
         EnsureActive();
-        _paused = true;
         await _audio.StopAsync(ct);
+        // Flush first, latch second (review r5): the transcriber's StopAsync emits the open
+        // sentence's final through the session while the paused guard is still down, so a
+        // sentence in progress at pause is kept instead of dropped.
         await _transcriber.StopAsync(ct);
+        _paused = true;
         _meeting = _meeting! with { Status = MeetingStatus.Paused };
         Persist();
         AppLog.Info("session: pause " + _meeting.Id);

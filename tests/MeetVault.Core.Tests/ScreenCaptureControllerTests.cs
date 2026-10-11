@@ -130,6 +130,24 @@ public sealed class ScreenCaptureControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task PauseResume_OffsetExcludesPausedTime()
+    {
+        // Clock: meeting start 1_000_000; run 1 starts at 1_000_100 (offset 100); pause at
+        // 1_010_000; resume at 1_030_000 (20 s paused); run 2 starts at 1_030_100 ->
+        // recorded-timeline offset = 30_100 - 20_000 = 10_100, not the wall 30_100.
+        var (c, rec, _) = Make(new long[] { 1_000_100, 1_010_000, 1_030_000, 1_030_100 });
+        await c.MeetingStartedAsync("m1", 1_000_000);
+        await c.MeetingPausedAsync();
+        await c.MeetingResumedAsync();
+        await c.MeetingStoppedAsync();
+
+        Assert.Equal(2, rec.Starts.Count);
+        var drafts = c.FinishedTracks;
+        Assert.Equal(100, drafts[0].StartOffsetMs);
+        Assert.Equal(10_100, drafts[1].StartOffsetMs);
+    }
+
+    [Fact]
     public async Task Disabled_NeverStarts()
     {
         var (c, rec, _) = Make(new long[] { 1_000_100 });

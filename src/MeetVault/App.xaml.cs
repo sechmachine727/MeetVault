@@ -80,6 +80,16 @@ public partial class App : Application
         try { MeetVault.Core.AppLog.Configure(Views.AppStore.Repo.GetSetting("logging.level") ?? "debug"); }
         catch { MeetVault.Core.AppLog.Configure("debug"); }
         MeetVault.Core.AppLog.Info("app start; log level=" + MeetVault.Core.AppLog.LevelName(MeetVault.Core.AppLog.Parse(Views.AppStore.Repo.GetSetting("logging.level"))));
+        // Crash prevention (AGENTS constraint): load the app's OWN onnxruntime.dll before
+        // anything else can. WindowsAppSDK.ML ships a same-named native module — if its copy
+        // won the load, the OnnxRuntime P/Invokes would bind to the wrong binary. The langid
+        // model makes this app the consumer, so the app-directory copy is pinned here.
+        try
+        {
+            var ortPath = Path.Combine(AppContext.BaseDirectory, "onnxruntime.dll");
+            if (File.Exists(ortPath)) System.Runtime.InteropServices.NativeLibrary.Load(ortPath);
+        }
+        catch (Exception ex) { LogStartup("onnxruntime pin failed: " + ex.Message); }
         InitializeComponent();
         // ponytail: last-resort crash log. Unhandled UI exceptions otherwise vanish
         // in the unpackaged exe with no debugger attached.

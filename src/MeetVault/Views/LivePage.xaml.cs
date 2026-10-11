@@ -141,18 +141,7 @@ public sealed partial class LivePage : Page
             _streaming = _relay;
             _transcriber = _relay;
             _engineMode = "live: vosk " + option.Model;
-            if (_autoMode)
-            {
-                // The detector model loads on demand (EnsureLangIdLoaded at Start/Recover).
-                _langMonitor = new LanguageMonitor(window =>
-                {
-                    var model = _langIdModel;
-                    return model?.Detect(window);
-                });
-                _langMonitor.SetActive(_activeLanguage);
-                _langMonitor.Detected += OnLangDetected;
-                _langMonitor.Suggested += OnLangSuggested;
-            }
+            if (_autoMode) EnsureLangMonitor();
             capture = new NAudioCapture();
             capture.PcmReady += OnPcm;
             capture.CaptureFailed += OnCaptureFailed;
@@ -213,6 +202,7 @@ public sealed partial class LivePage : Page
                 if (option is null || !await Task.Run(() => _relay.SwapTo(Path.Combine(ModelDir, "vosk", option.Model))))
                     throw new InvalidOperationException("engine init failed for " + (option?.Model ?? _activeLanguage));
             }
+            if (_autoMode) EnsureLangMonitor();
             _session = new MeetingSession(_audio, _transcriber, AppStore.Repo);
             await _session.StartAsync(MicId, AppSource, CancellationToken.None);
             WireSession(clearOverlay: true);
@@ -235,7 +225,10 @@ public sealed partial class LivePage : Page
                 // language — or English/small when no speech is detected at all.
                 Status(Loc.T("Live.LangDetecting"));
                 await EnsureLangIdLoaded();
-                await Task.Delay(3500);
+                // The gate needs a full 4 s window plus inference before any detection can
+                // exist; 3.5 s deterministically lost that race, so the auto start always
+                // fell through to en/small (review r5).
+                await Task.Delay(6500);
                 if (_relay.ActiveModelDir is null)
                 {
                     var fallback = EngineCatalog.Find("en", "small");
@@ -268,6 +261,23 @@ public sealed partial class LivePage : Page
             MeetVault.Core.AppLog.Error("live: start capture failed", ex);
             Status(Loc.Tf("Live.CouldNotStart", Short(ex)));
         }
+    }
+
+    // The language monitor is built wherever AUTO becomes relevant: at load when the
+    // persisted setting is auto, and lazily when the user picks Auto at runtime (review r5:
+    // a manual-loaded page that switched to Auto kept _langMonitor null, so Start neither
+    // collected nor transcribed anything).
+    private void EnsureLangMonitor()
+    {
+        if (_langMonitor is not null || _relay is null) return;
+        _langMonitor = new LanguageMonitor(window =>
+        {
+            var model = _langIdModel;
+            return model?.Detect(window);
+        });
+        _langMonitor.SetActive(_activeLanguage);
+        _langMonitor.Detected += OnLangDetected;
+        _langMonitor.Suggested += OnLangSuggested;
     }
 
     // The 86 MB detector session has no business loading when the tab opens; it loads on
@@ -548,7 +558,7 @@ public sealed partial class LivePage : Page
             try
             {
                 var buffer = Windows.Security.Cryptography.CryptographicBuffer.CreateFromByteArray(bytes);
-                var bitmap = Windows.Graphics.Imaging.SoftwareBitmap.CreateCopyFromBuffer(
+                using var bitmap = Windows.Graphics.Imaging.SoftwareBitmap.CreateCopyFromBuffer(
                     buffer, Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8, w, h, Windows.Graphics.Imaging.BitmapAlphaMode.Premultiplied);
                 _previewSink ??= new Microsoft.UI.Xaml.Media.Imaging.SoftwareBitmapSource();
                 await _previewSink.SetBitmapAsync(bitmap);
@@ -635,6 +645,7 @@ public sealed partial class LivePage : Page
         {
             if (!MeetVault.Core.LangIdModel.IsAvailable(ModelDir)) Status(Loc.T("Set.LangIdMissing"));
             _autoMode = MeetVault.Core.LangIdModel.IsAvailable(ModelDir);
+            EnsureLangMonitor();
             if (_langMonitor is not null) _langMonitor.Enabled = true;
             PersistLanguage("auto");
             LiveBridge.SetLanguage(new LiveBridge.LanguageInfo(_activeLanguage, _autoMode, false));
