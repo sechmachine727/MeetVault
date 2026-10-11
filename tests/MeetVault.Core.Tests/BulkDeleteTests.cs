@@ -281,6 +281,39 @@ public sealed class BulkDeleteTests : IDisposable
         Assert.False(File.Exists(media));
     }
 
+    // --- review round 6 (stale aside vs failed row delete) ---
+
+    // Same crash state as above, but the retry's row delete fails too: the stale aside
+    // must be RESTORED to the media path — row kept, bytes preserved, meeting retryable.
+    // The old reclaim deleted the aside up front, so a row-delete failure after it
+    // destroyed the recording's only copy while the row survived.
+    [Fact]
+    public void DeleteMeetings_StaleAsideAfterCrash_RowDeleteFails_AsideRestored()
+    {
+        Save("a");
+        var media = _repo.Load("a")!.MediaPath!;
+        var aside = media + ".deleting";
+        File.Move(media, aside);
+        BlockRowDeletes();
+
+        var failed = _repo.DeleteMeetings(new[] { "a" });
+
+        Assert.Empty(failed.DeletedIds);
+        Assert.True(failed.FailedIds.ContainsKey("a"));
+        Assert.NotNull(_repo.Load("a"));
+        Assert.True(File.Exists(media), "a failed row delete must move the stale aside back to the media path");
+        Assert.False(File.Exists(aside), "the restore must not leave the aside behind");
+
+        // The block lifts: the retry now sees a normal file and deletes cleanly.
+        UnblockRowDeletes();
+        var retry = _repo.DeleteMeetings(new[] { "a" });
+
+        Assert.Equal(new[] { "a" }, retry.DeletedIds.ToArray());
+        Assert.Null(_repo.Load("a"));
+        Assert.False(File.Exists(media));
+        Assert.False(File.Exists(aside));
+    }
+
     [Theory]
     [InlineData(MeetingStatus.Failed)]
     [InlineData(MeetingStatus.Processing)]
@@ -319,19 +352,12 @@ public sealed class BulkDeleteTests : IDisposable
     [Fact]
     public void DeleteMeetings_RowDeleteFails_FileRestored_RowKept()
     {
-        // Force the row delete to fail AFTER the aside rename: a BEFORE DELETE trigger on
-        // meetings aborts the DELETE deterministically and instantly (a competing write
-        // lock would only fail after the 30 s busy timeout). The renamed recording must be
-        // put back so a failed row delete cannot lose the audio.
+        // Force the row delete to fail AFTER the aside rename (the established trigger).
+        // The renamed recording must be put back so a failed row delete cannot lose the
+        // audio.
         Save("a");
         var media = _repo.Load("a")!.MediaPath!;
-        using (var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={_db}"))
-        {
-            conn.Open();
-            using var c = conn.CreateCommand();
-            c.CommandText = "CREATE TRIGGER block_del BEFORE DELETE ON meetings BEGIN SELECT RAISE(ABORT, 'forced row-delete failure'); END;";
-            c.ExecuteNonQuery();
-        }
+        BlockRowDeletes();
 
         var result = _repo.DeleteMeetings(new[] { "a" });
 
@@ -340,5 +366,26 @@ public sealed class BulkDeleteTests : IDisposable
         Assert.NotNull(_repo.Load("a"));
         Assert.True(File.Exists(media), "a failed row delete must restore the renamed recording");
         Assert.False(File.Exists(media + ".deleting"), "a restored delete must not leave an aside file behind");
+    }
+
+    // Forced row-delete failure: a BEFORE DELETE trigger on meetings aborts the DELETE
+    // deterministically and instantly (a competing write lock would only fail after the
+    // 30 s busy timeout). Lives on the schema, so the repo's own connection sees it.
+    private void BlockRowDeletes()
+    {
+        using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={_db}");
+        conn.Open();
+        using var c = conn.CreateCommand();
+        c.CommandText = "CREATE TRIGGER block_del BEFORE DELETE ON meetings BEGIN SELECT RAISE(ABORT, 'forced row-delete failure'); END;";
+        c.ExecuteNonQuery();
+    }
+
+    private void UnblockRowDeletes()
+    {
+        using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={_db}");
+        conn.Open();
+        using var c = conn.CreateCommand();
+        c.CommandText = "DROP TRIGGER block_del;";
+        c.ExecuteNonQuery();
     }
 }

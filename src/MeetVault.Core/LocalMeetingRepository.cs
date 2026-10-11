@@ -129,10 +129,13 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
     // mirroring the single-row path: a failed rename keeps the row (retryable) and a
     // failed row delete restores the file. A crash between the rename and the row delete
     // leaves a *.deleting file beside a row still pointing at the original name — the
-    // bytes survive and the row stays retryable, but the renamed file needs manual
-    // cleanup. Media outside the managed directory is never touched but never blocks
-    // the row either (export, user copy, malformed path), exactly like the single-row
-    // path. Active or resumable recordings are refused.
+    // bytes survive and the row stays retryable, and the next retry reclaims the stale
+    // aside: it is ADOPTED as this attempt's aside (never deleted up front — a row
+    // delete failing after that deletion would destroy the recording's only copy while
+    // the row survives), then unlinked on success or moved back on failure. Media
+    // outside the managed directory is never touched but never blocks the row either
+    // (export, user copy, malformed path), exactly like the single-row path. Active or
+    // resumable recordings are refused.
     public BulkDeleteResult DeleteMeetings(IReadOnlyCollection<string> meetingIds)
     {
         var deleted = new List<string>();
@@ -171,9 +174,12 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
                     {
                         // Media already missing: a crash between the aside rename and the
                         // row delete left <media>.deleting beside a row pointing at the
-                        // original name. The retry must reclaim it, or the bytes survive
-                        // with nothing pointing at them.
-                        ReclaimStaleAside(media);
+                        // original name. ADOPT the stale aside as this attempt's aside —
+                        // the success cleanup unlinks it and a failed row delete moves it
+                        // back to the media path. (The old reclaim deleted it up front, so
+                        // a row delete failing afterwards destroyed the only bytes while
+                        // the row survived.)
+                        if (File.Exists(media + ".deleting")) aside = media + ".deleting";
                     }
                 }
                 try
@@ -204,18 +210,6 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         }
         AppLog.Info($"repo: bulk delete {deleted.Count} deleted, {failed.Count} failed");
         return new BulkDeleteResult(deleted, failed);
-    }
-
-    // Removes a leftover <media>.deleting when the media itself is already gone — the
-    // state a crash between the aside rename and the row delete leaves behind. Best
-    // effort: a failed cleanup only warns, so the row delete is never blocked by an
-    // orphan file that nothing points at (mirrors the post-delete cleanup policy).
-    private static void ReclaimStaleAside(string media)
-    {
-        var stale = media + ".deleting";
-        if (!File.Exists(stale)) return;
-        try { File.Delete(stale); }
-        catch (Exception ex) { AppLog.Warn("repo: could not remove stale aside " + stale + " :: " + ex.Message); }
     }
 
     // Only recordings under the managed media directory may be removed by batch
