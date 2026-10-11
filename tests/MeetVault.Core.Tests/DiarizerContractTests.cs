@@ -39,15 +39,20 @@ public sealed class DiarizerContractTests
 
         var all = TestAudio.ReadWav16k(wavPath);
         var a1 = dz.AssignTurn(Slice(all, 0, 90720));        // voice A, first sighting
+        var a2 = dz.AssignTurn(Slice(all, 0, 90720));        // voice A again -> own identity
         var b1 = dz.AssignTurn(Slice(all, 95520, 183040));   // voice B, first sighting -> keeps previous
         var b2 = dz.AssignTurn(Slice(all, 95520, 183040));   // voice B again -> own identity
-        var a2 = dz.AssignTurn(Slice(all, 0, 90720));        // voice A again -> stable
-        var again = dz.AssignTurn(Slice(all, 60480, 90720)); // A sub-clip -> still stable
+        // A sub-clip with _last now B's id: this can only resolve to A via a real store
+        // recall of A's embeddings — a recall miss would return the previous id (B) and
+        // fail the assert below (the old order asserted this while _last was still A, so
+        // the assert could not fail).
+        var again = dz.AssignTurn(Slice(all, 60480, 90720));
 
         Assert.StartsWith("spk_", a1.SpeakerId);
         Assert.Equal(SpeakerOrigin.Embedding, a1.Origin);
         Assert.Equal(a1.SpeakerId, a2.SpeakerId);       // same voice keeps its id
-        Assert.Equal(a1.SpeakerId, again.SpeakerId);
+        Assert.Equal(a1.SpeakerId, b1.SpeakerId);       // B's first sighting keeps the previous speaker
+        Assert.Equal(a1.SpeakerId, again.SpeakerId);    // recall pin: a miss would return B
         Assert.NotEqual(a1.SpeakerId, b2.SpeakerId);    // different voice gets its own id once confirmed
     }
 
