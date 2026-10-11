@@ -13,6 +13,9 @@ public sealed class LanguageMonitor : IDisposable
     private readonly SpeechWindowGate _gate;
     private readonly int _minInferenceGapMs;
     private readonly object _lock = new();
+    // Gate + policy are monitor-thread territory (Push/Detection); Reset and SetActive run
+    // on the UI thread mid-drain, so they take this lock too (review r6).
+    private readonly object _gateLock = new();
     private readonly List<float> _pending = new();
     private readonly Thread _thread;
     private readonly AutoResetEvent _wake = new(false);
@@ -34,9 +37,25 @@ public sealed class LanguageMonitor : IDisposable
         _thread.Start();
     }
 
-    public void SetActive(string? code) { lock (_lock) ActiveLanguage = code; _policy.SetActive(code); }
+    public void SetActive(string? code)
+    {
+        lock (_lock) ActiveLanguage = code;
+        lock (_gateLock) _policy.SetActive(code);
+    }
 
-    public void Reset() { lock (_lock) _pending.Clear(); _gate.Reset(); }
+    // For caller-applied AUTO switches: updates the active language but keeps the
+    // anti-thrash cooldown running through the echo (review r6).
+    public void SetActiveKeepCooldown(string? code)
+    {
+        lock (_lock) ActiveLanguage = code;
+        lock (_gateLock) _policy.SetActiveKeepCooldown(code);
+    }
+
+    public void Reset()
+    {
+        lock (_lock) _pending.Clear();
+        lock (_gateLock) _gate.Reset();
+    }
 
     public void Push(float[] samples16k) { lock (_lock) _pending.AddRange(samples16k); _wake.Set(); }
 
@@ -44,6 +63,8 @@ public sealed class LanguageMonitor : IDisposable
     {
         while (!_stop)
         {
+            try
+            {
             _wake.WaitOne(500);
             float[] batch;
             lock (_lock)
@@ -55,7 +76,9 @@ public sealed class LanguageMonitor : IDisposable
                 batch = _pending.ToArray();
                 _pending.Clear();
             }
-            foreach (var window in _gate.Push(batch))
+            float[][] windows;
+            lock (_gateLock) windows = _gate.Push(batch).ToArray();
+            foreach (var window in windows)
             {
                 var now = Environment.TickCount64;
                 if (now - _lastInferMs < _minInferenceGapMs) continue;   // throttle: ≤1 inference per gap
@@ -66,9 +89,12 @@ public sealed class LanguageMonitor : IDisposable
                 if (result is not { } r) continue;
                 Detected?.Invoke(r.Code, r.Confidence);
                 if (!Enabled) continue;
-                var suggestion = _policy.Detection(r.Code, r.Confidence, now);
+                string? suggestion;
+                lock (_gateLock) suggestion = _policy.Detection(r.Code, r.Confidence, now);
                 if (suggestion is not null) Suggested?.Invoke(suggestion);
             }
+            }
+            catch (Exception ex) { AppLog.Warn("langid: monitor iteration failed: " + ex.Message); Thread.Sleep(250); }
         }
     }
 

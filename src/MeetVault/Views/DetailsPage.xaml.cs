@@ -75,6 +75,7 @@ public sealed partial class DetailsPage : Page
         TranscriptList.ItemsSource = Lines.ToArray();
         ShowPlayer();
         ShowVideo();
+        SubscribePlayhead();
         ShowPriorJob(_meeting);
         UpdateLineStatus();
         Unloaded += (_, _) => { try { Player.Source = null; } catch { } try { VideoPlayer.Source = null; } catch { } };
@@ -98,6 +99,17 @@ public sealed partial class DetailsPage : Page
         catch { Player.Visibility = Visibility.Collapsed; }
     }
 
+    // The playhead subscription drives BOTH the row highlight (every meeting) and the
+    // video follow (when tracks exist). It used to sit below ShowVideo's early return, so
+    // meetings without screen tracks lost the highlight entirely (review r6).
+    private void SubscribePlayhead()
+    {
+        var session = Player.MediaPlayer?.PlaybackSession;
+        if (session is null) return;
+        session.PositionChanged += OnAudioPositionChanged;
+        session.PlaybackStateChanged += OnAudioPlaybackStateChanged;
+    }
+
     // E2: screen tracks (every run with a live file) play in one element. The AUDIO player
     // stays the master; the video follows it, shifted per run. Pause/resume produces
     // MULTIPLE files, so the track covering the playhead is picked dynamically (review r5:
@@ -111,12 +123,6 @@ public sealed partial class DetailsPage : Page
             .ToList();
         if (_videoTracks.Count == 0) return;
         SetVideoTrack(_videoTracks[0], 0);
-        var session = Player.MediaPlayer?.PlaybackSession;
-        if (session is not null)
-        {
-            session.PositionChanged += OnAudioPositionChanged;
-            session.PlaybackStateChanged += OnAudioPlaybackStateChanged;
-        }
     }
 
     // Swap the element to the run that covers the playhead and seek it to the right spot

@@ -63,13 +63,25 @@ sealed class QueueingSyncContext : SynchronizationContext
     }
 }
 
+// Constructs a session with no ambient context, so segment marshalling runs inline
+// deterministically in tests.
+internal static class TestSyncUtil
+{
+    public static MeetingSession UiLess(Func<MeetingSession> make)
+    {
+        var prev = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(null);
+        try { return make(); } finally { SynchronizationContext.SetSynchronizationContext(prev); }
+    }
+}
+
 public sealed class SessionTests
 {
     [Fact]
     public async Task PauseGap_SkippedAudioNeverReappears()
     {
         var tx = new RawTranscriber();
-        var session = new MeetingSession(new FakeAudio(), tx, new FakeStore());
+        var session = TestSyncUtil.UiLess(() => new MeetingSession(new FakeAudio(), tx, new FakeStore()));
         await session.StartAsync("mic", "app");
         tx.Emit(new Segment("a", "spk_1", 0, 1000, "one", true));
         await session.PauseAsync();

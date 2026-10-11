@@ -26,8 +26,9 @@ public sealed class SessionLifecycleTests
         await session.StopAsync();
     }
 
-    // The transcriber's StopAsync flushes the open sentence as a final; the pause guard
-    // must latch AFTER that final is accepted (review r5: latching first dropped it).
+    // The transcriber's StopAsync flushes the open sentence as a final; the pause guard must
+    // latch only after that final is accepted. The final is raised from a worker thread like
+    // the real decode thread, so the session's UI marshalling is part of the test (review r6).
     private sealed class FlushOnStopTranscriber : ISpeechTranscriber
     {
         public event Action<Segment>? SegmentReady;
@@ -36,19 +37,43 @@ public sealed class SessionLifecycleTests
         public Task StopAsync(CancellationToken ct)
         {
             IsRunning = false;
-            SegmentReady?.Invoke(new Segment("flush-1", "spk_1", 0, 500, "kept", true));
+            Task.Run(() => SegmentReady?.Invoke(new Segment("flush-1", "spk_1", 0, 500, "kept", true))).Wait();
             return Task.CompletedTask;
         }
     }
 
+    // Constructs a session with no ambient context so marshalling runs inline.
+    private static MeetingSession UiLess(Func<MeetingSession> make) => TestSyncUtil.UiLess(make);
+
     [Fact]
     public async Task Pause_KeepsTheFinalFlushedDuringStop()
     {
-        var session = new MeetingSession(new FakeAudio(), new FlushOnStopTranscriber(), new FakeStore());
+        var session = UiLess(() => new MeetingSession(new FakeAudio(), new FlushOnStopTranscriber(), new FakeStore()));
         await session.StartAsync("mic", "app");
         await session.PauseAsync();
         var seg = Assert.Single(session.Segments);
         Assert.Equal("kept", seg.Text);
+    }
+
+    [Fact]
+    public async Task Pause_DrainDeliversTheQueuedFlushFinalBeforeLatching()
+    {
+        var prev = SynchronizationContext.Current;
+        var ctx = new QueueingSyncContext();
+        SynchronizationContext.SetSynchronizationContext(ctx);
+        try
+        {
+            var session = new MeetingSession(new FakeAudio(), new FlushOnStopTranscriber(), new FakeStore());
+            await session.StartAsync("mic", "app");
+            var pause = session.PauseAsync();
+            // The flush final was posted to the UI "queue"; the pause's yield sits behind
+            // it — draining delivers the final first, so it is kept (review r6).
+            var drained = ctx.Drain();
+            await pause;
+            Assert.True(drained >= 2, "expected the queued final and the yielded continuation, drained=" + drained);
+            Assert.Equal("kept", Assert.Single(session.Segments).Text);
+        }
+        finally { SynchronizationContext.SetSynchronizationContext(prev); }
     }
 }
 

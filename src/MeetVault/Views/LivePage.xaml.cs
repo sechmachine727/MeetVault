@@ -42,6 +42,8 @@ public sealed partial class LivePage : Page
 
     // Screen recording: one controller per page; runs follow the meeting lifecycle.
     private MeetVault.Core.ScreenCaptureController? _screen;
+    // Kept so page teardown can release the native recorder too (review r6).
+    private MeetVault.Core.ScreenRecorderLibAdapter? _adapter;
     private readonly List<MeetVault.Core.CaptureSource> _screenSources = new();
     private bool _suppressScreenEvent;
     private Microsoft.UI.Xaml.Media.Imaging.SoftwareBitmapSource? _previewSink;
@@ -93,7 +95,9 @@ public sealed partial class LivePage : Page
             PersistFinishedTracks();
             LiveBridge.SetScreenState(false);
             try { _screen.Dispose(); } catch { }
+            try { _adapter?.Dispose(); } catch { } // releases the native recorder (review r6)
             _screen = null;
+            _adapter = null;
         }
         _relay = null;
     }
@@ -147,8 +151,9 @@ public sealed partial class LivePage : Page
             capture.CaptureFailed += OnCaptureFailed;
             _capture = capture;
             _audio = capture;
+            _adapter = new MeetVault.Core.ScreenRecorderLibAdapter();
             _screen = new MeetVault.Core.ScreenCaptureController(
-                new MeetVault.Core.ScreenRecorderLibAdapter(),
+                _adapter,
                 () => AppStore.MediaDir,
                 () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 ResolveScreenSource,
@@ -164,6 +169,7 @@ public sealed partial class LivePage : Page
             try { _langMonitor?.Dispose(); } catch { } _langMonitor = null;
             try { _langIdModel?.Dispose(); } catch { } _langIdModel = null;
             try { capture?.Dispose(); } catch { }
+            try { _adapter?.Dispose(); } catch { } _adapter = null;
             _streaming = null; _transcriber = transcriber; _audio = audio;
             _engineMode = "demo (engine init failed)";
             MeetVault.Core.AppLog.Error("live: engine init failed; running demo", ex);
@@ -313,6 +319,21 @@ public sealed partial class LivePage : Page
                 else LiveBridge.SetLanguage(new LiveBridge.LanguageInfo(_activeLanguage, true, false));
             }
             EngineStatus.Text = _engineMode;
+            if (_screen is not null && _session.MeetingId is { } recMid)
+            {
+                try
+                {
+                    // A recovered draft must rebind the controller, or its phase stays Idle
+                    // and no screen run can ever start for this meeting again (review r6).
+                    // The anchor subtracts the already-recorded audio, so new runs stay on
+                    // the recorded timeline; a paused draft binds paused and opens no run.
+                    var recordedMs = _session.Segments.Count == 0 ? 0 : _session.Segments.Max(s => s.EndMs);
+                    await _screen.MeetingStartedAsync(recMid, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - recordedMs, _session.IsPaused);
+                    PersistFinishedTracks();
+                    RefreshScreenStatus();
+                }
+                catch (Exception ex) { MeetVault.Core.AppLog.Warn("screen: recover bind failed: " + ex.Message); }
+            }
             Status(Loc.Tf("Live.ResumedCount", id, _session.Segments.Count));
         }
         catch (Exception ex)
@@ -596,7 +617,10 @@ public sealed partial class LivePage : Page
         }
         _activeLanguage = code;
         _engineMode = "live: vosk " + option.Model;
-        _langMonitor?.SetActive(code);
+        // An auto-applied switch keeps the anti-thrash cooldown; a manual pick clears it so
+        // the user's choice is never suppressed for the next cooldown window (review r6).
+        if (auto) _langMonitor?.SetActiveKeepCooldown(code);
+        else _langMonitor?.SetActive(code);
         if (_session?.MeetingId is { } id) AppStore.Repo.SetMeetingLanguage(id, code);
         LiveBridge.SetLanguage(new LiveBridge.LanguageInfo(code, _autoMode, auto));
         EngineStatus.Text = _engineMode;

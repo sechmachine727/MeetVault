@@ -18,9 +18,12 @@ Apache License 2.0 and not committed to this repository.
 
 Screen-video capture for meetings uses `ScreenRecorderLib` v7.0.1 (MIT License, Copyright
 (c) 2017 Sverre Skodje), shipped as an x64 C++/CLI mixed-mode `ScreenRecorderLib.dll` via
-the NuGet package. It expects the Microsoft Visual C++ 2015-2022 x64 redistributable at
-runtime; when that is missing the app reports "screen capture unavailable" and records
-audio-only. Audio-only use of the app does not depend on it.
+the NuGet package. The package does not carry the C++ runtime it links against, so the app
+stages the Microsoft Visual C++ 2015-2022 x64 redistributable DLLs beside it (staged
+payload under `vcruntime/win-x64`, win-x64 builds only — see the app project's Content
+items); no machine-wide redistributable install is required. Should they nevertheless be
+missing, the app reports "screen capture unavailable" and records audio-only; audio-only
+use of the app does not depend on them.
 
 ## Others
 
@@ -28,6 +31,8 @@ audio-only. Audio-only use of the app does not depend on it.
 - **Microsoft.Data.Sqlite** / SQLite — the meetings database. SQLite is public domain;
   Microsoft.Data.Sqlite is MIT.
 - **CommunityToolkit.Mvvm** — MIT License.
+- **Microsoft.ML.OnnxRuntime** — the language-detection model runtime (VoxLingua107);
+  its native `onnxruntime.dll` ships with the app and is loaded directly. MIT License.
 - **Windows App SDK / WinUI 3** and the **.NET runtime** — Microsoft licence terms.
 
 The application and its packaged native libraries each keep their own upstream licences.

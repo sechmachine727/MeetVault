@@ -65,12 +65,16 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
         try { recorder!.Stop(); }
         catch (Exception ex)
         {
-            EndRun();
+            var failed = EndRun();
+            try { failed?.Dispose(); } catch { }
             return new RecordingResult(false, path, ElapsedMs(), ex.Message);
         }
         var winner = await Task.WhenAny(done!.Task, Task.Delay(3000, ct)).ConfigureAwait(false);
         if (winner == done.Task) return await done.Task.ConfigureAwait(false);
-        EndRun();
+        // Timed out: the MP4 may be unfinalized, but the native recorder must still be
+        // released instead of abandoned (review r6).
+        var abandoned = EndRun();
+        try { abandoned?.Dispose(); } catch { }
         return new RecordingResult(false, path, ElapsedMs(), "stop timed out");
     }
 
@@ -79,27 +83,33 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
         Recorder? rec;
         lock (_gate) { rec = _recorder; _recorder = null; IsRecording = false; }
         try { rec?.Stop(); } catch { }
+        try { rec?.Dispose(); } catch { } // release the native recorder, not just the run (review r6)
     }
 
     private void Finish(bool ok, string? path, string? error)
     {
         TaskCompletionSource<RecordingResult>? done;
+        Recorder? rec;
         lock (_gate)
         {
             done = _done;
             if (done is null || done.Task.IsCompleted) return; // late duplicate event
             IsRecording = false;
+            rec = _recorder;
             _recorder = null;
             done.TrySetResult(new RecordingResult(ok, path ?? _outputPath, ElapsedMs(), error));
         }
         StateChanged?.Invoke(false);
         if (!ok && error is not null) Failed?.Invoke(error);
+        try { rec?.Dispose(); } catch { } // finalized; release it after the events (review r6)
     }
 
-    private void EndRun()
+    private Recorder? EndRun()
     {
-        lock (_gate) { IsRecording = false; _recorder = null; }
+        Recorder? rec;
+        lock (_gate) { rec = _recorder; IsRecording = false; _recorder = null; }
         StateChanged?.Invoke(false);
+        return rec;
     }
 
     private long ElapsedMs() => _startTicks == 0 ? 0 : (long)Stopwatch.GetElapsedTime(_startTicks).TotalMilliseconds;

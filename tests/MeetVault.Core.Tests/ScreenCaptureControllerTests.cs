@@ -148,6 +148,18 @@ public sealed class ScreenCaptureControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task StartedPaused_NoRunUntilResume()
+    {
+        var (c, rec, _) = Make(new long[] { 1_000_000, 1_020_000, 1_020_100 });
+        await c.MeetingStartedAsync("m1", 1_000_000, paused: true);
+        Assert.Empty(rec.Starts);
+        await c.MeetingResumedAsync();
+        await c.MeetingStoppedAsync();
+        Assert.Single(rec.Starts);
+        Assert.Equal(100, Assert.Single(c.FinishedTracks).StartOffsetMs);
+    }
+
+    [Fact]
     public async Task Disabled_NeverStarts()
     {
         var (c, rec, _) = Make(new long[] { 1_000_100 });

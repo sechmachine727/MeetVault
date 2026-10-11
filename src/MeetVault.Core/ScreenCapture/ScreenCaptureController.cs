@@ -63,17 +63,19 @@ public sealed class ScreenCaptureController : IDisposable
         _recorder.FramePreview += OnFramePreview;
     }
 
-    public async Task MeetingStartedAsync(string meetingId, long nowMs)
+    public async Task MeetingStartedAsync(string meetingId, long nowMs, bool paused = false)
     {
         await _one.WaitAsync().ConfigureAwait(false);
         try
         {
-            _phase = MeetingPhase.Recording;
+            _phase = paused ? MeetingPhase.Paused : MeetingPhase.Recording;
             _meetingId = meetingId;
             _meetingStartMs = nowMs;
             _pausedTotalMs = 0;
-            _pauseStartMs = 0;
-            await StartRunAsync("meeting start").ConfigureAwait(false);
+            _pauseStartMs = paused ? _clock() : 0;
+            // A recovered draft that is still paused must not open a run; the resume does
+            // (review r6).
+            if (!paused) await StartRunAsync("meeting start").ConfigureAwait(false);
         }
         finally { _one.Release(); }
     }
@@ -199,7 +201,18 @@ public sealed class ScreenCaptureController : IDisposable
     private void OnRecorderFailed(string error)
     {
         AppLog.Warn("screen: recorder failure: " + error);
-        if (_run is not null) _ = StopRunAsync("recorder failure");
+        if (_run is not null) _ = StopViaGate("recorder failure");
+    }
+
+    // Recorder failures and the watchdog fire outside the entry gate; routing the stop
+    // through it keeps StopRunAsync's _run read-and-clear atomic against a racing user
+    // pause/stop, which could otherwise finalize one run twice and append two tracks for
+    // one file (review r6).
+    private async Task StopViaGate(string reason)
+    {
+        await _one.WaitAsync().ConfigureAwait(false);
+        try { await StopRunAsync(reason).ConfigureAwait(false); }
+        finally { _one.Release(); }
     }
 
     private void StartWatchdog(CaptureSource source)
@@ -220,7 +233,7 @@ public sealed class ScreenCaptureController : IDisposable
                     await Task.Delay(_watchdogPollMs, token).ConfigureAwait(false);
                     if (_isWindowAlive(hwnd)) continue;
                     Warn("screen: target window closed; stopping the screen run");
-                    await StopRunAsync("window closed").ConfigureAwait(false);
+                    await StopViaGate("window closed").ConfigureAwait(false);
                     return;
                 }
             }

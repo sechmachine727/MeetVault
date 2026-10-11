@@ -27,7 +27,7 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
     public event Action<Segment>? SegmentReady;
     public event Action<string>? PartialReady;
 
-    public Task StartAsync(CancellationToken ct)
+    public async Task StartAsync(CancellationToken ct)
     {
         IStreamingTranscriber? inner;
         float[][] replay;
@@ -38,9 +38,13 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
             replay = _preRoll.ToArray();
             _preRoll.Clear();
         }
-        inner?.StartAsync(ct);
-        if (inner is not null) foreach (var chunk in replay) inner.Push(chunk);
-        return Task.CompletedTask;
+        if (inner is not null)
+        {
+            // Observed: a failed start must surface to the caller, not die as an unobserved
+            // task exception while the relay claims running (review r6).
+            await inner.StartAsync(ct).ConfigureAwait(false);
+            foreach (var chunk in replay) inner.Push(chunk);
+        }
     }
 
     public Task StopAsync(CancellationToken ct)

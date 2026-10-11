@@ -121,12 +121,25 @@ public sealed class AutoLanguagePolicyTests
         p.Detection("ja", 0.9f, 0);
         p.Detection("ja", 0.9f, 100);
         Assert.Equal("ja", p.Detection("ja", 0.9f, 200));
-        p.SetActive("ja");
+        p.SetActiveKeepCooldown("ja");                     // the app applies the auto switch; the cooldown stays
         Assert.Null(p.Detection("en", 0.9f, 300));        // inside cooldown: not even recorded
         Assert.Null(p.Detection("en", 0.9f, 1100));
         Assert.Null(p.Detection("en", 0.9f, 1300));       // cooldown over: agreement re-accumulates
         Assert.Null(p.Detection("en", 0.9f, 1400));
         Assert.Equal("en", p.Detection("en", 0.9f, 1500));
+    }
+
+    [Fact]
+    public void SetActive_ClearsTheCooldown()
+    {
+        var p = NewPolicy(); p.SetActive("en");
+        p.Detection("ja", 0.9f, 0);
+        p.Detection("ja", 0.9f, 100);
+        Assert.Equal("ja", p.Detection("ja", 0.9f, 200));  // auto switch; cooldown running
+        p.SetActive("ja");                                 // the user confirms the pick: cooldown clears
+        p.Detection("en", 0.9f, 300);                      // under a cooldown window of the switch — recorded
+        p.Detection("en", 0.9f, 400);
+        Assert.Equal("en", p.Detection("en", 0.9f, 500));  // agreement completes: not suppressed
     }
 }
 

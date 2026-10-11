@@ -54,10 +54,12 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
     {
         EnsureActive();
         await _audio.StopAsync(ct);
-        // Flush first, latch second (review r5): the transcriber's StopAsync emits the open
-        // sentence's final through the session while the paused guard is still down, so a
-        // sentence in progress at pause is kept instead of dropped.
+        // Flush first, latch second (review r6): awaiting an already-completed StopAsync
+        // returns INLINE, while the flush final is queued behind the UI thread — one yield
+        // puts this continuation behind everything already queued, so the final lands
+        // before the paused guard latches.
         await _transcriber.StopAsync(ct);
+        await Task.Yield();
         _paused = true;
         _meeting = _meeting! with { Status = MeetingStatus.Paused };
         Persist();

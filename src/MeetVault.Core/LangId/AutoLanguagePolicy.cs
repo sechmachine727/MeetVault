@@ -21,7 +21,11 @@ public sealed class AutoLanguagePolicy
     public AutoLanguagePolicy(Settings? settings = null)
     { _s = settings ?? new Settings(); _supported = _s.Supported ?? new[] { "en", "ja", "vi" }; }
 
-    public void SetActive(string? active) { _active = active; _recent.Clear(); }
+    // A manual pick or resume must clear the cooldown too: detections right after the user's
+    // choice must not be silently suppressed (review r6). An auto-applied switch uses the
+    // KeepCooldown variant so the anti-thrash window survives the caller's echo.
+    public void SetActive(string? active) { _active = active; _recent.Clear(); _lastSwitchMs = null; }
+    public void SetActiveKeepCooldown(string? active) { _active = active; _recent.Clear(); }
 
     // A detection arrived (code already mapped to en/ja/vi; conf = detector probability).
     // Returns the language to switch to, or null.

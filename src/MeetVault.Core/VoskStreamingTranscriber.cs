@@ -18,20 +18,23 @@ public sealed class VoskStreamingTranscriber : IStreamingTranscriber
     public event Action<Segment>? SegmentReady { add { _runner.SegmentReady += value; } remove { _runner.SegmentReady -= value; } }
     public event Action<string>? PartialReady { add { _runner.PartialReady += value; } remove { _runner.PartialReady -= value; } }
 
-    public Task StartAsync(CancellationToken ct)
+    public async Task StartAsync(CancellationToken ct)
     {
         // A previous decode thread must be gone before a new one touches the shared
         // recognizer: FlushAndWait closes the current one and reports whether it exited.
-        // If it is still draining (stalled subscriber, full backlog), the start is
-        // skipped rather than racing two threads over one native recognizer.
-        if (!_runner.FlushAndWait())
+        // Retry briefly, then surface the failure so the caller can react instead of the
+        // relay reporting running and pushes going into a stopped runner for the rest of
+        // the meeting (review r6).
+        for (var attempt = 0; ; attempt++)
         {
-            AppLog.Warn("vosk: previous decode thread still draining; start skipped");
-            return Task.CompletedTask;
+            if (_runner.FlushAndWait()) break;
+            if (attempt >= 2)
+                throw new InvalidOperationException("The previous speech decode thread did not finish; transcription could not start.");
+            AppLog.Warn("vosk: previous decode thread still draining; retrying the start");
+            await Task.Delay(250, ct).ConfigureAwait(false);
         }
         _runner.Start();
         IsRunning = true;
-        return Task.CompletedTask;
     }
 
     public Task StopAsync(CancellationToken ct) { _runner.Flush(); IsRunning = false; return Task.CompletedTask; }

@@ -120,6 +120,7 @@ public sealed partial class OverlayWindow : Window
         // Language combo: a meeting control (not an overlay-display setting), so it sits
         // in the header beside the title — the one-settings-entry rule stays intact.
         _langCombo = new ComboBox { Width = 128, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_langCombo, Loc.T("LiveLanguageLabel.Text"));
         Grid.SetColumn(_langCombo, 1);
         _langCombo.Items.Add(Loc.T("Lang.Auto"));
         foreach (var l in MeetVault.Core.EngineCatalog.Languages) _langCombo.Items.Add(l.Endonym);
@@ -143,6 +144,7 @@ public sealed partial class OverlayWindow : Window
         HeaderBar.Children.Add(_screenIndicator);
         _screenButton = new Button { Content = "⏺", Width = 32, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 0) };
         ToolTipService.SetToolTip(_screenButton, Loc.T("Ov.ScreenToggle"));
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_screenButton, Loc.T("Ov.ScreenToggle"));
         _screenButton.Click += (_, _) => LiveBridge.RequestScreenToggle();
         Grid.SetColumn(_screenButton, 3);
         HeaderBar.Children.Add(_screenButton);
