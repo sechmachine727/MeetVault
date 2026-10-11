@@ -135,6 +135,13 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         // rest of the meeting). Never done in StartAsync: a NEW meeting resets the
         // matcher instead (LivePage.Start_Click).
         diarizer.SeedForRecovery(speakers, segments);
+        // The turn stamp is seeded too, from the same tail: a first post-resume turn whose
+        // hint is Unknown (short/noisy audio, native failure) keeps the previous speaker,
+        // and with the field still at its "spk_1" default that stamped the line "spk_1"
+        // even when the meeting's tail speaker was spk_2. Precedence matches the matcher's
+        // seed: last segment's speaker, else the last speaker row, else the placeholder.
+        var tail = DraftTailSpeaker(speakers, segments);
+        if (tail.Length > 0) session._turnSpeakerId = tail;
         AppLog.Info("session: recover " + meetingId + " paused=" + wasPaused + " segments=" + session._segments.Count);
         if (!wasPaused)
         {
@@ -224,6 +231,18 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
     }
 
     private void EnsureActive() { if (_meeting is null) throw new InvalidOperationException("No active meeting."); }
+
+    // The draft's tail speaker: the last segment's SpeakerId, else the last speaker row's
+    // id, else "" (the caller keeps its placeholder). Same precedence the matcher's
+    // SeedForRecovery applies to its _last.
+    private static string DraftTailSpeaker(IReadOnlyList<Speaker> speakers, IReadOnlyList<Segment> segments)
+    {
+        var last = "";
+        for (var i = segments.Count - 1; i >= 0 && last.Length == 0; i--) last = segments[i].SpeakerId ?? "";
+        if (last.Length == 0)
+            for (var i = speakers.Count - 1; i >= 0 && last.Length == 0; i--) last = speakers[i].Id ?? "";
+        return last;
+    }
 }
 
 

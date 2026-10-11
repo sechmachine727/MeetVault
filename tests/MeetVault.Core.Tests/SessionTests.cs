@@ -259,6 +259,31 @@ public sealed class SessionTests
         await session.StopAsync();
     }
 
+    // Review round 6: the resumed tail's speaker must seed the TURN stamp too. A first
+    // post-resume turn whose hint is Unknown (short/noisy audio, native failure) keeps
+    // the previous speaker — with the field still at "spk_1" that stamped the line with
+    // the wrong id whenever the draft's tail speaker was spk_2.
+    [Fact]
+    public async Task RecoverAsync_SeedsTheTurnSpeakerFromTheDraftTail_UnknownHintKeepsIt()
+    {
+        var draft = new Meeting("m1", "Meeting", DateTimeOffset.Now, null, MeetingStatus.Recording, null, null);
+        var speakers = new[] { new Speaker("spk_1", "A"), new Speaker("spk_2", "B") };
+        var segments = new[] { new Segment("s1", "spk_2", 0, 1000, "hello", true) };
+        var tx = new RawTranscriber();
+        var diarizer = new ScriptedDiarizer(""); // Unknown hint: an empty id keeps the previous speaker
+
+        var session = await MeetingSession.RecoverAsync("m1", new FakeAudio(), tx, diarizer, new FakeGender(),
+            new DraftStore(draft, speakers, segments), "mic", "app");
+
+        session.NoteTurnAudio(new TurnAudio(ReadOnlyMemory<float>.Empty, 1000, 2000));
+        tx.Emit(new Segment("s2", "", 1000, 2000, "world", true));
+
+        Assert.Equal(2, session.Segments.Count);
+        Assert.Equal("s2", session.Segments[^1].Id);
+        Assert.Equal("spk_2", session.Segments[^1].SpeakerId);
+        await session.StopAsync();
+    }
+
     // A NEW meeting must never seed: StartAsync's contract is a clean identity space
     // (LivePage resets the diarizer instead — see the per-meeting reset contract).
     [Fact]
