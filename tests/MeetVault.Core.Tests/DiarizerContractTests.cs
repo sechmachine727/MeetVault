@@ -110,6 +110,34 @@ public sealed class DiarizerContractTests
         Assert.Equal(p1.SpeakerId, p4.SpeakerId);
     }
 
+    // A second meeting on the same diarizer must not match the previous meeting's voices
+    // or continue its spk_N numbering: after Reset, voice B's first sighting is a fresh
+    // candidate again (a surviving store would recall its old spk_2) and the confirmed
+    // voice mints spk_1 again rather than spk_3.
+    [Fact]
+    public void Reset_ForgetsThePreviousMeeting_VoicesAndIdsRestart()
+    {
+        var wavPath = Path.Combine(TestAudio.RepoRoot, "tests", "MeetVault.Core.Tests", "fixtures", "diarizer_two_speakers_16k.wav");
+        Assert.True(File.Exists(wavPath), "fixture missing: " + wavPath);
+        using var dz = TryOpen();
+        if (dz is null) return;
+
+        var all = TestAudio.ReadWav16k(wavPath);
+        // Meeting one: A confirmed (spk_1), B confirmed (spk_2).
+        dz.AssignTurn(Slice(all, 0, 90720));
+        Assert.Equal("spk_1", dz.AssignTurn(Slice(all, 0, 90720)).SpeakerId);
+        dz.AssignTurn(Slice(all, 95520, 183040));
+        Assert.Equal("spk_2", dz.AssignTurn(Slice(all, 95520, 183040)).SpeakerId);
+
+        dz.Reset();
+
+        // Old recall is gone: B's first post-reset sighting keeps the (reset) placeholder
+        // instead of matching its stored spk_2.
+        Assert.Equal("spk_1", dz.AssignTurn(Slice(all, 95520, 183040)).SpeakerId);
+        // ...and its confirmation mints spk_1 again (a counter that kept running -> spk_3).
+        Assert.Equal("spk_1", dz.AssignTurn(Slice(all, 95520, 183040)).SpeakerId);
+    }
+
     private static TurnAudio Slice(float[] all, int start, int end)
         => new(new ReadOnlyMemory<float>(all, start, end - start), start * 1000L / 16000, end * 1000L / 16000);
 }

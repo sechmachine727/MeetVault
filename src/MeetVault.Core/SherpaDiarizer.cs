@@ -60,6 +60,15 @@ public sealed class SherpaDiarizer : ISpeakerDiarizer, IDisposable
         }
     }
 
+    // New-meeting reset (called by LivePage.Start_Click, never on recovery): the matcher's
+    // ids/embeddings restart at spk_1 so a second meeting started on the same diarizer
+    // instance cannot continue the previous meeting's spk_N numbering or match its voices.
+    public void Reset()
+    {
+        _matcher.Reset();
+        AppLog.Info("diarizer: matcher reset for a new meeting (ids restart at spk_1)");
+    }
+
     // Union of this local speaker's spans within the turn -> one embedding per turn.
     private float[] EmbeddingFor(ReadOnlySpan<float> samples, IEnumerable<OfflineSpeakerDiarizationSegment> spans)
     {
@@ -108,6 +117,8 @@ public sealed class SherpaDiarizer : ISpeakerDiarizer, IDisposable
             list.Add(embedding);
             if (list.Count > MaxPerId) list.RemoveAt(0);
         }
+
+        public void Clear() => _byId.Clear();
     }
 
     private static readonly SpeakerHint Unknown = new("", SpeakerOrigin.Unknown);

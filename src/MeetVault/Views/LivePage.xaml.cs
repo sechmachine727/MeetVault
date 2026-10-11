@@ -146,6 +146,16 @@ public sealed partial class LivePage : Page
             // the previous meeting's stream state - neither its VAD stream clock (Reset) nor the
             // rebase base, which would offset every raw utterance time of the new meeting.
             lock (_vadLock) { _utterances?.Reset(); _utteranceBaseMs = 0; }
+            // Per-meeting speaker state, same rule: a meeting started on this page instance
+            // (the Dashboard CTA only navigates here; Start_Click is the single new-meeting
+            // entry) must not carry the previous meeting's speaker display names - a stale
+            // _speakerNames entry would publish the OLD meeting's name for a reused spk_N in
+            // the Live list and the overlay - nor the diarizer matcher's ids/embeddings
+            // (without the reset the new meeting's first voice continues the old spk_N
+            // numbering and can match the old voices). Recovery (RecoverAsync) never resets:
+            // it continues the same meeting's ids and names.
+            _speakerNames.Clear();
+            _sherpaDiarizer?.Reset();
             _session = new MeetingSession(_audio, _transcriber, _diarizer, new NeutralSpeakerLabeler(), AppStore.Repo);
             await _session.StartAsync(MicId, AppSource, CancellationToken.None);
             WireSession(clearOverlay: true);

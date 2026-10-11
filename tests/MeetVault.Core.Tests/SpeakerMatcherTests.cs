@@ -23,6 +23,7 @@ public sealed class SpeakerMatcherTests
             if (!ById.TryGetValue(id, out var list)) ById[id] = list = new();
             list.Add(emb);
         }
+        public void Clear() => ById.Clear();
     }
 
     private static float[] Vec(params float[] v) { var r = new float[8]; Array.Copy(v, r, v.Length); return r; }
@@ -132,5 +133,44 @@ public sealed class SpeakerMatcherTests
         var r = m.Assign(Vec(1, 0), 3000);         // equidistant
 
         Assert.Equal("spk_2", r.SpeakerId);
+    }
+
+    // --- review round 4 (per-meeting reset) ---
+
+    // Reset() must give the next meeting a clean identity space: the old embedding store is
+    // emptied (no recall of the previous meeting's voices), pending candidates are dropped,
+    // and the id counter/last id restart at the placeholder — so a second meeting on the
+    // same matcher mints spk_1 for its first confirmed voice again, never spk_3+.
+    [Fact]
+    public void Reset_ForgetsThePreviousMeeting_IdsRestartAtSpk_1()
+    {
+        var m = new SpeakerMatcher(new FakeStore());
+        var a = Vec(1, 0); var b = Vec(0, 1); var c = Vec(0, 0, 1);
+
+        // Meeting one: a and b confirmed (spk_1, spk_2); c left pending (reserved spk_3).
+        m.Assign(a, 0);
+        Assert.Equal("spk_1", m.Assign(a, 1000).SpeakerId);
+        m.Assign(b, 2000);
+        Assert.Equal("spk_2", m.Assign(b, 3000).SpeakerId);
+        m.Assign(c, 4000);
+
+        m.Reset();
+
+        // Old embeddings are forgotten: a needs both sightings again (a store hit would
+        // keep IsNew=false on the second).
+        Assert.Equal("spk_1", m.Assign(a, 0).SpeakerId);
+        var aAgain = m.Assign(a, 1000);
+        Assert.Equal("spk_1", aAgain.SpeakerId);
+        Assert.True(aAgain.IsNew);
+
+        // The pending candidate is dropped: c's first sighting is fresh again (a surviving
+        // pending entry would confirm the old reservation spk_3 on the spot).
+        var cFirst = m.Assign(c, 2000);
+        Assert.Equal("spk_1", cFirst.SpeakerId);
+        Assert.False(cFirst.IsNew);
+        // The counter restarted: c confirms as the new meeting's second voice -> spk_2.
+        var cSecond = m.Assign(c, 3000);
+        Assert.Equal("spk_2", cSecond.SpeakerId);
+        Assert.True(cSecond.IsNew);
     }
 }

@@ -6,6 +6,7 @@ public interface IEmbeddingStore
 {
     string Search(float[] embedding, float threshold); // "" when nothing is close enough
     void Add(string speakerId, float[] embedding);
+    void Clear(); // drops every stored embedding: a NEW meeting must not match the old voices
 }
 
 public sealed record SpeakerMatch(string SpeakerId, SpeakerOrigin Origin, bool IsNew);
@@ -34,6 +35,19 @@ public sealed class SpeakerMatcher
     private string _last = "spk_1";
 
     public SpeakerMatcher(IEmbeddingStore store) => _store = store;
+
+    // Starts a fresh identity space for a NEW meeting: pending candidates, the id counter
+    // and the last id restart at the placeholder, and the embedding store is emptied so the
+    // new meeting's voices never match the previous meeting's embeddings (or continue its
+    // spk_N numbering). NEVER call this on a recovery path: a recovered meeting must keep
+    // its existing spk_N ids and matches.
+    public void Reset()
+    {
+        _pending.Clear();
+        _next = 1;
+        _last = "spk_1";
+        _store.Clear();
+    }
 
     public SpeakerMatch Assign(float[] embedding, long atMs)
     {
