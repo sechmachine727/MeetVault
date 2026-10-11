@@ -14,6 +14,12 @@ public sealed partial class SettingsPage : Page
     // XAML parse fires Toggled/SelectionChanged before all fields exist.
     // Handlers stay silent until init completes.
     private bool _ready;
+    // Load-time guard: set while the ctor seeds the controls from persisted settings and
+    // renders the first summary. Every value-changed handler early-returns and Refresh()
+    // writes nothing back while it is set, so loading never persists programmatic values
+    // (the old 0.3 darkness floor clamped a saved 0 on load and the load-time Refresh
+    // then silently rewrote overlay.opacity to 0.3).
+    private bool _loading;
 
     public SettingsPage()
     {
@@ -39,12 +45,15 @@ public sealed partial class SettingsPage : Page
         ModelPicker.SelectedIndex = 0;
         DevicePicker.SelectedIndex = 0;
 
+        _loading = true;
         try { LoadPersisted(); } catch { }
         _ready = true;
         try { WarnIfSavedDeviceUnavailable(); } catch { }
-        // After the warning: Refresh persists the picker's current value, which SelectDevice may
-        // have already downgraded to CPU, so the warning must read the setting before that write.
+        // First render: shows the loaded values; the persist block in Refresh is skipped
+        // while _loading is set, so a programmatic (possibly clamped) value is never
+        // written back over the setting it was read from.
         Refresh();
+        _loading = false;
     }
 
     private readonly List<DeviceOption> _deviceOptions;
@@ -69,13 +78,14 @@ public sealed partial class SettingsPage : Page
         return list;
     }
 
-    private void Picker_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (_ready) Refresh(); }
+    private void Picker_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (_loading) return; if (_ready) Refresh(); }
 
     // Persists ui.language and applies the override for the NEXT launch; the InfoBar says so.
     // Unpackaged apps must use the Microsoft.Windows.Globalization variant — the
     // Windows.Globalization one throws InvalidOperationException here (L0 probe).
     private void Language_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_loading) return;
         if (!_ready) return;
         var value = LanguagePicker.SelectedIndex switch { 1 => "en", 2 => "ja", _ => "system" };
         AppStore.Repo.SetSetting("ui.language", value);
@@ -90,18 +100,18 @@ public sealed partial class SettingsPage : Page
         StatusBar.IsOpen = true;
     }
 
-    private void Diarization_Toggled(object sender, RoutedEventArgs e) { if (_ready) Refresh(); }
+    private void Diarization_Toggled(object sender, RoutedEventArgs e) { if (_loading) return; if (_ready) Refresh(); }
 
-    private void Audio_Toggled(object sender, RoutedEventArgs e) { if (_ready) Refresh(); }
+    private void Audio_Toggled(object sender, RoutedEventArgs e) { if (_loading) return; if (_ready) Refresh(); }
 
-    private void Pin_Toggled(object sender, RoutedEventArgs e) { if (_ready) Refresh(); }
+    private void Pin_Toggled(object sender, RoutedEventArgs e) { if (_loading) return; if (_ready) Refresh(); }
 
-    private void Opacity_ValueChanged(object sender, RangeBaseValueChangedEventArgs e) { if (_ready) Refresh(); }
+    private void Opacity_ValueChanged(object sender, RangeBaseValueChangedEventArgs e) { if (_loading) return; if (_ready) Refresh(); }
 
-    private void Number_ValueChanged(object sender, NumberBoxValueChangedEventArgs e) { if (_ready) Refresh(); }
+    private void Number_ValueChanged(object sender, NumberBoxValueChangedEventArgs e) { if (_loading) return; if (_ready) Refresh(); }
 
     // LostFocus rather than TextChanged: usage walks the folder, and a per-keystroke scan would stall the UI thread.
-    private void Refresh_Storage(object sender, RoutedEventArgs e) { if (_ready) Refresh(); }
+    private void Refresh_Storage(object sender, RoutedEventArgs e) { if (_loading) return; if (_ready) Refresh(); }
 
     private void SaveKey_Click(object sender, RoutedEventArgs e)
     {
@@ -230,6 +240,10 @@ public sealed partial class SettingsPage : Page
             ? Loc.T("Set.GeminiNoKey")
             : Loc.T("Set.KeyStored");
 
+        // Load-time render only: while _loading the control values came from the store,
+        // not from the user — writing them back could silently rewrite a setting that a
+        // programmatic value (a clamp) changed, and load must never do that.
+        if (_loading) return;
         // Persist after the summary renders so a storage failure degrades to a warning, never a dead page.
         try
         {

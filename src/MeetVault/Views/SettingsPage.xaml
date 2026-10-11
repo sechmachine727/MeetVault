@@ -156,7 +156,7 @@
                         <TextBlock x:Uid="SetOpacityDesc" Opacity="0.7" TextWrapping="Wrap" />
                     </StackPanel>
                     <Slider x:Name="OpacitySlider" x:Uid="SetOpacitySlider" Grid.Column="1" Width="280" HorizontalAlignment="Left"
-                            Minimum="0.3" Maximum="1.0" StepFrequency="0.05" Value="0.9"
+                            Minimum="0" Maximum="1" StepFrequency="0.05" Value="0.9"
                             ValueChanged="Opacity_ValueChanged" />
                 </Grid>
                 <Grid ColumnSpacing="24">
