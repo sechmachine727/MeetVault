@@ -363,8 +363,7 @@ public sealed partial class OverlayWindow : Window
 
     // Bottom-anchored conversation: every line — the current sentence included — renders
     // at the same size and weight (owner convention 2026-10-11: no headline treatment);
-    // only brightness marks recency (newest 1.0, older 0.72). Rename rides the button's
-    // DataContext through Rename_Click (null-safe early return).
+    // only brightness marks recency (newest 1.0, older 0.72).
     // The strip must never outgrow its cell: WinUI paints a Grid child unclipped,
     // so a bottom-anchored over-tall panel covers the header and its top lines
     // leave the window. The shown count is capped by what actually fits (the fit
@@ -387,7 +386,7 @@ public sealed partial class OverlayWindow : Window
         // A shown partial line occupies one regular line box (font x 1.35 + spacing, the
         // same box OverlayLayout.FittingLines counts); reserve it before fitting finals.
         var reserve = Vm.Partial.Length > 0 ? Vm.FontSize * 1.35 + _conversationPanel.Spacing : 0;
-        var fitting = OverlayLayout.FittingLines(Math.Max(0, available - reserve), Vm.FontSize, Vm.FontSize, _conversationPanel.Spacing);
+        var fitting = OverlayLayout.FittingLines(Math.Max(0, available - reserve), Vm.FontSize, _conversationPanel.Spacing);
         var take = Math.Clamp(Math.Min((int)Vm.ViewLines, fitting), 1, 12);
         for (var i = Math.Max(0, Vm.Lines.Count - take); i < Vm.Lines.Count; i++)
         {

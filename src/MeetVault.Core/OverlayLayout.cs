@@ -13,22 +13,19 @@ public static class OverlayLayout
     public const double LineHeightFactor = 1.35;
 
     // Whole lines of fontDip (with lineSpacingDip between them) that fit in
-    // availableDip: n such that n*font + (n−1)*spacing ≤ available. The newest line
-    // renders larger (latestFontDip) — the strip always shows it, so the older lines
-    // only get what remains after its line box. A latestFontDip ≤ fontDip means every
-    // line is base size. Returns at least 1 whenever availableDip > 0: the newest line
-    // is the strip's mandatory floor (the caller clips anything that still does not fit).
-    public static int FittingLines(double availableDip, double fontDip, double latestFontDip, double lineSpacingDip)
+    // availableDip: n such that n*font + (n−1)*spacing ≤ available. Every line —
+    // the current sentence included — renders at the same size (owner convention
+    // 2026-10-11: no headline treatment). Returns at least 1 whenever availableDip > 0
+    // (the caller clips anything that still does not fit).
+    public static int FittingLines(double availableDip, double fontDip, double lineSpacingDip)
     {
-        if (!double.IsFinite(availableDip) || !double.IsFinite(fontDip) || !double.IsFinite(latestFontDip) || !double.IsFinite(lineSpacingDip))
+        if (!double.IsFinite(availableDip) || !double.IsFinite(fontDip) || !double.IsFinite(lineSpacingDip))
             return 0;
         if (availableDip <= 0 || fontDip <= 0)
             return 0;
-        var latest = Math.Max(fontDip, latestFontDip);
         var spacing = Math.Max(0, lineSpacingDip);
-        var rest = availableDip - latest * LineHeightFactor;
-        if (rest < 0) return 1;
-        var older = Math.Floor(rest / (fontDip * LineHeightFactor + spacing));
-        return older >= int.MaxValue - 1 ? int.MaxValue : 1 + (int)older;
+        var fitting = Math.Floor((availableDip + spacing) / (fontDip * LineHeightFactor + spacing));
+        if (fitting >= int.MaxValue - 1) return int.MaxValue;
+        return Math.Max(1, (int)fitting);
     }
 }
