@@ -210,9 +210,50 @@ public sealed partial class BackendPage : Page
         public string Preview { get; set; } = "";
         public string? MergeTarget { get; set; }
     }
-    private void RenderVersions(List<BackendTranscript> versions) { /* T75 */ }
-    private void RenderJobs(List<BackendJob> jobs) { /* T75 */ }
-    private void RenderMedia(List<BackendMediaAsset> media) { /* T75 */ }
+    private readonly List<BackendJob> _jobRows = new();
+    private readonly List<BackendMediaAsset> _mediaRows = new();
+
+    private void RenderVersions(List<BackendTranscript> versions)
+    {
+        VersionsList.ItemsSource = versions
+            .OrderByDescending(v => v.Version)
+            .Select(v => new NameRow
+            {
+                Id = v.Id,
+                Text = Loc.Tf("Back.VersionLine", v.Version, v.Source, v.Provider, v.SegmentCount) + (v.IsActive ? " · " + Loc.T("Back.Active") : ""),
+                Detail = v.IsMock ? Loc.T("Back.MockBadge") : "",
+            })
+            .ToArray();
+    }
+
+    private void RenderJobs(List<BackendJob> jobs)
+    {
+        _jobRows.Clear();
+        _jobRows.AddRange(jobs);
+        JobsList.ItemsSource = _jobRows
+            .Select(j => new NameRow
+            {
+                Id = j.Id,
+                Text = j.Type + " · " + j.State + " · " + BackendPresentation.Percent(j.Progress) + "%"
+                    + (j.Error is { Length: > 0 } err ? " — " + err : ""),
+                Detail = j.IsMock ? Loc.T("Back.MockBadge") : "",
+            })
+            .ToArray();
+    }
+
+    private void RenderMedia(List<BackendMediaAsset> media)
+    {
+        _mediaRows.Clear();
+        _mediaRows.AddRange(media);
+        MediaList.ItemsSource = _mediaRows
+            .Select(m => new NameRow
+            {
+                Id = m.Id,
+                Text = m.Kind + " · " + m.OriginalName + " · " + (m.DurationMs / 1000) + "s · " + (m.SizeBytes / 1024 / 1024) + " MB",
+                Detail = m.Kind == "video" ? "offset " + m.StartOffsetMs + " ms" : "",
+            })
+            .ToArray();
+    }
 
     private void PlaySource(string path)
     {
@@ -291,11 +332,78 @@ public sealed partial class BackendPage : Page
         StatusBar.IsOpen = true;
     }
 
-    // Rerun/Update/Ask/Remove/Speaker/Version/Job/Media handlers arrive in T73–T75; each stays
-    // stubbed as `private void Name_Click(object sender, RoutedEventArgs e) { }` until its task.
-    private void Rerun_Click(object sender, RoutedEventArgs e) { }
-    private void UpdateTranscript_Click(object sender, RoutedEventArgs e) { }
-    private void Remove_Click(object sender, RoutedEventArgs e) { }
+    private async void UpdateTranscript_Click(object sender, RoutedEventArgs e)
+    {
+        if (_backendId is null || _meeting is null) return;
+        if (!TryClientUrl(out var url, out var key)) { Status(InfoBarSeverity.Warning, Loc.T("Det.BackendNoUrl")); return; }
+        try
+        {
+            using var transport = new BackendHttpTransport(url, key);
+            var client = new BackendClient(transport);
+            var media = await client.ListMediaAsync(_backendId);
+            var probedMs = media.FirstOrDefault(m => m.Kind == "audio")?.DurationMs;
+            var formatA = BackendFormatter.ToFormatA(_meeting,
+                AppStore.Repo.LoadSegments(_meeting.Id), AppStore.Repo.LoadSpeakers(_meeting.Id), probedMs);
+            await client.UploadTranscriptAsync(_backendId, formatA, _meeting.Language);
+            await client.ProcessAsync(_backendId, new List<string> { "analyze" }, force: true);
+            Status(InfoBarSeverity.Informational, Loc.T("Back.RerunStarted"));
+            await PollUntilTerminalAsync(client);
+            await LoadAsync();
+        }
+        catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+    }
+
+    private async void Rerun_Click(object sender, RoutedEventArgs e)
+    {
+        if (_backendId is null) return;
+        if (!TryClientUrl(out var url, out var key)) { Status(InfoBarSeverity.Warning, Loc.T("Det.BackendNoUrl")); return; }
+        try
+        {
+            using var transport = new BackendHttpTransport(url, key);
+            var client = new BackendClient(transport);
+            await client.ProcessAsync(_backendId, new List<string> { "analyze" }, force: true);
+            Status(InfoBarSeverity.Informational, Loc.T("Back.RerunStarted"));
+            await PollUntilTerminalAsync(client);
+            await LoadAsync();
+        }
+        catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+    }
+
+    private async Task PollUntilTerminalAsync(BackendClient client)
+    {
+        while (true)
+        {
+            var status = await client.GetStatusAsync(_backendId!);
+            RenderStatus(status);
+            if (status.Status is "ready" or "failed" or "deleted") return;
+            await Task.Delay(TimeSpan.FromSeconds(2));
+        }
+    }
+
+    private async void Remove_Click(object sender, RoutedEventArgs e)
+    {
+        if (_backendId is null || _meeting is null) return;
+        var confirm = new ContentDialog
+        {
+            Title = Loc.T("Back.RemoveTitle"),
+            Content = Loc.T("Back.RemoveBody"),
+            PrimaryButtonText = Loc.T("Back.Remove"),
+            CloseButtonText = Loc.T("Det.Cancel"),
+            XamlRoot = XamlRoot,
+        };
+        if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+        if (!TryClientUrl(out var url, out var key)) return;
+        try
+        {
+            using var transport = new BackendHttpTransport(url, key);
+            var client = new BackendClient(transport);
+            await client.DeleteMeetingAsync(_backendId);
+            AppStore.Repo.ClearBackendSync(_meeting.Id);
+            Status(InfoBarSeverity.Success, Loc.T("Back.Removed"));
+            ReloadPicker();
+        }
+        catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+    }
     private async void Ask_Click(object sender, RoutedEventArgs e)
     {
         if (_backendId is null || _meeting is null) return;
@@ -415,9 +523,80 @@ public sealed partial class BackendPage : Page
         }
         catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
     }
-    private void VersionActivate_Click(object sender, RoutedEventArgs e) { }
-    private void VersionDelete_Click(object sender, RoutedEventArgs e) { }
-    private void JobWatch_Click(object sender, RoutedEventArgs e) { }
-    private void JobCancel_Click(object sender, RoutedEventArgs e) { }
-    private void MediaDownload_Click(object sender, RoutedEventArgs e) { }
+    private async void VersionActivate_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.DataContext is not NameRow row || _backendId is null) return;
+        if (!TryClientUrl(out var url, out var key)) return;
+        try
+        {
+            using var transport = new BackendHttpTransport(url, key);
+            var client = new BackendClient(transport);
+            await client.ActivateTranscriptAsync(row.Id);
+            await LoadAsync();
+        }
+        catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+    }
+
+    private async void VersionDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.DataContext is not NameRow row || _backendId is null) return;
+        if (!TryClientUrl(out var url, out var key)) return;
+        try
+        {
+            using var transport = new BackendHttpTransport(url, key);
+            var client = new BackendClient(transport);
+            await client.DeleteTranscriptAsync(row.Id);
+            await LoadAsync();
+        }
+        catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+    }
+
+    private async void JobWatch_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.DataContext is not NameRow row) return;
+        if (!TryClientUrl(out var url, out var key)) return;
+        EventsText.Text = "";
+        try
+        {
+            using var transport = new BackendHttpTransport(url, key);
+            var client = new BackendClient(transport);
+            await foreach (var jobEvent in client.WatchJobAsync(row.Id))
+                EventsText.Text += jobEvent.Level + ": " + jobEvent.Message + "\n";
+        }
+        catch (Exception ex) { EventsText.Text += ex.Message; }
+    }
+
+    private async void JobCancel_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.DataContext is not NameRow row) return;
+        if (!TryClientUrl(out var url, out var key)) return;
+        try
+        {
+            using var transport = new BackendHttpTransport(url, key);
+            var client = new BackendClient(transport);
+            await client.CancelJobAsync(row.Id);
+            await LoadAsync();
+        }
+        catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+    }
+
+    private async void MediaDownload_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.DataContext is not NameRow row) return;
+        if (!TryClientUrl(out var url, out var key)) return;
+        var asset = _mediaRows.FirstOrDefault(m => m.Id == row.Id);
+        if (asset is null) return;
+        var extension = Path.GetExtension(asset.OriginalName);
+        var destination = _cache.MediaPath(asset.Id, extension);
+        Status(InfoBarSeverity.Informational, Loc.T("Back.Downloading"));
+        try
+        {
+            using var transport = new BackendHttpTransport(url, key);
+            using var downloadCts = new CancellationTokenSource(TimeSpan.FromMinutes(60));
+            var client = new BackendClient(transport);
+            await client.DownloadMediaAsync(asset.Id, destination, downloadCts.Token);
+            Status(InfoBarSeverity.Success, Loc.Tf("Back.Downloaded", destination));
+        }
+        catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+    }
 }
