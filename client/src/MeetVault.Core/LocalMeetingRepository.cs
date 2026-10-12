@@ -219,7 +219,7 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
             }
         }
         using var tx = _db.BeginTransaction();
-        foreach (var table in new[] { "transcript_segments", "speakers", "gemini_jobs", "media_tracks", "meetings" })
+        foreach (var table in new[] { "transcript_segments", "speakers", "gemini_jobs", "media_tracks", "backend_sync", "meetings" })
         {
             using var d = _db.CreateCommand();
             d.Transaction = tx;
@@ -565,6 +565,27 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         c.CommandText = "DELETE FROM backend_sync WHERE meeting_id=$m";
         c.Parameters.AddWithValue("$m", meetingId);
         c.ExecuteNonQuery();
+    }
+
+    // Meetings that have a backend row, newest first — the Backend page's picker.
+    public IReadOnlyList<(Meeting Meeting, BackendSyncRow Sync)> ListSyncedMeetings()
+    {
+        var list = new List<(Meeting, BackendSyncRow)>();
+        using var c = _db.CreateCommand();
+        c.CommandText = "SELECT m.id,m.title,m.started_at,m.ended_at,m.status,m.media_path,m.media_mime,m.language, b.backend_id,b.state,b.last_error,b.mock,b.updated_at FROM meetings m JOIN backend_sync b ON b.meeting_id = m.id ORDER BY m.started_at DESC";
+        using var r = c.ExecuteReader();
+        while (r.Read())
+        {
+            var meeting = new Meeting(r.GetString(0), r.GetString(1), DateTimeOffset.Parse(r.GetString(2)),
+                r.IsDBNull(3) ? null : DateTimeOffset.Parse(r.GetString(3)),
+                Enum.TryParse<MeetingStatus>(r.GetString(4), out var st) ? st : MeetingStatus.Failed,
+                r.IsDBNull(5) ? null : r.GetString(5), r.IsDBNull(6) ? null : r.GetString(6),
+                r.IsDBNull(7) ? "" : r.GetString(7));
+            var sync = new BackendSyncRow(r.GetString(0), r.IsDBNull(8) ? null : r.GetString(8), r.GetString(9),
+                r.IsDBNull(10) ? null : r.GetString(10), r.GetInt32(11) != 0, r.GetString(12));
+            list.Add((meeting, sync));
+        }
+        return list;
     }
 
     // ponytail: unknown enum text falls back to Failed, never throws; surfaces in UI instead of breaking list/load.

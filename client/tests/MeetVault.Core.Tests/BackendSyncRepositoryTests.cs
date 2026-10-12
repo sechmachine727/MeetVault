@@ -42,4 +42,33 @@ public sealed class BackendSyncRepositoryTests : IDisposable
         repo.ClearBackendSync("mv-3");
         Assert.Null(repo.LoadBackendSync("mv-3"));
     }
+
+    [Fact]
+    public void ListSyncedMeetings_Joins_And_CascadeDeletes()
+    {
+        using var repo = Open();
+        var meeting = new Meeting("mv-9", "Sync", DateTimeOffset.Parse("2026-10-12T02:00:00Z"), null, MeetingStatus.Ready, null, null, "en");
+        repo.Save(meeting, new List<Speaker>(), new List<Segment>());
+        repo.SaveBackendSync(new BackendSyncRow("mv-9", "b9", "ready", null, false, "t"));
+        var synced = repo.ListSyncedMeetings();
+        Assert.Single(synced);
+        Assert.Equal("mv-9", synced[0].Meeting.Id);
+        Assert.Equal("b9", synced[0].Sync.BackendId);
+
+        repo.DeleteMeeting("mv-9");
+        using var reopen = Open();
+        Assert.Null(reopen.LoadBackendSync("mv-9"));
+        Assert.Empty(reopen.ListSyncedMeetings());
+    }
+
+    [Fact]
+    public void BulkDelete_Removes_SyncRows()
+    {
+        using var repo = Open();
+        repo.Save(new Meeting("mv-b", "A", DateTimeOffset.Parse("2026-10-12T02:00:00Z"), null, MeetingStatus.Ready, null, null), new List<Speaker>(), new List<Segment>());
+        repo.SaveBackendSync(new BackendSyncRow("mv-b", "bb", "ready", null, false, "t"));
+        var result = repo.DeleteMeetings(new List<string> { "mv-b" });
+        Assert.Single(result.DeletedIds);
+        Assert.Null(repo.LoadBackendSync("mv-b"));
+    }
 }
