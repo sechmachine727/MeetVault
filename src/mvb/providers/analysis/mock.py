@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 
 from mvb.providers.base import LLMResult
+
+_ID_LINE = re.compile(r"^([0-9a-fA-F-]{36}) \| ", re.MULTILINE)
 
 
 class MockAnalyzer:
@@ -19,11 +22,18 @@ class MockAnalyzer:
     def complete_json(self, *, system: str, user: str, schema: dict, timeout_s: float) -> LLMResult:
         digest = hashlib.sha256(f"{system}\n{user}\n{json.dumps(schema, sort_keys=True)}".encode()).hexdigest()[:12]
         kind = schema.get("x-kind", "summary")
-        payload = _build(kind, digest)
+        payload = _build(kind, digest, user)
         return LLMResult(payload=payload, provider=self.id, model=self.model, is_mock=True)
 
 
-def _build(kind: str, digest: str) -> dict:
+def _excerpt_ids(user: str) -> list[str]:
+    """Real segment ids taken from the EXCERPT block — the mock grounds its Q&A like a real
+    model would, which keeps the citation plumbing honest in the default test path."""
+    block = user.split("EXCERPT:", 1)[-1]
+    return _ID_LINE.findall(block)
+
+
+def _build(kind: str, digest: str, user: str) -> dict:
     if kind == "agenda":
         return {
             "items": [
@@ -59,5 +69,5 @@ def _build(kind: str, digest: str) -> dict:
     if kind == "action_items":
         return {"items": [{"text": f"[mock] action {digest}", "owner": "Speaker 2", "due": None, "segment_ids": []}]}
     if kind == "qa":
-        return {"answer": f"[mock] answer {digest}", "citation_segment_ids": []}
+        return {"answer": f"[mock] answer {digest}", "citation_segment_ids": _excerpt_ids(user)[:2]}
     raise ValueError(f"mock analyzer has no builder for kind '{kind}'")
