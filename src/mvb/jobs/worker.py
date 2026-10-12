@@ -19,6 +19,25 @@ from mvb.storage.local import LocalStorage
 
 log = logging.getLogger(__name__)
 
+_pipeline_handlers_loaded = False
+
+
+def _ensure_handlers() -> None:
+    """Register the pipeline job types (idempotent).
+
+    Importing :mod:`mvb.pipeline.bootstrap` is what registers the handlers, and it used to be
+    done only in ``main()``. Any other entry point that called :func:`tick` directly (an
+    embedded worker, a smoke test) then claimed jobs it could not run and failed every one of
+    them with "no handler registered for job type …". Loading here makes tick self-sufficient.
+    """
+    global _pipeline_handlers_loaded
+    if _pipeline_handlers_loaded:
+        return
+    from mvb.pipeline import bootstrap
+
+    bootstrap.registered_pipeline_types()
+    _pipeline_handlers_loaded = True
+
 
 def cancelled(session: Session, job_id: uuid.UUID) -> bool:
     """Re-read state so /cancel takes effect on a running job."""
@@ -34,6 +53,7 @@ def tick(
     settings: Settings | None = None,
 ) -> bool:
     """Claim and run at most one job. Returns True when a job ran."""
+    _ensure_handlers()
     settings = settings or get_settings()
     factory = session_factory or get_session_factory()
     storage = storage or LocalStorage(settings.media_root)

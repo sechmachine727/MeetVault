@@ -55,6 +55,7 @@ client can always tell whether what it shows still matches the recording.
 
 ## Status
 
-153 tests pass on the dev box (SQLite); `ruff` is clean; the OpenAPI schema builds (33 paths).
-Docker/Postgres and the real AI engines are CI- or opt-in-verified only — see
-`docs/ACCEPTANCE.md` for exactly what was and was not verified where.
+155 tests pass on the dev box (SQLite); `ruff` is clean; the OpenAPI schema builds (33 paths);
+a live `uvicorn` + worker run was exercised end to end over HTTP on 2026-10-12. Docker/Postgres
+and the real AI engines are CI- or opt-in-verified only — see `docs/ACCEPTANCE.md` for exactly
+what was and was not verified where.
