@@ -62,6 +62,14 @@ public sealed class BackendSyncTests
             }, seen);
             Assert.Contains("transcribe", transport.Requests[4].JsonBody);
             Assert.DoesNotContain("force\":true", transport.Requests[4].JsonBody!);
+            // Pin the full first-send process body and every media upload query (kind/role, offset for video).
+            Assert.Equal("{\"steps\":[\"transcribe\",\"diarize\",\"align\",\"analyze\"],\"force\":false}", transport.Requests[4].JsonBody);
+            Assert.Equal("audio", transport.Requests[1].Query!["kind"]);
+            Assert.Equal("primary", transport.Requests[1].Query!["role"]);
+            Assert.False(transport.Requests[1].Query!.ContainsKey("start_offset_ms"));
+            Assert.Equal("video", transport.Requests[2].Query!["kind"]);
+            Assert.Equal("primary", transport.Requests[2].Query!["role"]);
+            Assert.Equal("4200", transport.Requests[2].Query!["start_offset_ms"]);
         }
         finally { File.Delete(audio); File.Delete(screen); }
     }
