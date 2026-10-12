@@ -247,4 +247,15 @@ public sealed class BackendClientTests
         await client.ListMeetingsAsync(0);
         Assert.Equal("1", transport.Requests[0].Query!["limit"]);
     }
+
+    [Fact]
+    public async Task CreateMeeting_ClampsNegativeDuration_ToZero()
+    {
+        var transport = new RecordingTransport { Responder = _ => DetailJson };
+        var client = new BackendClient(transport);
+        var meeting = new Meeting("mv-neg", "Bad", DateTimeOffset.Parse("2026-10-12T02:30:00Z"),
+            DateTimeOffset.Parse("2026-10-12T02:29:00Z"), MeetingStatus.Ready, null, null, "en");
+        await client.CreateMeetingAsync(meeting);
+        Assert.Contains("\"duration_ms\":0", transport.Requests[0].JsonBody);
+    }
 }

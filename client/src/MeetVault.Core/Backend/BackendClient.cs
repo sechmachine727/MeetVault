@@ -31,7 +31,7 @@ public sealed class BackendClient
             string.IsNullOrEmpty(meeting.Language) ? null : meeting.Language,
             meeting.StartedAt.ToUniversalTime().ToString("o"),
             meeting.EndedAt?.ToUniversalTime().ToString("o"),
-            meeting.EndedAt is { } end ? (long)(end - meeting.StartedAt).TotalMilliseconds : 0);
+            meeting.EndedAt is { } end ? Math.Max(0, (long)(end - meeting.StartedAt).TotalMilliseconds) : 0);
         var json = JsonSerializer.Serialize(body, BackendJsonContext.Default.BackendMeetingCreateBody);
         return Parse(await _transport.SendAsync(new BackendRequest("POST", "/v1/meetings", JsonBody: json), ct),
             BackendJsonContext.Default.BackendMeetingDetail);
