@@ -42,12 +42,12 @@ BundleArtifacts/
 appsettings.*.json
 secrets.json
 
-# ML model binaries (fetched or bundled at build time)
-/models/
-/cuda/
-/vcruntime/
-/modelharness/
-/publish/
+# ML model binaries (fetched or bundled at build time) — staged inside the app tree
+/client/models/
+/client/cuda/
+/client/vcruntime/
+/client/modelharness/
+/client/publish/
 *.onnx
 *.onnx_data
 *.gguf
