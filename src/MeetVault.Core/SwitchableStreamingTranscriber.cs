@@ -15,7 +15,7 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
     private readonly Func<string, IStreamingTranscriber> _factory;   // modelDir -> engine
     private readonly object _swapLock = new();
     private readonly SemaphoreSlim _swapOne = new(1, 1);              // one swap at a time
-    private readonly List<float[]> _preRoll = new();
+    private readonly List<(float[] Samples, long WallMs)> _preRoll = new(); // capture wall per chunk (review r19)
     private const int PreRollMs = 30_000; // must cover the 6.5 s detect wait + a large-tier load (~16.5 s) — the first engine publishes only after both (review r17)
     private IStreamingTranscriber? _inner;
     private string? _activeModelDir;
@@ -33,7 +33,7 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
     public async Task StartAsync(CancellationToken ct)
     {
         IStreamingTranscriber? inner;
-        float[][] replay;
+        (float[] Samples, long WallMs)[] replay;
         lock (_swapLock)
         {
             IsRunning = true;
@@ -41,7 +41,7 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
             // No engine yet (the auto "listen first" window): keep the pre-roll for the
             // first swap to replay — clearing it here dropped up to 6 s of captured speech
             // on an Auto-mode pause/resume (review r10).
-            replay = inner is null ? Array.Empty<float[]>() : _preRoll.ToArray();
+            replay = inner is null ? Array.Empty<(float[], long)>() : _preRoll.ToArray();
             if (inner is not null) _preRoll.Clear();
         }
         if (inner is not null)
@@ -49,7 +49,9 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
             // Observed: a failed start must surface to the caller, not die as an unobserved
             // task exception while the relay claims running (review r6).
             await inner.StartAsync(ct).ConfigureAwait(false);
-            foreach (var chunk in replay) inner.Push(chunk);
+            // Replay with each chunk's CAPTURE wall time so the buffered speech is
+            // backdated to when it happened (review r19).
+            foreach (var (chunk, wall) in replay) inner.PushReplay(chunk, wall);
         }
     }
 
@@ -73,19 +75,41 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
             {
                 // No engine yet (auto mode is still listening), or a swap is mid-flight:
                 // keep a bounded pre-roll so no speech is lost.
-                _preRoll.Add(samples16k);
-                var max = PreRollMs * 16;
-                var total = 0;
-                foreach (var chunk in _preRoll) total += chunk.Length;
-                while (total > max && _preRoll.Count > 1)
-                {
-                    total -= _preRoll[0].Length;
-                    _preRoll.RemoveAt(0);
-                }
+                _preRoll.Add((samples16k, Environment.TickCount64));
+                TrimPreRollLocked();
                 return;
             }
         }
         inner.Push(samples16k);
+    }
+
+    public void PushReplay(float[] samples16k, long captureWallMs)
+    {
+        IStreamingTranscriber? inner;
+        lock (_swapLock)
+        {
+            inner = _inner;
+            if (inner is null)
+            {
+                _preRoll.Add((samples16k, captureWallMs));
+                TrimPreRollLocked();
+                return;
+            }
+        }
+        inner.PushReplay(samples16k, captureWallMs);
+    }
+
+    // Caller holds _swapLock.
+    private void TrimPreRollLocked()
+    {
+        var max = PreRollMs * 16;
+        var total = 0;
+        foreach (var (samples, _) in _preRoll) total += samples.Length;
+        while (total > max && _preRoll.Count > 1)
+        {
+            total -= _preRoll[0].Samples.Length;
+            _preRoll.RemoveAt(0);
+        }
     }
 
     // Swap the ACTIVE engine. Returns false when the replacement could not be built or
@@ -157,7 +181,10 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
                 _activeModelDir = modelDir;
                 if (start)
                 {
-                    foreach (var chunk in _preRoll) fresh.Push(chunk);
+                    // Replay with each chunk's CAPTURE wall time: the opening speech is
+                    // backdated to when it happened, so DetailsPage can highlight and seek
+                    // it (review r19).
+                    foreach (var (chunk, wall) in _preRoll) fresh.PushReplay(chunk, wall);
                     _preRoll.Clear();
                 }
             }

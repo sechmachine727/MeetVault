@@ -47,6 +47,7 @@ public sealed class VoskStreamingTranscriber : IStreamingTranscriber
         return Task.Run(() => _runner.Flush());
     }
     public void Push(float[] samples16k) => _runner.Push(samples16k);
+    public void PushReplay(float[] samples16k, long captureWallMs) => _runner.PushReplay(samples16k, captureWallMs);
     public void Dispose() { IsRunning = false; _runner.Dispose(); }
 }
 

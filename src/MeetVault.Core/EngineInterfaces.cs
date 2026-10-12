@@ -27,6 +27,9 @@ public interface IStreamingTranscriber : ISpeechTranscriber, IDisposable
 {
     event Action<string>? PartialReady; // full interim text of the open utterance; "" clears it
     void Push(float[] samples16k);
+    // Pre-roll replay with an explicit capture wall time (auto-mode engine start): the
+    // default forwards as a plain push for engines without timeline support (review r19).
+    void PushReplay(float[] samples16k, long captureWallMs) { Push(samples16k); }
 }
 
 // The engine-specific slice of a streaming recognizer. ALL calls happen on the runner's

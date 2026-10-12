@@ -17,12 +17,14 @@ public sealed class StreamingRunner : IDisposable
     // The full GUID, not a short slice: 8 hex chars is only a 32-bit namespace, and a
     // collision on the global PRIMARY KEY fails the whole save.
     private readonly string _idPrefix = "s" + Guid.NewGuid().ToString("n");
-    private BlockingCollection<float[]>? _queue;
+    private BlockingCollection<(float[] Samples, long? CaptureWallMs)>? _queue;
     private Thread? _thread;
     private volatile bool _running;
     private int _droppedChunks;
     private int _utteranceSeq;
     private long _utteranceStartMs;
+    private bool _inReplay;                 // processing replayed pre-roll audio (review r19)
+    private long? _currentChunkWallMs;      // capture wall time of the chunk being processed
     private string _lastPartial = "";
     private bool _disposed;
     // How long FlushAndWait gives the decode thread to drain before reporting failure
@@ -44,8 +46,10 @@ public sealed class StreamingRunner : IDisposable
     public void Start()
     {
         if (_disposed) throw new ObjectDisposedException(nameof(StreamingRunner));
-        _queue = new BlockingCollection<float[]>(boundedCapacity: 1024); // ~10 s of 10 ms chunks: absorbs the engine's cold-start decode lag without dropping the head of the first utterance (measured: cold-start decodes can run far slower than real time)
+        _queue = new BlockingCollection<(float[], long?)>(boundedCapacity: 1024); // ~10 s of 10 ms chunks: absorbs the engine's cold-start decode lag without dropping the head of the first utterance (measured: cold-start decodes can run far slower than real time)
         _lastPartial = "";
+        _inReplay = false;
+        _currentChunkWallMs = null;
         _utteranceStartMs = _nowMs();
         _running = true;
         _thread = new Thread(Loop) { IsBackground = true, Name = "streaming-decode" };
@@ -53,7 +57,14 @@ public sealed class StreamingRunner : IDisposable
         AppLog.Info("streaming: decode thread started");
     }
 
-    public void Push(float[] samples16k)
+    public void Push(float[] samples16k) => Enqueue(samples16k, null);
+
+    // Pre-roll replay: these samples were captured BEFORE the engine existed; carry their
+    // capture wall time so segment timestamps are backdated to when the audio actually
+    // happened instead of being stamped at (much later) replay time (review r19).
+    public void PushReplay(float[] samples16k, long captureWallMs) => Enqueue(samples16k, captureWallMs);
+
+    private void Enqueue(float[] samples16k, long? captureWallMs)
     {
         var q = _queue;
         if (!_running || q is null) return;
@@ -66,7 +77,7 @@ public sealed class StreamingRunner : IDisposable
         {
             for (var attempts = 0; attempts < 9; attempts++)
             {
-                if (q.TryAdd(samples16k)) return;
+                if (q.TryAdd((samples16k, captureWallMs))) return;
                 if (q.TryTake(out _))
                 {
                     var n = System.Threading.Interlocked.Increment(ref _droppedChunks);
@@ -90,8 +101,16 @@ public sealed class StreamingRunner : IDisposable
     {
         try
         {
-            foreach (var chunk in _queue!.GetConsumingEnumerable())
+            foreach (var (chunk, captureWall) in _queue!.GetConsumingEnumerable())
             {
+                _currentChunkWallMs = captureWall;
+                if (captureWall is long cw)
+                {
+                    // First replayed chunk after live audio: the open utterance starts at
+                    // its capture time, not the (late) replay wall clock (review r19).
+                    if (!_inReplay) { _inReplay = true; _utteranceStartMs = cw; }
+                }
+                else if (_inReplay) _inReplay = false;
                 _backend.AcceptWaveform(chunk);
                 Emit();
             }
@@ -115,24 +134,38 @@ public sealed class StreamingRunner : IDisposable
         if (_backend.TryTakeFinal(out var final))
         {
             if (!string.IsNullOrWhiteSpace(final)) Finalize(final);
-            else { _lastPartial = ""; PartialReady?.Invoke(""); }
+            else { _lastPartial = ""; RaisePartial(""); }
             return;
         }
         var text = _backend.CurrentText();
         if (text.Length > 0 && text != _lastPartial)
         {
             _lastPartial = text;
-            PartialReady?.Invoke(text);
+            RaisePartial(text);
         }
     }
 
     private void Finalize(string text)
     {
-        var now = _nowMs();
-        SegmentReady?.Invoke(new Segment(_idPrefix + "-" + _utteranceSeq++, "", _utteranceStartMs, now, text, true));
+        // Replayed chunks finalize on their CAPTURE clock; live chunks on the wall clock
+        // (review r19).
+        var now = _currentChunkWallMs ?? _nowMs();
+        RaiseSegment(new Segment(_idPrefix + "-" + _utteranceSeq++, "", _utteranceStartMs, now, text, true));
         _utteranceStartMs = now;
         _lastPartial = "";
-        PartialReady?.Invoke("");
+        RaisePartial("");
+    }
+
+    // A throwing subscriber must not tear down the decode loop: the pipeline would go
+    // deaf for the rest of the meeting while IsRunning still reports true (review r19).
+    private void RaisePartial(string text)
+    {
+        try { PartialReady?.Invoke(text); } catch (Exception ex) { AppLog.Warn("streaming: partial subscriber threw: " + ex.Message); }
+    }
+
+    private void RaiseSegment(Segment segment)
+    {
+        try { SegmentReady?.Invoke(segment); } catch (Exception ex) { AppLog.Warn("streaming: segment subscriber threw: " + ex.Message); }
     }
 
     // Stops accepting chunks and waits for the decode thread to drain (up to the join

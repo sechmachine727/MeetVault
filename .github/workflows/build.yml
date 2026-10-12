@@ -59,10 +59,13 @@ jobs:
           foreach ($f in @("MeetVault.exe", "ScreenRecorderLib.dll", "Microsoft.ML.OnnxRuntime.dll", "onnxruntime.dll", "libvosk.dll")) {
             if (-not (Test-Path (Join-Path $dir $f))) { throw "missing $f in publish output" }
           }
-          # TrimForeignRuntimesPublish must leave no foreign-RID payloads behind (review r16;
-          # RIDs must be real ones — osx-*, not macos-* — review r18).
+          # A RID-specific self-contained publish emits no runtimes/ tree at all (the csproj
+          # trim globs match nothing today), so assert against the FILE LIST: a regression
+          # that reintroduces foreign payloads must still fail (review r19). RIDs must be
+          # real ones — osx-*, not macos-* (review r18).
+          $files = Get-ChildItem -Path $dir -Recurse -File | ForEach-Object { $_.FullName.Substring($dir.Length + 1) }
           foreach ($rid in @("linux-x64", "linux-arm64", "linux-arm", "osx-x64", "osx-arm64", "win-arm64", "win-x86")) {
-            if (Test-Path (Join-Path $dir "runtimes/$rid")) { throw "foreign runtime payload survived: runtimes/$rid" }
+            if ($files | Where-Object { $_ -like "runtimes\$rid\*" }) { throw "foreign runtime payload survived: runtimes/$rid" }
           }
           # The VC++ CRT (vcruntime140/msvcp140) is a locally staged payload (vcruntime/win-x64,
           # not committed): absent on CI by design, present in shipped builds.

@@ -365,8 +365,15 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
             }
             catch (Exception ex) { failed[id] = ex.Message; }
         }
-        // The batch is done; only the crash window keeps the marker alive (review r13).
-        try { SetSetting("repo.deletePending", ""); } catch { }
+        // The batch is done; the crash window keeps the marker alive (review r13) — and so
+        // does any staged aside that survived deletion: with the marker set, the next
+        // open's sweep can still reclaim it instead of resurrecting it as an orphan
+        // (review r19).
+        var asideSurvived = skipped.Any(s => s.Path.EndsWith(".deleting", StringComparison.OrdinalIgnoreCase));
+        if (!asideSurvived)
+        {
+            try { SetSetting("repo.deletePending", ""); } catch { }
+        }
         AppLog.Info($"repo: bulk delete {deleted.Count} deleted, {failed.Count} failed, {skipped.Count} media left in place");
         return new BulkDeleteResult(deleted, failed, skipped);
     }

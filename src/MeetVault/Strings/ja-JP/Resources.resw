@@ -294,6 +294,7 @@
   <data name="Live.LangDetecting" xml:space="preserve"><value>言語を検出しています…</value></data>
   <data name="Live.LangDetected" xml:space="preserve"><value>検出: {0}</value></data>
   <data name="Live.LangSwitching" xml:space="preserve"><value>次の無音区間で {0} に切り替えます…</value></data>
+  <data name="Live.LangSwitchFailed" xml:space="preserve"><value>言語を切り替えられませんでした。{0} のまま続行します。</value></data>
   <data name="Ov.LangAuto" xml:space="preserve"><value>自動</value></data>
   <data name="LiveScreenLabel.Text" xml:space="preserve"><value>画面収録</value></data>
   <data name="LiveScreenRecord.OnContent" xml:space="preserve"><value>オン</value></data>

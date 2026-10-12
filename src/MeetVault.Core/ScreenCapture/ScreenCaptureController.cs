@@ -152,13 +152,25 @@ public sealed class ScreenCaptureController : IDisposable
     {
         if (_run is not null || _phase != MeetingPhase.Recording) return;
         if (!Enabled) return;
-        var dir = _mediaDir();
+        // Resolve can throw (headless/RDP: "no display available for capture"): the class
+        // contract is warn-never-throw (review r19).
+        string? dir;
+        CaptureSource? source;
+        try
+        {
+            dir = _mediaDir();
+            source = _resolveSource?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            Warn("screen: source resolution failed: " + ex.Message);
+            return;
+        }
         if (string.IsNullOrEmpty(dir) || _meetingId is null)
         {
             Warn("screen: no media directory; screen run not started");
             return;
         }
-        var source = _resolveSource?.Invoke();
         if (source is null)
         {
             Warn("screen: no capture source; screen run not started");

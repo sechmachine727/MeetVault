@@ -124,7 +124,10 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
         lock (_gate) { rec = _recorder; _recorder = null; IsRecording = false; }
         if (rec is not null)
         {
-            try { rec.Recorder.Stop(); } catch { }
+            // Never Stop() a run whose Finish already handed it to the pool: Stop() on a
+            // disposed C++/CLI recorder can fault natively (uncatchable), and the success
+            // path of StopAsync deliberately leaves _recorder set (review r19).
+            if (!rec.Done.Task.IsCompleted) { try { rec.Recorder.Stop(); } catch { } }
             rec.DisposeOnce(); // release the native recorder exactly once (review r10)
         }
     }

@@ -109,6 +109,53 @@ public sealed class StreamingRunnerTests
     }
 
     [Fact]
+    public void Replay_BackdatesSegmentTimesToCaptureWall()
+    {
+        // Pre-roll replay must stamp segments on the CAPTURE clock: without this the
+        // opening speech (buffered during the auto-detect wait + model load) is stamped
+        // at replay time and DetailsPage can never highlight or seek it (review r19).
+        var b = new FakeBackend();
+        var segs = new List<Segment>();
+        long now = 100_000;
+        using var r = new StreamingRunner(b, () => now);
+        r.SegmentReady += segs.Add;
+        r.Start();
+        b.EndpointText = "opening";
+        r.PushReplay(new float[1600], 1_000);
+        r.PushReplay(new float[1600], 1_100);
+        r.PushReplay(new float[1600], 1_200);
+        Assert.True(SpinWait.SpinUntil(() => b.Fed.Count >= 3, 5000), "replay not drained");
+        b.EndpointText = "live";
+        now = 50_000;
+        r.Push(new float[1600]);
+        r.Flush();
+        Assert.Equal(2, segs.Count);
+        Assert.Equal(1_000, segs[0].StartMs); // capture clock, not the replay wall clock
+        Assert.Equal(1_000, segs[0].EndMs);
+        Assert.Equal(1_000, segs[1].StartMs);
+        Assert.Equal(50_000, segs[1].EndMs);  // live chunks are back on the wall clock
+    }
+
+    [Fact]
+    public void ThrowingSubscriber_DoesNotKillThePipeline()
+    {
+        // A throwing PartialReady/SegmentReady subscriber used to tear down the decode
+        // loop while IsRunning still reported true: the pipeline went deaf for the rest
+        // of the meeting and every later chunk was silently dropped (review r19).
+        var b = new FakeBackend();
+        long now = 0;
+        using var r = new StreamingRunner(b, () => now, joinTimeoutMs: 300);
+        r.SegmentReady += _ => throw new InvalidOperationException("bad segment subscriber");
+        r.PartialReady += _ => throw new InvalidOperationException("bad partial subscriber");
+        r.Start();
+        b.Partial = "listening";
+        b.EndpointText = "boom";
+        for (var i = 0; i < 3; i++) r.Push(new float[1600]);
+        Assert.True(r.FlushAndWait());
+        Assert.Equal(3, b.Fed.Count); // all chunks were consumed: the loop survived
+    }
+
+    [Fact]
     public void StalledDecodeThread_FlushReportsFalse_AndDisposeKeepsTheBackendAlive()
     {
         // The regression this pins: Flush used to discard the Join result and Dispose always

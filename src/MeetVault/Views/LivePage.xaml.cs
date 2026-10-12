@@ -77,11 +77,13 @@ public sealed partial class LivePage : Page
     private async void OnUnloaded(object sender, RoutedEventArgs e)
     {
         _checkpoint?.Stop();
+        // Detach BEFORE the await: during the pause the returning page may already be
+        // subscribed again, and an overlay request must reach only the new page (review r19).
+        LiveBridge.LanguageRequested -= OnLanguageRequested;
+        LiveBridge.ScreenToggleRequested -= OnScreenToggleRequested;
         try { if (_state != LiveState.Idle && _session is not null) await _session.PauseAsync(); } catch { }
         LiveBridge.SetLive(false); // leaving Live ends active transcription
         LiveBridge.SetMeetingState(_state == LiveState.Idle ? LiveBridge.MeetingState.Idle : LiveBridge.MeetingState.Paused);
-        LiveBridge.LanguageRequested -= OnLanguageRequested;
-        LiveBridge.ScreenToggleRequested -= OnScreenToggleRequested;
         try { _capture?.Dispose(); } catch { }
         try { _streaming?.Dispose(); } catch { }
         try { _langMonitor?.Dispose(); } catch { } _langMonitor = null;
@@ -645,9 +647,9 @@ public sealed partial class LivePage : Page
     // Single applier (manual pick, auto suggestion, resume): resolves the (language, size)
     // pair, swaps the relay's active engine, persists the meeting language and publishes
     // the state for the overlay.
-    private async Task ApplyLanguageAsync(string code, bool auto, string reason)
+    private async Task<bool> ApplyLanguageAsync(string code, bool auto, string reason)
     {
-        if (_relay is null) return;
+        if (_relay is null) return false;
         try
         {
         var size = AppStore.Repo.GetSetting("transcription.size") ?? "small";
@@ -656,7 +658,7 @@ public sealed partial class LivePage : Page
         {
             MeetVault.Core.AppLog.Warn("langid: " + code + " has no staged model; keeping " + _activeLanguage);
             SyncLanguageCombo(_autoMode ? "auto" : _activeLanguage);
-            return;
+            return false;
         }
         // A MID-MEETING auto switch avoids the large tier (measured: large loads in ~16.5 s
         // vs 0.24 s small); the initial pick and manual picks keep the configured tier.
@@ -669,12 +671,12 @@ public sealed partial class LivePage : Page
         if (!await Task.Run(() => relay.SwapTo(Path.Combine(ModelDir, "vosk", option.Model))))
         {
             MeetVault.Core.AppLog.Warn("langid: swap failed for " + option.Model);
-            return;
+            return false;
         }
         if (!ReferenceEquals(_session, owner))
         {
             MeetVault.Core.AppLog.Warn("langid: meeting changed while the engine loaded; apply skipped");
-            return;
+            return false;
         }
         _activeLanguage = code;
         _engineMode = "live: vosk " + option.Model;
@@ -687,8 +689,9 @@ public sealed partial class LivePage : Page
         EngineStatus.Text = _engineMode;
         MeetVault.Core.AppLog.Info("live: language -> " + code + " (" + reason + ")");
         SetLangStatus();
+        return true;
         }
-        catch (Exception ex) { MeetVault.Core.AppLog.Warn("langid: apply failed: " + ex.Message); }
+        catch (Exception ex) { MeetVault.Core.AppLog.Warn("langid: apply failed: " + ex.Message); return false; }
     }
 
     private void OnLangSuggested(string code)
@@ -755,9 +758,27 @@ public sealed partial class LivePage : Page
         }
         _autoMode = false;
         if (_langMonitor is not null) _langMonitor.Enabled = false;
-        PersistLanguage(normalized);
-        if (_relay is not null) await ApplyLanguageAsync(normalized, auto: false, reason: "manual");
-        SyncLanguageCombo(normalized);
+        if (_relay is null)
+        {
+            PersistLanguage(normalized);
+            SyncLanguageCombo(normalized);
+            SetLangStatus();
+            return;
+        }
+        // Persist and sync ONLY what actually runs: a failed swap must not leave the combo,
+        // the overlay, or the stored setting claiming a language the engine refused
+        // (review r19).
+        if (await ApplyLanguageAsync(normalized, auto: false, reason: "manual"))
+        {
+            PersistLanguage(normalized);
+            SyncLanguageCombo(normalized);
+        }
+        else
+        {
+            SyncLanguageCombo(_activeLanguage);
+            LiveBridge.SetLanguage(new LiveBridge.LanguageInfo(_activeLanguage, _autoMode, false));
+            Status(Loc.Tf("Live.LangSwitchFailed", _activeLanguage));
+        }
         SetLangStatus();
     }
 

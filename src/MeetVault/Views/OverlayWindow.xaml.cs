@@ -230,8 +230,8 @@ public sealed partial class OverlayWindow : Window
             UpdateDragRects();
         };
         RootSurface.SizeChanged += (_, _) => UpdateDragRects();
-        // The header's children change size when the REC indicator toggles: recompute the
-        // carved-out drag rects so no dead zone is left behind (review r17).
+        // Kept for real header resizes; the REC-indicator toggle is covered by the
+        // OnScreenStateChanged call below (review r19).
         HeaderBar.SizeChanged += (_, _) => UpdateDragRects();
         _presenter = (OverlappedPresenter)AppWindow.Presenter;
         _presenter.IsAlwaysOnTop = Vm.IsPinned;
@@ -360,6 +360,9 @@ public sealed partial class OverlayWindow : Window
                 var visibility = active ? Visibility.Visible : Visibility.Collapsed;
                 _screenDot!.Visibility = visibility;
                 _screenRecText!.Visibility = visibility;
+                // The header reflows when the indicator toggles (it is stretched, so its
+                // own SizeChanged does not fire): re-carve the drag rects (review r19).
+                UpdateDragRects();
             }
             catch (Exception ex) { AppLog.Warn("overlay: screen state update failed: " + ex.Message); }
         });
