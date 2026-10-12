@@ -188,6 +188,9 @@ public sealed class BackendClientTests
         var job = await client.AskAsync("b1", "q?");
         Assert.Equal("j9", job.JobId);
         Assert.Equal("{\"question\":\"q?\",\"top_k\":8}", transport.Requests[0].JsonBody);
+        var scoped = await client.AskAsync("b1", "q?", "sec-2");
+        Assert.Equal("j9", scoped.JobId);
+        Assert.Equal("{\"question\":\"q?\",\"section_id\":\"sec-2\",\"top_k\":8}", transport.Requests[1].JsonBody);
     }
 
     [Fact]
