@@ -330,12 +330,55 @@ public sealed partial class SettingsPage : Page
         Refresh();
     }
 
-    // Bound by the settings XAML in this commit; the test-connection flow lands in the next
-    // commit (monorepo step 23). Temporary stubs keep the XAML connect code compiling
-    // (plan defect #4: the XAML references these handlers before T51 defines them).
-    private void SaveBackendKey_Click(object sender, RoutedEventArgs e) { }
+    private void SaveBackendKey_Click(object sender, RoutedEventArgs e)
+    {
+        var key = BackendKeyBox.Password.Trim();
+        BackendKeyBox.Password = "";
+        if (key.Length == 0) Locker.Clear("BackendApiKey"); else Locker.Set("BackendApiKey", key);
+        var stored = Locker.Get("BackendApiKey") is { Length: > 0 };
+        Refresh();
+        StatusBar.Severity = key.Length == 0 ? InfoBarSeverity.Warning : stored ? InfoBarSeverity.Success : InfoBarSeverity.Warning;
+        StatusBar.Message = key.Length == 0 ? Loc.T("Set.BackendKeyCleared") : stored ? Loc.T("Set.BackendKeyStored") : Loc.T("Set.BackendKeyNotStored");
+        StatusBar.IsOpen = true;
+    }
 
-    private void TestBackend_Click(object sender, RoutedEventArgs e) { }
+    private async void TestBackend_Click(object sender, RoutedEventArgs e)
+    {
+        if (_loading || !_ready) return;
+        var url = (AppStore.Repo.GetSetting("backend.url") ?? "").Trim();
+        var key = Locker.Get("BackendApiKey");
+        if (url.Length == 0) { Warn(Loc.T("Set.BackendNoUrl")); return; }
+        if (key is not { Length: > 0 }) { Warn(Loc.T("Set.BackendNoKey")); return; }
+        TestBackendButton.IsEnabled = false;
+        BackendStatus.Text = Loc.T("Set.BackendTesting");
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            using var transport = new MeetVault.Core.Backend.BackendHttpTransport(url, key);
+            var client = new MeetVault.Core.Backend.BackendClient(transport);
+            var ready = await client.GetReadyAsync(cts.Token);
+            var providers = await client.GetProvidersAsync(cts.Token);
+            string Describe(string capability) => providers.TryGetValue(capability, out var p)
+                ? p.Effective + (p.IsMock ? " [mock]" : "")
+                : "?";
+            BackendStatus.Text = ready.Status == "ready"
+                ? Loc.Tf("Set.BackendReady", Loc.Tf("Set.BackendProviders", Describe("transcriber"), Describe("diarizer"), Describe("analyzer")))
+                : Loc.Tf("Set.BackendUnreachable", ready.Status);
+        }
+        catch (Exception ex)
+        {
+            BackendStatus.Text = Loc.Tf("Set.BackendUnreachable", DescribeBackendError(ex));
+        }
+        finally { TestBackendButton.IsEnabled = true; }
+    }
+
+    private static string DescribeBackendError(Exception ex) => ex switch
+    {
+        MeetVault.Core.Backend.BackendApiException api => api.Code + ": " + api.Message,
+        ArgumentException => Loc.T("Set.BackendBadUrl"),
+        TaskCanceledException => Loc.T("Set.BackendTimeout"),
+        _ => Loc.T("Set.BackendNetError"),
+    };
 
     // Persisted on every Refresh so a restart restores the exact controls; keys stay in Credential Locker, never here.
     private void LoadPersisted()
