@@ -85,7 +85,12 @@ public sealed partial class DetailsPage : Page
         ShowPriorJob(_meeting);
         ShowPriorBackend();
         UpdateLineStatus();
-        Unloaded += (_, _) => { try { Player.Source = null; } catch { } try { VideoPlayer.Source = null; } catch { } };
+        Unloaded += (_, _) =>
+        {
+            try { Player.Source = null; } catch { }
+            try { VideoPlayer.Source = null; } catch { }
+            try { _backendCts?.Cancel(); } catch { } // the poll stops with the page (plan decision #8)
+        };
     }
 
     private static string FormatDuration(Meeting m)
@@ -560,8 +565,9 @@ public sealed partial class DetailsPage : Page
         catch (Exception ex)
         {
             var message = DescribeBackendError(ex);
-            AppStore.Repo.SaveBackendSync(new(meetingId, _backendId, "failed", message, false, NowIso()));
+            AppStore.Repo.SaveBackendSync(new(meetingId, _backendId, "failed", message, existing?.Mock ?? false, NowIso()));
             BackendState.Text = Loc.Tf("Det.BackendFailed", message);
+            BackendSteps.Text = "";
             Status(InfoBarSeverity.Error, Loc.Tf("Det.BackendFailed", message));
         }
         finally
@@ -579,6 +585,7 @@ public sealed partial class DetailsPage : Page
         if (final.Status != "ready")
         {
             AppStore.Repo.SaveBackendSync(new(meeting.Id, _backendId, final.Status, null, final.Mock, NowIso()));
+            BackendSteps.Text = "";
             return;
         }
         try
