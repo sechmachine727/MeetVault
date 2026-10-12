@@ -144,13 +144,24 @@ public sealed class BackendHttpTransport : IBackendTransport
         try
         {
             using var doc = System.Text.Json.JsonDocument.Parse(body);
-            var error = doc.RootElement.GetProperty("error");
-            var code = error.TryGetProperty("code", out var c) ? c.GetString() ?? "" : "";
-            var message = error.TryGetProperty("message", out var m) ? m.GetString() ?? "" : "";
-            var requestId = doc.RootElement.TryGetProperty("request_id", out var r) ? r.GetString() : null;
-            if (code.Length > 0) return new BackendApiException((int)status, code, message, requestId);
+            if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                var code = "";
+                var message = "";
+                if (doc.RootElement.TryGetProperty("error", out var error)
+                    && error.ValueKind == System.Text.Json.JsonValueKind.Object)
+                {
+                    code = error.TryGetProperty("code", out var c) && c.ValueKind == System.Text.Json.JsonValueKind.String
+                        ? c.GetString() ?? "" : "";
+                    message = error.TryGetProperty("message", out var m) && m.ValueKind == System.Text.Json.JsonValueKind.String
+                        ? m.GetString() ?? "" : "";
+                }
+                var requestId = doc.RootElement.TryGetProperty("request_id", out var r) && r.ValueKind == System.Text.Json.JsonValueKind.String
+                    ? r.GetString() : null;
+                if (code.Length > 0) return new BackendApiException((int)status, code, message, requestId);
+            }
         }
-        catch (System.Text.Json.JsonException) { }
+        catch (Exception) { } // a malformed envelope must never throw its own exception; fall back to http_error
         return new BackendApiException((int)status, "http_error", "The backend answered with status " + (int)status + ".", null);
     }
 

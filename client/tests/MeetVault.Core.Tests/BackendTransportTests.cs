@@ -95,4 +95,26 @@ public sealed class BackendTransportTests
         Assert.Throws<ArgumentException>(() => new BackendHttpTransport("localhost:8080", "k"));
         Assert.Throws<ArgumentException>(() => new BackendHttpTransport("http://localhost:8080", " "));
     }
+
+    [Fact]
+    public async Task Send_ErrorBodyWithoutErrorObject_MapsToHttpError()
+    {
+        var handler = new BackendScriptedHandler();
+        handler.Enqueue(HttpStatusCode.BadGateway, "{\"detail\":\"Not Found\"}");
+        using var transport = new BackendHttpTransport("http://localhost:8080", "k", handler);
+        var ex = await Assert.ThrowsAsync<BackendApiException>(() => transport.SendAsync(new BackendRequest("GET", "/v1/meetings"), default));
+        Assert.Equal("http_error", ex.Code);
+        Assert.Equal(502, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task Send_StringErrorValue_MapsToHttpError()
+    {
+        var handler = new BackendScriptedHandler();
+        handler.Enqueue(HttpStatusCode.UnprocessableEntity, "{\"error\":\"boom\"}");
+        using var transport = new BackendHttpTransport("http://localhost:8080", "k", handler);
+        var ex = await Assert.ThrowsAsync<BackendApiException>(() => transport.SendAsync(new BackendRequest("GET", "/v1/meetings"), default));
+        Assert.Equal("http_error", ex.Code);
+        Assert.Equal(422, ex.StatusCode);
+    }
 }
