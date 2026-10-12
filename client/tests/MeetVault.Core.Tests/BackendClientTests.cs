@@ -111,4 +111,122 @@ public sealed class BackendClientTests
         Assert.Equal("b1", await client.FindBackendIdAsync("mv-1"));
         Assert.Null(await client.FindBackendIdAsync("mv-other"));
     }
+
+    [Fact]
+    public async Task Analysis_FlattensBundle_And_ToleratesEmpty()
+    {
+        const string bundle = """
+        {"meeting_id":"b1","transcript_id":"t1","run":{"id":"r1","transcript_id":"t1","provider":"mock-analyzer","model":"","prompt_version":"v1","is_mock":true,"status":"succeeded","created_at":null},
+         "summary":{"text":"All good","bullets":["a","b"]},
+         "agenda":{"items":[{"title":"Intro","topic":"welcome","start_ms":0,"end_ms":300000}]},
+         "sections":[{"id":"s1","meeting_id":"b1","analysis_run_id":"r1","ordinal":1,"title":"Intro","topic":"welcome","start_ms":0,"end_ms":300000,"summary":"","is_mock":true}],
+         "section_summaries":[{"id":"d1","section_id":"s1","kind":"section_summary","payload":{"summary":"hello","bullets":[],"decisions":[],"action_items":[]},"is_mock":true,"stale":false,"created_at":null}],
+         "decisions":{"items":[{"text":"ship it","decided_by":["Speaker 1"],"at_ms":120000,"segment_ids":["seg-1","bogus"]}]},
+         "action_items":{"items":[{"text":"do it","owner":"Speaker 2","due":null,"segment_ids":[]}]},
+         "qa":[{"id":"q1","section_id":null,"kind":"qa","payload":{"question":"q","answer":"a","citations":[{"segment_id":"seg-1","start_ms":1,"end_ms":2,"text":"x"}],"dropped_citations":1},"is_mock":true,"stale":false,"created_at":null}],
+         "stale_kinds":["summary"],"mock":true}
+        """;
+        var transport = new RecordingTransport { Responder = _ => bundle };
+        var client = new BackendClient(transport);
+        var parsed = await client.GetAnalysisAsync("b1");
+        Assert.Equal("All good", parsed.Summary!.Text);
+        Assert.Equal(2, parsed.Summary.Bullets.Count);
+        Assert.Single(parsed.Agenda);
+        Assert.Single(parsed.Sections);
+        Assert.Equal("ship it", parsed.Decisions[0].Text);
+        Assert.Equal(2, parsed.Decisions[0].SegmentIds.Count); // server guarantees resolution; we show what it stored
+        Assert.Equal("Speaker 2", parsed.Actions[0].Owner);
+        Assert.Null(parsed.Actions[0].Due);
+        Assert.Equal(1, parsed.Qa[0].DroppedCitations);
+        Assert.Equal("seg-1", parsed.Qa[0].Citations[0].SegmentId);
+        Assert.True(parsed.Mock);
+
+        transport.Responder = _ => "{\"meeting_id\":\"b1\",\"transcript_id\":null,\"run\":null,\"summary\":null,\"agenda\":null,\"sections\":[],\"section_summaries\":[],\"decisions\":null,\"action_items\":null,\"qa\":[],\"stale_kinds\":[],\"mock\":false}";
+        var empty = await client.GetAnalysisAsync("b1");
+        Assert.Null(empty.Summary);
+        Assert.Empty(empty.Decisions);
+        Assert.Empty(empty.Qa);
+    }
+
+    [Fact]
+    public async Task Speakers_Rename_Merge_Delete_UseExactPathsAndBodies()
+    {
+        var transport = new RecordingTransport { Responder = _ => "{\"merged_speaker_id\":\"s1\",\"target_speaker_id\":\"s2\",\"moved_segments\":3}" };
+        var client = new BackendClient(transport);
+        await client.RenameSpeakerAsync("s1", "Alice");
+        await client.MergeSpeakersAsync("s1", "s2");
+        await client.DeleteSpeakerAsync("s1");
+        Assert.Equal("/v1/speakers/s1", transport.Requests[0].Path);
+        Assert.Equal("PATCH", transport.Requests[0].Method);
+        Assert.Equal("{\"label\":\"Alice\"}", transport.Requests[0].JsonBody);
+        Assert.Equal("/v1/speakers/s1/merge", transport.Requests[1].Path);
+        Assert.Equal("{\"target_speaker_id\":\"s2\"}", transport.Requests[1].JsonBody);
+        Assert.Equal("DELETE", transport.Requests[2].Method);
+    }
+
+    [Fact]
+    public async Task TranscriptVersions_List_Activate_Delete()
+    {
+        var transport = new RecordingTransport { Responder = _ => "{\"items\":[{\"id\":\"t1\",\"meeting_id\":\"b1\",\"version\":1,\"source\":\"live_export\",\"provider\":\"client\",\"model\":\"\",\"language\":\"en\",\"is_mock\":false,\"is_active\":true,\"segment_count\":2,\"created_at\":null}],\"total\":1,\"limit\":50,\"offset\":0}" };
+        var client = new BackendClient(transport);
+        var versions = await client.ListTranscriptsAsync("b1");
+        Assert.Single(versions);
+        await client.ActivateTranscriptAsync("t2");
+        await client.DeleteTranscriptAsync("t3");
+        Assert.Equal("/v1/transcripts/t2/activate", transport.Requests[1].Path);
+        Assert.Equal("DELETE", transport.Requests[2].Method);
+    }
+
+    [Fact]
+    public async Task Qa_Ask_PostsQuestion()
+    {
+        var transport = new RecordingTransport { Responder = _ => "{\"meeting_id\":\"b1\",\"job_id\":\"j9\",\"question\":\"q?\",\"state\":\"queued\"}" };
+        var client = new BackendClient(transport);
+        var job = await client.AskAsync("b1", "q?");
+        Assert.Equal("j9", job.JobId);
+        Assert.Equal("{\"question\":\"q?\",\"top_k\":8}", transport.Requests[0].JsonBody);
+    }
+
+    [Fact]
+    public async Task Jobs_List_Get_Cancel()
+    {
+        var transport = new RecordingTransport();
+        transport.Responder = request => request.Path switch
+        {
+            "/v1/meetings/b1/jobs" => "{\"items\":[{\"id\":\"j1\",\"meeting_id\":\"b1\",\"type\":\"transcribe\",\"state\":\"succeeded\",\"progress\":1.0,\"attempts\":1,\"max_attempts\":3,\"error\":null,\"is_mock\":true,\"run_after\":null,\"started_at\":null,\"finished_at\":null,\"created_at\":null}],\"total\":1,\"limit\":50,\"offset\":0}",
+            "/v1/jobs/j1" => "{\"id\":\"j1\",\"meeting_id\":\"b1\",\"type\":\"transcribe\",\"state\":\"succeeded\",\"progress\":1.0,\"attempts\":1,\"max_attempts\":3,\"error\":null,\"is_mock\":true,\"events\":[{\"id\":1,\"at\":\"t\",\"level\":\"info\",\"message\":\"done\"}]}",
+            _ => "{}",
+        };
+        var client = new BackendClient(transport);
+        Assert.Single(await client.ListJobsAsync("b1"));
+        Assert.Single((await client.GetJobAsync("j1")).Events);
+        await client.CancelJobAsync("j1");
+        Assert.Equal("/v1/jobs/j1/cancel", transport.Requests[2].Path);
+    }
+
+    [Fact]
+    public async Task WatchJob_ParsesSse_AndSkipsGarbage()
+    {
+        var transport = new RecordingTransport();
+        transport.StreamLines.AddRange(new[]
+        {
+            "event: ping", "", "data: {\"id\":1,\"at\":\"t1\",\"level\":\"info\",\"message\":\"first\"}",
+            ": comment", "data: broken{", "data: {\"id\":2,\"at\":\"t2\",\"level\":\"info\",\"message\":\"second\"}",
+        });
+        var client = new BackendClient(transport);
+        var events = new List<BackendJobEvent>();
+        await foreach (var e in client.WatchJobAsync("j1")) events.Add(e);
+        Assert.Equal(2, events.Count);
+        Assert.Equal("first", events[0].Message);
+        Assert.Equal("/v1/jobs/j1/events", transport.StreamedPaths[0]);
+    }
+
+    [Fact]
+    public async Task DownloadMedia_UsesMediaPath()
+    {
+        var transport = new RecordingTransport();
+        var client = new BackendClient(transport);
+        await client.DownloadMediaAsync("a9", "C:/tmp/a9.m4a");
+        Assert.Equal("/v1/media/a9", transport.Downloads[0].Path);
+    }
 }

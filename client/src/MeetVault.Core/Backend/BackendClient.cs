@@ -125,5 +125,58 @@ public sealed class BackendClient
     public Task DownloadMediaAsync(string assetId, string destinationPath, CancellationToken ct = default)
         => _transport.DownloadToFileAsync("/v1/media/" + assetId, destinationPath, ct);
 
+    public async Task<BackendQaJob> AskAsync(string backendId, string question, string? sectionId = null, CancellationToken ct = default)
+    {
+        var json = JsonSerializer.Serialize(new BackendQaBody(question, sectionId, 8), BackendJsonContext.Default.BackendQaBody);
+        return Parse(await _transport.SendAsync(new BackendRequest("POST", "/v1/meetings/" + backendId + "/qa", JsonBody: json), ct),
+            BackendJsonContext.Default.BackendQaJob);
+    }
+
+    public async Task<List<BackendSpeaker>> ListSpeakersAsync(string backendId, CancellationToken ct = default)
+        => Parse(await _transport.SendAsync(new BackendRequest("GET", "/v1/meetings/" + backendId + "/speakers"), ct),
+            BackendJsonContext.Default.ListBackendSpeaker);
+
+    public async Task RenameSpeakerAsync(string speakerId, string label, CancellationToken ct = default)
+    {
+        var json = JsonSerializer.Serialize(new BackendSpeakerPatchBody(label), BackendJsonContext.Default.BackendSpeakerPatchBody);
+        await _transport.SendAsync(new BackendRequest("PATCH", "/v1/speakers/" + speakerId, JsonBody: json), ct);
+    }
+
+    public async Task<BackendSpeakerMerge> MergeSpeakersAsync(string speakerId, string targetSpeakerId, CancellationToken ct = default)
+    {
+        var json = JsonSerializer.Serialize(new BackendSpeakerMergeBody(targetSpeakerId), BackendJsonContext.Default.BackendSpeakerMergeBody);
+        return Parse(await _transport.SendAsync(new BackendRequest("POST", "/v1/speakers/" + speakerId + "/merge", JsonBody: json), ct),
+            BackendJsonContext.Default.BackendSpeakerMerge);
+    }
+
+    public Task DeleteSpeakerAsync(string speakerId, CancellationToken ct = default)
+        => _transport.SendAsync(new BackendRequest("DELETE", "/v1/speakers/" + speakerId), ct);
+
+    public async Task<List<BackendJob>> ListJobsAsync(string backendId, CancellationToken ct = default)
+        => Parse(await _transport.SendAsync(new BackendRequest("GET", "/v1/meetings/" + backendId + "/jobs"), ct),
+            BackendJsonContext.Default.BackendPageBackendJob).Items;
+
+    public async Task<BackendJobDetail> GetJobAsync(string jobId, CancellationToken ct = default)
+        => Parse(await _transport.SendAsync(new BackendRequest("GET", "/v1/jobs/" + jobId), ct),
+            BackendJsonContext.Default.BackendJobDetail);
+
+    public Task CancelJobAsync(string jobId, CancellationToken ct = default)
+        => _transport.SendAsync(new BackendRequest("POST", "/v1/jobs/" + jobId + "/cancel"), ct);
+
+    // SSE lines arrive as "data: {json}"; the server closes the stream on a terminal job state.
+    public async IAsyncEnumerable<BackendJobEvent> WatchJobAsync(string jobId, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        await foreach (var line in _transport.StreamLinesAsync("/v1/jobs/" + jobId + "/events", ct))
+        {
+            if (!line.StartsWith("data: ", StringComparison.Ordinal)) continue;
+            var payload = line["data: ".Length..];
+            if (payload.Length == 0) continue;
+            BackendJobEvent? jobEvent;
+            try { jobEvent = JsonSerializer.Deserialize(payload, BackendJsonContext.Default.BackendJobEvent); }
+            catch (JsonException) { continue; }
+            if (jobEvent is not null) yield return jobEvent;
+        }
+    }
+
     private static T Parse<T>(string body, JsonTypeInfo<T> typeInfo) => JsonSerializer.Deserialize(body, typeInfo)!;
 }
