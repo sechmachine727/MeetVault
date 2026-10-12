@@ -46,7 +46,7 @@ public sealed class StreamingRunner : IDisposable
     public void Start()
     {
         if (_disposed) throw new ObjectDisposedException(nameof(StreamingRunner));
-        _queue = new BlockingCollection<(float[], long?)>(boundedCapacity: 1024); // ~10 s of 10 ms chunks: absorbs the engine's cold-start decode lag without dropping the head of the first utterance (measured: cold-start decodes can run far slower than real time)
+        _queue = new BlockingCollection<(float[], long?)>(boundedCapacity: 4096); // 4096 chunks covers the full 30 s pre-roll cap (3000 × 10 ms chunks) plus margin: a swap's replay burst must never trip drop-oldest, and live backpressure still drops oldest beyond that (~10 s of 10 ms chunks absorbs cold-start decode lag; measured: cold-start decodes can run far slower than real time)
         _lastPartial = "";
         _inReplay = false;
         _currentChunkWallMs = null;
@@ -117,7 +117,7 @@ public sealed class StreamingRunner : IDisposable
             Emit();
             if (_backend.TryFlushFinal(out var tail) && !string.IsNullOrWhiteSpace(tail)) Finalize(tail);
             _lastPartial = "";
-            PartialReady?.Invoke("");
+            RaisePartial("");
         }
         catch (Exception ex)
         {

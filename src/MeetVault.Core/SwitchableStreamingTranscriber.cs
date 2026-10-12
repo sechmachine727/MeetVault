@@ -13,6 +13,7 @@ namespace MeetVault.Core;
 public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpeechTranscriber, IDisposable
 {
     private readonly Func<string, IStreamingTranscriber> _factory;   // modelDir -> engine
+    private readonly Func<long> _clock;                              // meeting clock (same Func as the runner) — review r20
     private readonly object _swapLock = new();
     private readonly SemaphoreSlim _swapOne = new(1, 1);              // one swap at a time
     private readonly List<(float[] Samples, long WallMs)> _preRoll = new(); // capture wall per chunk (review r19)
@@ -22,8 +23,14 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
     private volatile bool _disposed;                                 // set synchronously in Dispose; read by SwapTo
     private bool _coreDone;                                          // guarded by _swapOne
 
-    public SwitchableStreamingTranscriber(Func<string, IStreamingTranscriber> factory)
-    { _factory = factory; }
+    public SwitchableStreamingTranscriber(Func<string, IStreamingTranscriber> factory, Func<long>? clockMs = null)
+    {
+        _factory = factory;
+        // Pre-roll stamps must be on the SAME clock the runner finalizes segments with (the
+        // meeting clock LivePage injects); the boot clock is a different domain and made
+        // replayed segment times boot-relative (review r20).
+        _clock = clockMs ?? (() => Environment.TickCount64);
+    }
 
     public string? ActiveModelDir => _activeModelDir;
     public bool IsRunning { get; private set; }
@@ -75,7 +82,7 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
             {
                 // No engine yet (auto mode is still listening), or a swap is mid-flight:
                 // keep a bounded pre-roll so no speech is lost.
-                _preRoll.Add((samples16k, Environment.TickCount64));
+                _preRoll.Add((samples16k, _clock()));
                 TrimPreRollLocked();
                 return;
             }
@@ -171,7 +178,11 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
                 catch (Exception ex) { AppLog.Warn("swap: flush failed: " + ex.Message); }
                 old.PartialReady -= ForwardPartial;
                 old.SegmentReady -= ForwardSegment;
-                try { old.Dispose(); } catch { }
+                // The teardown can join a stalled decode thread for up to 5 s; hand it to
+                // the pool like the Dispose timeout path so the UI thread never blocks on
+                // it (review r20).
+                var victim = old;
+                _ = Task.Run(() => { try { victim.Dispose(); } catch { } });
             }
             lock (_swapLock)
             {

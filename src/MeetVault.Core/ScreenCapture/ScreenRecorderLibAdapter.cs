@@ -101,13 +101,10 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
             if (recorder is not null && recorder.Done.Task.IsCompleted) return await recorder.Done.Task.ConfigureAwait(false);
             return new RecordingResult(false, recorder?.OutputPath, 0, "not recording");
         }
-        try { recorder.Recorder.Stop(); }
-        catch (Exception ex)
-        {
-            var failed = EndRun();
-            failed?.DisposeOnce();
-            return new RecordingResult(false, recorder.OutputPath, recorder.ElapsedMs(), ex.Message);
-        }
+        // Stop() is a synchronous native call that can block; never let it hold the
+        // controller's operation gate forever — run it on the pool and race the completion
+        // event against the same 3 s budget (review r20).
+        _ = Task.Run(() => { try { recorder.Recorder.Stop(); } catch { } });
         var winner = await Task.WhenAny(recorder.Done.Task, Task.Delay(3000, ct)).ConfigureAwait(false);
         if (winner == recorder.Done.Task) return await recorder.Done.Task.ConfigureAwait(false);
         // Timed out: the finalize may still complete (a long MP4's moov/faststart rewrite

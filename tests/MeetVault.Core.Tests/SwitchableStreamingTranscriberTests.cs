@@ -19,6 +19,8 @@ public sealed class SwitchableStreamingTranscriberTests
         public string? FlushFinal; // raised by StopAsync — the flush-drain final (review r17)
         public Task StopAsync(CancellationToken ct) { Stopped = true; if (FlushFinal is not null) RaiseSegment(FlushFinal); return Task.CompletedTask; }
         public void Push(float[] samples16k) => Received.Add(samples16k);
+        public readonly List<(float[] Samples, long Wall)> Replays = new();
+        public void PushReplay(float[] samples16k, long captureWallMs) => Replays.Add((samples16k, captureWallMs));
         public void Dispose() => Disposed = true;
         public void RaiseSegment(string text) => SegmentReady?.Invoke(new Segment("s1", "", 0, 1, text, true));
         public void RaisePartial(string text) => PartialReady?.Invoke(text);
@@ -51,9 +53,10 @@ public sealed class SwitchableStreamingTranscriberTests
         var engine = Assert.Single(factory.Created);
         Assert.Equal("dir-A", engine.Dir);
         Assert.True(engine.Started);
-        Assert.Equal(2, engine.Received.Count);
-        Assert.Equal(a, engine.Received[0]);
-        Assert.Equal(b, engine.Received[1]);
+        Assert.Single(engine.Replays);                    // pre-roll replayed with capture time
+        Assert.Equal(a, engine.Replays[0].Samples);
+        Assert.Single(engine.Received);                   // live chunks go straight through
+        Assert.Equal(b, engine.Received[0]);
     }
 
     [Fact]
@@ -77,6 +80,26 @@ public sealed class SwitchableStreamingTranscriberTests
         // The old final lands BEFORE the new engine's first segment — an implementation that
         // detaches before stopping loses it (review r17).
         Assert.Equal(new[] { "from-A", "old-final", "from-B" }, segments.ToArray());
+    }
+
+    [Fact]
+    public void PreRoll_IsStampedOnTheInjectedClock()
+    {
+        // The pre-roll replay must carry capture times from the SAME clock the runner
+        // timestamps with (the meeting clock), not the boot clock: otherwise persisted
+        // segment times land in the wrong domain (review r20).
+        var factory = new Factory();
+        long now = 42;
+        var relay = new SwitchableStreamingTranscriber(factory.Create, () => now);
+        relay.StartAsync(CancellationToken.None);
+        relay.Push(new float[1600]);      // no engine yet: buffered with the injected clock
+        now = 43;
+        relay.Push(new float[1600]);
+        Assert.True(relay.SwapTo("dir-A"));
+        var a = factory.Created[0];
+        Assert.Equal(2, a.Replays.Count);
+        Assert.Equal(42, a.Replays[0].Wall);
+        Assert.Equal(43, a.Replays[1].Wall);
     }
 
     [Fact]
@@ -117,7 +140,7 @@ public sealed class SwitchableStreamingTranscriberTests
         Assert.True(relay.SwapTo("dir-A"));               // retry succeeds
         var engine = Assert.Single(factory.Created);
         Assert.True(engine.Started);
-        Assert.Single(engine.Received);                   // the buffered chunk replayed
+        Assert.Single(engine.Replays);                    // the buffered chunk replayed
     }
 
     [Fact]

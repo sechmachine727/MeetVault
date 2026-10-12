@@ -94,7 +94,7 @@ public sealed class StreamingRunnerTests
     [Fact]
     public void FullQueue_DropsOldest_AndCounts()
     {
-        // With the decode thread parked inside AcceptWaveform, pushing past the 1024-chunk
+        // With the decode thread parked inside AcceptWaveform, pushing past the 4096-chunk
         // queue forces the drop-oldest branch in Push (the production backpressure path:
         // Push must never block the capture pump).
         var b = new BlockingBackend();
@@ -102,7 +102,7 @@ public sealed class StreamingRunnerTests
         r.Start();
         r.Push(new float[] { 0 }); // the decode thread takes this one, then blocks on the gate
         Assert.True(SpinWait.SpinUntil(() => b.Accepts >= 1, 5000), "decode thread never reached the backend");
-        for (var i = 0; i < 1100; i++) r.Push(new float[] { 1 }); // far beyond the queue capacity
+        for (var i = 0; i < 4200; i++) r.Push(new float[] { 1 }); // far beyond the queue capacity
         Assert.True(r.DroppedChunks > 0, "a full queue must drop the oldest chunks");
         b.Block = false; b.Gate.Set();
         Assert.True(r.FlushAndWait()); // the parked thread drains the backlog and exits

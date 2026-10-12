@@ -26,11 +26,13 @@ public sealed class LangIdModel : IDisposable
     public static LangIdModel Load(string modelsRoot)
     {
         var dir = Path.Combine(modelsRoot, "langid");
+        // Parse the map BEFORE opening the 86 MB native session: a malformed hand-staged
+        // lang_map.json must not leak the session (review r20).
+        var labels = ParseLangMap(File.ReadAllText(Path.Combine(dir, "lang_map.json")));
         // The session copies the options, so the native options object is released here
         // instead of leaking one per Load (review r10).
         using var opts = new SessionOptions { IntraOpNumThreads = 2, InterOpNumThreads = 1 };
         var session = new InferenceSession(Path.Combine(dir, "voxlingua107.onnx"), opts);
-        var labels = ParseLangMap(File.ReadAllText(Path.Combine(dir, "lang_map.json")));
         return new LangIdModel(session, labels);
     }
 

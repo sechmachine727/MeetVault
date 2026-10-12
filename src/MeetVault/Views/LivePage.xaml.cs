@@ -81,9 +81,12 @@ public sealed partial class LivePage : Page
         // subscribed again, and an overlay request must reach only the new page (review r19).
         LiveBridge.LanguageRequested -= OnLanguageRequested;
         LiveBridge.ScreenToggleRequested -= OnScreenToggleRequested;
-        try { if (_state != LiveState.Idle && _session is not null) await _session.PauseAsync(); } catch { }
-        LiveBridge.SetLive(false); // leaving Live ends active transcription
+        var owner = _session;
+        // Publish the not-live state BEFORE the pause: a slow pause must not clobber the
+        // bridge state of a page that recovers meanwhile (review r20).
+        LiveBridge.SetLive(false);
         LiveBridge.SetMeetingState(_state == LiveState.Idle ? LiveBridge.MeetingState.Idle : LiveBridge.MeetingState.Paused);
+        try { if (_state != LiveState.Idle && owner is not null) await owner.PauseAsync(); } catch { }
         try { _capture?.Dispose(); } catch { }
         try { _streaming?.Dispose(); } catch { }
         try { _langMonitor?.Dispose(); } catch { } _langMonitor = null;
@@ -154,7 +157,9 @@ public sealed partial class LivePage : Page
             var autoRequested = string.Equals(repo.GetSetting("transcription.language"), "auto", StringComparison.OrdinalIgnoreCase);
             _autoMode = autoRequested && MeetVault.Core.LangIdModel.IsAvailable(ModelDir);
             var now = () => _utteranceBaseMs + (long)_streamWatch.Elapsed.TotalMilliseconds;
-            _relay = new SwitchableStreamingTranscriber(dir => new VoskStreamingTranscriber(dir, now));
+            // The relay stamps its pre-roll with the SAME meeting clock the runner uses:
+            // replay times and live times must share one timeline (review r20).
+            _relay = new SwitchableStreamingTranscriber(dir => new VoskStreamingTranscriber(dir, now), now);
             // The engine is created lazily — on the first Start (or on the first detection in
             // auto mode). Opening the Live tab must not load a model: the large tier takes
             // seconds, and the page disposes the relay on every navigation.

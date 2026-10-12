@@ -361,8 +361,9 @@ public sealed partial class OverlayWindow : Window
                 _screenDot!.Visibility = visibility;
                 _screenRecText!.Visibility = visibility;
                 // The header reflows when the indicator toggles (it is stretched, so its
-                // own SizeChanged does not fire): re-carve the drag rects (review r19).
-                UpdateDragRects();
+                // own SizeChanged does not fire): re-carve AFTER layout, or the rects read
+                // pre-toggle widths (review r19/r20).
+                DispatcherQueue.TryEnqueue(UpdateDragRects);
             }
             catch (Exception ex) { AppLog.Warn("overlay: screen state update failed: " + ex.Message); }
         });

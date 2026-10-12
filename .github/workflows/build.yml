@@ -67,5 +67,9 @@ jobs:
           foreach ($rid in @("linux-x64", "linux-arm64", "linux-arm", "osx-x64", "osx-arm64", "win-arm64", "win-x86")) {
             if ($files | Where-Object { $_ -like "runtimes\$rid\*" }) { throw "foreign runtime payload survived: runtimes/$rid" }
           }
+          # The v0.0.0.0 stub (Microsoft.WindowsAppSDK.ML) would satisfy Test-Path: assert
+          # the real assembly version (the BLOCKERS.md regression, review r20).
+          $an = [System.Reflection.AssemblyName]::GetAssemblyName((Join-Path $dir "Microsoft.ML.OnnxRuntime.dll"))
+          if ($an.Version.Major -lt 1) { throw "Microsoft.ML.OnnxRuntime.dll is the v0 stub (assembly version $($an.Version))" }
           # The VC++ CRT (vcruntime140/msvcp140) is a locally staged payload (vcruntime/win-x64,
           # not committed): absent on CI by design, present in shipped builds.

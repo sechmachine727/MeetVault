@@ -106,6 +106,20 @@ public sealed class BulkDeleteTests : IDisposable
         Assert.True(string.IsNullOrEmpty(_repo.GetSetting("repo.deletePending")));
     }
 
+    [Fact]
+    public void Delete_KeepsTheMarker_WhenAnotherAsideIsStillOnDisk()
+    {
+        // A later batch must not clear the marker while an earlier batch's aside survives:
+        // the next open would resurrect it as an unreferenced orphan (review r20).
+        var path = NewMedia("a");
+        _repo.Save(NewMeeting("a", path), Array.Empty<Speaker>(), Array.Empty<Segment>());
+        var stray = Path.Combine(_dir, "other.m4a.deleting");
+        File.WriteAllText(stray, "bytes");
+        _repo.DeleteMeetings(new[] { "a" });
+        Assert.False(string.IsNullOrEmpty(_repo.GetSetting("repo.deletePending")));
+        File.Delete(stray); // leave the root clean for other tests
+    }
+
     private static Meeting NewMeeting(string id, string? media, MeetingStatus status = MeetingStatus.Ready) =>
         new(id, "t-" + id, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, status, media, "audio/m4a");
 

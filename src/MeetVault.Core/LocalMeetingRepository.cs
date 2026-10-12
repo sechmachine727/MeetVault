@@ -68,6 +68,7 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
             // A delete marker means an empty db is a committed delete, not db loss (r13).
             var deletePending = false;
             try { deletePending = !string.IsNullOrEmpty(GetSetting("repo.deletePending")); } catch { }
+            var failedToClear = false;
             foreach (var path in Directory.EnumerateFiles(_mediaRoot, "*.deleting"))
             {
                 string orig;
@@ -79,7 +80,7 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
                         if (!File.Exists(orig)) { File.Move(path, orig); AppLog.Info("repo: restored staged deletion " + path + " -> " + orig); }
                         else AppLog.Warn("repo: staged deletion left in place (both files exist): " + path);
                     }
-                    catch (Exception ex) { AppLog.Warn("repo: could not restore staged deletion: " + path + " :: " + ex.Message); }
+                    catch (Exception ex) { failedToClear = true; AppLog.Warn("repo: could not restore staged deletion: " + path + " :: " + ex.Message); }
                     continue;
                 }
                 // No row references it. Recover only when the whole database is empty (the
@@ -93,11 +94,12 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
                     if (!anyRows && !deletePending && !File.Exists(orig)) { File.Move(path, orig); AppLog.Info("repo: recovered orphaned staged deletion " + path + " -> " + orig); }
                     else { File.Delete(path); AppLog.Info("repo: swept staged deletion " + path); }
                 }
-                catch (Exception ex) { AppLog.Warn("repo: staged deletion still locked: " + path + " :: " + ex.Message); }
+                catch (Exception ex) { failedToClear = true; AppLog.Warn("repo: staged deletion still locked: " + path + " :: " + ex.Message); }
             }
-            // The window is resolved; a stale marker must not block a future genuine
-            // recovery (review r13).
-            if (deletePending) { try { SetSetting("repo.deletePending", ""); } catch { } }
+            // The window is resolved — unless an aside survived this pass: keep the marker
+            // so the next open retries instead of leaving the file unreclaimable
+            // (review r20).
+            if (deletePending && !failedToClear) { try { SetSetting("repo.deletePending", ""); } catch { } }
         }
         catch (Exception ex) { AppLog.Warn("repo: staged-deletion sweep failed: " + ex.Message); }
     }
@@ -366,10 +368,15 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
             catch (Exception ex) { failed[id] = ex.Message; }
         }
         // The batch is done; the crash window keeps the marker alive (review r13) — and so
-        // does any staged aside that survived deletion: with the marker set, the next
-        // open's sweep can still reclaim it instead of resurrecting it as an orphan
-        // (review r19).
+        // does ANY staged aside still on disk, from this batch or an earlier one: with the
+        // marker set, the next open's sweep can reclaim it instead of resurrecting it as an
+        // unreferenced orphan (review r19/r20).
         var asideSurvived = skipped.Any(s => s.Path.EndsWith(".deleting", StringComparison.OrdinalIgnoreCase));
+        if (!asideSurvived && _sweepStagedDeletions)
+        {
+            try { asideSurvived = Directory.EnumerateFiles(_mediaRoot, "*.deleting").Any(); }
+            catch { asideSurvived = true; } // cannot prove clean: keep the marker
+        }
         if (!asideSurvived)
         {
             try { SetSetting("repo.deletePending", ""); } catch { }
@@ -407,6 +414,10 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
     // cannot escape the boundary or pass through links below it.
     public bool IsManagedMedia(string path)
     {
+        // Db-only construction: no explicit media root was given, so nothing is managed —
+        // otherwise a db-only caller whose rows name paths under the real APPDATA media
+        // root could delete real recordings (review r20).
+        if (!_sweepStagedDeletions) return false;
         string full, root;
         try
         {
