@@ -214,12 +214,13 @@ jobs:
             });
             const plan = planReview(process.env.BODY ?? "", files);
             const body = reviewBody(plan, MARKER);
-            // An unreadable message must not become a change request: only a
-            // real blocking finding drafts the pull request.
-            const event =
-              plan.event === "APPROVE" || plan.event === "REQUEST_CHANGES"
-                ? plan.event
-                : "COMMENT";
+            // GitHub forbids a GITHUB_TOKEN review from approving ("GitHub
+            // Actions is not permitted to approve pull requests"), so an
+            // accepted verdict posts as a comment review and states the verdict
+            // in its body. Only a change request uses REQUEST_CHANGES. An
+            // unreadable message falls here too, and must not draft the pull
+            // request.
+            const event = plan.event === "REQUEST_CHANGES" ? "REQUEST_CHANGES" : "COMMENT";
 
             try {
               await github.rest.pulls.createReview({

@@ -135,7 +135,8 @@ Return one JSON object and nothing else: no prose before or after it, no code fe
 - Cite only a line the diff shows for that file. A finding on any other line is dropped from the
   review and moved into the review body, so anchor each finding to the nearest changed line.
 - `severity` is `critical`, `important`, or `minor`. A `critical` or `important`
-  finding turns the review into a change request; anything else approves the pull request.
+  finding turns the review into a change request; anything else is an Accepted verdict. Your
+  `summary` is the only place the verdict reads clearly, so state the change and its outcome there.
 - One finding per object, most consequential first. State uncertainty plainly and distinguish a
   question from a demonstrated bug. Quote the smallest line that carries the issue.
 - Separate issues that prevent safe merging from optional cleanup. Treat release urgency as context,
