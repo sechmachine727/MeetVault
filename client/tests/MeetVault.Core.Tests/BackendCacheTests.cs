@@ -24,7 +24,9 @@ public sealed class BackendCacheTests : IDisposable
         var cache = new BackendCache(_root);
         cache.SaveAnalysis("mv1", "{}");
         Assert.Equal("{}", cache.LoadAnalysis("mv1"));
-        Assert.EndsWith("a9.mp4", cache.MediaPath("a9", ".mp4"));
-        Assert.Contains("media", cache.MediaPath("a9", ".mp4"));
+        // Exact path under the cache root, and distortion-free names for the same characters.
+        Assert.Equal(Path.Combine(_root, "media", "a9.mp4"), cache.MediaPath("a9", ".mp4"));
+        Assert.Equal(Path.Combine(_root, "media", "m_1_A.bin"), cache.MediaPath("m 1/A", ".bin"));
+        Assert.NotEqual(cache.MediaPath("m 1/A", ".bin"), cache.MediaPath("m1A", ".bin"));
     }
 }

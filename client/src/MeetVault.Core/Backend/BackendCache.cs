@@ -44,5 +44,7 @@ public sealed class BackendCache
         catch (Exception ex) { AppLog.Warn("backend: cache read failed: " + ex.Message); return null; }
     }
 
-    private static string Safe(string id) => string.Concat(id.Where(char.IsLetterOrDigit));
+    // Every non-alphanumeric character maps to "_" rather than being dropped, so distinct ids
+    // stay distinct file names — "m 1/A" and "m1A" no longer collide on the same file.
+    private static string Safe(string id) => string.Concat(id.Select(c => char.IsLetterOrDigit(c) ? c : '_'));
 }
