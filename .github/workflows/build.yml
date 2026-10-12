@@ -38,19 +38,19 @@ jobs:
       - name: Build solution (Release)
         # Solution maps the app Any CPU to x64 (required: the app defaults RID to
         # win-x64, and an x86 mapping fails with NETSDK1032). Keep them in sync.
-        run: dotnet build MeetVault.sln -c Release
+        run: dotnet build client/MeetVault.sln -c Release
 
       - name: Test Core (Release)
         # VoskStreamingTranscriberTests early-returns (xUnit reports it as passed) when
         # models/vosk/small-en is unstaged; CI has no models, so this run never exercises
         # live decoding. Local runs on a staged box cover it (see BLOCKERS.md).
-        run: dotnet test tests/MeetVault.Core.Tests/MeetVault.Core.Tests.csproj -c Release --nologo -v q
+        run: dotnet test client/tests/MeetVault.Core.Tests/MeetVault.Core.Tests.csproj -c Release --nologo -v q
 
       - name: Publish (win-x64)
         # The documented/shipped publish command (self-contained), so the payload check
         # exercises the real packaging paths: Platforms/RID pinning, the vcruntime
         # Content+Link, TrimForeignRuntimesPublish (review r12/r13).
-        run: dotnet publish src/MeetVault/MeetVault.csproj -c Release -r win-x64 --self-contained true -o "$env:RUNNER_TEMP/mv-publish"
+        run: dotnet publish client/src/MeetVault/MeetVault.csproj -c Release -r win-x64 --self-contained true -o "$env:RUNNER_TEMP/mv-publish"
 
       - name: Verify publish payload
         shell: pwsh
