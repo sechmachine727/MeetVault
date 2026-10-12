@@ -142,6 +142,38 @@ public sealed class BackendSyncTests
     }
 
     [Fact]
+    public async Task Send_AllBlankSegments_SkipsTranscript_ButStillProcesses()
+    {
+        var transport = new RecordingTransport();
+        var seen = new List<string>();
+        transport.Responder = request =>
+        {
+            seen.Add(request.Method + " " + request.Path);
+            return request.Path switch
+            {
+                "/v1/meetings" => DetailJson,
+                "/v1/meetings/b1/process" => ProcessJson,
+                _ => "{}",
+            };
+        };
+        var audio = TempAudio();
+        try
+        {
+            var client = new BackendClient(transport);
+            var sync = new BackendSync(client);
+            // R2: blank-only text is rejected by the server (400) — a count check is weaker than
+            // the server's rule, so these must be skipped like an empty list.
+            var result = await sync.SendAsync(MeetingWithAudio(audio),
+                new List<Segment> { new("s1", "", 0, 10, "   ", true) }, new List<Speaker>(),
+                new List<MediaTrack>(), existingBackendId: null);
+            Assert.DoesNotContain(seen, s => s.Contains("/transcripts"));
+            Assert.Contains("POST /v1/meetings/b1/process", seen);
+            Assert.Equal(0, result.TranscriptVersion);
+        }
+        finally { File.Delete(audio); }
+    }
+
+    [Fact]
     public async Task Send_Resend_FetchesMediaDuration_BeforeTranscript()
     {
         var transport = new RecordingTransport();

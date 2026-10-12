@@ -60,10 +60,12 @@ public sealed class BackendSync
             if (alignMs == 0)
                 probedMs = (await _client.ListMediaAsync(backendId!, ct)).FirstOrDefault(m => m.Kind == "audio")?.DurationMs;
         }
-        // The server rejects segments: [] (400 unsupported_transcript_format), which would fail an
-        // otherwise valid media-only send — so an empty transcript is skipped, not uploaded.
+        // The server drops blank rows and rejects an all-blank payload (400
+        // unsupported_transcript_format), which would fail an otherwise valid media-only send — so a
+        // transcript with no non-blank segment is skipped, not uploaded (a count check is weaker
+        // than the server's rule).
         var transcriptVersion = 0;
-        if (segments.Count > 0)
+        if (segments.Any(s => !string.IsNullOrWhiteSpace(s.Text)))
         {
             progress?.Report(BackendSyncStage.UploadingTranscript);
             var formatA = BackendFormatter.ToFormatA(meeting, segments, speakers, alignMs > 0 ? alignMs : probedMs);
@@ -73,7 +75,7 @@ public sealed class BackendSync
         }
         else
         {
-            AppLog.Info("backend: transcript skipped (no segments)");
+            AppLog.Info("backend: transcript skipped (no non-blank segments)");
         }
         progress?.Report(BackendSyncStage.Starting);
         var steps = firstSend
