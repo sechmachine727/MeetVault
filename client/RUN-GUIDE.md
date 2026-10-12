@@ -1,5 +1,7 @@
 # Run guide (local, 2026-10-11)
 
+All paths and commands below are relative to `client/` (this directory).
+
 Launch the single canonical portable release:
 
     publish/win-x64/MeetVault.exe

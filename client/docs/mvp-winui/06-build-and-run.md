@@ -1,5 +1,7 @@
 # MeetVault WinUI 3 MVP — Build and Run (Windows)
 
+All paths and commands below are relative to `client/` (this directory).
+
 Audience: Windows implementer. Pre-read: `01-requirements.md`.
 
 This document describes the build and run workflow for the delivered app. For current status and open items, see [../../README.md](../../README.md) and [../../BLOCKERS.md](../../BLOCKERS.md).

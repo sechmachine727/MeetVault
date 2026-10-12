@@ -2,6 +2,9 @@
 
 A local-first Windows meeting recorder and transcriber. It captures audio, transcribes it on-device, shows the transcript live, and can send a finished meeting to Gemini for a refined summary. Nothing leaves the machine except a manual Gemini upload.
 
+> This README and every command in it are relative to `client/` (the app's directory in the
+> monorepo). Repo-wide docs are in the repository root.
+
 Built with C# and WinUI 3 on .NET 8. There is no login, no subscription, and no cloud storage.
 
 ## Status
