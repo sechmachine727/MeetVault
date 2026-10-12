@@ -1,4 +1,4 @@
-name: ci
+name: backend-ci
 
 on:
   push:
@@ -6,8 +6,12 @@ on:
   pull_request:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: backend-ci-${{ github.ref }}
   cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: backend
 
 jobs:
   lint-and-test:
@@ -108,7 +112,6 @@ jobs:
       - name: Smoke the API (auth + system info + openapi)
         run: |
           curl -fsS http://localhost:8080/readyz
-          curl -fsS -o /dev/null -w "%{http_code}\n" http://localhost:8080/v1/meetings
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/v1/meetings)" = "401"
           curl -fsS -H "Authorization: Bearer ci-key" http://localhost:8080/v1/system/info
           curl -fsS http://localhost:8080/openapi.json | head -c 200
