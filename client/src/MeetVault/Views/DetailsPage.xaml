@@ -19,10 +19,14 @@
 
         <InfoBar x:Name="StatusBar" Grid.Row="1" IsOpen="False" Severity="Informational" />
 
-        <StackPanel Grid.Row="2" Spacing="2">
-            <TextBlock x:Name="MeetingTitle" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" Text="No meeting selected" />
-            <TextBlock x:Name="MeetingMeta" Opacity="0.7" TextWrapping="Wrap" />
-        </StackPanel>
+        <Border Grid.Row="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                CornerRadius="8" Padding="16">
+            <StackPanel Spacing="4">
+                <TextBlock x:Name="MeetingTitle" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" Text="No meeting selected" />
+                <TextBlock x:Name="MeetingMeta" Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
 
         <MediaPlayerElement x:Name="Player" Grid.Row="3" AreTransportControlsEnabled="True" MaxHeight="220"
                             Visibility="Collapsed" />
@@ -57,46 +61,49 @@
             </StackPanel>
         </Expander>
 
-        <Grid Grid.Row="8" Margin="0,8,0,0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-            <Grid ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock x:Uid="DetTranscript" Style="{StaticResource SubtitleTextBlockStyle}" />
-                <TextBlock x:Name="LineStatus" Grid.Column="1" Opacity="0.7" VerticalAlignment="Center" Margin="0,0,12,0" />
+        <Border Grid.Row="8" Margin="0,8,0,0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                CornerRadius="8" Padding="16">
+            <Grid RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Uid="DetTranscript" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock x:Name="LineStatus" Grid.Column="1" Opacity="0.7" VerticalAlignment="Center" Margin="0,0,12,0" />
+                </Grid>
+                <Grid Grid.Row="1">
+                    <ItemsControl x:Name="TranscriptList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{Binding RowBackground}" CornerRadius="4" Tapped="Row_Tapped">
+                                    <Grid Padding="0,6" ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <ComboBox x:Uid="DetSpeakerName" Width="160" HorizontalAlignment="Stretch"
+                                                  Loaded="SpeakerPicker_Loaded"
+                                                  SelectionChanged="SpeakerPicker_SelectionChanged" />
+                                        <TextBox x:Uid="DetLineName" Grid.Column="1"
+                                                 Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 TextChanged="LineText_TextChanged"
+                                                 TextWrapping="Wrap" AcceptsReturn="False" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock x:Name="EmptyState" x:Uid="DetEmpty"
+                               Opacity="0.7" TextWrapping="Wrap" VerticalAlignment="Center" HorizontalAlignment="Center"
+                               MaxWidth="320" TextAlignment="Center" Visibility="Collapsed" />
+                </Grid>
             </Grid>
-            <Grid Grid.Row="1">
-                <ItemsControl x:Name="TranscriptList">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Background="{Binding RowBackground}" CornerRadius="4" Tapped="Row_Tapped">
-                            <Grid Padding="0,6" ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <ComboBox x:Uid="DetSpeakerName" Width="160" HorizontalAlignment="Stretch"
-                                          Loaded="SpeakerPicker_Loaded"
-                                          SelectionChanged="SpeakerPicker_SelectionChanged" />
-                                <TextBox x:Uid="DetLineName" Grid.Column="1"
-                                         Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                         TextChanged="LineText_TextChanged"
-                                         TextWrapping="Wrap" AcceptsReturn="False" />
-                            </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <TextBlock x:Name="EmptyState" x:Uid="DetEmpty"
-                           Opacity="0.7" TextWrapping="Wrap" VerticalAlignment="Center" HorizontalAlignment="Center"
-                           MaxWidth="320" TextAlignment="Center" Visibility="Collapsed" />
-            </Grid>
-        </Grid>
+        </Border>
     </Grid>
 </Page>
-
