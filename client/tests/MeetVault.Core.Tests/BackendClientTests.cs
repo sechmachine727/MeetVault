@@ -110,6 +110,9 @@ public sealed class BackendClientTests
         Assert.True(status.Mock);
         Assert.Equal("b1", await client.FindBackendIdAsync("mv-1"));
         Assert.Null(await client.FindBackendIdAsync("mv-other"));
+        // The recovery lookup scans exactly the newest page (200) — pinned so a future edit cannot widen it silently.
+        Assert.Equal("/v1/meetings", transport.Requests[1].Path);
+        Assert.Equal("200", transport.Requests[1].Query!["limit"]);
     }
 
     [Fact]

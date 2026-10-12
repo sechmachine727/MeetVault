@@ -50,6 +50,7 @@ public sealed class BackendClient
     }
 
     // Recovery path: the local backend_id was lost but the meeting exists server-side.
+    // Only the newest page (200) is scanned — accepted limitation; the server has no external-id filter.
     public async Task<string?> FindBackendIdAsync(string externalId, CancellationToken ct = default)
     {
         foreach (var meeting in await ListMeetingsAsync(200, ct))
