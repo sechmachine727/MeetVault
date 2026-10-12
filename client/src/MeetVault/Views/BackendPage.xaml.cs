@@ -185,7 +185,31 @@ public sealed partial class BackendPage : Page
         }).ToArray();
     }
 
-    private void RenderSpeakers(List<BackendSpeaker> speakers) { /* T74 */ }
+    private readonly List<BackendSpeaker> _speakerRows = new();
+
+    private void RenderSpeakers(List<BackendSpeaker> speakers)
+    {
+        _speakerRows.Clear();
+        _speakerRows.AddRange(speakers);
+        SpeakersList.ItemsSource = _speakerRows
+            .Select(s => new SpeakerRow
+            {
+                Id = s.Id,
+                Label = s.Label,
+                Stats = Loc.Tf("Back.SpeakerStats", s.SegmentCount, (s.SpeakingMs / 1000).ToString()),
+                Preview = s.Preview,
+            })
+            .ToArray();
+    }
+
+    public sealed class SpeakerRow
+    {
+        public string Id { get; set; } = "";
+        public string Label { get; set; } = "";
+        public string Stats { get; set; } = "";
+        public string Preview { get; set; } = "";
+        public string? MergeTarget { get; set; }
+    }
     private void RenderVersions(List<BackendTranscript> versions) { /* T75 */ }
     private void RenderJobs(List<BackendJob> jobs) { /* T75 */ }
     private void RenderMedia(List<BackendMediaAsset> media) { /* T75 */ }
@@ -322,11 +346,75 @@ public sealed partial class BackendPage : Page
         }
         return job;
     }
-    private void SpeakerSave_Click(object sender, RoutedEventArgs e) { }
-    private void SpeakerMergeCombo_Loaded(object sender, RoutedEventArgs e) { }
-    private void SpeakerMergeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) { }
-    private void SpeakerMerge_Click(object sender, RoutedEventArgs e) { }
-    private void SpeakerDelete_Click(object sender, RoutedEventArgs e) { }
+    private void SpeakerMergeCombo_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ComboBox combo || combo.DataContext is not SpeakerRow row) return;
+        combo.ItemsSource = _speakerRows.Where(s => s.Id != row.Id).Select(s => s.Label).ToArray();
+    }
+
+    private void SpeakerMergeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox combo && combo.DataContext is SpeakerRow row && combo.SelectedItem is string label)
+            row.MergeTarget = label;
+    }
+
+    private async void SpeakerSave_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.DataContext is not SpeakerRow row || _backendId is null) return;
+        if (row.Label.Trim().Length == 0) return;
+        if (!TryClientUrl(out var url, out var key)) return;
+        try
+        {
+            using var transport = new BackendHttpTransport(url, key);
+            var client = new BackendClient(transport);
+            await client.RenameSpeakerAsync(row.Id, row.Label.Trim());
+            RenderSpeakers(await client.ListSpeakersAsync(_backendId));
+            RenderTranscript(await client.GetActiveTranscriptAsync(_backendId));
+        }
+        catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+    }
+
+    private async void SpeakerMerge_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.DataContext is not SpeakerRow row
+            || row.MergeTarget is not { Length: > 0 } targetLabel || _backendId is null) return;
+        var target = _speakerRows.FirstOrDefault(s => s.Label == targetLabel);
+        if (target is null) return;
+        if (!TryClientUrl(out var url, out var key)) return;
+        try
+        {
+            using var transport = new BackendHttpTransport(url, key);
+            var client = new BackendClient(transport);
+            await client.MergeSpeakersAsync(row.Id, target.Id);
+            RenderSpeakers(await client.ListSpeakersAsync(_backendId));
+            RenderTranscript(await client.GetActiveTranscriptAsync(_backendId));
+        }
+        catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+    }
+
+    private async void SpeakerDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.DataContext is not SpeakerRow row || _backendId is null) return;
+        var confirm = new ContentDialog
+        {
+            Title = Loc.T("Back.SpeakerDeleteTitle"),
+            Content = Loc.Tf("Back.SpeakerDeleteBody", row.Label),
+            PrimaryButtonText = Loc.T("Back.Delete"),
+            CloseButtonText = Loc.T("Det.Cancel"),
+            XamlRoot = XamlRoot,
+        };
+        if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+        if (!TryClientUrl(out var url, out var key)) return;
+        try
+        {
+            using var transport = new BackendHttpTransport(url, key);
+            var client = new BackendClient(transport);
+            await client.DeleteSpeakerAsync(row.Id);
+            RenderSpeakers(await client.ListSpeakersAsync(_backendId));
+            RenderTranscript(await client.GetActiveTranscriptAsync(_backendId));
+        }
+        catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+    }
     private void VersionActivate_Click(object sender, RoutedEventArgs e) { }
     private void VersionDelete_Click(object sender, RoutedEventArgs e) { }
     private void JobWatch_Click(object sender, RoutedEventArgs e) { }
