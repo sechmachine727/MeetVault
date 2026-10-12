@@ -505,8 +505,10 @@ public sealed partial class DetailsPage : Page
         BackendSendButton.IsEnabled = false;
         _backendCts?.Dispose();
         _backendCts = new CancellationTokenSource();
+        _backendActiveJobId = null; // a previous run's job id must never be cancelled (review 3)
         var ct = _backendCts.Token;
         var meetingId = _meeting.Id;
+        BackendSyncRow? existing = null;
         try
         {
             FlushEdits(); // pending debounce must reach the repo before we serialize the transcript
@@ -516,7 +518,7 @@ public sealed partial class DetailsPage : Page
             var speakers = AppStore.Repo.LoadSpeakers(meetingId);
             var screens = AppStore.Repo.ListMediaTracks(meetingId)
                 .Where(t => t.Kind == "screen" && File.Exists(t.Path)).ToList();
-            var existing = AppStore.Repo.LoadBackendSync(meetingId);
+            existing = AppStore.Repo.LoadBackendSync(meetingId);
             _backendId = existing?.BackendId;
 
             AppStore.Repo.SaveBackendSync(new(meetingId, _backendId, "sending", null, existing?.Mock ?? false, NowIso()));
@@ -544,7 +546,17 @@ public sealed partial class DetailsPage : Page
             }, delay: null, ct);
             await SaveFinalBackendStateAsync(meeting, client, final, ct);
         }
-        catch (OperationCanceledException) { BackendState.Text = Loc.T("Back.State.Failed"); }
+        catch (OperationCanceledException ex)
+        {
+            // A user/unload cancel surfaces as an OCE whose token is ours; the HttpClient timeout
+            // surfaces as an OCE with an inner TimeoutException. Both are terminal and must persist
+            // a row - a cancelled send must not leave 'processing' in backend_sync forever (review 3).
+            var cancelled = ex.InnerException is not TimeoutException && ex.CancellationToken == ct;
+            var reason = cancelled ? Loc.T("Det.BackendCancelled") : Loc.T("Det.BackendTimeout");
+            AppStore.Repo.SaveBackendSync(new(meetingId, _backendId, "failed", reason, existing?.Mock ?? false, NowIso()));
+            BackendState.Text = reason;
+            BackendSteps.Text = "";
+        }
         catch (Exception ex)
         {
             var message = DescribeBackendError(ex);
@@ -584,20 +596,26 @@ public sealed partial class DetailsPage : Page
     private async void BackendCancel_Click(object sender, RoutedEventArgs e)
     {
         if (_meeting is null || !_backendBusy) return;
+        // The job id only exists once the server reports a RUNNING job; before that (or between
+        // chain steps) there is nothing to cancel yet - say so and keep polling (review 3: the old
+        // code cancelled the local poll while the server ran the chain to completion).
+        if (_backendActiveJobId is not { Length: > 0 })
+        {
+            Status(InfoBarSeverity.Informational, Loc.T("Det.BackendCancelPending"));
+            return;
+        }
         var url = (AppStore.Repo.GetSetting("backend.url") ?? "").Trim();
         var key = AppStore.Secrets.Get("BackendApiKey");
-        if (url.Length > 0 && key is { Length: > 0 } && _backendActiveJobId is { Length: > 0 })
+        if (url.Length == 0 || key is not { Length: > 0 }) { Status(InfoBarSeverity.Warning, Loc.T("Det.BackendNoUrl")); return; }
+        try
         {
-            try
-            {
-                using var transport = new BackendHttpTransport(url, key);
-                var client = new BackendClient(transport);
-                await client.CancelJobAsync(_backendActiveJobId);
-                Status(InfoBarSeverity.Informational, Loc.T("Det.BackendCancelSent"));
-            }
-            catch (Exception ex) { Status(InfoBarSeverity.Warning, Loc.Tf("Det.BackendFailed", DescribeBackendError(ex))); }
+            using var transport = new BackendHttpTransport(url, key);
+            var client = new BackendClient(transport);
+            await client.CancelJobAsync(_backendActiveJobId);
+            Status(InfoBarSeverity.Informational, Loc.T("Det.BackendCancelSent"));
+            _backendCts?.Cancel(); // stop polling only after the server accepted the cancel
         }
-        _backendCts?.Cancel();
+        catch (Exception ex) { Status(InfoBarSeverity.Warning, Loc.Tf("Det.BackendFailed", DescribeBackendError(ex))); }
     }
 
     private void BackendOpen_Click(object sender, RoutedEventArgs e)

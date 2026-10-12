@@ -405,6 +405,9 @@
   <data name="Det.BackendFailed" xml:space="preserve"><value>バックエンド処理に失敗しました: {0}</value></data>
   <data name="Det.BackendCancelSent" xml:space="preserve"><value>キャンセルを要求しました。</value></data>
   <data name="Det.BackendReady" xml:space="preserve"><value>バックエンド処理が完了しました。</value></data>
+  <data name="Det.BackendCancelled" xml:space="preserve"><value>バックエンドへの送信をキャンセルしました。</value></data>
+  <data name="Det.BackendTimeout" xml:space="preserve"><value>バックエンドが時間内に応答しませんでした。もう一度お試しください。</value></data>
+  <data name="Det.BackendCancelPending" xml:space="preserve"><value>ジョブはまだ開始されていません。少し待ってからもう一度キャンセルしてください。</value></data>
   <data name="Back.State.None" xml:space="preserve"><value>未送信</value></data>
   <data name="Back.State.Sending" xml:space="preserve"><value>送信中</value></data>
   <data name="Back.State.Uploaded" xml:space="preserve"><value>アップロード済み</value></data>

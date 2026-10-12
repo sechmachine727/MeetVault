@@ -405,6 +405,9 @@
   <data name="Det.BackendFailed" xml:space="preserve"><value>Backend processing failed: {0}</value></data>
   <data name="Det.BackendCancelSent" xml:space="preserve"><value>Cancellation requested.</value></data>
   <data name="Det.BackendReady" xml:space="preserve"><value>Backend processing is done.</value></data>
+  <data name="Det.BackendCancelled" xml:space="preserve"><value>The backend send was cancelled.</value></data>
+  <data name="Det.BackendTimeout" xml:space="preserve"><value>The backend did not respond in time. Try again.</value></data>
+  <data name="Det.BackendCancelPending" xml:space="preserve"><value>The job has not started yet — try Cancel again in a moment.</value></data>
   <data name="Back.State.None" xml:space="preserve"><value>not sent</value></data>
   <data name="Back.State.Sending" xml:space="preserve"><value>sending</value></data>
   <data name="Back.State.Uploaded" xml:space="preserve"><value>uploaded</value></data>
