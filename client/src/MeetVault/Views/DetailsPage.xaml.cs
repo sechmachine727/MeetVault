@@ -487,10 +487,125 @@ public sealed partial class DetailsPage : Page
         finally { SendButton.IsEnabled = true; }
     }
 
-    // T61 replaces these three stubs with the full send/open flow.
-    private void BackendSend_Click(object sender, RoutedEventArgs e) { }
-    private void BackendCancel_Click(object sender, RoutedEventArgs e) { }
-    private void BackendOpen_Click(object sender, RoutedEventArgs e) { }
+    private async void BackendSend_Click(object sender, RoutedEventArgs e)
+    {
+        if (_meeting is null || _backendBusy) return;
+        var url = (AppStore.Repo.GetSetting("backend.url") ?? "").Trim();
+        var key = AppStore.Secrets.Get("BackendApiKey");
+        BackendExpander.IsExpanded = true;
+        if (url.Length == 0) { Status(InfoBarSeverity.Warning, Loc.T("Det.BackendNoUrl")); return; }
+        if (key is not { Length: > 0 }) { Status(InfoBarSeverity.Warning, Loc.T("Det.BackendNoKey")); return; }
+        if (_meeting.MediaPath is null || !File.Exists(_meeting.MediaPath))
+        {
+            BackendState.Text = Loc.T("Det.BackendNoRecording");
+            Status(InfoBarSeverity.Warning, Loc.T("Det.BackendNoRecording"));
+            return;
+        }
+        _backendBusy = true;
+        BackendSendButton.IsEnabled = false;
+        _backendCts?.Dispose();
+        _backendCts = new CancellationTokenSource();
+        var ct = _backendCts.Token;
+        var meetingId = _meeting.Id;
+        try
+        {
+            FlushEdits(); // pending debounce must reach the repo before we serialize the transcript
+            var meeting = AppStore.Repo.Load(meetingId);
+            if (meeting is null) { Status(InfoBarSeverity.Warning, Loc.T("Det.BackendNoMeeting")); return; }
+            var segments = AppStore.Repo.LoadSegments(meetingId);
+            var speakers = AppStore.Repo.LoadSpeakers(meetingId);
+            var screens = AppStore.Repo.ListMediaTracks(meetingId)
+                .Where(t => t.Kind == "screen" && File.Exists(t.Path)).ToList();
+            var existing = AppStore.Repo.LoadBackendSync(meetingId);
+            _backendId = existing?.BackendId;
+
+            AppStore.Repo.SaveBackendSync(new(meetingId, _backendId, "sending", null, existing?.Mock ?? false, NowIso()));
+            BackendState.Text = Loc.T("Det.BackendSending");
+            BackendSteps.Text = "";
+            BackendProgress.IsIndeterminate = true;
+            BackendProgress.Visibility = Visibility.Visible;
+
+            var progress = new Progress<BackendSyncStage>(stage => BackendSteps.Text = Loc.Tf("Det.BackendSendingStep", StageLabel(stage)));
+            using var transport = new BackendHttpTransport(url, key);
+            var client = new BackendClient(transport);
+            var sync = new BackendSync(client);
+            var result = await sync.SendAsync(meeting, segments, speakers, screens, existing?.BackendId, progress, ct);
+            _backendId = result.BackendId;
+            AppStore.Repo.SaveBackendSync(new(meetingId, result.BackendId, "processing", null, existing?.Mock ?? false, NowIso()));
+            BackendCancelButton.Visibility = Visibility.Visible;
+            var final = await sync.WaitForTerminalAsync(result.BackendId, status =>
+            {
+                _backendActiveJobId = status.ActiveJobId;
+                BackendProgress.IsIndeterminate = false;
+                BackendProgress.Value = BackendPresentation.Percent(status.Progress);
+                BackendState.Text = Loc.T(BackendPresentation.StatusKey(status.Status))
+                    + (status.Mock ? " · " + Loc.T("Back.MockBadge") : "");
+                BackendSteps.Text = BackendPresentation.StepsSummary(status.Steps);
+            }, delay: null, ct);
+            await SaveFinalBackendStateAsync(meeting, client, final, ct);
+        }
+        catch (OperationCanceledException) { BackendState.Text = Loc.T("Back.State.Failed"); }
+        catch (Exception ex)
+        {
+            var message = DescribeBackendError(ex);
+            AppStore.Repo.SaveBackendSync(new(meetingId, _backendId, "failed", message, false, NowIso()));
+            BackendState.Text = Loc.Tf("Det.BackendFailed", message);
+            Status(InfoBarSeverity.Error, Loc.Tf("Det.BackendFailed", message));
+        }
+        finally
+        {
+            _backendBusy = false;
+            BackendSendButton.IsEnabled = true;
+            BackendCancelButton.Visibility = Visibility.Collapsed;
+            BackendProgress.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    // Terminal status: cache the transcript + analysis so the Backend page opens offline-fast.
+    private async Task SaveFinalBackendStateAsync(Meeting meeting, BackendClient client, BackendStatus final, CancellationToken ct)
+    {
+        if (final.Status != "ready")
+        {
+            AppStore.Repo.SaveBackendSync(new(meeting.Id, _backendId, final.Status, null, final.Mock, NowIso()));
+            return;
+        }
+        try
+        {
+            var cache = new BackendCache(BackendCache.DefaultRoot);
+            cache.SaveTranscript(meeting.Id, await client.GetTranscriptRawAsync(_backendId!, ct));
+            cache.SaveAnalysis(meeting.Id, await client.GetAnalysisRawAsync(_backendId!, ct));
+        }
+        catch (Exception ex) { MeetVault.Core.AppLog.Warn("backend: cache write failed: " + ex.Message); }
+        AppStore.Repo.SaveBackendSync(new(meeting.Id, _backendId, "ready", null, final.Mock, NowIso()));
+        BackendState.Text = Loc.T("Det.BackendReady") + (final.Mock ? " · " + Loc.T("Back.MockBadge") : "");
+        Status(InfoBarSeverity.Success, Loc.T("Det.BackendReady"));
+    }
+
+    private async void BackendCancel_Click(object sender, RoutedEventArgs e)
+    {
+        if (_meeting is null || !_backendBusy) return;
+        var url = (AppStore.Repo.GetSetting("backend.url") ?? "").Trim();
+        var key = AppStore.Secrets.Get("BackendApiKey");
+        if (url.Length > 0 && key is { Length: > 0 } && _backendActiveJobId is { Length: > 0 })
+        {
+            try
+            {
+                using var transport = new BackendHttpTransport(url, key);
+                var client = new BackendClient(transport);
+                await client.CancelJobAsync(_backendActiveJobId);
+                Status(InfoBarSeverity.Informational, Loc.T("Det.BackendCancelSent"));
+            }
+            catch (Exception ex) { Status(InfoBarSeverity.Warning, Loc.Tf("Det.BackendFailed", DescribeBackendError(ex))); }
+        }
+        _backendCts?.Cancel();
+    }
+
+    private void BackendOpen_Click(object sender, RoutedEventArgs e)
+    {
+        if (_meeting is null) return;
+        PendingBackend.MeetingId = _meeting.Id;
+        if (App.Window is MainWindow window) window.NavigateToBackend();
+    }
 
     private bool TryTranscript(out string text)
     {
