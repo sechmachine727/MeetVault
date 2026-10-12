@@ -25,6 +25,7 @@ public sealed partial class BackendPage : Page
         public string Text { get; set; } = "";
         public string Detail { get; set; } = "";
         public long? StartMs { get; set; }
+        public List<string> SegmentIds { get; set; } = new();
     }
 
     private readonly BackendCache _cache = new(BackendCache.DefaultRoot);
@@ -151,6 +152,7 @@ public sealed partial class BackendPage : Page
 
     private void RenderAnalysis(BackendBundle bundle)
     {
+        if (bundle.Mock) BackendMockBadge.Visibility = Visibility.Visible;
         SummaryText.Text = bundle.Summary?.Text ?? "";
         SummaryBullets.ItemsSource = (bundle.Summary?.Bullets ?? new List<string>()).Select(b => "• " + b).ToArray();
         AgendaList.ItemsSource = bundle.Sections
@@ -165,11 +167,13 @@ public sealed partial class BackendPage : Page
         {
             Text = d.Text,
             Detail = string.Join(" · ", new[] { d.AtMs is { } at ? BackendPresentation.SpeakerLine(at, "").Trim() : "" , string.Join(", ", d.DecidedBy) }.Where(x => x.Length > 0)),
+            SegmentIds = d.SegmentIds,
         }).ToArray();
         ActionsList.ItemsSource = bundle.Actions.Select(a => new NameRow
         {
             Text = a.Text,
             Detail = string.Join(" · ", new[] { a.Owner, a.Due is { Length: > 0 } due ? a.Due : "" }.Where(x => x.Length > 0)),
+            SegmentIds = a.SegmentIds,
         }).ToArray();
         QaList.ItemsSource = bundle.Qa.Select(q => new NameRow
         {
@@ -217,8 +221,11 @@ public sealed partial class BackendPage : Page
 
     private void CitationRow_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
     {
-        if (sender is not FrameworkElement fe || fe.DataContext is not NameRow row || row.StartMs is not { } ms) return;
-        SeekPlayer(ms);
+        if (sender is not FrameworkElement fe || fe.DataContext is not NameRow row) return;
+        var ms = row.StartMs;
+        if (ms is null && row.SegmentIds.Count > 0)
+            ms = _segments.FirstOrDefault(s => s.Id == row.SegmentIds[0])?.StartMs;
+        if (ms is { } start) SeekPlayer(start);
     }
 
     private void SeekPlayer(long startMs)
