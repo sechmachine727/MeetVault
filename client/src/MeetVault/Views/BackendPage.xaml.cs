@@ -7,8 +7,8 @@ using Microsoft.UI.Xaml.Controls;
 namespace MeetVault.Views;
 
 // Server transcript / analysis / Q&A workspace for one synced meeting. Everything renders from the
-// backend (the source of truth) with an on-disk cache for instant open; the local recording is the
-// default player source.
+// backend (the source of truth); the on-disk cache is written at terminal status and reading it
+// back for offline open is future work. The local recording is the default player source.
 public sealed partial class BackendPage : Page
 {
     public sealed class LineRow
@@ -31,6 +31,7 @@ public sealed partial class BackendPage : Page
     private readonly BackendCache _cache = new(BackendCache.DefaultRoot);
     private readonly List<(Meeting Meeting, BackendSyncRow Sync)> _synced = new();
     private readonly List<BackendSegment> _segments = new();
+    private readonly Dictionary<string, string> _downloaded = new(StringComparer.Ordinal);
     private bool _suppressPicker;
     private bool _busy;
     private Meeting? _meeting;
@@ -85,7 +86,28 @@ public sealed partial class BackendPage : Page
         ContentPanel.Visibility = Visibility.Visible;
         BackendStateText.Text = Loc.T(BackendPresentation.StatusKey(_synced[index].Sync.State));
         BackendMockBadge.Visibility = _synced[index].Sync.Mock ? Visibility.Visible : Visibility.Collapsed;
-        if (_backendId is null) { return; }
+        if (_backendId is null)
+        {
+            // Never show the previous meeting's server data for a row without a backend id.
+            _segments.Clear();
+            TranscriptList.ItemsSource = Array.Empty<LineRow>();
+            SummaryText.Text = "";
+            SummaryBullets.ItemsSource = Array.Empty<string>();
+            AgendaList.ItemsSource = Array.Empty<NameRow>();
+            DecisionsList.ItemsSource = Array.Empty<NameRow>();
+            ActionsList.ItemsSource = Array.Empty<NameRow>();
+            QaList.ItemsSource = Array.Empty<NameRow>();
+            SpeakersList.ItemsSource = Array.Empty<SpeakerRow>();
+            VersionsList.ItemsSource = Array.Empty<NameRow>();
+            JobsList.ItemsSource = Array.Empty<NameRow>();
+            MediaList.ItemsSource = Array.Empty<NameRow>();
+            BackendStepsText.Text = "";
+            BackendStaleText.Text = "";
+            BackendProgressBar.Value = 0;
+            BackendProgressBar.Visibility = Visibility.Collapsed;
+            BackendPlayer.Source = null;
+            return;
+        }
         _busy = true;
         try
         {
@@ -274,10 +296,7 @@ public sealed partial class BackendPage : Page
     private void Play_Click(object sender, RoutedEventArgs e)
     {
         if (_meeting?.MediaPath is { } local && File.Exists(local)) { PlaySource(local); return; }
-        var mediaDir = Path.Combine(BackendCache.DefaultRoot, "media");
-        var downloaded = Directory.Exists(mediaDir)
-            ? Directory.EnumerateFiles(mediaDir).FirstOrDefault()
-            : null;
+        var downloaded = _downloaded.Values.FirstOrDefault(File.Exists);
         if (downloaded is not null) { PlaySource(downloaded); return; }
         StatusBar.Severity = InfoBarSeverity.Informational;
         StatusBar.Message = Loc.T("Back.NoLocalRecording");
@@ -357,8 +376,15 @@ public sealed partial class BackendPage : Page
             var client = new BackendClient(transport);
             var media = await client.ListMediaAsync(_backendId);
             var probedMs = media.FirstOrDefault(m => m.Kind == "audio")?.DurationMs;
+            var alignMs = _meeting.EndedAt is { } endedAt ? Math.Max(0, (long)(endedAt - _meeting.StartedAt).TotalMilliseconds) : 0;
+            var segments = AppStore.Repo.LoadSegments(_meeting.Id);
+            if (!segments.Any(s => !string.IsNullOrWhiteSpace(s.Text)))
+            {
+                Status(InfoBarSeverity.Warning, Loc.T("Det.EmptyTranscript"));
+                return;
+            }
             var formatA = BackendFormatter.ToFormatA(_meeting,
-                AppStore.Repo.LoadSegments(_meeting.Id), AppStore.Repo.LoadSpeakers(_meeting.Id), probedMs);
+                segments, AppStore.Repo.LoadSpeakers(_meeting.Id), alignMs > 0 ? alignMs : probedMs);
             await client.UploadTranscriptAsync(_backendId, formatA, _meeting.Language);
             await client.ProcessAsync(_backendId, new List<string> { "analyze" }, force: true);
             Status(InfoBarSeverity.Informational, Loc.T("Back.RerunStarted"));
@@ -386,15 +412,21 @@ public sealed partial class BackendPage : Page
         catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
     }
 
-    private async Task PollUntilTerminalAsync(BackendClient client)
+    private async Task<BackendStatus> PollUntilTerminalAsync(BackendClient client)
     {
-        while (true)
+        // Bounded wait (review 4), mirroring WaitForJobAsync: a stuck pipeline must not keep the
+        // poll loop (and the Re-run / Update-transcript handlers) running forever; after the
+        // deadline the last observed status comes back.
+        var deadline = DateTime.UtcNow.AddMinutes(10);
+        var status = await client.GetStatusAsync(_backendId!);
+        RenderStatus(status);
+        while (status.Status is not ("ready" or "failed" or "deleted") && DateTime.UtcNow < deadline)
         {
-            var status = await client.GetStatusAsync(_backendId!);
-            RenderStatus(status);
-            if (status.Status is "ready" or "failed" or "deleted") return;
             await Task.Delay(TimeSpan.FromSeconds(2));
+            status = await client.GetStatusAsync(_backendId!);
+            RenderStatus(status);
         }
+        return status;
     }
 
     private async void Remove_Click(object sender, RoutedEventArgs e)
@@ -620,6 +652,7 @@ public sealed partial class BackendPage : Page
             using var downloadCts = new CancellationTokenSource(TimeSpan.FromMinutes(60));
             var client = new BackendClient(transport);
             await client.DownloadMediaAsync(asset.Id, destination, downloadCts.Token);
+            _downloaded[asset.Id] = destination;
             Status(InfoBarSeverity.Success, Loc.Tf("Back.Downloaded", destination));
         }
         catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
