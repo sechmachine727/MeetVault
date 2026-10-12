@@ -56,7 +56,10 @@ public sealed class BackendSync
         else
         {
             // Re-send: media was uploaded on the first send. The probe is only needed when the
-            // meeting carries no duration (the server then falls back to the probe too).
+            // meeting carries no duration (the server then falls back to the probe too). The
+            // recomputed alignMs matches what the server stored on the first send — the create
+            // path is idempotent and ignores a new duration_ms — so a locally drifted span would
+            // need a server-side fetch instead.
             if (alignMs == 0)
                 probedMs = (await _client.ListMediaAsync(backendId!, ct)).FirstOrDefault(m => m.Kind == "audio")?.DurationMs;
         }
