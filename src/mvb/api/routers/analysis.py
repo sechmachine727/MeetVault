@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Query, status
+from fastapi import APIRouter, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -17,6 +17,7 @@ from mvb.schemas.analysis import (
     AnalysisBundleOut,
     AnalysisDocumentOut,
     AnalysisRunOut,
+    QARequest,
     QAResponse,
     SectionOut,
 )
@@ -211,17 +212,18 @@ def ask_question(
     meeting_id: uuid.UUID,
     _: ApiKeyId,
     db: DbSession,
-    payload: Annotated[dict, Body()],
+    request: QARequest,
 ) -> QAResponse:
     """Queue a question about the active transcript (optionally scoped to a section).
 
     The answer is a job: poll GET /jobs/{job_id} or stream its events, then read the newest
     `qa` document from GET /meetings/{id}/analysis. Answers carry citations with the segment
-    ids they were grounded in."""
-    from mvb.schemas.analysis import QARequest
+    ids they were grounded in.
 
+    The body is validated by the declared model, so a missing or blank `question` is a 422 in
+    the standard error envelope — not a 500 from an unguarded model_validate inside the handler.
+    """
     get_meeting(db, meeting_id)
-    request = QARequest.model_validate(payload)
     if request.section_id is not None:
         section = db.get(Section, request.section_id)
         if section is None or section.meeting_id != meeting_id:
@@ -286,10 +288,16 @@ def list_runs(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession, page: Paginatio
 
 @router.get("/meetings/{meeting_id}/jobs/latest", response_model=list[dict])
 def latest_jobs(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> list[dict]:
-    """Compact per-step job state — a lighter alternative to /meetings/{id}/jobs for polling."""
+    """Compact per-step job state, in pipeline order — a lighter alternative to
+    /meetings/{id}/jobs for polling.
+
+    Ordered by `priority`, not by timestamp: pipeline steps carry their step index as priority
+    (media_probe 0 … analyze 4, qa 200), so the order is exact even on SQLite, whose timestamps
+    only have one-second resolution and would otherwise tie every job of one run.
+    """
     get_meeting(db, meeting_id)
     rows = db.scalars(
-        select(Job).where(Job.meeting_id == meeting_id).order_by(Job.created_at.asc(), Job.id.asc())
+        select(Job).where(Job.meeting_id == meeting_id).order_by(Job.priority.asc(), Job.created_at.asc(), Job.id.asc())
     ).all()
     return [
         {"id": str(job.id), "type": job.type, "state": job.state, "progress": job.progress, "error": job.error}

@@ -24,6 +24,7 @@ from mvb.pipeline.chain import STEP_ORDER, enqueue_pipeline
 from mvb.pipeline.parse_transcript import parse_transcript_payload
 from mvb.pipeline.status import meeting_status
 from mvb.schemas.common import OkResponse, Page
+from mvb.schemas.jobs import ProcessRequest
 from mvb.schemas.media import MediaAssetOut
 from mvb.schemas.meetings import (
     MediaUploadOut,
@@ -349,7 +350,7 @@ def process_meeting(
     meeting_id: uuid.UUID,
     _: ApiKeyId,
     db: DbSession,
-    payload: Annotated[Any, Body()] = None,
+    payload: ProcessRequest | None = None,
     steps: Annotated[list[str] | None, Query()] = None,
     force: Annotated[bool, Query()] = False,
 ) -> ProcessResponse:
@@ -357,12 +358,11 @@ def process_meeting(
     media_probe → transcribe → diarize → align → analyze. Each step is a job: poll
     GET /meetings/{id}/status or stream GET /jobs/{id}/events.
 
-    `job_ids: []` with 202 means the pipeline was already running (idempotent)."""
-    from mvb.schemas.jobs import ProcessRequest
-
+    `job_ids: []` with 202 means the pipeline was already running (idempotent). The body is the
+    declared `ProcessRequest` model, so it is documented in OpenAPI and malformed input is a 422
+    in the standard error envelope."""
     meeting = get_meeting(db, meeting_id)
-    body = payload if isinstance(payload, dict) else {}
-    options = ProcessRequest.model_validate(body) if body else ProcessRequest()
+    options = payload or ProcessRequest()
     wanted = steps or options.steps
     unknown = [step for step in wanted if step not in STEP_ORDER]
     if unknown:
