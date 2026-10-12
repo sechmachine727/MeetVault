@@ -43,7 +43,7 @@ public sealed class BackendClient
 
     public async Task<List<BackendMeeting>> ListMeetingsAsync(int limit = 100, CancellationToken ct = default)
     {
-        var query = new Dictionary<string, string> { ["limit"] = limit.ToString(CultureInfo.InvariantCulture) };
+        var query = new Dictionary<string, string> { ["limit"] = Math.Clamp(limit, 1, 200).ToString(CultureInfo.InvariantCulture) };
         var page = Parse(await _transport.SendAsync(new BackendRequest("GET", "/v1/meetings", query), ct),
             BackendJsonContext.Default.BackendPageBackendMeeting);
         return page.Items;

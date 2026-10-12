@@ -229,4 +229,22 @@ public sealed class BackendClientTests
         await client.DownloadMediaAsync("a9", "C:/tmp/a9.m4a");
         Assert.Equal("/v1/media/a9", transport.Downloads[0].Path);
     }
+
+    [Fact]
+    public async Task ListMeetings_ClampsPageSizeAboveRange_DownTo200()
+    {
+        var transport = new RecordingTransport { Responder = _ => "{\"items\":[],\"total\":0,\"limit\":200,\"offset\":0}" };
+        var client = new BackendClient(transport);
+        await client.ListMeetingsAsync(500);
+        Assert.Equal("200", transport.Requests[0].Query!["limit"]);
+    }
+
+    [Fact]
+    public async Task ListMeetings_ClampsPageSizeBelowRange_UpTo1()
+    {
+        var transport = new RecordingTransport { Responder = _ => "{\"items\":[],\"total\":0,\"limit\":1,\"offset\":0}" };
+        var client = new BackendClient(transport);
+        await client.ListMeetingsAsync(0);
+        Assert.Equal("1", transport.Requests[0].Query!["limit"]);
+    }
 }
