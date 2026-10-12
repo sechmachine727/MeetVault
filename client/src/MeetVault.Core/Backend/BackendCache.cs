@@ -44,7 +44,9 @@ public sealed class BackendCache
         catch (Exception ex) { AppLog.Warn("backend: cache read failed: " + ex.Message); return null; }
     }
 
-    // Every non-alphanumeric character maps to "_" rather than being dropped, so distinct ids
-    // stay distinct file names — "m 1/A" and "m1A" no longer collide on the same file.
+    // Every non-alphanumeric character maps to "_" rather than being dropped, so ids that differ
+    // only in separators stop sharing one file. The mapping is NOT injective ("a b" and "a/b" map
+    // alike); ids in this app are timestamp-hex + suffix, so collisions do not occur in practice
+    // (review 2).
     private static string Safe(string id) => string.Concat(id.Select(c => char.IsLetterOrDigit(c) ? c : '_'));
 }
