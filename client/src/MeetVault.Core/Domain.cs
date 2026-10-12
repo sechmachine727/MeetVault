@@ -37,3 +37,8 @@ public enum GeminiJobState { Queued, Uploading, Succeeded, Failed }
 
 public sealed record GeminiJob(string Id, string MeetingId, GeminiJobState State, int Attempts, string? LastError, string? ResultPath);
 
+// Local snapshot of the backend state for one meeting. State mirrors the server's meeting status
+// ("uploaded"/"processing"/"ready"/"failed"/"deleted") plus local-only "sending" (in-flight) and
+// "" (never sent). The server is the source of truth; this row drives offline display only.
+public sealed record BackendSyncRow(string MeetingId, string? BackendId, string State, string? LastError, bool Mock, string UpdatedAt);
+

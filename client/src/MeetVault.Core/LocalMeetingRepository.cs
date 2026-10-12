@@ -30,6 +30,7 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
             CREATE TABLE IF NOT EXISTS gemini_jobs(id TEXT PRIMARY KEY, meeting_id TEXT NOT NULL, state TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT NULL, result_paths TEXT NULL, updated_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS media_tracks(id TEXT PRIMARY KEY, meeting_id TEXT NOT NULL, kind TEXT NOT NULL, path TEXT NOT NULL, mime TEXT NOT NULL DEFAULT 'video/mp4', start_offset_ms INTEGER NOT NULL DEFAULT 0, duration_ms INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS ix_media_tracks_meeting ON media_tracks(meeting_id);
+            CREATE TABLE IF NOT EXISTS backend_sync(meeting_id TEXT PRIMARY KEY, backend_id TEXT NULL, state TEXT NOT NULL, last_error TEXT NULL, mock INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL);
             """;
         cmd.ExecuteNonQuery();
         // Existing databases predate the language column; CREATE TABLE IF NOT EXISTS never
@@ -532,6 +533,38 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         using var r = c.ExecuteReader();
         if (!r.Read()) return null;
         return new GeminiJob(r.GetString(0), meetingId, Enum.TryParse<GeminiJobState>(r.GetString(1), out var js) ? js : GeminiJobState.Failed, r.GetInt32(2), r.IsDBNull(3) ? null : r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4));
+    }
+
+    public void SaveBackendSync(BackendSyncRow row)
+    {
+        using var c = _db.CreateCommand();
+        c.CommandText = "INSERT INTO backend_sync(meeting_id,backend_id,state,last_error,mock,updated_at) VALUES($m,$b,$s,$e,$k,$u) ON CONFLICT(meeting_id) DO UPDATE SET backend_id=$b,state=$s,last_error=$e,mock=$k,updated_at=$u";
+        c.Parameters.AddWithValue("$m", row.MeetingId);
+        c.Parameters.AddWithValue("$b", (object?)row.BackendId ?? DBNull.Value);
+        c.Parameters.AddWithValue("$s", row.State);
+        c.Parameters.AddWithValue("$e", (object?)row.LastError ?? DBNull.Value);
+        c.Parameters.AddWithValue("$k", row.Mock ? 1 : 0);
+        c.Parameters.AddWithValue("$u", row.UpdatedAt);
+        c.ExecuteNonQuery();
+    }
+
+    public BackendSyncRow? LoadBackendSync(string meetingId)
+    {
+        using var c = _db.CreateCommand();
+        c.CommandText = "SELECT meeting_id,backend_id,state,last_error,mock,updated_at FROM backend_sync WHERE meeting_id=$m";
+        c.Parameters.AddWithValue("$m", meetingId);
+        using var r = c.ExecuteReader();
+        if (!r.Read()) return null;
+        return new BackendSyncRow(r.GetString(0), r.IsDBNull(1) ? null : r.GetString(1), r.GetString(2),
+            r.IsDBNull(3) ? null : r.GetString(3), r.GetInt32(4) != 0, r.GetString(5));
+    }
+
+    public void ClearBackendSync(string meetingId)
+    {
+        using var c = _db.CreateCommand();
+        c.CommandText = "DELETE FROM backend_sync WHERE meeting_id=$m";
+        c.Parameters.AddWithValue("$m", meetingId);
+        c.ExecuteNonQuery();
     }
 
     // ponytail: unknown enum text falls back to Failed, never throws; surfaces in UI instead of breaking list/load.
