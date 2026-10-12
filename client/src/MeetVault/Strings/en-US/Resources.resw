@@ -8,6 +8,7 @@
   <data name="NavDashboard.Content" xml:space="preserve"><value>Dashboard</value></data>
   <data name="NavLive.Content" xml:space="preserve"><value>Live</value></data>
   <data name="NavMeetings.Content" xml:space="preserve"><value>Meetings</value></data>
+  <data name="NavBackend.Content" xml:space="preserve"><value>Backend</value></data>
 
   <!-- Shared: manage flyout, selection toolbar, table headers -->
   <data name="Manage.ToolTipService.ToolTip" xml:space="preserve"><value>Manage meetings</value></data>
@@ -419,4 +420,59 @@
   <data name="Back.Stage.Video" xml:space="preserve"><value>uploading screen video</value></data>
   <data name="Back.Stage.Transcript" xml:space="preserve"><value>uploading transcript</value></data>
   <data name="Back.Stage.Start" xml:space="preserve"><value>starting processing</value></data>
+  <data name="BackPageTitle.Text" xml:space="preserve"><value>Backend</value></data>
+  <data name="BackPageMeetingLabel.Text" xml:space="preserve"><value>Meeting</value></data>
+  <data name="BackPagePick.PlaceholderText" xml:space="preserve"><value>Choose a synced meeting</value></data>
+  <data name="BackPagePick.AutomationProperties.Name" xml:space="preserve"><value>Backend meeting</value></data>
+  <data name="BackPageEmpty.Text" xml:space="preserve"><value>No meetings have been sent to the backend yet. Open a meeting's Details page and press Send to backend.</value></data>
+  <data name="BackPageRefresh.Content" xml:space="preserve"><value>Refresh</value></data>
+  <data name="BackPageRefresh.AutomationProperties.Name" xml:space="preserve"><value>Refresh backend data</value></data>
+  <data name="BackPagePlay.Content" xml:space="preserve"><value>Play recording</value></data>
+  <data name="BackPagePlay.AutomationProperties.Name" xml:space="preserve"><value>Play recording</value></data>
+  <data name="BackPageRerun.Content" xml:space="preserve"><value>Re-run analysis</value></data>
+  <data name="BackPageRerun.AutomationProperties.Name" xml:space="preserve"><value>Re-run the backend analysis</value></data>
+  <data name="BackPageUpdateTranscript.Content" xml:space="preserve"><value>Update transcript</value></data>
+  <data name="BackPageUpdateTranscript.AutomationProperties.Name" xml:space="preserve"><value>Upload the current transcript and re-run analysis</value></data>
+  <data name="BackPageRemove.Content" xml:space="preserve"><value>Remove from backend</value></data>
+  <data name="BackPageRemove.AutomationProperties.Name" xml:space="preserve"><value>Remove this meeting from the backend</value></data>
+  <data name="BackPageTranscript.Header" xml:space="preserve"><value>Server transcript</value></data>
+  <data name="BackPageCopyText.Content" xml:space="preserve"><value>Copy text</value></data>
+  <data name="BackPageSummary.Header" xml:space="preserve"><value>Summary</value></data>
+  <data name="BackPageAgenda.Header" xml:space="preserve"><value>Agenda &amp; sections</value></data>
+  <data name="BackPageDecisions.Header" xml:space="preserve"><value>Decisions</value></data>
+  <data name="BackPageActions.Header" xml:space="preserve"><value>Action items</value></data>
+  <data name="BackPageQa.Header" xml:space="preserve"><value>Ask about this meeting</value></data>
+  <data name="BackPageQaBox.PlaceholderText" xml:space="preserve"><value>What did we decide about …?</value></data>
+  <data name="BackPageQaBox.AutomationProperties.Name" xml:space="preserve"><value>Question about this meeting</value></data>
+  <data name="BackPageAsk.Content" xml:space="preserve"><value>Ask</value></data>
+  <data name="BackPageAsk.AutomationProperties.Name" xml:space="preserve"><value>Ask the backend</value></data>
+  <data name="BackPageSpeakers.Header" xml:space="preserve"><value>Speakers</value></data>
+  <data name="BackPageVersions.Header" xml:space="preserve"><value>Transcript versions</value></data>
+  <data name="BackPageJobs.Header" xml:space="preserve"><value>Jobs</value></data>
+  <data name="BackPageMedia.Header" xml:space="preserve"><value>Media on the server</value></data>
+  <data name="BackPageSave.Content" xml:space="preserve"><value>Save</value></data>
+  <data name="BackPageMerge.Content" xml:space="preserve"><value>Merge</value></data>
+  <data name="BackPageDeleteSpeaker.Content" xml:space="preserve"><value>Delete</value></data>
+  <data name="BackPageActivate.Content" xml:space="preserve"><value>Activate</value></data>
+  <data name="BackPageDeleteVersion.Content" xml:space="preserve"><value>Delete</value></data>
+  <data name="BackPageWatch.Content" xml:space="preserve"><value>Watch</value></data>
+  <data name="BackPageCancelJob.Content" xml:space="preserve"><value>Cancel</value></data>
+  <data name="BackPageDownload.Content" xml:space="preserve"><value>Download</value></data>
+  <data name="Back.NoLocalRecording" xml:space="preserve"><value>No local recording and nothing downloaded yet.</value></data>
+  <data name="Back.Copied" xml:space="preserve"><value>Server transcript copied.</value></data>
+  <data name="Back.AskQueued" xml:space="preserve"><value>Question sent — waiting for the answer…</value></data>
+  <data name="Back.SpeakerStats" xml:space="preserve"><value>{0} segments · {1} s</value></data>
+  <data name="Back.SpeakerDeleteTitle" xml:space="preserve"><value>Delete this speaker?</value></data>
+  <data name="Back.SpeakerDeleteBody" xml:space="preserve"><value>{0} will be removed; the transcript text stays.</value></data>
+  <data name="Back.Delete" xml:space="preserve"><value>Delete</value></data>
+  <data name="Back.VersionLine" xml:space="preserve"><value>v{0} · {1} · {2} · {3} segments</value></data>
+  <data name="Back.Active" xml:space="preserve"><value>active</value></data>
+  <data name="Back.RerunStarted" xml:space="preserve"><value>Re-run started…</value></data>
+  <data name="Back.RemoveTitle" xml:space="preserve"><value>Remove from the backend?</value></data>
+  <data name="Back.RemoveBody" xml:space="preserve"><value>The server's copy, transcript and analysis for this meeting will be deleted. The local recording stays.</value></data>
+  <data name="Back.Remove" xml:space="preserve"><value>Remove</value></data>
+  <data name="Back.Removed" xml:space="preserve"><value>Removed from the backend.</value></data>
+  <data name="Back.Downloading" xml:space="preserve"><value>Downloading…</value></data>
+  <data name="Back.Downloaded" xml:space="preserve"><value>Downloaded to {0}</value></data>
+  <data name="Back.LoadFailed" xml:space="preserve"><value>Could not load backend data: {0}</value></data>
 </root>

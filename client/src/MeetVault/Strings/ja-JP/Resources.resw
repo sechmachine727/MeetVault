@@ -8,6 +8,7 @@
   <data name="NavDashboard.Content" xml:space="preserve"><value>ダッシュボード</value></data>
   <data name="NavLive.Content" xml:space="preserve"><value>ライブ</value></data>
   <data name="NavMeetings.Content" xml:space="preserve"><value>会議</value></data>
+  <data name="NavBackend.Content" xml:space="preserve"><value>バックエンド</value></data>
 
   <!-- Shared: manage flyout, selection toolbar, table headers -->
   <data name="Manage.ToolTipService.ToolTip" xml:space="preserve"><value>会議の管理</value></data>
@@ -419,4 +420,59 @@
   <data name="Back.Stage.Video" xml:space="preserve"><value>画面録画をアップロード中</value></data>
   <data name="Back.Stage.Transcript" xml:space="preserve"><value>文字起こしをアップロード中</value></data>
   <data name="Back.Stage.Start" xml:space="preserve"><value>処理を開始中</value></data>
+  <data name="BackPageTitle.Text" xml:space="preserve"><value>バックエンド</value></data>
+  <data name="BackPageMeetingLabel.Text" xml:space="preserve"><value>会議</value></data>
+  <data name="BackPagePick.PlaceholderText" xml:space="preserve"><value>同期済みの会議を選択</value></data>
+  <data name="BackPagePick.AutomationProperties.Name" xml:space="preserve"><value>バックエンドの会議</value></data>
+  <data name="BackPageEmpty.Text" xml:space="preserve"><value>まだどの会議もバックエンドに送信されていません。会議の詳細ページを開き「バックエンドに送信」を押してください。</value></data>
+  <data name="BackPageRefresh.Content" xml:space="preserve"><value>更新</value></data>
+  <data name="BackPageRefresh.AutomationProperties.Name" xml:space="preserve"><value>バックエンドのデータを更新</value></data>
+  <data name="BackPagePlay.Content" xml:space="preserve"><value>録音を再生</value></data>
+  <data name="BackPagePlay.AutomationProperties.Name" xml:space="preserve"><value>録音を再生</value></data>
+  <data name="BackPageRerun.Content" xml:space="preserve"><value>分析を再実行</value></data>
+  <data name="BackPageRerun.AutomationProperties.Name" xml:space="preserve"><value>バックエンドの分析を再実行</value></data>
+  <data name="BackPageUpdateTranscript.Content" xml:space="preserve"><value>文字起こしを更新</value></data>
+  <data name="BackPageUpdateTranscript.AutomationProperties.Name" xml:space="preserve"><value>現在の文字起こしを送信して分析を再実行</value></data>
+  <data name="BackPageRemove.Content" xml:space="preserve"><value>バックエンドから削除</value></data>
+  <data name="BackPageRemove.AutomationProperties.Name" xml:space="preserve"><value>この会議をバックエンドから削除</value></data>
+  <data name="BackPageTranscript.Header" xml:space="preserve"><value>サーバー文字起こし</value></data>
+  <data name="BackPageCopyText.Content" xml:space="preserve"><value>テキストをコピー</value></data>
+  <data name="BackPageSummary.Header" xml:space="preserve"><value>要約</value></data>
+  <data name="BackPageAgenda.Header" xml:space="preserve"><value>アジェンダとセクション</value></data>
+  <data name="BackPageDecisions.Header" xml:space="preserve"><value>決定事項</value></data>
+  <data name="BackPageActions.Header" xml:space="preserve"><value>アクション項目</value></data>
+  <data name="BackPageQa.Header" xml:space="preserve"><value>この会議について質問</value></data>
+  <data name="BackPageQaBox.PlaceholderText" xml:space="preserve"><value>何が決まりましたか…?</value></data>
+  <data name="BackPageQaBox.AutomationProperties.Name" xml:space="preserve"><value>この会議についての質問</value></data>
+  <data name="BackPageAsk.Content" xml:space="preserve"><value>質問</value></data>
+  <data name="BackPageAsk.AutomationProperties.Name" xml:space="preserve"><value>バックエンドに質問</value></data>
+  <data name="BackPageSpeakers.Header" xml:space="preserve"><value>話者</value></data>
+  <data name="BackPageVersions.Header" xml:space="preserve"><value>文字起こしのバージョン</value></data>
+  <data name="BackPageJobs.Header" xml:space="preserve"><value>ジョブ</value></data>
+  <data name="BackPageMedia.Header" xml:space="preserve"><value>サーバー上のメディア</value></data>
+  <data name="BackPageSave.Content" xml:space="preserve"><value>保存</value></data>
+  <data name="BackPageMerge.Content" xml:space="preserve"><value>統合</value></data>
+  <data name="BackPageDeleteSpeaker.Content" xml:space="preserve"><value>削除</value></data>
+  <data name="BackPageActivate.Content" xml:space="preserve"><value>有効化</value></data>
+  <data name="BackPageDeleteVersion.Content" xml:space="preserve"><value>削除</value></data>
+  <data name="BackPageWatch.Content" xml:space="preserve"><value>監視</value></data>
+  <data name="BackPageCancelJob.Content" xml:space="preserve"><value>キャンセル</value></data>
+  <data name="BackPageDownload.Content" xml:space="preserve"><value>ダウンロード</value></data>
+  <data name="Back.NoLocalRecording" xml:space="preserve"><value>ローカルの録音がなく、ダウンロードもまだありません。</value></data>
+  <data name="Back.Copied" xml:space="preserve"><value>サーバーの文字起こしをコピーしました。</value></data>
+  <data name="Back.AskQueued" xml:space="preserve"><value>質問を送信しました — 回答を待っています…</value></data>
+  <data name="Back.SpeakerStats" xml:space="preserve"><value>{0} セグメント · {1} 秒</value></data>
+  <data name="Back.SpeakerDeleteTitle" xml:space="preserve"><value>この話者を削除しますか?</value></data>
+  <data name="Back.SpeakerDeleteBody" xml:space="preserve"><value>{0} を削除します。文字起こしのテキストは残ります。</value></data>
+  <data name="Back.Delete" xml:space="preserve"><value>削除</value></data>
+  <data name="Back.VersionLine" xml:space="preserve"><value>v{0} · {1} · {2} · {3} セグメント</value></data>
+  <data name="Back.Active" xml:space="preserve"><value>有効</value></data>
+  <data name="Back.RerunStarted" xml:space="preserve"><value>再実行を開始しました…</value></data>
+  <data name="Back.RemoveTitle" xml:space="preserve"><value>バックエンドから削除しますか?</value></data>
+  <data name="Back.RemoveBody" xml:space="preserve"><value>サーバー上のこの会議のコピー、文字起こし、分析が削除されます。ローカルの録音は残ります。</value></data>
+  <data name="Back.Remove" xml:space="preserve"><value>削除</value></data>
+  <data name="Back.Removed" xml:space="preserve"><value>バックエンドから削除しました。</value></data>
+  <data name="Back.Downloading" xml:space="preserve"><value>ダウンロード中…</value></data>
+  <data name="Back.Downloaded" xml:space="preserve"><value>{0} にダウンロードしました</value></data>
+  <data name="Back.LoadFailed" xml:space="preserve"><value>バックエンドのデータを読み込めませんでした: {0}</value></data>
 </root>
