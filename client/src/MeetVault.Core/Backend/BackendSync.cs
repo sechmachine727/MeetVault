@@ -26,6 +26,7 @@ public sealed class BackendSync
     {
         var firstSend = string.IsNullOrEmpty(existingBackendId);
         var backendId = existingBackendId;
+        long? probedMs = null;
         if (firstSend)
         {
             progress?.Report(BackendSyncStage.Creating);
@@ -36,6 +37,7 @@ public sealed class BackendSync
             {
                 progress?.Report(BackendSyncStage.UploadingAudio);
                 var upload = await _client.UploadMediaAsync(backendId!, audio, meeting.MediaMime ?? "audio/mp4", "audio", 0, ct);
+                probedMs = upload.DurationMs;
                 AppLog.Info("backend: audio uploaded asset=" + upload.AssetId + " duration_ms=" + upload.DurationMs);
             }
             foreach (var track in screenTracks.OrderBy(t => t.StartOffsetMs).ThenBy(t => t.CreatedAt, StringComparer.Ordinal))
@@ -46,13 +48,19 @@ public sealed class BackendSync
                 AppLog.Info("backend: video uploaded asset=" + upload.AssetId + " offset_ms=" + track.StartOffsetMs);
             }
         }
+        else
+        {
+            // Re-send: media was uploaded on the first send; recover its probed duration so the
+            // formatter can pin the final timestamp against the server's align=auto scaling.
+            probedMs = (await _client.ListMediaAsync(backendId!, ct)).FirstOrDefault(m => m.Kind == "audio")?.DurationMs;
+        }
         // The server rejects segments: [] (400 unsupported_transcript_format), which would fail an
         // otherwise valid media-only send — so an empty transcript is skipped, not uploaded.
         var transcriptVersion = 0;
         if (segments.Count > 0)
         {
             progress?.Report(BackendSyncStage.UploadingTranscript);
-            var formatA = BackendFormatter.ToFormatA(meeting, segments, speakers);
+            var formatA = BackendFormatter.ToFormatA(meeting, segments, speakers, probedMs);
             var transcript = await _client.UploadTranscriptAsync(backendId!, formatA, meeting.Language, ct);
             AppLog.Info("backend: transcript uploaded version=" + transcript.Version);
             transcriptVersion = transcript.Version;

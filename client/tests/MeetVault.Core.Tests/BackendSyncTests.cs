@@ -80,6 +80,7 @@ public sealed class BackendSyncTests
         var transport = new RecordingTransport();
         transport.Responder = request => request.Path switch
         {
+            "/v1/meetings/b1/media" => "{\"items\":[],\"total\":0,\"limit\":50,\"offset\":0}",
             "/v1/meetings/b1/transcripts" => TranscriptJson,
             "/v1/meetings/b1/process" => ProcessJson,
             _ => "{}",
@@ -90,9 +91,9 @@ public sealed class BackendSyncTests
             new List<Segment> { new("s1", "", 0, 10, "hi", true) }, new List<Speaker>(),
             new List<MediaTrack>(), existingBackendId: "b1");
         var paths = transport.Requests.Select(r => r.Path).ToList();
-        Assert.Equal(new[] { "/v1/meetings/b1/transcripts", "/v1/meetings/b1/process" }, paths);
-        Assert.Contains("\"steps\":[\"analyze\"]", transport.Requests[1].JsonBody);
-        Assert.Contains("\"force\":true", transport.Requests[1].JsonBody);
+        Assert.Equal(new[] { "/v1/meetings/b1/media", "/v1/meetings/b1/transcripts", "/v1/meetings/b1/process" }, paths);
+        Assert.Contains("\"steps\":[\"analyze\"]", transport.Requests[2].JsonBody);
+        Assert.Contains("\"force\":true", transport.Requests[2].JsonBody);
     }
 
     [Fact]
@@ -122,6 +123,31 @@ public sealed class BackendSyncTests
             Assert.Equal(0, result.TranscriptVersion);
         }
         finally { File.Delete(audio); }
+    }
+
+    [Fact]
+    public async Task Send_Resend_FetchesMediaDuration_BeforeTranscript()
+    {
+        var transport = new RecordingTransport();
+        var seen = new List<string>();
+        transport.Responder = request =>
+        {
+            seen.Add(request.Method + " " + request.Path);
+            return request.Path switch
+            {
+                "/v1/meetings/b1/media" => "{\"items\":[{\"id\":\"a1\",\"meeting_id\":\"b1\",\"kind\":\"audio\",\"role\":\"primary\",\"original_name\":\"a.m4a\",\"content_type\":\"audio/mp4\",\"size_bytes\":1,\"sha256\":\"s\",\"duration_ms\":90000,\"start_offset_ms\":0,\"sample_rate\":null,\"channels\":null,\"created_at\":null}],\"total\":1,\"limit\":50,\"offset\":0}",
+                "/v1/meetings/b1/transcripts" => TranscriptJson,
+                "/v1/meetings/b1/process" => ProcessJson,
+                _ => "{}",
+            };
+        };
+        var client = new BackendClient(transport);
+        var sync = new BackendSync(client);
+        await sync.SendAsync(MeetingWithAudio("C:/nonexistent/a.m4a"),
+            new List<Segment> { new("s1", "", 20_500, 50_000, "hi", true) }, new List<Speaker>(),
+            new List<MediaTrack>(), existingBackendId: "b1");
+        Assert.Equal(new[] { "GET /v1/meetings/b1/media", "POST /v1/meetings/b1/transcripts", "POST /v1/meetings/b1/process" }, seen);
+        Assert.Contains("\"start_ms\":20500,\"end_ms\":90000", transport.Requests[1].JsonBody);
     }
 
     [Fact]
