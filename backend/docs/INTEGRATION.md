@@ -77,8 +77,10 @@ curl -X POST http://localhost:8080/v1/meetings/$MEETING_ID/transcripts \
 *probed media duration* (by text length), contiguous and non-overlapping. That is why the
 media upload must come first: rescaling to the real duration is what keeps a transcript from
 drifting out of sync with the audio during playback. If the payload *does* carry
-`start_ms`/`end_ms`, they are rescaled onto the real duration instead (`?align=scale`), or
-kept and only the untimed gaps filled (`?align=auto`, the default).
+`start_ms`/`end_ms`: `?align=scale` rescales them onto the real duration (factor
+`duration_ms / max(end_ms)`); `?align=auto` (the default) rescales the same way when every
+row is timed, and only with a *mix* of timed and untimed rows are the timed rows kept and
+the untimed gaps filled.
 
 ### 1.4 Start processing
 
