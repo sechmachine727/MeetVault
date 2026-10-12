@@ -1,5 +1,10 @@
 # HANDOVER — Meetvault_Backend
 
+> Location note (2026-10-12): this project was imported into the MeetVault monorepo at
+> `D:/workspace/MeetVault/backend` (git subtree, full history). The former standalone repo
+> `D:/workspace/Meetvault_Backend` is the archival copy. All paths below remain valid relative
+> to this directory.
+
 **Status: complete and verified to the limit of the authoring box.** Post-meeting
 transcription, diarization and LLM analysis for the MeetVault Windows app, as a standalone
 service. Last updated 2026-10-12, at commit `09b0855` (branch `main`, working tree clean).

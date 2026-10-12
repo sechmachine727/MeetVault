@@ -62,3 +62,8 @@ client can always tell whether what it shows still matches the recording.
 `scripts/smoke.sh` boots the real server + worker and verifies the full client flow over HTTP
 (exit 0). Docker/Postgres and the remaining real engines are CI- or opt-in-verified only — see
 `docs/ACCEPTANCE.md` for exactly what was and was not verified where.
+
+## Monorepo note
+
+This service lives at `backend/` in the MeetVault monorepo; the Windows client lives at `client/`.
+CI runs from the repo root (`.github/workflows/backend-ci.yml`, `working-directory: backend`).
