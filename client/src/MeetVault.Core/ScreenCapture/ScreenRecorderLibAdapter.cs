@@ -184,12 +184,25 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
         RecorderOptions opts;
         try { opts = RecorderOptions.Default; }
         catch (Exception ex) { throw new InvalidOperationException("screen capture unavailable: " + ex.Message, ex); }
-        // Low-rate preview frames for the live preview box (320x180, library-throttled).
+        // Live preview frames for the recording screen (960x540, 16:9). The preview and the
+        // encoder share the captured frames; IsFixedFramerate below keeps a steady rate even
+        // while nothing on screen changes.
         src.IsVideoFramePreviewEnabled = true;
-        src.VideoFramePreviewSize = new ScreenSize(320, 180);
+        src.VideoFramePreviewSize = new ScreenSize(960, 540);
+        // Execution fix 2026-10-13: the recorder-level OnFrameRecorded bitmaps are generated
+        // from the OUTPUT options (RecordingManager::SendNewFrameCallback gates the bitmap on
+        // OutputOptions.IsVideoFramePreviewEnabled; v7.0.1 source). The source-level flags above
+        // only feed the per-source event this app never subscribes to, so the preview stayed
+        // empty with them alone (measured: frames=0). Set the output pair as well.
+        opts.OutputOptions.IsVideoFramePreviewEnabled = true;
+        opts.OutputOptions.VideoFramePreviewSize = new ScreenSize(960, 540);
         opts.SourceOptions = new SourceOptions { RecordingSources = new List<RecordingSourceBase> { src } };
         opts.AudioOptions = new AudioOptions { IsAudioEnabled = false }; // video-only; audio stays in NAudioCapture
-        opts.VideoEncoderOptions = new VideoEncoderOptions { Framerate = 30, Bitrate = 4_000_000, Quality = 70 };
+        // Fixed-framerate encoding: the encoder receives a frame every 1/30 s, duplicating the
+        // previous frame when the capture source is idle, so playback is a steady 30 fps
+        // instead of a stuttery variable rate (library docs: "can fix stutter issues").
+        // Bitrate raised to 6 Mbps for text legibility.
+        opts.VideoEncoderOptions = new VideoEncoderOptions { Framerate = 30, Bitrate = 6_000_000, Quality = 70, IsFixedFramerate = true };
         try
         {
             var recorder = Recorder.CreateRecorder(opts);
@@ -222,6 +235,9 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
         var src = string.IsNullOrEmpty(deviceName) ? DisplayRecordingSource.MainMonitor : new DisplayRecordingSource(deviceName);
         if (src is null) throw new InvalidOperationException("no display available for capture");
         src.RecorderApi = RecorderApi.WindowsGraphicsCapture;
+        // The WGC yellow capture border would show up in the live preview and on the recorded
+        // display; keep the capture unobtrusive (window sources already set this false).
+        src.IsBorderRequired = false;
         return src;
     }
 

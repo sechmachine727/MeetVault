@@ -47,6 +47,13 @@ public sealed partial class LivePage : Page
     private readonly List<MeetVault.Core.CaptureSource> _screenSources = new();
     private bool _suppressScreenEvent;
     private Microsoft.UI.Xaml.Media.Imaging.SoftwareBitmapSource? _previewSink;
+    // Live-preview frame-rate meter: one-second buckets, shown in the preview badge and
+    // summarized into the log when a screen run stops.
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _fpsTimer;
+    private long _previewFrames;
+    private long _previewTotal;
+    private int _lastFps;
+    private bool _screenWasActive;
 
     // Microphone and system audio are recorded together unless switched off in Settings.
     private static string MicId => AppStore.Repo.GetSetting("audio.mic.enabled") == "off"
@@ -77,6 +84,8 @@ public sealed partial class LivePage : Page
     private async void OnUnloaded(object sender, RoutedEventArgs e)
     {
         _checkpoint?.Stop();
+        _fpsTimer?.Stop();
+        _fpsTimer = null;
         // Detach BEFORE the await: during the pause the returning page may already be
         // subscribed again, and an overlay request must reach only the new page (review r19).
         LiveBridge.LanguageRequested -= OnLanguageRequested;
@@ -423,6 +432,15 @@ public sealed partial class LivePage : Page
     {
         if (_checkpoint is not null) return; // one timer, one handler: never accumulate across start/recover
         _checkpoint = DispatcherQueue.CreateTimer();
+        // Preview rate meter (see the fields above).
+        _fpsTimer = DispatcherQueue.CreateTimer();
+        _fpsTimer.Interval = TimeSpan.FromSeconds(1);
+        _fpsTimer.Tick += (_, _) =>
+        {
+            _lastFps = (int)Interlocked.Exchange(ref _previewFrames, 0);
+            if (_screen?.IsRecording == true) FpsText.Text = Loc.Tf("Live.PreviewFps", _lastFps);
+        };
+        _fpsTimer.Start();
         _checkpoint.Interval = TimeSpan.FromSeconds(15);
         _checkpoint.Tick += async (_, _) => { try { if (_session is not null) await _session.CheckpointAsync(); } catch { } };
         _checkpoint.Start();
@@ -607,7 +625,22 @@ public sealed partial class LivePage : Page
             : _state == LiveState.Paused ? Loc.T("Live.ScreenPaused")
             : Loc.T("Live.ScreenOff");
         LiveBridge.SetScreenState(active);
-        if (!active) { PreviewBox.Visibility = Visibility.Collapsed; PreviewImage.Source = null; }
+        if (!active)
+        {
+            PreviewBox.Visibility = Visibility.Collapsed;
+            PreviewImage.Source = null;
+            FpsText.Text = "";
+        }
+        if (_screenWasActive && !active)
+        {
+            MeetVault.Core.AppLog.Info("screen: preview stream frames=" + Interlocked.Read(ref _previewTotal)
+                + " lastRate=" + _lastFps + " fps");
+            Interlocked.Exchange(ref _previewFrames, 0);
+            Interlocked.Exchange(ref _previewTotal, 0);
+        }
+        _screenWasActive = active;
+        RecBadge.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+        PreviewEmpty.Visibility = active && PreviewImage.Source is not null ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private string SelectedSourceLabel()
@@ -630,6 +663,8 @@ public sealed partial class LivePage : Page
     private void OnScreenFrame(byte[] data, int stride, int width, int height)
     {
         if (width <= 0 || height <= 0 || stride < width * 4 || data.Length < stride * (height - 1) + width * 4) return;
+        Interlocked.Increment(ref _previewFrames);
+        Interlocked.Increment(ref _previewTotal);
         var bytes = data;
         if (stride != width * 4)
         {
@@ -652,6 +687,7 @@ public sealed partial class LivePage : Page
                 await _previewSink.SetBitmapAsync(bitmap);
                 PreviewImage.Source = _previewSink;
                 PreviewBox.Visibility = Visibility.Visible;
+                PreviewEmpty.Visibility = Visibility.Collapsed;
             }
             catch (Exception ex) { MeetVault.Core.AppLog.Warn("screen: preview frame failed: " + ex.Message); }
         });

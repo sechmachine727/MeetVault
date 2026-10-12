@@ -312,6 +312,11 @@
   <data name="Live.ScreenFailed" xml:space="preserve"><value>Screen recording stopped: {0}</value></data>
   <data name="Live.ScreenUnavailable" xml:space="preserve"><value>Screen recording is unavailable on this system.</value></data>
   <data name="Live.ScreenPaused" xml:space="preserve"><value>Screen recording pauses with the meeting.</value></data>
+  <data name="LivePreview.AutomationProperties.Name" xml:space="preserve"><value>Live capture preview</value></data>
+  <data name="LivePreviewPlaceholder.Text" xml:space="preserve"><value>The live preview appears here while screen recording is running.</value></data>
+  <data name="LiveRecBadge.Text" xml:space="preserve"><value>REC</value></data>
+  <data name="LiveTranscriptLabel.Text" xml:space="preserve"><value>Live transcript</value></data>
+  <data name="Live.PreviewFps" xml:space="preserve"><value>{0} fps</value></data>
   <data name="Ov.Rec" xml:space="preserve"><value>Recording</value></data>
   <data name="Ov.ScreenToggle" xml:space="preserve"><value>Start/stop screen recording</value></data>
   <data name="Set.SizeAutoNote" xml:space="preserve"><value>Size applies per language; unavailable sizes fall back to Small.</value></data>

@@ -312,6 +312,11 @@
   <data name="Live.ScreenFailed" xml:space="preserve"><value>画面収録を停止しました: {0}</value></data>
   <data name="Live.ScreenUnavailable" xml:space="preserve"><value>この環境では画面収録を利用できません。</value></data>
   <data name="Live.ScreenPaused" xml:space="preserve"><value>画面収録は一時停止に連動して停止します。</value></data>
+  <data name="LivePreview.AutomationProperties.Name" xml:space="preserve"><value>ライブキャプチャプレビュー</value></data>
+  <data name="LivePreviewPlaceholder.Text" xml:space="preserve"><value>画面収録の実行中、ここにライブプレビューが表示されます。</value></data>
+  <data name="LiveRecBadge.Text" xml:space="preserve"><value>REC</value></data>
+  <data name="LiveTranscriptLabel.Text" xml:space="preserve"><value>ライブ文字起こし</value></data>
+  <data name="Live.PreviewFps" xml:space="preserve"><value>{0} fps</value></data>
   <data name="Ov.Rec" xml:space="preserve"><value>録画中</value></data>
   <data name="Ov.ScreenToggle" xml:space="preserve"><value>画面収録の開始/停止</value></data>
   <data name="Set.SizeAutoNote" xml:space="preserve"><value>サイズは言語ごとに適用され、未導入のサイズは Small にフォールバックします。</value></data>
