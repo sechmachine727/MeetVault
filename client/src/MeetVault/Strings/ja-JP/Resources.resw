@@ -356,4 +356,32 @@
   <data name="Nav.ErrorPageFallback" xml:space="preserve"><value>そのページ</value></data>
   <data name="Nav.ErrorBody" xml:space="preserve"><value>このページの読み込み中に問題が発生しました。ダッシュボードに戻ります。詳細は {0} に記録されました。</value></data>
   <data name="Nav.BackToDashboard" xml:space="preserve"><value>ダッシュボードに戻る</value></data>
+
+  <!-- Backend service -->
+  <data name="SetBackend.Text" xml:space="preserve"><value>バックエンドサービス</value></data>
+  <data name="SetBackendNote.Text" xml:space="preserve"><value>ローカルサーバーでの会議後処理: より良い文字起こし、話者ラベル、要約、Q&amp;A。録音はローカルのまま、サーバーがなくても動作します。</value></data>
+  <data name="SetBackendUrl.Text" xml:space="preserve"><value>サーバー URL</value></data>
+  <data name="SetBackendUrlDesc.Text" xml:space="preserve"><value>バックエンドサービスのアドレス (例: http://localhost:8080)。</value></data>
+  <data name="SetBackendUrlBox.PlaceholderText" xml:space="preserve"><value>http://localhost:8080</value></data>
+  <data name="SetBackendUrlBox.AutomationProperties.Name" xml:space="preserve"><value>バックエンドのサーバー URL</value></data>
+  <data name="SetBackendKey.Text" xml:space="preserve"><value>API キー</value></data>
+  <data name="SetBackendKeyDesc.Text" xml:space="preserve"><value>Windows 資格情報ロッカーに保存され、データベースには保存されません。</value></data>
+  <data name="SetBackendKeyBox.PlaceholderText" xml:space="preserve"><value>バックエンド API キーを貼り付け</value></data>
+  <data name="SetBackendKeyBox.AutomationProperties.Name" xml:space="preserve"><value>バックエンド API キー</value></data>
+  <data name="SetSaveBackendKey.Content" xml:space="preserve"><value>保存</value></data>
+  <data name="SetSaveBackendKey.AutomationProperties.Name" xml:space="preserve"><value>バックエンド API キーを保存</value></data>
+  <data name="SetTestBackend.Content" xml:space="preserve"><value>接続をテスト</value></data>
+  <data name="SetTestBackend.AutomationProperties.Name" xml:space="preserve"><value>バックエンド接続をテスト</value></data>
+  <data name="Set.BackendKeyStored" xml:space="preserve"><value>バックエンドのキーを資格情報ロッカーに保存しました。</value></data>
+  <data name="Set.BackendKeyCleared" xml:space="preserve"><value>バックエンドのキーを消去しました。</value></data>
+  <data name="Set.BackendKeyNotStored" xml:space="preserve"><value>バックエンドのキーを保存できませんでした。</value></data>
+  <data name="Set.BackendNoKey" xml:space="preserve"><value>資格情報ロッカーにバックエンドのキーがありません。</value></data>
+  <data name="Set.BackendNoUrl" xml:space="preserve"><value>先にサーバー URL を入力してください。</value></data>
+  <data name="Set.BackendTesting" xml:space="preserve"><value>接続を確認しています…</value></data>
+  <data name="Set.BackendReady" xml:space="preserve"><value>準備完了 · {0}</value></data>
+  <data name="Set.BackendProviders" xml:space="preserve"><value>文字起こし {0} · 話者分離 {1} · 分析 {2}</value></data>
+  <data name="Set.BackendUnreachable" xml:space="preserve"><value>バックエンドに接続できませんでした: {0}</value></data>
+  <data name="Set.BackendTimeout" xml:space="preserve"><value>サーバーが時間内に応答しませんでした</value></data>
+  <data name="Set.BackendNetError" xml:space="preserve"><value>ネットワークエラー</value></data>
+  <data name="Set.BackendBadUrl" xml:space="preserve"><value>サーバー URL が正しくありません</value></data>
 </root>

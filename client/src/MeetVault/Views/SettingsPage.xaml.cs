@@ -323,6 +323,20 @@ public sealed partial class SettingsPage : Page
         StatusBar.IsOpen = true;
     }
 
+    private void BackendUrl_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_loading || !_ready) return;
+        Persist("backend.url", BackendUrlBox.Text.Trim().TrimEnd('/'));
+        Refresh();
+    }
+
+    // Bound by the settings XAML in this commit; the test-connection flow lands in the next
+    // commit (monorepo step 23). Temporary stubs keep the XAML connect code compiling
+    // (plan defect #4: the XAML references these handlers before T51 defines them).
+    private void SaveBackendKey_Click(object sender, RoutedEventArgs e) { }
+
+    private void TestBackend_Click(object sender, RoutedEventArgs e) { }
+
     // Persisted on every Refresh so a restart restores the exact controls; keys stay in Credential Locker, never here.
     private void LoadPersisted()
     {
@@ -381,6 +395,7 @@ public sealed partial class SettingsPage : Page
         if (int.TryParse(repo.GetSetting("audio.mic"), out var micIdx) && micIdx >= 0 && micIdx < MicPicker.Items.Count) MicPicker.SelectedIndex = micIdx;
         var logLevel = (repo.GetSetting("logging.level") ?? "debug").Trim().ToLowerInvariant();
         LogLevelPicker.SelectedIndex = Array.IndexOf(new[] { "trace", "debug", "info", "warning", "error", "off" }, logLevel) is var li && li >= 0 ? li : 1;
+        BackendUrlBox.Text = repo.GetSetting("backend.url") ?? "";
         MicSwitch.IsOn = repo.GetSetting("audio.mic.enabled") != "off";
         SystemSwitch.IsOn = repo.GetSetting("audio.system.enabled") != "off";
         var app = repo.GetSetting("audio.system.app") ?? "";
@@ -430,7 +445,7 @@ public sealed partial class SettingsPage : Page
             || PinSwitch is null
             || OpacitySlider is null || FontSizeBox is null || LinesBox is null || StoragePathBox is null
             || AudioStatus is null || TranscriptionStatus is null || OverlayStatus is null
-            || StorageStatus is null || UsageText is null || GeminiStatus is null) return;
+            || StorageStatus is null || UsageText is null || GeminiStatus is null || BackendStatus is null) return;
         var micOn = MicSwitch.IsOn;
         var sysOn = SystemSwitch.IsOn;
         var sourceLabel = SourcePicker.SelectedItem as string ?? Loc.T("Set.SysSrcAllApps");
@@ -471,6 +486,9 @@ public sealed partial class SettingsPage : Page
         GeminiStatus.Text = GeminiApiKey is null
             ? Loc.T("Set.GeminiNoKey")
             : Loc.T("Set.KeyStored");
+        BackendStatus.Text = Locker.Get("BackendApiKey") is { Length: > 0 }
+            ? Loc.T("Set.BackendKeyStored")
+            : Loc.T("Set.BackendNoKey");
     }
 
     // Load-time write-back, ctor only: persists every control's current value once, after
@@ -496,6 +514,7 @@ public sealed partial class SettingsPage : Page
             repo.SetSetting("audio.mic.enabled", OnOff(MicSwitch.IsOn));
             repo.SetSetting("audio.system.enabled", OnOff(SystemSwitch.IsOn));
             repo.SetSetting("audio.system.app", SourceValue());
+            repo.SetSetting("backend.url", BackendUrlBox.Text.Trim().TrimEnd('/'));
             var logLevel = LogLevelPicker.SelectedItem as string ?? "debug";
             repo.SetSetting("logging.level", logLevel);
             MeetVault.Core.AppLog.Configure(logLevel);

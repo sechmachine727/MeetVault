@@ -260,6 +260,39 @@
                 <TextBlock x:Name="GeminiStatus" Opacity="0.7" TextWrapping="Wrap" />
             </StackPanel>
 
+            <StackPanel Spacing="8">
+                <TextBlock x:Uid="SetBackend" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock x:Uid="SetBackendNote" Opacity="0.7" TextWrapping="Wrap" />
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetBackendUrl" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetBackendUrlDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <TextBox x:Name="BackendUrlBox" x:Uid="SetBackendUrlBox" Grid.Column="1" Width="360" HorizontalAlignment="Left"
+                             LostFocus="BackendUrl_LostFocus" />
+                </Grid>
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetBackendKey" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetBackendKeyDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="8" Orientation="Horizontal">
+                        <PasswordBox x:Name="BackendKeyBox" x:Uid="SetBackendKeyBox" Width="280" />
+                        <Button x:Name="SaveBackendKeyButton" x:Uid="SetSaveBackendKey" Click="SaveBackendKey_Click" />
+                        <Button x:Name="TestBackendButton" x:Uid="SetTestBackend" Click="TestBackend_Click" />
+                    </StackPanel>
+                </Grid>
+                <TextBlock x:Name="BackendStatus" Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+
         </StackPanel>
     </ScrollViewer>
 </Page>

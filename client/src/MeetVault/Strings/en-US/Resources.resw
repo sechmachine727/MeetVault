@@ -356,4 +356,32 @@
   <data name="Nav.ErrorPageFallback" xml:space="preserve"><value>that page</value></data>
   <data name="Nav.ErrorBody" xml:space="preserve"><value>Something went wrong loading this page. You are back on the dashboard; the details were logged under {0}.</value></data>
   <data name="Nav.BackToDashboard" xml:space="preserve"><value>Back to Dashboard</value></data>
+
+  <!-- Backend service -->
+  <data name="SetBackend.Text" xml:space="preserve"><value>Backend service</value></data>
+  <data name="SetBackendNote.Text" xml:space="preserve"><value>Post-meeting processing on a local server: better transcript, speaker labels, summary and Q&amp;A. Recording stays local and keeps working without it.</value></data>
+  <data name="SetBackendUrl.Text" xml:space="preserve"><value>Server URL</value></data>
+  <data name="SetBackendUrlDesc.Text" xml:space="preserve"><value>The backend service address, for example http://localhost:8080.</value></data>
+  <data name="SetBackendUrlBox.PlaceholderText" xml:space="preserve"><value>http://localhost:8080</value></data>
+  <data name="SetBackendUrlBox.AutomationProperties.Name" xml:space="preserve"><value>Backend server URL</value></data>
+  <data name="SetBackendKey.Text" xml:space="preserve"><value>API key</value></data>
+  <data name="SetBackendKeyDesc.Text" xml:space="preserve"><value>Stored in Windows Credential Locker, never in the database.</value></data>
+  <data name="SetBackendKeyBox.PlaceholderText" xml:space="preserve"><value>Paste the backend API key</value></data>
+  <data name="SetBackendKeyBox.AutomationProperties.Name" xml:space="preserve"><value>Backend API key</value></data>
+  <data name="SetSaveBackendKey.Content" xml:space="preserve"><value>Save</value></data>
+  <data name="SetSaveBackendKey.AutomationProperties.Name" xml:space="preserve"><value>Save backend API key</value></data>
+  <data name="SetTestBackend.Content" xml:space="preserve"><value>Test connection</value></data>
+  <data name="SetTestBackend.AutomationProperties.Name" xml:space="preserve"><value>Test backend connection</value></data>
+  <data name="Set.BackendKeyStored" xml:space="preserve"><value>Backend key stored in Credential Locker.</value></data>
+  <data name="Set.BackendKeyCleared" xml:space="preserve"><value>Backend key cleared.</value></data>
+  <data name="Set.BackendKeyNotStored" xml:space="preserve"><value>The backend key could not be stored.</value></data>
+  <data name="Set.BackendNoKey" xml:space="preserve"><value>No backend key in Credential Locker.</value></data>
+  <data name="Set.BackendNoUrl" xml:space="preserve"><value>Add the server URL first.</value></data>
+  <data name="Set.BackendTesting" xml:space="preserve"><value>Testing the connection…</value></data>
+  <data name="Set.BackendReady" xml:space="preserve"><value>Ready · {0}</value></data>
+  <data name="Set.BackendProviders" xml:space="preserve"><value>transcribe {0} · diarize {1} · analyze {2}</value></data>
+  <data name="Set.BackendUnreachable" xml:space="preserve"><value>Could not reach the backend: {0}</value></data>
+  <data name="Set.BackendTimeout" xml:space="preserve"><value>the server did not answer in time</value></data>
+  <data name="Set.BackendNetError" xml:space="preserve"><value>network error</value></data>
+  <data name="Set.BackendBadUrl" xml:space="preserve"><value>that server URL is not valid</value></data>
 </root>
