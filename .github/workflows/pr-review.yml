@@ -1,14 +1,19 @@
 name: PR review
 
+# The reviewer runs on an open pull request only. A draft is the author's "not
+# ready" signal, so nothing here reviews it: the ready gate re-opens the pull
+# request and dispatches this workflow. A push does not trigger this workflow at
+# all -- it triggers the auto-draft workflow, which returns the pull request to
+# draft -- and the guard below still skips a draft that arrives another way.
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       pr:
         description: Pull request number to review
         required: true
-        type: string
+        type: number
 
 concurrency:
   group: pr-review-${{ github.event.pull_request.number || inputs.pr }}
@@ -17,6 +22,7 @@ concurrency:
 jobs:
   preflight:
     runs-on: ubuntu-latest
+    permissions: {}
     outputs:
       ready: ${{ steps.check.outputs.ready }}
     steps:
@@ -33,16 +39,20 @@ jobs:
             echo "::warning::CODEX_ROUTER_URL and CODEX_ROUTER_API_KEY must both be set; skipping the Codex review."
           fi
 
-  review:
-    needs: preflight
-    if: needs.preflight.outputs.ready == 'true' && github.event.pull_request.draft != true
+  guard:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read
     outputs:
-      message: ${{ steps.codex.outputs.final-message }}
+      number: ${{ steps.pr.outputs.number }}
+      base: ${{ steps.pr.outputs.base }}
+      head: ${{ steps.pr.outputs.head }}
+      skip: ${{ steps.pr.outputs.skip }}
     steps:
+      # The live pull request decides, not the event payload: a dispatched run
+      # carries no pull request at all, and the payload's draft flag is stale by
+      # the time a queued run starts.
       - name: Resolve the pull request
         id: pr
         env:
@@ -50,82 +60,197 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
         run: |
           gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
-            --json number,baseRefOid,headRefOid \
-            --jq '"number=\(.number)", "base=\(.baseRefOid)", "head=\(.headRefOid)"' >> "$GITHUB_OUTPUT"
+            --json number,isDraft,baseRefOid,headRefOid \
+            --jq '"number=\(.number)", "base=\(.baseRefOid)", "head=\(.headRefOid)", "skip=\(.isDraft)"' >> "$GITHUB_OUTPUT"
 
+  review:
+    needs: [preflight, guard]
+    # guard.result is explicit: a custom if replaces the default success() check,
+    # so without it a failed resolve would run the review against an empty SHA.
+    if: needs.preflight.outputs.ready == 'true' && needs.guard.result == 'success' && needs.guard.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      message: ${{ steps.codex.outputs.final-message }}
+    steps:
       - name: Check out the pull request merge commit
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
-          ref: refs/pull/${{ steps.pr.outputs.number }}/merge
+          ref: refs/pull/${{ needs.guard.outputs.number }}/merge
           fetch-depth: 0
           persist-credentials: false
 
-      # The rubric must come from the base commit, not the pull request under review, so a PR cannot
-      # weaken the instructions that govern its own review by editing the file. The one allowance is
-      # the pull request that first introduces the file, where the base cannot supply it; the warning
-      # names that run, and it cannot recur once the file is on the base branch.
-      - name: Pin the review rubric to the base commit
+      # The rubric and the model catalog must come from the base commit, not the
+      # pull request under review, so a pull request cannot weaken the
+      # instructions that govern its own review or the model it runs on. The one
+      # allowance is the pull request that first introduces a file, where the
+      # base cannot supply it; the warning names that run, and it cannot recur
+      # once the file is on the base branch.
+      - name: Pin the rubric and the model catalog to the base commit
         env:
-          BASE: ${{ steps.pr.outputs.base }}
-          RUBRIC: .github/codex/pr-review-prompt.md
+          BASE: ${{ needs.guard.outputs.base }}
         run: |
-          if git cat-file -e "$BASE:$RUBRIC" 2>/dev/null; then
-            mkdir -p "$(dirname "$RUBRIC")"
-            git show "$BASE:$RUBRIC" > "$RUBRIC"
-            echo "Using the rubric from the base commit $BASE."
-          else
-            echo "::warning::$RUBRIC is absent from the base commit $BASE; using the copy from the pull request."
-          fi
+          for file in .github/codex/pr-review-prompt.md .github/codex/model-catalog.json; do
+            if git cat-file -e "$BASE:$file" 2>/dev/null; then
+              mkdir -p "$(dirname "$file")"
+              git show "$BASE:$file" > "$file"
+              echo "Using $file from the base commit $BASE."
+            else
+              echo "::warning::$file is absent from the base commit $BASE; using the copy from the pull request."
+            fi
+          done
 
       - name: Run Codex review
         id: codex
-        # Deliberately the moving v1 tag, not a pinned SHA: this repository accepts the
-        # supply-chain tradeoff so harness fixes arrive without an edit. The rubric records it
-        # under "Accepted decisions" so the reviewer does not raise it.
+        # Deliberately the moving v1 tag, not a pinned SHA: this repository
+        # accepts the supply-chain tradeoff so harness fixes arrive without an
+        # edit. The rubric records it under "Accepted decisions".
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.CODEX_ROUTER_API_KEY }}
           responses-api-endpoint: ${{ secrets.CODEX_ROUTER_URL }}
-          model: 9router/ocg-deepseek-v4.1-flash
+          model: 9router/ocg-muse-spark-1.3-contributor
           effort: max
           permission-profile: ":workspace"
+          output-schema: |
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["summary", "findings"],
+              "properties": {
+                "summary": { "type": "string" },
+                "findings": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["path", "line", "severity", "body"],
+                    "properties": {
+                      "path": { "type": "string" },
+                      "line": { "type": "integer", "minimum": 1 },
+                      "severity": { "enum": ["critical", "important", "minor"] },
+                      "body": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          # The catalog carries the router model definitions; the two scalars are
+          # the large context window this model runs with.
+          codex-args: '["-c","model_catalog_json=${{ github.workspace }}/.github/codex/model-catalog.json","-c","model_context_window=950000","-c","model_auto_compact_token_limit=855000"]'
           prompt: |
-            Review pull request #${{ steps.pr.outputs.number }} in ${{ github.repository }}.
+            Review pull request #${{ needs.guard.outputs.number }} in ${{ github.repository }}.
 
             Review only what this pull request changes:
 
-              git diff ${{ steps.pr.outputs.base }}...${{ steps.pr.outputs.head }}
+              git diff ${{ needs.guard.outputs.base }}...${{ needs.guard.outputs.head }}
 
-            Follow the rubric in .github/codex/pr-review-prompt.md. If that file is missing,
-            review for correctness, security, tests, and over-engineering instead.
+            Follow the rubric in .github/codex/pr-review-prompt.md. If that file is
+            missing, review for correctness, security, tests, and over-engineering
+            instead.
 
-            Your final message is posted verbatim as the pull request review comment.
+            This runner is Linux and the application targets Windows, so only the Core
+            library and its tests can be built here. The rubric's "Runner and platform"
+            section says what to run and what to mark unverified.
+
+            Return one JSON object and nothing else: a short "summary" and a
+            "findings" array. Each finding carries the repository-relative "path",
+            the "line" number in the new file, and a "severity" of critical,
+            important, or minor. Cite only lines the diff shows, because a finding
+            on any other line is dropped from the review.
 
   post:
-    needs: review
-    if: needs.review.outputs.message != ''
+    # guard is a dependency because its head SHA anchors the review commit.
+    needs: [review, guard]
+    if: needs.review.result == 'success' && needs.review.outputs.message != ''
     runs-on: ubuntu-latest
     permissions:
-      issues: write
+      contents: read
       pull-requests: write
+      # Needed to send a Change Needed verdict back to the draft workflow.
+      actions: write
     steps:
-      - name: Post the review comment
-        uses: actions/github-script@v7
+      - name: Check out the review planner
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # Trusted helper code from the base commit. The one allowance is the
+          # pull request that first adds .github/scripts, which the base cannot
+          # supply; the step below names that run and pulls the copy in.
+          ref: ${{ needs.guard.outputs.base }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Use the pull request copy of the helpers when the base lacks them
+        env:
+          HEAD: ${{ needs.guard.outputs.head }}
+        run: |
+          if [ ! -f .github/scripts/pr-review-plan.cjs ]; then
+            echo "::warning::.github/scripts is absent from the base commit; using the copy from the pull request."
+            git fetch --no-tags origin "$HEAD" 2>/dev/null || true
+            git checkout "$HEAD" -- .github/scripts
+          fi
+
+      - name: Post the review and gate the pull request
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           BODY: ${{ needs.review.outputs.message }}
           PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
+          HEAD_SHA: ${{ needs.guard.outputs.head }}
         with:
-          github-token: ${{ github.token }}
           script: |
-            const marker = '<!-- codex-pr-review -->';
-            const limit = 65000;
-            let body = `${marker}\n${process.env.BODY}`;
-            if (body.length > limit) {
-              body = `${body.slice(0, limit)}\n\n_(review truncated to fit the comment limit)_`;
-            }
-            const issue_number = Number(process.env.PR_NUMBER);
+            const path = require("node:path");
+            const { planReview, reviewBody } = require(
+              path.join(process.cwd(), ".github", "scripts", "pr-review-plan.cjs"),
+            );
+
+            const MARKER = "<!-- codex-pr-review -->";
             const { owner, repo } = context.repo;
-            // One new comment per run: later reviews append instead of overwriting the earlier
-            // one, so each revision keeps its own findings. The marker only tags the comment as
-            // this workflow's output.
-            await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            const pull_number = Number(process.env.PR_NUMBER);
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner, repo, pull_number, per_page: 100,
+            });
+            const plan = planReview(process.env.BODY ?? "", files);
+            const body = reviewBody(plan, MARKER);
+            // GitHub forbids a GITHUB_TOKEN review from approving ("GitHub
+            // Actions is not permitted to approve pull requests"), so an
+            // accepted verdict posts as a comment review and states the verdict
+            // in its body. Only a change request uses REQUEST_CHANGES. An
+            // unreadable message falls here too, and must not draft the pull
+            // request.
+            const event = plan.event === "REQUEST_CHANGES" ? "REQUEST_CHANGES" : "COMMENT";
+
+            try {
+              await github.rest.pulls.createReview({
+                owner, repo, pull_number,
+                commit_id: process.env.HEAD_SHA,
+                event,
+                body,
+                comments: plan.comments,
+              });
+            } catch (error) {
+              // An inline comment on a line outside the diff fails the whole
+              // review. The verdict still lands, with every finding in the body.
+              core.warning("Review with inline comments was rejected: " + (error.message ?? error));
+              await github.rest.pulls.createReview({
+                owner, repo, pull_number,
+                commit_id: process.env.HEAD_SHA,
+                event,
+                body: body + "\n\n_(GitHub rejected the inline comments; every finding is listed above.)_",
+              });
+            }
+
+            if (event === "REQUEST_CHANGES") {
+              // A GITHUB_TOKEN review does not start a workflow run, so the
+              // draft-and-reset step is dispatched explicitly.
+              await github.rest.actions.createWorkflowDispatch({
+                owner,
+                repo,
+                workflow_id: "pr-auto-draft.yml",
+                ref: context.payload.repository.default_branch,
+                inputs: { pr: String(pull_number) },
+              });
+            }
+

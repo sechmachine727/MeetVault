@@ -1,0 +1,95 @@
+name: PR auto-draft
+
+# A push publishes a revision no review has seen, so the pull request returns to
+# draft and its confirmation checklist clears. The reviewer skips drafts, so a
+# push never spends a review run. The review workflow re-enters here by
+# workflow_dispatch when a review returns Change Needed.
+#
+# pull_request_target, not pull_request: this workflow holds a write token, so it
+# runs the copy on the base branch and never checks out or executes pull request
+# head code. Every read and write goes through the API by number.
+on:
+  pull_request_target:
+    types: [synchronize]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number to return to draft
+        required: true
+        type: number
+
+# The draft mutation is GraphQL-only, and GITHUB_TOKEN refuses it without
+# contents:write ("Resource not accessible by integration"). pull-requests:write
+# covers the description rewrite and the status comment.
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  # Shared with the ready gate, which read-modify-writes the same description
+  # block and the same status comment: a newer run queues instead of cancelling.
+  group: pr-state-${{ github.event.pull_request.number || inputs.pr }}
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout and actions/github-script are pinned to the commit their
+      # tag pointed at, because these steps hold a write token.
+      - name: Check out the checklist helper
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # Trusted helper code from the base branch, never the pull request head.
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - name: Return the pull request to draft and clear the checklist
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          PULL_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
+        with:
+          script: |
+            const path = require("node:path");
+            const { ensureChecklist, resetChecklist } = require(
+              path.join(process.cwd(), ".github", "scripts", "pr-ready-checklist.cjs"),
+            );
+
+            const MARKER = "<!-- codex-pr-state -->";
+            const { owner, repo } = context.repo;
+            const pull_number = Number(process.env.PULL_NUMBER);
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: pull_number, per_page: 100,
+            });
+            const existing = comments.find(
+              (comment) =>
+                comment.user?.login === "github-actions[bot]" && comment.body?.includes(MARKER),
+            );
+            const upsertStatus = async (body) => {
+              if (existing) {
+                return github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+              }
+              return github.rest.issues.createComment({ owner, repo, issue_number: pull_number, body });
+            };
+
+            if (!pr.draft) {
+              await github.graphql(
+                "mutation ($id: ID!) { convertPullRequestToDraft(input: { pullRequestId: $id }) { pullRequest { isDraft } } }",
+                { id: pr.node_id },
+              );
+            }
+
+            const { body } = resetChecklist(ensureChecklist(pr.body ?? ""));
+            if (body !== (pr.body ?? "")) {
+              await github.rest.pulls.update({ owner, repo, pull_number, body });
+            }
+
+            await upsertStatus([
+              MARKER,
+              "### Back to draft",
+              "",
+              "This revision has not been reviewed, so the pull request is back in draft and the confirmation checklist was cleared. The reviewer runs again once every box is ticked.",
+            ].join("\n"));
