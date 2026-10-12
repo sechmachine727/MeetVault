@@ -1,16 +1,18 @@
 name: PR ready gate
 
-# The author's own signal: ticking the last box in the description re-opens the
-# pull request. GitHub starts a workflow for an edit only when a person makes
-# it, so the draft workflow's own description rewrite cannot re-open a pull
-# request by itself.
+# Two jobs, one checklist. On `opened` it makes sure the description carries the
+# confirmation checklist, so the loop has boxes to tick even when the pull
+# request template was not used. On `edited` it treats the author ticking the
+# last box as the signal to re-open. GitHub starts a workflow for an edit only
+# when a person makes it, so the draft workflow's own description rewrite cannot
+# re-open a pull request by itself.
 #
 # pull_request_target, not pull_request: this workflow holds a write token, so it
 # runs the copy on the base branch and never checks out or executes pull request
 # head code.
 on:
   pull_request_target:
-    types: [edited]
+    types: [opened, edited]
   workflow_dispatch:
     inputs:
       pr:
@@ -63,9 +65,38 @@ jobs:
 
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
 
-            // An open pull request is already reviewable; this gate only moves a
-            // draft back to open.
-            if (!pr.draft) return;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: pull_number, per_page: 100,
+            });
+            const existing = comments.find(
+              (comment) =>
+                comment.user?.login === "github-actions[bot]" && comment.body?.includes(MARKER),
+            );
+            const upsert = async (body) => {
+              if (existing) {
+                return github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+              }
+              return github.rest.issues.createComment({ owner, repo, issue_number: pull_number, body });
+            };
+
+            // An open pull request is already reviewable, and drafting it on open
+            // would suppress its first review. Make sure the checklist is present
+            // so the loop has boxes to tick, then leave it alone.
+            if (!pr.draft) {
+              const withChecklist = ensureChecklist(pr.body ?? "");
+              if (withChecklist !== (pr.body ?? "")) {
+                await github.rest.pulls.update({ owner, repo, pull_number, body: withChecklist });
+                await upsert([
+                  MARKER,
+                  "### Confirmation checklist added",
+                  "",
+                  "The description had no confirmation checklist, so one was appended. Tick every box",
+                  "before the pull request is re-opened after a change request, or after a push returns",
+                  "it to draft.",
+                ].join("\n"));
+              }
+              return;
+            }
 
             const ensured = ensureChecklist(pr.body ?? "");
             const readiness = parseChecklist(ensured);
@@ -109,20 +140,6 @@ jobs:
                 .join("\n");
               blockers.push("**" + unresolved.length + "** review thread(s) are unresolved:\n" + list);
             }
-
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner, repo, issue_number: pull_number, per_page: 100,
-            });
-            const existing = comments.find(
-              (comment) =>
-                comment.user?.login === "github-actions[bot]" && comment.body?.includes(MARKER),
-            );
-            const upsert = async (body) => {
-              if (existing) {
-                return github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
-              }
-              return github.rest.issues.createComment({ owner, repo, issue_number: pull_number, body });
-            };
 
             if (blockers.length > 0) {
               // Persist the block when the description did not carry one, so the
