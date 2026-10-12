@@ -27,6 +27,11 @@ public sealed class BackendSync
         var firstSend = string.IsNullOrEmpty(existingBackendId);
         var backendId = existingBackendId;
         long? probedMs = null;
+        // The server aligns transcripts to meeting.duration_ms: the client-sent EndedAt-StartedAt
+        // when nonzero, the audio probe only when that is falsy (backend meetings.py). Extend the
+        // transcript to THAT value so align=auto's factor is exactly 1 (review 2: the probe alone
+        // is the wrong target whenever the meeting carries a nonzero duration).
+        var alignMs = meeting.EndedAt is { } endedAt ? Math.Max(0, (long)(endedAt - meeting.StartedAt).TotalMilliseconds) : 0;
         if (firstSend)
         {
             progress?.Report(BackendSyncStage.Creating);
@@ -50,9 +55,10 @@ public sealed class BackendSync
         }
         else
         {
-            // Re-send: media was uploaded on the first send; recover its probed duration so the
-            // formatter can pin the final timestamp against the server's align=auto scaling.
-            probedMs = (await _client.ListMediaAsync(backendId!, ct)).FirstOrDefault(m => m.Kind == "audio")?.DurationMs;
+            // Re-send: media was uploaded on the first send. The probe is only needed when the
+            // meeting carries no duration (the server then falls back to the probe too).
+            if (alignMs == 0)
+                probedMs = (await _client.ListMediaAsync(backendId!, ct)).FirstOrDefault(m => m.Kind == "audio")?.DurationMs;
         }
         // The server rejects segments: [] (400 unsupported_transcript_format), which would fail an
         // otherwise valid media-only send — so an empty transcript is skipped, not uploaded.
@@ -60,7 +66,7 @@ public sealed class BackendSync
         if (segments.Count > 0)
         {
             progress?.Report(BackendSyncStage.UploadingTranscript);
-            var formatA = BackendFormatter.ToFormatA(meeting, segments, speakers, probedMs);
+            var formatA = BackendFormatter.ToFormatA(meeting, segments, speakers, alignMs > 0 ? alignMs : probedMs);
             var transcript = await _client.UploadTranscriptAsync(backendId!, formatA, meeting.Language, ct);
             AppLog.Info("backend: transcript uploaded version=" + transcript.Version);
             transcriptVersion = transcript.Version;

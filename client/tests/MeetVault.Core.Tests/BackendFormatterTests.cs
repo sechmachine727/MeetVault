@@ -72,4 +72,19 @@ public sealed class BackendFormatterTests
         Assert.Contains("\"start_ms\":0,\"end_ms\":50000", BackendFormatter.ToFormatA(meeting, segments, new List<Speaker>(), 50_000));
         Assert.Contains("\"start_ms\":0,\"end_ms\":50000", BackendFormatter.ToFormatA(meeting, segments, new List<Speaker>(), 30_000));
     }
+
+    [Fact]
+    public void ToFormatA_ExtendsMaxEndRow_WhenUnsorted()
+    {
+        var meeting = new Meeting("mv-7", "Unsorted", DateTimeOffset.UtcNow, null, MeetingStatus.Ready, null, null, "en");
+        var segments = new List<Segment>
+        {
+            new("s1", "", 0, 90_000, "one", true),
+            new("s2", "", 10_000, 50_000, "two", true),
+        };
+        // align.py divides by max(end_ms) over ALL rows: the FIRST row is the max here, not the last.
+        var json = BackendFormatter.ToFormatA(meeting, segments, new List<Speaker>(), 120_000);
+        Assert.Contains("\"start_ms\":0,\"end_ms\":120000", json);
+        Assert.Contains("\"start_ms\":10000,\"end_ms\":50000", json);
+    }
 }

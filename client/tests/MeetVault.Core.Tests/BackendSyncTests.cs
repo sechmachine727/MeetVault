@@ -11,9 +11,18 @@ public sealed class BackendSyncTests
         """{"id":"t1","meeting_id":"b1","version":1,"source":"live_export","provider":"client","model":"","language":"en","is_mock":false,"is_active":true,"segment_count":1,"created_at":null,"segments":[],"duration_ms":5}""";
     private static readonly string ProcessJson =
         """{"meeting_id":"b1","steps":["transcribe"],"job_ids":["jg"],"enqueued":1}""";
+    // Media upload response: probe says 90 s, deliberately different from MeetingWithAudio's 60 s
+    // EndedAt-StartedAt span — R1 asserts the transcript targets the MEETING duration, not the probe.
+    private static readonly string MediaUploadJson =
+        """{"asset_id":"a1","size_bytes":1,"sha256":"s","duration_ms":90000,"sample_rate":null,"channels":null,"is_video":false,"probe_error":null}""";
 
     private static Meeting MeetingWithAudio(string audioPath) =>
         new("mv-1", "Sync", DateTimeOffset.Parse("2026-10-12T02:30:00Z"), DateTimeOffset.Parse("2026-10-12T02:31:00Z"),
+            MeetingStatus.Ready, audioPath, "audio/mp4", "en");
+
+    // Zero-duration meeting: the server then falls back to the audio probe for align=auto.
+    private static Meeting MeetingNoDuration(string audioPath) =>
+        new("mv-1", "Sync", DateTimeOffset.Parse("2026-10-12T02:30:00Z"), null,
             MeetingStatus.Ready, audioPath, "audio/mp4", "en");
 
     private static string TempAudio()
@@ -34,6 +43,7 @@ public sealed class BackendSyncTests
             return request.Path switch
             {
                 "/v1/meetings" => DetailJson,
+                "/v1/meetings/b1/media" => MediaUploadJson,
                 "/v1/meetings/b1/transcripts" => TranscriptJson,
                 "/v1/meetings/b1/process" => ProcessJson,
                 _ => "{}",
@@ -60,6 +70,9 @@ public sealed class BackendSyncTests
                 "POST /v1/meetings/b1/transcripts",
                 "POST /v1/meetings/b1/process",
             }, seen);
+            // R1: the transcript targets the meeting duration (60 s), NOT the media probe (90 s).
+            Assert.Contains("\"end_ms\":60000", transport.Requests[3].JsonBody);
+            Assert.DoesNotContain("\"end_ms\":90000", transport.Requests[3].JsonBody);
             Assert.Contains("transcribe", transport.Requests[4].JsonBody);
             Assert.DoesNotContain("force\":true", transport.Requests[4].JsonBody!);
             // Pin the full first-send process body and every media upload query (kind/role, offset for video).
@@ -75,7 +88,7 @@ public sealed class BackendSyncTests
     }
 
     [Fact]
-    public async Task Resend_SkipsMedia_AndForcesAnalyzeOnly()
+    public async Task Resend_WithDuration_SkipsMediaFetch_AndForcesAnalyzeOnly()
     {
         var transport = new RecordingTransport();
         transport.Responder = request => request.Path switch
@@ -90,10 +103,13 @@ public sealed class BackendSyncTests
         await sync.SendAsync(MeetingWithAudio("C:/nonexistent/a.m4a"),
             new List<Segment> { new("s1", "", 0, 10, "hi", true) }, new List<Speaker>(),
             new List<MediaTrack>(), existingBackendId: "b1");
+        // R1: the meeting carries a duration, so NO media GET — transcripts POST then process POST.
         var paths = transport.Requests.Select(r => r.Path).ToList();
-        Assert.Equal(new[] { "/v1/meetings/b1/media", "/v1/meetings/b1/transcripts", "/v1/meetings/b1/process" }, paths);
-        Assert.Contains("\"steps\":[\"analyze\"]", transport.Requests[2].JsonBody);
-        Assert.Contains("\"force\":true", transport.Requests[2].JsonBody);
+        Assert.Equal(new[] { "/v1/meetings/b1/transcripts", "/v1/meetings/b1/process" }, paths);
+        Assert.DoesNotContain(transport.Requests, r => r.Path.Contains("/media"));
+        Assert.Contains("\"end_ms\":60000", transport.Requests[0].JsonBody);
+        Assert.Contains("\"steps\":[\"analyze\"]", transport.Requests[1].JsonBody);
+        Assert.Contains("\"force\":true", transport.Requests[1].JsonBody);
     }
 
     [Fact]
@@ -143,11 +159,38 @@ public sealed class BackendSyncTests
         };
         var client = new BackendClient(transport);
         var sync = new BackendSync(client);
-        await sync.SendAsync(MeetingWithAudio("C:/nonexistent/a.m4a"),
+        // Zero-duration meeting: R1 keeps the probe fetch on this path only, and end_ms follows it.
+        await sync.SendAsync(MeetingNoDuration("C:/nonexistent/a.m4a"),
             new List<Segment> { new("s1", "", 20_500, 50_000, "hi", true) }, new List<Speaker>(),
             new List<MediaTrack>(), existingBackendId: "b1");
         Assert.Equal(new[] { "GET /v1/meetings/b1/media", "POST /v1/meetings/b1/transcripts", "POST /v1/meetings/b1/process" }, seen);
         Assert.Contains("\"start_ms\":20500,\"end_ms\":90000", transport.Requests[1].JsonBody);
+    }
+
+    [Fact]
+    public async Task FirstSend_NullEndedAt_FallsBackToProbeDuration()
+    {
+        var transport = new RecordingTransport();
+        transport.Responder = request => request.Path switch
+        {
+            "/v1/meetings" => DetailJson,
+            "/v1/meetings/b1/media" => MediaUploadJson,
+            "/v1/meetings/b1/transcripts" => TranscriptJson,
+            "/v1/meetings/b1/process" => ProcessJson,
+            _ => "{}",
+        };
+        var audio = TempAudio();
+        try
+        {
+            var client = new BackendClient(transport);
+            var sync = new BackendSync(client);
+            // EndedAt = null -> alignMs = 0 -> the probe is the alignment target.
+            await sync.SendAsync(MeetingNoDuration(audio),
+                new List<Segment> { new("s1", "", 0, 10, "hi", true) }, new List<Speaker>(),
+                new List<MediaTrack>(), existingBackendId: null);
+            Assert.Contains("\"end_ms\":90000", transport.Requests[2].JsonBody);
+        }
+        finally { File.Delete(audio); }
     }
 
     [Fact]
