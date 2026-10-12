@@ -102,6 +102,7 @@ public sealed partial class BackendPage : Page
                 _cache.SaveTranscript(_meeting.Id, await client.GetTranscriptRawAsync(_backendId));
             }
             catch (BackendApiException ex) { AppLog.Warn("backend: transcript fetch failed: " + ex.Code); }
+            catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
             try
             {
                 var bundle = await client.GetAnalysisAsync(_backendId);
@@ -109,10 +110,15 @@ public sealed partial class BackendPage : Page
                 _cache.SaveAnalysis(_meeting.Id, await client.GetAnalysisRawAsync(_backendId));
             }
             catch (BackendApiException ex) { AppLog.Warn("backend: analysis fetch failed: " + ex.Code); }
+            catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
             try { RenderSpeakers(await client.ListSpeakersAsync(_backendId)); } catch (BackendApiException) { }
+            catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
             try { RenderVersions(await client.ListTranscriptsAsync(_backendId)); } catch (BackendApiException) { }
+            catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
             try { RenderJobs(await client.ListJobsAsync(_backendId)); } catch (BackendApiException) { }
+            catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
             try { RenderMedia(await client.ListMediaAsync(_backendId)); } catch (BackendApiException) { }
+            catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
         }
         catch (Exception ex)
         {
@@ -321,6 +327,7 @@ public sealed partial class BackendPage : Page
         }
         catch (COMException) { Status(InfoBarSeverity.Error, Loc.T("Det.ClipboardBusy")); }
         catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+        catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
     }
 
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await LoadAsync();
@@ -331,6 +338,14 @@ public sealed partial class BackendPage : Page
         StatusBar.Message = message;
         StatusBar.IsOpen = true;
     }
+
+    private static string DescribeBackendError(Exception ex) => ex switch
+    {
+        BackendApiException api => api.Code + ": " + api.Message,
+        ArgumentException => Loc.T("Det.BackendNoUrl"),
+        TaskCanceledException => Loc.T("Det.BackendTimeout"),
+        _ => Loc.T("Det.BackendUnreachable"),
+    };
 
     private async void UpdateTranscript_Click(object sender, RoutedEventArgs e)
     {
@@ -351,6 +366,7 @@ public sealed partial class BackendPage : Page
             await LoadAsync();
         }
         catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+        catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
     }
 
     private async void Rerun_Click(object sender, RoutedEventArgs e)
@@ -367,6 +383,7 @@ public sealed partial class BackendPage : Page
             await LoadAsync();
         }
         catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+        catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
     }
 
     private async Task PollUntilTerminalAsync(BackendClient client)
@@ -403,6 +420,7 @@ public sealed partial class BackendPage : Page
             ReloadPicker();
         }
         catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+        catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
     }
     private async void Ask_Click(object sender, RoutedEventArgs e)
     {
@@ -431,6 +449,7 @@ public sealed partial class BackendPage : Page
             }
         }
         catch (BackendApiException ex) { QaStatus.Text = Loc.Tf("Back.LoadFailed", ex.Code + ": " + ex.Message); }
+        catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
         finally { AskButton.IsEnabled = true; }
     }
 
@@ -480,6 +499,7 @@ public sealed partial class BackendPage : Page
             RenderTranscript(await client.GetActiveTranscriptAsync(_backendId));
         }
         catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+        catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
     }
 
     private async void SpeakerMerge_Click(object sender, RoutedEventArgs e)
@@ -498,6 +518,7 @@ public sealed partial class BackendPage : Page
             RenderTranscript(await client.GetActiveTranscriptAsync(_backendId));
         }
         catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+        catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
     }
 
     private async void SpeakerDelete_Click(object sender, RoutedEventArgs e)
@@ -522,6 +543,7 @@ public sealed partial class BackendPage : Page
             RenderTranscript(await client.GetActiveTranscriptAsync(_backendId));
         }
         catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+        catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
     }
     private async void VersionActivate_Click(object sender, RoutedEventArgs e)
     {
@@ -535,6 +557,7 @@ public sealed partial class BackendPage : Page
             await LoadAsync();
         }
         catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+        catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
     }
 
     private async void VersionDelete_Click(object sender, RoutedEventArgs e)
@@ -549,6 +572,7 @@ public sealed partial class BackendPage : Page
             await LoadAsync();
         }
         catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+        catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
     }
 
     private async void JobWatch_Click(object sender, RoutedEventArgs e)
@@ -578,6 +602,7 @@ public sealed partial class BackendPage : Page
             await LoadAsync();
         }
         catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+        catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
     }
 
     private async void MediaDownload_Click(object sender, RoutedEventArgs e)
@@ -598,5 +623,6 @@ public sealed partial class BackendPage : Page
             Status(InfoBarSeverity.Success, Loc.Tf("Back.Downloaded", destination));
         }
         catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
+        catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
     }
 }
