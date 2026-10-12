@@ -10,6 +10,7 @@ internal sealed class BackendScriptedHandler : HttpMessageHandler
 {
     private readonly Queue<Func<HttpRequestMessage, HttpResponseMessage>> _scripted = new();
     public List<(string Method, string Uri, string? Auth, string? Body)> Requests { get; } = new();
+    public List<string?> Ranges { get; } = new();
 
     public void Enqueue(HttpStatusCode status, string body, string contentType = "application/json")
         => _scripted.Enqueue(_ => new HttpResponseMessage(status) { Content = new StringContent(body, Encoding.UTF8, contentType) });
@@ -19,6 +20,7 @@ internal sealed class BackendScriptedHandler : HttpMessageHandler
         var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(ct);
         Requests.Add((request.Method.Method, request.RequestUri!.ToString(),
             request.Headers.Authorization?.ToString(), body));
+        Ranges.Add(request.Headers.Range?.ToString());
         if (_scripted.Count == 0) throw new InvalidOperationException("no scripted response left");
         return _scripted.Dequeue()(request);
     }
@@ -116,5 +118,77 @@ public sealed class BackendTransportTests
         var ex = await Assert.ThrowsAsync<BackendApiException>(() => transport.SendAsync(new BackendRequest("GET", "/v1/meetings"), default));
         Assert.Equal("http_error", ex.Code);
         Assert.Equal(422, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task Download_Resumes_FromPartFile()
+    {
+        var handler = new BackendScriptedHandler();
+        handler.Enqueue(HttpStatusCode.PartialContent, "def");
+        using var transport = new BackendHttpTransport("http://localhost:8080", "k", handler);
+        var full = TempFile("");
+        var part = full + ".part";
+        File.WriteAllText(part, "abc");
+        try
+        {
+            await transport.DownloadToFileAsync("/v1/media/a1", full, default);
+            Assert.Equal("abcdef", File.ReadAllText(full));
+            Assert.Equal("bytes=3-", handler.Ranges[0]);
+            Assert.False(File.Exists(part));
+        }
+        finally { File.Delete(full); File.Delete(part); }
+    }
+
+    [Fact]
+    public async Task Download_Restarts_WhenServerIgnoresRange()
+    {
+        var handler = new BackendScriptedHandler();
+        handler.Enqueue(HttpStatusCode.OK, "xyz");
+        using var transport = new BackendHttpTransport("http://localhost:8080", "k", handler);
+        var full = TempFile("");
+        var part = full + ".part";
+        File.WriteAllText(part, "abc");
+        try
+        {
+            await transport.DownloadToFileAsync("/v1/media/a1", full, default);
+            Assert.Equal("xyz", File.ReadAllText(full));
+            Assert.Equal("bytes=3-", handler.Ranges[0]);
+        }
+        finally { File.Delete(full); File.Delete(part); }
+    }
+
+    [Fact]
+    public async Task Download_Treats416_AsACompleteFile()
+    {
+        var handler = new BackendScriptedHandler();
+        handler.Enqueue(HttpStatusCode.RequestedRangeNotSatisfiable, "range not satisfiable");
+        using var transport = new BackendHttpTransport("http://localhost:8080", "k", handler);
+        var full = TempFile("");
+        var part = full + ".part";
+        File.WriteAllText(part, "abc");
+        try
+        {
+            await transport.DownloadToFileAsync("/v1/media/a1", full, default);
+            Assert.Equal("abc", File.ReadAllText(full));
+            Assert.False(File.Exists(part));
+        }
+        finally { File.Delete(full); File.Delete(part); }
+    }
+
+    [Fact]
+    public async Task Stream_MixedLineEndings_AndNoSpaceDataPrefix_SurfaceBothFrames()
+    {
+        var handler = new BackendScriptedHandler();
+        handler.Enqueue(HttpStatusCode.OK,
+            "data: {\"id\":1,\"at\":\"t1\",\"level\":\"info\",\"message\":\"first\"}\r\n" +
+            "data:{\"id\":2,\"at\":\"t2\",\"level\":\"info\",\"message\":\"second\"}\n",
+            "text/event-stream");
+        using var transport = new BackendHttpTransport("http://localhost:8080", "k", handler);
+        var client = new BackendClient(transport);
+        var events = new List<BackendJobEvent>();
+        await foreach (var e in client.WatchJobAsync("j1")) events.Add(e);
+        Assert.Equal(2, events.Count);
+        Assert.Equal("first", events[0].Message);
+        Assert.Equal("second", events[1].Message);
     }
 }

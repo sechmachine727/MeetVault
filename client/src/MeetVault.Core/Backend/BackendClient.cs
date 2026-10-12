@@ -164,12 +164,14 @@ public sealed class BackendClient
         => _transport.SendAsync(new BackendRequest("POST", "/v1/jobs/" + jobId + "/cancel"), ct);
 
     // SSE lines arrive as "data: {json}"; the server closes the stream on a terminal job state.
+    // Lenient prefix: accept "data:" with or without the space. Multi-line data: frames are
+    // unsupported — the server emits single-line frames only.
     public async IAsyncEnumerable<BackendJobEvent> WatchJobAsync(string jobId, [EnumeratorCancellation] CancellationToken ct = default)
     {
         await foreach (var line in _transport.StreamLinesAsync("/v1/jobs/" + jobId + "/events", ct))
         {
-            if (!line.StartsWith("data: ", StringComparison.Ordinal)) continue;
-            var payload = line["data: ".Length..];
+            if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
+            var payload = line[5..].TrimStart();
             if (payload.Length == 0) continue;
             BackendJobEvent? jobEvent;
             try { jobEvent = JsonSerializer.Deserialize(payload, BackendJsonContext.Default.BackendJobEvent); }

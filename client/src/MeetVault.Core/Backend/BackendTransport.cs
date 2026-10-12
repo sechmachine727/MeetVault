@@ -97,6 +97,8 @@ public sealed class BackendHttpTransport : IBackendTransport
         if (response.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable)
         {
             // Nothing beyond what we already have: the part file IS the complete download.
+            // Trusts the existing .part file as full content — a 416 is only expected after our own
+            // Range request, which is only sent when a .part file already exists.
             File.Move(part, full, overwrite: true);
             return;
         }
