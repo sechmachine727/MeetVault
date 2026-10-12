@@ -272,7 +272,56 @@ public sealed partial class BackendPage : Page
     private void Rerun_Click(object sender, RoutedEventArgs e) { }
     private void UpdateTranscript_Click(object sender, RoutedEventArgs e) { }
     private void Remove_Click(object sender, RoutedEventArgs e) { }
-    private void Ask_Click(object sender, RoutedEventArgs e) { }
+    private async void Ask_Click(object sender, RoutedEventArgs e)
+    {
+        if (_backendId is null || _meeting is null) return;
+        var question = QaBox.Text.Trim();
+        if (question.Length == 0) return;
+        if (!TryClientUrl(out var url, out var key)) { Status(InfoBarSeverity.Warning, Loc.T("Det.BackendNoUrl")); return; }
+        AskButton.IsEnabled = false;
+        QaStatus.Text = Loc.T("Back.AskQueued");
+        try
+        {
+            using var transport = new BackendHttpTransport(url, key);
+            var client = new BackendClient(transport);
+            var job = await client.AskAsync(_backendId, question);
+            var terminal = await WaitForJobAsync(client, job.JobId);
+            QaStatus.Text = terminal.State == "succeeded" ? Loc.T("Back.State.Ready") : Loc.T("Back.State.Failed");
+            if (terminal.State == "succeeded")
+            {
+                QaBox.Text = "";
+                var bundle = await client.GetAnalysisAsync(_backendId);
+                RenderAnalysis(bundle);
+            }
+            else
+            {
+                QaStatus.Text = Loc.Tf("Back.LoadFailed", terminal.Error ?? terminal.State);
+            }
+        }
+        catch (BackendApiException ex) { QaStatus.Text = Loc.Tf("Back.LoadFailed", ex.Code + ": " + ex.Message); }
+        finally { AskButton.IsEnabled = true; }
+    }
+
+    private static bool TryClientUrl(out string url, out string key)
+    {
+        url = (AppStore.Repo.GetSetting("backend.url") ?? "").Trim();
+        key = AppStore.Secrets.Get("BackendApiKey") ?? "";
+        return url.Length > 0 && key.Length > 0;
+    }
+
+    private async Task<BackendJobDetail> WaitForJobAsync(BackendClient client, string jobId)
+    {
+        // Bounded wait (audit fix): a job stuck queued (worker down) must not spin forever; after the
+        // deadline the last observed job comes back and the caller reports its state.
+        var deadline = DateTime.UtcNow.AddMinutes(10);
+        var job = await client.GetJobAsync(jobId);
+        while (job.State is not ("succeeded" or "failed" or "cancelled") && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(2));
+            job = await client.GetJobAsync(jobId);
+        }
+        return job;
+    }
     private void SpeakerSave_Click(object sender, RoutedEventArgs e) { }
     private void SpeakerMergeCombo_Loaded(object sender, RoutedEventArgs e) { }
     private void SpeakerMergeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) { }
