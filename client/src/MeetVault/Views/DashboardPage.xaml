@@ -48,12 +48,12 @@
                     <FontIcon Glyph="&#xE70F;" FontSize="14" />
                 </Button>
             </Grid>
-            <!-- Card container keeps the table visually distinct from the page. -->
             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
-                    CornerRadius="{StaticResource OverlayCornerRadius}" Padding="12,6">
+                    CornerRadius="8" Padding="8">
                 <StackPanel>
-                    <StackPanel x:Name="SelectionBar" Orientation="Horizontal" Spacing="8" Padding="12,6,12,2" Visibility="Collapsed">
+                    <StackPanel x:Name="SelectionBar" Orientation="Horizontal" Spacing="8" Padding="8,4,8,8" Visibility="Collapsed">
+                        <TextBlock x:Name="HeaderSelectSpacer" Width="32" Visibility="Collapsed" />
                         <TextBlock x:Name="SelectionCount" Text="0 selected" FontWeight="SemiBold" VerticalAlignment="Center" />
                         <Button x:Name="SelectAllButton" x:Uid="SelAll" Click="SelectAll_Click">
                             <FontIcon Glyph="&#xE73A;" FontSize="14" />
@@ -69,50 +69,42 @@
                             <FontIcon Glyph="&#xE711;" FontSize="14" />
                         </Button>
                     </StackPanel>
-                    <Grid Padding="12,0,12,4" ColumnSpacing="16" Opacity="0.7">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="2*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="96" />
-                            <ColumnDefinition Width="100" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="HeaderSelectSpacer" Width="32" Visibility="Collapsed" />
-                        <TextBlock x:Uid="HeadTitle" Grid.Column="1" FontSize="12" />
-                        <TextBlock x:Uid="HeadCreated" Grid.Column="2" FontSize="12" />
-                        <TextBlock x:Uid="HeadDuration" Grid.Column="3" FontSize="12" HorizontalAlignment="Center" />
-                        <TextBlock x:Uid="HeadStatus" Grid.Column="4" FontSize="12" HorizontalAlignment="Center" />
-                    </Grid>
                     <ItemsControl x:Name="RecentMeetings">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Button Click="OpenMeeting_Click" Background="{Binding RowBackground}" BorderThickness="0" Padding="12,10"
-                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" CornerRadius="4"
-                                        AutomationProperties.Name="{Binding Title}"
-                                        AutomationProperties.ItemStatus="{Binding SelectionStatus}"
-                                        ToolTipService.ToolTip="{Binding RowTooltip}">
-                                    <Grid ColumnSpacing="16">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="2*" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="96" />
-                                            <ColumnDefinition Width="100" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <!-- The checkbox is a visual indicator; the row click toggles
-                                             selection (hit testing stays on the row button). -->
-                                        <CheckBox IsChecked="{Binding IsSelected, Mode=OneWay}" IsEnabled="{Binding IsSelectable}"
-                                                  Visibility="{Binding CheckVisibility}" IsHitTestVisible="False" IsTabStop="False"
-                                                  AutomationProperties.AccessibilityView="Raw"
-                                                  MinWidth="0" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="2" Text="{Binding CreatedAt}" Opacity="0.7" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                        <TextBlock Grid.Column="3" Text="{Binding Duration}" Opacity="0.7" VerticalAlignment="Center" HorizontalAlignment="Center" />
-                                        <TextBlock Grid.Column="4" Text="{Binding Status}" Opacity="0.7" VerticalAlignment="Center" HorizontalAlignment="Center" />
-                                    </Grid>
-                                </Button>
+                                <!-- The checkbox is a visual indicator; the row click toggles
+                                     selection (hit testing stays on the row button). -->
+                                <Grid Margin="0,0,0,6">
+                                    <Button Click="OpenMeeting_Click" Background="{Binding RowBackground}" BorderThickness="0" Padding="14,12"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" CornerRadius="6"
+                                            AutomationProperties.Name="{Binding Title}"
+                                            AutomationProperties.ItemStatus="{Binding SelectionStatus}"
+                                            ToolTipService.ToolTip="{Binding RowTooltip}">
+                                        <Grid ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <CheckBox IsChecked="{Binding IsSelected, Mode=OneWay}" IsEnabled="{Binding IsSelectable}"
+                                                      Visibility="{Binding CheckVisibility}" IsHitTestVisible="False" IsTabStop="False"
+                                                      AutomationProperties.AccessibilityView="Raw"
+                                                      MinWidth="0" VerticalAlignment="Center" />
+                                            <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Text="{Binding CreatedAt}" Opacity="0.6" FontSize="12" />
+                                                    <TextBlock Text="&#x00B7;" Opacity="0.6" FontSize="12" />
+                                                    <TextBlock Text="{Binding Duration}" Opacity="0.6" FontSize="12" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                            <Border Grid.Column="2" VerticalAlignment="Center" CornerRadius="10" Padding="10,3"
+                                                    Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                                                <TextBlock Text="{Binding Status}" FontSize="12" Opacity="0.85" />
+                                            </Border>
+                                        </Grid>
+                                    </Button>
+                                </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
