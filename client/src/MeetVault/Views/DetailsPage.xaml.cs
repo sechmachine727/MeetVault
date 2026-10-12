@@ -613,7 +613,8 @@ public sealed partial class DetailsPage : Page
         }
         var url = (AppStore.Repo.GetSetting("backend.url") ?? "").Trim();
         var key = AppStore.Secrets.Get("BackendApiKey");
-        if (url.Length == 0 || key is not { Length: > 0 }) { Status(InfoBarSeverity.Warning, Loc.T("Det.BackendNoUrl")); return; }
+        if (url.Length == 0) { Status(InfoBarSeverity.Warning, Loc.T("Det.BackendNoUrl")); return; }
+        if (key is not { Length: > 0 }) { Status(InfoBarSeverity.Warning, Loc.T("Det.BackendNoKey")); return; }
         try
         {
             using var transport = new BackendHttpTransport(url, key);

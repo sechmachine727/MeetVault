@@ -438,7 +438,12 @@ public sealed partial class LivePage : Page
         _fpsTimer.Tick += (_, _) =>
         {
             _lastFps = (int)Interlocked.Exchange(ref _previewFrames, 0);
-            if (_screen?.IsRecording == true) FpsText.Text = Loc.Tf("Live.PreviewFps", _lastFps);
+            if (_screen?.IsRecording == true)
+            {
+                FpsText.Text = Loc.Tf("Live.PreviewFps", _lastFps);
+                return;
+            }
+            _fpsTimer?.Stop(); // idle: park until the next run
         };
         _fpsTimer.Start();
         _checkpoint.Interval = TimeSpan.FromSeconds(15);
@@ -631,6 +636,8 @@ public sealed partial class LivePage : Page
             PreviewImage.Source = null;
             FpsText.Text = "";
         }
+        if (active) PreviewBox.Visibility = Visibility.Visible;
+        if (active) _fpsTimer?.Start();
         if (_screenWasActive && !active)
         {
             MeetVault.Core.AppLog.Info("screen: preview stream frames=" + Interlocked.Read(ref _previewTotal)
