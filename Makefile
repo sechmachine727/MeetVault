@@ -1,7 +1,7 @@
 PY := .venv/Scripts/python.exe
 PY_LINUX := .venv/bin/python
 
-.PHONY: install test lint fmt migrate run worker e2e cov openapi docker-build docker-up docker-down docker-logs
+.PHONY: install test lint fmt migrate run worker e2e cov openapi smoke docker-build docker-up docker-down docker-logs dev
 
 install:
 	python -m venv .venv && $(PY) -m pip install -U pip && $(PY) -m pip install -e ".[dev]"
@@ -32,6 +32,14 @@ e2e:
 
 openapi:
 	$(PY) -c "import json; from mvb.main import create_app; s = create_app().openapi(); print(len(s['paths']), 'paths'); print('\n'.join(sorted(s['paths'])))"
+
+# Standalone acceptance smoke test: boots the real API + worker against a throwaway DB.
+smoke:
+	bash scripts/smoke.sh
+
+# Dev helper: 'make dev' = api, 'make dev A=worker' etc.
+dev:
+	bash scripts/dev.sh $(A)
 
 docker-build:
 	docker build -t meetvault-backend:local .

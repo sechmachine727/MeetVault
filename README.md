@@ -44,6 +44,9 @@ a `[mock]` marker, so it can never be mistaken for real analysis.
 - `docs/PROVIDERS.md` — capability interfaces, LM Studio and OpenCode setup
 - `docs/MOCK.md` — what exactly is synthetic and how to tell
 - `docs/ACCEPTANCE.md` — acceptance criteria with the evidence for each
+- `scripts/dev.sh` — dev helper (`api` / `worker` / `migrate` / `test`)
+- `scripts/smoke.sh` — standalone acceptance smoke test: boots the API + worker against a
+  throwaway SQLite database and verifies the whole flow over HTTP (`make smoke`), exit 0 on pass
 
 ## Architecture in one paragraph
 
@@ -55,7 +58,7 @@ client can always tell whether what it shows still matches the recording.
 
 ## Status
 
-155 tests pass on the dev box (SQLite); `ruff` is clean; the OpenAPI schema builds (33 paths);
-a live `uvicorn` + worker run was exercised end to end over HTTP on 2026-10-12. Docker/Postgres
-and the real AI engines are CI- or opt-in-verified only — see `docs/ACCEPTANCE.md` for exactly
-what was and was not verified where.
+157 tests pass on the dev box (SQLite); `ruff` is clean; the OpenAPI schema builds (33 paths);
+`scripts/smoke.sh` boots the real server + worker and verifies the full client flow over HTTP
+(exit 0). Docker/Postgres and the remaining real engines are CI- or opt-in-verified only — see
+`docs/ACCEPTANCE.md` for exactly what was and was not verified where.
