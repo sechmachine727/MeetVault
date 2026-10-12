@@ -1,0 +1,117 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    name: lint + tests (py${{ matrix.python }}, sqlite)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install ffmpeg (media fixtures and audio extraction)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Install
+        run: |
+          python -m pip install -U pip
+          pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check src tests
+      - name: Migrations round trip on SQLite
+        env:
+          MVB_ENV: dev
+          MVB_DATABASE_URL: sqlite+pysqlite:///./_ci.db
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+      - name: Tests
+        run: pytest -q
+
+  postgres:
+    name: tests (py3.12, postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mvb
+          POSTGRES_PASSWORD: mvb
+          POSTGRES_DB: mvb
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U mvb -d mvb"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      MVB_TEST_DATABASE_URL: postgresql+psycopg://mvb:mvb@localhost:5432/mvb
+      MVB_RUN_POSTGRES: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Install
+        run: |
+          python -m pip install -U pip
+          pip install -e ".[dev,prod]"
+      - name: Migrations round trip on Postgres
+        env:
+          MVB_ENV: dev
+          MVB_DATABASE_URL: postgresql+psycopg://mvb:mvb@localhost:5432/mvb
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
+      - name: Tests
+        run: pytest -q
+
+  docker:
+    name: docker build + smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image
+        run: docker build -t meetvault-backend:ci .
+      - name: Validate compose file
+        env:
+          MVB_API_KEYS: ci-key
+          POSTGRES_PASSWORD: ci-password
+        run: docker compose config -q
+      - name: Start the api against SQLite and wait for readiness
+        run: |
+          docker run -d --name mvb-ci -p 8080:8080 \
+            -e MVB_ENV=dev \
+            -e MVB_API_KEYS=ci-key \
+            -e MVB_DATABASE_URL=sqlite+pysqlite:////data/mvb.db \
+            -e MVB_MEDIA_ROOT=/data/media \
+            meetvault-backend:ci
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/healthz; then ready=1; break; fi
+            sleep 2
+          done
+          test "${ready:-0}" = "1" || { docker logs mvb-ci; exit 1; }
+      - name: Smoke the API (auth + system info + openapi)
+        run: |
+          curl -fsS http://localhost:8080/readyz
+          curl -fsS -o /dev/null -w "%{http_code}\n" http://localhost:8080/v1/meetings
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/v1/meetings)" = "401"
+          curl -fsS -H "Authorization: Bearer ci-key" http://localhost:8080/v1/system/info
+          curl -fsS http://localhost:8080/openapi.json | head -c 200
+      - name: Container logs on failure
+        if: failure()
+        run: docker logs mvb-ci
