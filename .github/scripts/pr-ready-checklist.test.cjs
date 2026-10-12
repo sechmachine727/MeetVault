@@ -11,7 +11,7 @@ const {
   resetChecklist,
 } = require("./pr-ready-checklist.cjs");
 
-const ITEMS = 5;
+const ITEMS = 6;
 
 test("a body with no block reports the checklist as missing", () => {
   assert.deepEqual(parseChecklist("just a description"), {

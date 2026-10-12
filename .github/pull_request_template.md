@@ -17,4 +17,5 @@ review when the last box is ticked, and a new push clears them again.
 - [ ] Every change request addressed and every review thread resolved
 - [ ] Notes and docs updated for this change
 - [ ] Scope still matches the pull request description
+- [ ] The branch is current with main, not 5 or more commits behind
 <!-- codex-ready-checklist:end -->
