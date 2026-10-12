@@ -1,0 +1,93 @@
+{
+  "models": [
+    {
+      "slug": "9router/ocg-muse-spark-1.3-contributor",
+      "display_name": "9router/ocg-muse-spark-1.3-contributor",
+      "default_reasoning_level": "high",
+      "supported_reasoning_levels": [
+        {
+          "effort": "medium",
+          "description": "Balances speed and reasoning depth for everyday tasks"
+        },
+        {
+          "effort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "effort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        },
+        {
+          "effort": "max",
+          "description": "Maximum reasoning depth for the hardest problems"
+        },
+        {
+          "effort": "ultra",
+          "description": "Maximum reasoning with automatic task delegation"
+        }
+      ],
+      "context_window": 950000,
+      "max_context_window": 950000,
+      "auto_compact_token_limit": 855000,
+      "tool_mode": "code_mode_only"
+    },
+    {
+      "slug": "9router/ocg-deepseek-v4.1-flash",
+      "display_name": "9router/ocg-deepseek-v4.1-flash",
+      "default_reasoning_level": "high",
+      "supported_reasoning_levels": [
+        {
+          "effort": "medium",
+          "description": "Balances speed and reasoning depth for everyday tasks"
+        },
+        {
+          "effort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "effort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        },
+        {
+          "effort": "max",
+          "description": "Maximum reasoning depth for the hardest problems"
+        },
+        {
+          "effort": "ultra",
+          "description": "Maximum reasoning with automatic task delegation"
+        }
+      ],
+      "context_window": 950000,
+      "max_context_window": 950000,
+      "auto_compact_token_limit": 855000,
+      "tool_mode": "code_mode_only"
+    },
+    {
+      "slug": "9router/ocg-step-5-preview-free",
+      "display_name": "9router/ocg-step-5-preview-free",
+      "default_reasoning_level": "high",
+      "supported_reasoning_levels": [
+        {
+          "effort": "high",
+          "description": "Greater reasoning depth for complex problems"
+        },
+        {
+          "effort": "xhigh",
+          "description": "Extra high reasoning depth for complex problems"
+        },
+        {
+          "effort": "max",
+          "description": "Maximum reasoning depth for the hardest problems"
+        },
+        {
+          "effort": "ultra",
+          "description": "Maximum reasoning with automatic task delegation"
+        }
+      ],
+      "context_window": 1000000,
+      "max_context_window": 1000000,
+      "auto_compact_token_limit": 900000,
+      "tool_mode": "code_mode_only"
+    }
+  ]
+}
