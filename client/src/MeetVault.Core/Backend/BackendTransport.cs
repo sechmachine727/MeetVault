@@ -76,7 +76,10 @@ public sealed class BackendHttpTransport : IBackendTransport
             form.Add(content, "file", Path.GetFileName(path));
             message.Content = form;
         }
-        using var response = await _http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, ct);
+        // Buffered read (no ResponseHeadersRead): HttpClient.Timeout must cover the whole exchange,
+        // body included; API responses are small JSON. Downloads and SSE keep their streaming read —
+        // they are bounded by the caller's CancellationToken instead.
+        using var response = await _http.SendAsync(message, ct);
         var body = await response.Content.ReadAsStringAsync(ct);
         if (response.IsSuccessStatusCode) return body;
         throw ToApiException(response.StatusCode, body);
