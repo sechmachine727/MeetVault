@@ -17,9 +17,7 @@ def rank_segments(question: str, segments: list[TranscriptSegment], top_k: int) 
     """Deterministic lexical retrieval: term overlap with the segment text, tie-broken by
     recency. Always keeps the first segment so an unanswerable question still gets context."""
     terms = {
-        token
-        for token in "".join(ch.lower() if ch.isalnum() else " " for ch in question).split()
-        if len(token) > 2
+        token for token in "".join(ch.lower() if ch.isalnum() else " " for ch in question).split() if len(token) > 2
     }
     if not segments:
         return []

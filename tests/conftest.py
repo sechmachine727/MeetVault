@@ -6,6 +6,22 @@ from pathlib import Path
 
 import pytest
 
+# Set MVB_TEST_DATABASE_URL (e.g. a Postgres URL) to run the whole suite against another
+# engine — CI's postgres job does exactly that. Unset, every test gets a throwaway SQLite file.
+POSTGRES_TEST_URL = os.environ.get("MVB_TEST_DATABASE_URL")
+
+
+def prepare_schema() -> None:
+    """Create the schema for the DATABASE_URL in use. On a shared server (Postgres in CI) the
+    tables are dropped first so tests cannot see each other's rows."""
+    from mvb.config import get_settings
+    from mvb.db.base import Base, get_engine
+
+    engine = get_engine()
+    if not get_settings().is_sqlite:
+        Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
+
 
 @pytest.fixture
 def media_root(tmp_path: Path) -> Path:
@@ -22,7 +38,7 @@ def _clean_env(monkeypatch: pytest.MonkeyPatch, media_root: Path, tmp_path: Path
             monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("MVB_ENV", "test")
     monkeypatch.setenv("MVB_API_KEYS", "test-key")
-    monkeypatch.setenv("MVB_DATABASE_URL", f"sqlite+pysqlite:///{tmp_path / 'test.db'}")
+    monkeypatch.setenv("MVB_DATABASE_URL", POSTGRES_TEST_URL or f"sqlite+pysqlite:///{tmp_path / 'test.db'}")
     monkeypatch.setenv("MVB_MEDIA_ROOT", str(media_root))
     monkeypatch.setenv("MVB_LOG_LEVEL", "WARNING")
     yield
@@ -35,9 +51,9 @@ def _clean_env(monkeypatch: pytest.MonkeyPatch, media_root: Path, tmp_path: Path
 
 @pytest.fixture
 def db_session():  # type: ignore[no-untyped-def]
-    from mvb.db.base import Base, get_engine, get_session_factory
+    from mvb.db.base import get_session_factory
 
-    Base.metadata.create_all(get_engine())
+    prepare_schema()
     session = get_session_factory()()
     try:
         yield session
@@ -50,10 +66,9 @@ def client():  # type: ignore[no-untyped-def]
     """In-process API client with a fresh schema per test."""
     from fastapi.testclient import TestClient
 
-    from mvb.db.base import Base, get_engine
     from mvb.main import create_app
 
-    Base.metadata.create_all(get_engine())
+    prepare_schema()
     with TestClient(create_app()) as test_client:
         yield test_client
 

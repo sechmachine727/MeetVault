@@ -19,9 +19,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def _active(session, meeting_id: uuid.UUID) -> Transcript | None:
-    return session.scalar(
-        select(Transcript).where(Transcript.meeting_id == meeting_id, Transcript.is_active.is_(True))
-    )
+    return session.scalar(select(Transcript).where(Transcript.meeting_id == meeting_id, Transcript.is_active.is_(True)))
 
 
 def _segments(session, transcript: Transcript) -> list[TranscriptSegment]:
@@ -76,9 +74,7 @@ def test_transcribe_creates_a_version_with_bounded_segments(db_session, media_ro
     assert refreshed is not None and refreshed.status == "ready"
 
 
-def test_transcribe_again_creates_version_two_and_deactivates_version_one(
-    db_session, media_root: Path
-) -> None:
+def test_transcribe_again_creates_version_two_and_deactivates_version_one(db_session, media_root: Path) -> None:
     meeting, _ = seed_meeting_with_audio(db_session, media_root, seconds=12.0)
     enqueue_pipeline(db_session, meeting_id=meeting.id, steps=["transcribe"])
     db_session.commit()
@@ -94,7 +90,12 @@ def test_transcribe_again_creates_version_two_and_deactivates_version_one(
     assert second is not None and second.version == 2
     db_session.refresh(first)
     assert first.is_active is False
-    assert db_session.scalar(select(Transcript).where(Transcript.meeting_id == meeting.id).order_by(Transcript.version.desc())) is not None
+    assert (
+        db_session.scalar(
+            select(Transcript).where(Transcript.meeting_id == meeting.id).order_by(Transcript.version.desc())
+        )
+        is not None
+    )
 
 
 def test_diarize_labels_segments_and_is_idempotent(db_session, media_root: Path) -> None:
@@ -147,9 +148,7 @@ def test_full_chain_runs_in_order_and_ends_ready(db_session, media_root: Path) -
     db_session.commit()
     ticks = _drain()
     db_session.expire_all()
-    jobs = list(
-        db_session.scalars(select(Job).where(Job.meeting_id == meeting.id).order_by(Job.created_at)).all()
-    )
+    jobs = list(db_session.scalars(select(Job).where(Job.meeting_id == meeting.id).order_by(Job.created_at)).all())
     kinds = [job.type for job in jobs]
     assert kinds[: len(STEP_ORDER)] == list(STEP_ORDER), kinds
     assert len(kinds) == len(STEP_ORDER), f"each step must run exactly once: {kinds}"

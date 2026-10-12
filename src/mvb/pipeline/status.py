@@ -25,18 +25,22 @@ def meeting_status(session: Session, meeting_id: uuid.UUID) -> dict:
         select(Transcript).where(Transcript.meeting_id == meeting_id, Transcript.is_active.is_(True))
     )
     fresh = sorted(
-        set(session.scalars(
+        set(
+            session.scalars(
                 select(AnalysisDocument.kind).where(
                     AnalysisDocument.meeting_id == meeting_id, AnalysisDocument.stale.is_(False)
                 )
-            ).all())
+            ).all()
+        )
     )
     stale = sorted(
-        set(session.scalars(
+        set(
+            session.scalars(
                 select(AnalysisDocument.kind).where(
                     AnalysisDocument.meeting_id == meeting_id, AnalysisDocument.stale.is_(True)
                 )
-            ).all())
+            ).all()
+        )
     )
     is_mock = any(job.is_mock for job in jobs) or bool(transcript and transcript.is_mock)
     return {
@@ -59,14 +63,11 @@ def all_jobs_terminal(session: Session, meeting_id: uuid.UUID) -> bool:
 
 def latest_run(session: Session, meeting_id: uuid.UUID) -> AnalysisRun | None:
     return session.scalar(
-        select(AnalysisRun)
-        .where(AnalysisRun.meeting_id == meeting_id)
-        .order_by(AnalysisRun.created_at.desc())
-        .limit(1)
+        select(AnalysisRun).where(AnalysisRun.meeting_id == meeting_id).order_by(AnalysisRun.created_at.desc()).limit(1)
     )
 
 
 def section_ids(session: Session, meeting_id: uuid.UUID) -> list[uuid.UUID]:
-    return list(session.scalars(
-            select(Section.id).where(Section.meeting_id == meeting_id).order_by(Section.ordinal)
-        ).all())
+    return list(
+        session.scalars(select(Section.id).where(Section.meeting_id == meeting_id).order_by(Section.ordinal)).all()
+    )

@@ -105,9 +105,7 @@ def test_analyze_produces_sections_and_documents(db_session, media_root: Path) -
     assert all(doc.section_id is not None for doc in section_docs)
 
 
-def test_analyze_reruns_create_a_new_run_and_stale_the_previous_documents(
-    db_session, media_root: Path
-) -> None:
+def test_analyze_reruns_create_a_new_run_and_stale_the_previous_documents(db_session, media_root: Path) -> None:
     meeting = _run_chain(db_session, media_root, seconds=25.0)
     first = _doc(db_session, meeting.id, "summary")
     assert first is not None and first.stale is False
@@ -130,7 +128,12 @@ def test_analyze_reruns_create_a_new_run_and_stale_the_previous_documents(
         ).all()
     )
     assert len(fresh) == 1
-    assert db_session.scalar(select(AnalysisRun).where(AnalysisRun.meeting_id == meeting.id).order_by(AnalysisRun.created_at.desc())) is not None
+    assert (
+        db_session.scalar(
+            select(AnalysisRun).where(AnalysisRun.meeting_id == meeting.id).order_by(AnalysisRun.created_at.desc())
+        )
+        is not None
+    )
 
 
 def test_analyze_drops_invented_segment_ids(db_session, media_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:

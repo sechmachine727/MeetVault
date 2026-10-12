@@ -23,9 +23,7 @@ def meeting_duration_ms(session: Session, meeting_id: uuid.UUID) -> int:
 
 
 def active_transcript(session: Session, meeting_id: uuid.UUID) -> Transcript | None:
-    return session.scalar(
-        select(Transcript).where(Transcript.meeting_id == meeting_id, Transcript.is_active.is_(True))
-    )
+    return session.scalar(select(Transcript).where(Transcript.meeting_id == meeting_id, Transcript.is_active.is_(True)))
 
 
 def realign_active_transcript(session: Session, meeting_id: uuid.UUID) -> int:

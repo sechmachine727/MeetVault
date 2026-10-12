@@ -109,11 +109,7 @@ def list_segments(
         conditions.append(TranscriptSegment.start_ms < end_ms)
     total = db.scalar(select(func.count()).select_from(TranscriptSegment).where(*conditions)) or 0
     rows = db.scalars(
-        select(TranscriptSegment)
-        .where(*conditions)
-        .order_by(TranscriptSegment.start_ms)
-        .limit(limit)
-        .offset(offset)
+        select(TranscriptSegment).where(*conditions).order_by(TranscriptSegment.start_ms).limit(limit).offset(offset)
     ).all()
     return Page[SegmentOut](
         items=[SegmentOut.model_validate(row) for row in rows],

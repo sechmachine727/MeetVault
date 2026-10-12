@@ -104,4 +104,3 @@ def _event_stream(job_id: uuid.UUID) -> Iterator[str]:
         if state is None or state in TERMINAL_STATES or time.monotonic() >= deadline:
             break
         time.sleep(EVENTS_POLL_SECONDS)
-

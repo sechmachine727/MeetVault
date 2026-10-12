@@ -39,8 +39,22 @@ a `[mock]` marker, so it can never be mistaken for real analysis.
 ## Documentation
 
 - `docs/ARCHITECTURE.md` — processes, job chain, storage layout, verification status
-- `docs/API.md` — every endpoint with a curl example
+- `docs/API.md` — every endpoint, grouped
+- `docs/INTEGRATION.md` — the client flow, call by call, with exact payloads
 - `docs/PROVIDERS.md` — capability interfaces, LM Studio and OpenCode setup
 - `docs/MOCK.md` — what exactly is synthetic and how to tell
-- `docs/INTEGRATION-MEETVAULT.md` — how the Windows app's artifacts map onto this API
 - `docs/ACCEPTANCE.md` — acceptance criteria with the evidence for each
+
+## Architecture in one paragraph
+
+The API only validates and enqueues; the worker claims jobs from the database queue and runs
+`media_probe → transcribe → diarize → align → analyze`, creating each step only after the
+previous one succeeds. Results are versioned (a new transcript version deactivates the old
+one) and analysis documents are marked `stale` instead of being silently overwritten, so the
+client can always tell whether what it shows still matches the recording.
+
+## Status
+
+153 tests pass on the dev box (SQLite); `ruff` is clean; the OpenAPI schema builds (33 paths).
+Docker/Postgres and the real AI engines are CI- or opt-in-verified only — see
+`docs/ACCEPTANCE.md` for exactly what was and was not verified where.

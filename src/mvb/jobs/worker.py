@@ -111,9 +111,7 @@ def _continue_chain(context: JobContext) -> None:
     )
     meeting = session.get(Meeting, fresh.meeting_id)
     has_transcript = session.scalar(
-        select(Transcript.id).where(
-            Transcript.meeting_id == fresh.meeting_id, Transcript.is_active.is_(True)
-        )
+        select(Transcript.id).where(Transcript.meeting_id == fresh.meeting_id, Transcript.is_active.is_(True))
     )
     if pending is None and meeting is not None and has_transcript and meeting.status == "processing":
         meeting.status = "ready"

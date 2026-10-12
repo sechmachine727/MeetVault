@@ -91,9 +91,7 @@ def get_analysis_bundle(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> An
             .limit(20)
         ).all()
     )
-    mock = bool(latest_run is not None and latest_run.is_mock) or any(
-        doc.is_mock for doc in documents.values()
-    )
+    mock = bool(latest_run is not None and latest_run.is_mock) or any(doc.is_mock for doc in documents.values())
     return AnalysisBundleOut(
         meeting_id=meeting_id,
         transcript_id=uuid.UUID(status_payload["active_transcript_id"])
@@ -127,7 +125,9 @@ def list_sections(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> list[Sec
 
 
 @router.get("/meetings/{meeting_id}/sections/{section_id}/summary", response_model=AnalysisDocumentOut)
-def get_section_summary(meeting_id: uuid.UUID, section_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> AnalysisDocumentOut:
+def get_section_summary(
+    meeting_id: uuid.UUID, section_id: uuid.UUID, _: ApiKeyId, db: DbSession
+) -> AnalysisDocumentOut:
     """The newest summary document for one section."""
     get_meeting(db, meeting_id)
     section = db.get(Section, section_id)

@@ -57,9 +57,7 @@ def diarize_job(context: JobContext) -> dict:
             select(Speaker).where(Speaker.meeting_id == meeting_id, Speaker.label == label)
         )
         if existing is None:
-            context.session.add(
-                Speaker(id=uuid.uuid4(), meeting_id=meeting_id, label=label, kind="diarized")
-            )
+            context.session.add(Speaker(id=uuid.uuid4(), meeting_id=meeting_id, label=label, kind="diarized"))
     context.session.flush()
     speaker_ids = {
         speaker.label: speaker.id

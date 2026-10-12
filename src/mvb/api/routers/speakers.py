@@ -28,9 +28,7 @@ def list_speakers(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> list[Spe
     """Speakers of a meeting with how much each one talks — the client uses this for the
     speaker legend."""
     get_meeting(db, meeting_id)
-    rows = db.scalars(
-        select(Speaker).where(Speaker.meeting_id == meeting_id).order_by(Speaker.label)
-    ).all()
+    rows = db.scalars(select(Speaker).where(Speaker.meeting_id == meeting_id).order_by(Speaker.label)).all()
     out: list[SpeakerWithStatsOut] = []
     for speaker in rows:
         segments = db.scalars(
@@ -41,7 +39,7 @@ def list_speakers(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> list[Spe
         stats = SpeakerWithStatsOut.model_validate(speaker)
         stats.segment_count = len(segments)
         stats.speaking_ms = sum(max(0, s.end_ms - s.start_ms) for s in segments)
-        stats.preview = (segments[0].text[:120] if segments else "")
+        stats.preview = segments[0].text[:120] if segments else ""
         out.append(stats)
     return out
 
@@ -66,7 +64,9 @@ def rename_speaker(speaker_id: uuid.UUID, payload: SpeakerPatch, _: ApiKeyId, db
         speaker.color = payload.color
     db.flush()
     for segment in db.scalars(
-        select(TranscriptSegment).where(TranscriptSegment.speaker_label == old_label, TranscriptSegment.meeting_id == speaker.meeting_id)
+        select(TranscriptSegment).where(
+            TranscriptSegment.speaker_label == old_label, TranscriptSegment.meeting_id == speaker.meeting_id
+        )
     ).all():
         segment.speaker_label = payload.label
     db.commit()
@@ -89,9 +89,7 @@ def merge_speaker(speaker_id: uuid.UUID, payload: SpeakerMerge, _: ApiKeyId, db:
     if source.id == target.id:
         raise ApiError(422, "validation_error", "Cannot merge a speaker into itself")
     moved = 0
-    for segment in db.scalars(
-        select(TranscriptSegment).where(TranscriptSegment.speaker_id == source.id)
-    ).all():
+    for segment in db.scalars(select(TranscriptSegment).where(TranscriptSegment.speaker_id == source.id)).all():
         segment.speaker_id = target.id
         segment.speaker_label = target.label
         moved += 1

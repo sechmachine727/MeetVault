@@ -21,6 +21,11 @@ never runs during a live meeting. Post-meeting processing only.
   client filename can never influence a path.
 - Tests: TDD (write the test, watch it fail, then implement). Every new endpoint needs an
   integration test asserting the status code AND the response body shape.
+- The job chain is data: `enqueue_pipeline` creates exactly ONE job (the next step is created
+  by the worker after a success, via `next_steps_after`). Never pre-create a whole chain —
+  that ran every step twice once and made duplicates invisible until an e2e test caught it.
+- Never chain a commit after a piped test run (`pytest | tail && git commit`): the pipe hides
+  the failure and the commit goes through. Run the tests, read the count, then commit.
 - Commit per task. Never `git push`. Never `git add -A` while untracked payload dirs exist.
 
 ## Layout
@@ -40,8 +45,13 @@ docs/              ARCHITECTURE.md, API.md, PROVIDERS.md, MOCK.md, INTEGRATION-M
     .venv/Scripts/python.exe -m ruff check src tests      # lint
     .venv/Scripts/python.exe -m ruff format --check src tests
     .venv/Scripts/python.exe -m alembic upgrade head      # migrate
+    make openapi                                          # build the schema, list all paths
 
 On Linux/macOS the interpreter path is `.venv/bin/python`.
+
+`MVB_TEST_DATABASE_URL` points the whole suite at another engine (CI runs it against
+Postgres); unset, every test gets a throwaway SQLite file. The e2e tests run the worker
+in-process with `mvb.jobs.worker.tick()`, because the API and the worker share the database.
 
 ## A new provider = three steps
 

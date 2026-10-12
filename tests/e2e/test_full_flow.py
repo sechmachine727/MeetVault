@@ -101,9 +101,7 @@ def test_full_mock_pipeline_over_http(client, uploaded_meeting: dict) -> None:
     assert sections[0]["start_ms"] == 0
     assert sections[-1]["end_ms"] == status["duration_ms"]
 
-    summary_doc = client.get(
-        f"/v1/meetings/{meeting_id}/sections/{sections[0]['id']}/summary", headers=HEADERS
-    )
+    summary_doc = client.get(f"/v1/meetings/{meeting_id}/sections/{sections[0]['id']}/summary", headers=HEADERS)
     assert summary_doc.status_code == 200
     assert summary_doc.json()["kind"] == "section_summary"
 
