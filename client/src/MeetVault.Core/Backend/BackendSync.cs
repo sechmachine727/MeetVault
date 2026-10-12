@@ -46,17 +46,28 @@ public sealed class BackendSync
                 AppLog.Info("backend: video uploaded asset=" + upload.AssetId + " offset_ms=" + track.StartOffsetMs);
             }
         }
-        progress?.Report(BackendSyncStage.UploadingTranscript);
-        var formatA = BackendFormatter.ToFormatA(meeting, segments, speakers);
-        var transcript = await _client.UploadTranscriptAsync(backendId!, formatA, meeting.Language, ct);
-        AppLog.Info("backend: transcript uploaded version=" + transcript.Version);
+        // The server rejects segments: [] (400 unsupported_transcript_format), which would fail an
+        // otherwise valid media-only send — so an empty transcript is skipped, not uploaded.
+        var transcriptVersion = 0;
+        if (segments.Count > 0)
+        {
+            progress?.Report(BackendSyncStage.UploadingTranscript);
+            var formatA = BackendFormatter.ToFormatA(meeting, segments, speakers);
+            var transcript = await _client.UploadTranscriptAsync(backendId!, formatA, meeting.Language, ct);
+            AppLog.Info("backend: transcript uploaded version=" + transcript.Version);
+            transcriptVersion = transcript.Version;
+        }
+        else
+        {
+            AppLog.Info("backend: transcript skipped (no segments)");
+        }
         progress?.Report(BackendSyncStage.Starting);
         var steps = firstSend
             ? new List<string> { "transcribe", "diarize", "align", "analyze" }
             : new List<string> { "analyze" };
         var result = await _client.ProcessAsync(backendId!, steps, force: !firstSend, ct: ct);
         AppLog.Info($"backend: process enqueued={result.Enqueued} steps={string.Join(",", result.Steps)}");
-        return new BackendSyncResult(backendId!, transcript.Version, result);
+        return new BackendSyncResult(backendId!, transcriptVersion, result);
     }
 
     // Polls /status every 2 s until a terminal state (or cancellation); returns the last status.

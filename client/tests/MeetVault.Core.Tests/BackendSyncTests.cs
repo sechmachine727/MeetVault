@@ -88,6 +88,35 @@ public sealed class BackendSyncTests
     }
 
     [Fact]
+    public async Task Send_WithoutSegments_SkipsTranscript_ButStillProcesses()
+    {
+        var transport = new RecordingTransport();
+        var seen = new List<string>();
+        transport.Responder = request =>
+        {
+            seen.Add(request.Method + " " + request.Path);
+            return request.Path switch
+            {
+                "/v1/meetings" => DetailJson,
+                "/v1/meetings/b1/process" => ProcessJson,
+                _ => "{}",
+            };
+        };
+        var audio = TempAudio();
+        try
+        {
+            var client = new BackendClient(transport);
+            var sync = new BackendSync(client);
+            var result = await sync.SendAsync(MeetingWithAudio(audio),
+                new List<Segment>(), new List<Speaker>(), new List<MediaTrack>(), existingBackendId: null);
+            Assert.DoesNotContain(seen, s => s.Contains("/transcripts"));
+            Assert.Contains("POST /v1/meetings/b1/process", seen);
+            Assert.Equal(0, result.TranscriptVersion);
+        }
+        finally { File.Delete(audio); }
+    }
+
+    [Fact]
     public async Task WaitForTerminal_TicksUntilReady()
     {
         var transport = new RecordingTransport();
