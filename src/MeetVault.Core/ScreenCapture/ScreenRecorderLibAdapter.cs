@@ -104,14 +104,14 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
         // Stop() is a synchronous native call that can block; never let it hold the
         // controller's operation gate forever — run it on the pool and race the completion
         // event against the same 3 s budget (review r20).
-        _ = Task.Run(() => { try { recorder.Recorder.Stop(); } catch { } });
+        var stopTask = Task.Run(() => { try { recorder.Recorder.Stop(); } catch { } });
         var winner = await Task.WhenAny(recorder.Done.Task, Task.Delay(3000, ct)).ConfigureAwait(false);
         if (winner == recorder.Done.Task) return await recorder.Done.Task.ConfigureAwait(false);
-        // Timed out: the finalize may still complete (a long MP4's moov/faststart rewrite
-        // can outlast 3 s). The native recorder is released, and the result is marked
-        // Indeterminate so the caller KEEPS the file instead of deleting it (review r13).
+        // Timed out: the native Stop may still be in flight — disposing under it can fault
+        // natively (uncatchable). Hand the run to the stop task's continuation instead
+        // (review r21).
         var abandoned = EndRun();
-        abandoned?.DisposeOnce();
+        if (abandoned is not null) _ = stopTask.ContinueWith(_ => abandoned.DisposeOnce(), TaskScheduler.Default);
         return new RecordingResult(false, recorder.OutputPath, recorder.ElapsedMs(), "stop timed out", Indeterminate: true);
     }
 

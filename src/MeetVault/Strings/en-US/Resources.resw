@@ -203,6 +203,7 @@
   <data name="Live.CouldNotStop" xml:space="preserve"><value>Could not stop: {0}</value></data>
   <data name="Live.DemoMode" xml:space="preserve"><value>Demo mode: add Vosk small models to models/ (see docs/ASR-ENGINES.md) for live transcription.</value></data>
   <data name="Live.CaptureFailed" xml:space="preserve"><value>Capture stopped unexpectedly ({0}). Press Stop and save to keep what was recorded.</value></data>
+  <data name="Live.StreamFailed" xml:space="preserve"><value>Transcription stopped unexpectedly ({0}). Press Stop and save to keep what was recorded.</value></data>
   <data name="Live.StopTitle" xml:space="preserve"><value>Stop and save this meeting?</value></data>
   <data name="Live.StopBody" xml:space="preserve"><value>Recording stops and the meeting is saved with {0} line(s). You cannot add more to it afterwards.</value></data>
   <data name="Live.StopConfirm" xml:space="preserve"><value>Stop and save</value></data>

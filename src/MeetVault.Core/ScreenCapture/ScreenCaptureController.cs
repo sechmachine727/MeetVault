@@ -64,6 +64,8 @@ public sealed class ScreenCaptureController : IDisposable
         _recorder.FramePreview += OnFramePreview;
     }
 
+    private bool _runSuppressed; // the user toggled a run off: resume must not re-arm capture (review r21)
+
     public async Task MeetingStartedAsync(string meetingId, long nowMs, bool paused = false)
     {
         await _one.WaitAsync().ConfigureAwait(false);
@@ -74,6 +76,7 @@ public sealed class ScreenCaptureController : IDisposable
             _meetingStartMs = nowMs;
             _pausedTotalMs = 0;
             _pauseStartMs = paused ? _clock() : 0;
+            _runSuppressed = false; // a fresh meeting is fresh consent
             // A recovered draft that is still paused must not open a run; the resume does
             // (review r6).
             if (!paused) await StartRunAsync("meeting start").ConfigureAwait(false);
@@ -104,6 +107,9 @@ public sealed class ScreenCaptureController : IDisposable
             // The recorded-audio timeline excludes paused time; remember how much was
             // paused so later run offsets stay on that timeline (review r5).
             _pausedTotalMs += Math.Max(0, _clock() - _pauseStartMs);
+            // A user who toggled the run OFF keeps it off across pause/resume: re-arming
+            // would record without fresh consent (review r21).
+            if (_runSuppressed) return;
             await StartRunAsync("meeting resumed").ConfigureAwait(false);
         }
         finally { _one.Release(); }
@@ -127,8 +133,14 @@ public sealed class ScreenCaptureController : IDisposable
         await _one.WaitAsync().ConfigureAwait(false);
         try
         {
-            if (_run is not null) { await StopRunAsync("toggled off").ConfigureAwait(false); return; }
+            if (_run is not null)
+            {
+                _runSuppressed = true; // toggled off by the user: resume must not re-arm (review r21)
+                await StopRunAsync("toggled off").ConfigureAwait(false);
+                return;
+            }
             if (_phase != MeetingPhase.Recording) { Warn("screen: toggle ignored - the meeting is not recording"); return; }
+            _runSuppressed = false;
             await StartRunAsync("toggled on").ConfigureAwait(false);
         }
         finally { _one.Release(); }

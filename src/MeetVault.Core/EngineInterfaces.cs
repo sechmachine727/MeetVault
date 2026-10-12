@@ -15,6 +15,9 @@ public interface IAudioCapture
 public interface ISpeechTranscriber
 {
     event Action<Segment>? SegmentReady;
+    // The decode pipeline died (or stopped) with an error: IsRunning must clear and the
+    // page must surface it instead of silently recording into a dead engine (review r21).
+    event Action<string>? Failed;
     Task StartAsync(CancellationToken ct);
     Task StopAsync(CancellationToken ct);
     bool IsRunning { get; }

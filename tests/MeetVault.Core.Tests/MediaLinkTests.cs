@@ -43,6 +43,7 @@ public sealed class MediaLinkTests
     {
 #pragma warning disable CS0067
         public event Action<Segment>? SegmentReady;
+    public event Action<string>? Failed;
 #pragma warning restore CS0067
         public bool IsRunning { get; private set; }
         public Task StartAsync(CancellationToken ct) { IsRunning = true; return Task.CompletedTask; }

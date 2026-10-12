@@ -10,7 +10,8 @@ public sealed class StreamingRunnerTests
         public string Partial = "";
         public string? EndpointText;   // returned once by TryTakeFinal
         public string? FlushText;      // returned once by TryFlushFinal
-        public void AcceptWaveform(float[] s) => Fed.Add(s);
+        public int ThrowOnAccept;      // throws on this accepted chunk (1-based) when > 0
+        public void AcceptWaveform(float[] s) { if (ThrowOnAccept > 0 && Fed.Count + 1 == ThrowOnAccept) throw new InvalidOperationException("decode boom"); Fed.Add(s); }
         public string CurrentText() => Partial;
         public bool TryTakeFinal(out string text)
         { text = EndpointText ?? ""; var had = EndpointText is not null; EndpointText = null; return had; }
@@ -106,6 +107,22 @@ public sealed class StreamingRunnerTests
         Assert.True(r.DroppedChunks > 0, "a full queue must drop the oldest chunks");
         b.Block = false; b.Gate.Set();
         Assert.True(r.FlushAndWait()); // the parked thread drains the backlog and exits
+    }
+
+    [Fact]
+    public void DecodeLoopFailure_RaisesFailed()
+    {
+        // The decode-loop catch must surface a failure signal: otherwise IsRunning keeps
+        // claiming a live pipeline while every later chunk is silently dropped (review r21).
+        var b = new FakeBackend { ThrowOnAccept = 2 };
+        var msgs = new List<string>();
+        using var r = new StreamingRunner(b, () => 0, joinTimeoutMs: 300);
+        r.Failed += msgs.Add;
+        r.Start();
+        for (var i = 0; i < 3; i++) r.Push(new float[1]);
+        Assert.True(SpinWait.SpinUntil(() => msgs.Count == 1, 5000), "no Failed signal");
+        Assert.Contains("decode boom", msgs[0]);
+        Assert.True(r.FlushAndWait());
     }
 
     [Fact]

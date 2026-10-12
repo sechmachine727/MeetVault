@@ -166,6 +166,9 @@ public sealed partial class LivePage : Page
             _activeLanguage = option.Language;
             _relay.PartialReady += OnPartial;
             _streaming = _relay;
+            // A dead decode pipeline must reach the page: no more silent recording into a
+            // deaf engine (review r21).
+            _relay.Failed += OnStreamFailed;
             _transcriber = _relay;
             _engineMode = "live: vosk " + option.Model;
             if (_autoMode) EnsureLangMonitor();
@@ -580,7 +583,13 @@ public sealed partial class LivePage : Page
                     "video/mp4", draft.StartOffsetMs, draft.DurationMs, DateTimeOffset.UtcNow.ToString("o")));
                 MeetVault.Core.AppLog.Info("screen: track saved offset=" + draft.StartOffsetMs + " ms -> " + draft.Path);
             }
-            catch (Exception ex) { MeetVault.Core.AppLog.Warn("screen: track persist failed: " + ex.Message); }
+            catch (Exception ex)
+            {
+                // No row will ever reference it: leaving the file would be an orphan the
+                // UI cannot delete (review r21).
+                MeetVault.Core.AppLog.Warn("screen: track persist failed: " + ex.Message);
+                try { if (draft.Path is { Length: > 0 } orphan && File.Exists(orphan)) File.Delete(orphan); } catch { }
+            }
         }
         _screen.ClearFinishedTracks();
     }
@@ -590,7 +599,8 @@ public sealed partial class LivePage : Page
         if (_screen is null) return;
         var active = _screen.IsRecording;
         ScreenRunButton.Content = Loc.T(active ? "LiveScreenStop.Content" : "LiveScreenStart.Content");
-        ScreenRunButton.IsEnabled = _state == LiveState.Recording;
+        // A disabled screen section must not offer a live-looking button (review r21).
+        ScreenRunButton.IsEnabled = _state == LiveState.Recording && _screen.Enabled;
         ScreenSourceCombo.IsEnabled = _state == LiveState.Idle;
         ScreenToggle.IsEnabled = _state == LiveState.Idle;
         ScreenStatus.Text = active ? Loc.Tf("Live.ScreenOn", SelectedSourceLabel())
@@ -765,8 +775,12 @@ public sealed partial class LivePage : Page
         if (_langMonitor is not null) _langMonitor.Enabled = false;
         if (_relay is null)
         {
+            // Demo mode: no engine, but the pick is still the effective language — the
+            // status line and the overlay must show it (review r21).
+            _activeLanguage = normalized;
             PersistLanguage(normalized);
             SyncLanguageCombo(normalized);
+            LiveBridge.SetLanguage(new LiveBridge.LanguageInfo(normalized, _autoMode, false));
             SetLangStatus();
             return;
         }
@@ -867,6 +881,14 @@ public sealed partial class LivePage : Page
             LiveBridge.SetLive(false);
             LiveBridge.SetMeetingState(LiveBridge.MeetingState.Idle);
             Status(Loc.Tf("Live.CaptureFailed", reason));
+        });
+
+    private void OnStreamFailed(string reason)
+        => DispatcherQueue.TryEnqueue(() =>
+        {
+            LiveBridge.SetLive(false);
+            LiveBridge.SetMeetingState(LiveBridge.MeetingState.Idle);
+            Status(Loc.Tf("Live.StreamFailed", reason));
         });
 
     private async void Pause_Click(object sender, RoutedEventArgs e)
@@ -974,6 +996,7 @@ public sealed partial class LivePage : Page
     {
 #pragma warning disable CS0067
         public event Action<Segment>? SegmentReady;
+        public event Action<string>? Failed;
 #pragma warning restore CS0067
         public bool IsRunning { get; private set; }
         public Task StartAsync(CancellationToken ct) { IsRunning = true; return Task.CompletedTask; }

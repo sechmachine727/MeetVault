@@ -11,12 +11,15 @@ public sealed class VoskStreamingTranscriber : IStreamingTranscriber
     public VoskStreamingTranscriber(string modelDir, Func<long>? nowMs = null)
     {
         _runner = new StreamingRunner(new VoskStreamingBackend(modelDir), nowMs);
+        // A dead decode pipeline must clear IsRunning and reach the page (review r21).
+        _runner.Failed += message => { IsRunning = false; Failed?.Invoke(message); };
         AppLog.Info("vosk: loaded dir=" + modelDir);
     }
 
     public bool IsRunning { get; private set; }
     public event Action<Segment>? SegmentReady { add { _runner.SegmentReady += value; } remove { _runner.SegmentReady -= value; } }
     public event Action<string>? PartialReady { add { _runner.PartialReady += value; } remove { _runner.PartialReady -= value; } }
+    public event Action<string>? Failed;
 
     public async Task StartAsync(CancellationToken ct)
     {

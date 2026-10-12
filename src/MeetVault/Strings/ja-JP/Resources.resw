@@ -203,6 +203,7 @@
   <data name="Live.CouldNotStop" xml:space="preserve"><value>停止できませんでした: {0}</value></data>
   <data name="Live.DemoMode" xml:space="preserve"><value>デモモード: ライブ文字起こしには models/ に Vosk small モデルを追加してください（docs/ASR-ENGINES.md 参照）。</value></data>
   <data name="Live.CaptureFailed" xml:space="preserve"><value>録音が予期せず停止しました（{0}）。「停止」で保存すると録音済みの内容を保持できます。</value></data>
+  <data name="Live.StreamFailed" xml:space="preserve"><value>文字起こしが予期せず停止しました（{0}）。「停止」で保存すると録音済みの内容を保持できます。</value></data>
   <data name="Live.StopTitle" xml:space="preserve"><value>この会議を停止して保存しますか？</value></data>
   <data name="Live.StopBody" xml:space="preserve"><value>録音を停止し、会議は {0} 行で保存されます。その後、この会議に追加することはできません。</value></data>
   <data name="Live.StopConfirm" xml:space="preserve"><value>停止して保存</value></data>

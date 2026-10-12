@@ -32,6 +32,9 @@ public sealed class SessionLifecycleTests
     private sealed class FlushOnStopTranscriber : ISpeechTranscriber
     {
         public event Action<Segment>? SegmentReady;
+#pragma warning disable CS0067 // the interface requires the event; this fake never fails
+        public event Action<string>? Failed;
+#pragma warning restore CS0067
         public bool IsRunning { get; private set; }
         public Task StartAsync(CancellationToken ct) { IsRunning = true; return Task.CompletedTask; }
         public Task StopAsync(CancellationToken ct)
@@ -40,6 +43,37 @@ public sealed class SessionLifecycleTests
             Task.Run(() => SegmentReady?.Invoke(new Segment("flush-1", "spk_1", 0, 500, "kept", true))).Wait();
             return Task.CompletedTask;
         }
+    }
+
+    // A flush whose join TIMED OUT: StopAsync returns before the final arrives (the real
+    // case: FlushAndWait gave up after its 5 s join budget and the decode thread delivers
+    // the sentence later).
+    private sealed class LateFlushTranscriber : ISpeechTranscriber
+    {
+        public event Action<Segment>? SegmentReady;
+#pragma warning disable CS0067 // the interface requires the event; this fake never fails
+        public event Action<string>? Failed;
+#pragma warning restore CS0067
+        public bool IsRunning { get; private set; }
+        public Task StartAsync(CancellationToken ct) { IsRunning = true; return Task.CompletedTask; }
+        public Task StopAsync(CancellationToken ct)
+        {
+            IsRunning = false;
+            _ = Task.Run(async () => { await Task.Delay(300); SegmentReady?.Invoke(new Segment("late-1", "spk_1", 0, 500, "late-kept", true)); });
+            return Task.CompletedTask;
+        }
+    }
+
+    [Fact]
+    public async Task Pause_KeepsALateFlushFinal_WithinTheGrace()
+    {
+        // A flush whose join timed out delivers the final after the latch: the grace
+        // window keeps it instead of dropping the meeting's last sentence (review r21).
+        var session = UiLess(() => new MeetingSession(new FakeAudio(), new LateFlushTranscriber(), new FakeStore()));
+        await session.StartAsync("mic", "app");
+        await session.PauseAsync();
+        await Task.Delay(600); // the late final arrives after the latch
+        Assert.Contains(session.Segments, s => s.Text == "late-kept");
     }
 
     // Constructs a session with no ambient context so marshalling runs inline.

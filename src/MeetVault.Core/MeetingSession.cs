@@ -17,6 +17,7 @@ public sealed class MeetingSession : IDisposable
     private readonly List<Speaker> _speakers = new();
     private Meeting? _meeting;
     private bool _paused;
+    private long _pausedAtMs; // meeting-pause latch time (Environment.TickCount64); grace window for a late flush final (review r21)
     private string _micId = "";
     private string _appSource = "";
     // Captured at construction (UI thread in the app); null in tests, where we run inline.
@@ -61,6 +62,7 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
         await _transcriber.StopAsync(ct);
         await Task.Yield();
         _paused = true;
+        _pausedAtMs = Environment.TickCount64;
         _meeting = _meeting! with { Status = MeetingStatus.Paused };
         Persist();
         AppLog.Info("session: pause " + _meeting.Id);
@@ -170,7 +172,11 @@ if (string.IsNullOrWhiteSpace(micId)) throw new ArgumentException("Mic id is req
 
     private void HandleSegment(Segment raw)
     {
-        if (_paused || _meeting is null) return; // gap: paused audio never reappears
+        if (_meeting is null) return;
+        // A flush whose join timed out can deliver the meeting's last sentence shortly
+        // after the pause latch: accept it within the join budget, drop anything later
+        // (review r21) — past that window, paused audio never reappears.
+        if (_paused && Environment.TickCount64 - _pausedAtMs > 6000) return;
         // Namespace the id by meeting (base AGENTS rule: transcript_segments.id is a global
         // PRIMARY KEY): the runner's per-instance GUID prefix keeps it unique across
         // engines, the meeting prefix keeps the documented rule intact (review r11).

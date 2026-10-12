@@ -17,7 +17,7 @@ public sealed class StreamingRunner : IDisposable
     // The full GUID, not a short slice: 8 hex chars is only a 32-bit namespace, and a
     // collision on the global PRIMARY KEY fails the whole save.
     private readonly string _idPrefix = "s" + Guid.NewGuid().ToString("n");
-    private BlockingCollection<(float[] Samples, long? CaptureWallMs)>? _queue;
+    private BlockingCollection<(float[] Samples, long WallMs, bool Replayed)>? _queue;
     private Thread? _thread;
     private volatile bool _running;
     private int _droppedChunks;
@@ -33,6 +33,9 @@ public sealed class StreamingRunner : IDisposable
 
     public event Action<string>? PartialReady;
     public event Action<Segment>? SegmentReady;
+    // Raised from the decode-loop catch: the pipeline is dead and every later Push is
+    // dropped (review r21).
+    public event Action<string>? Failed;
 
     public int DroppedChunks => _droppedChunks;
 
@@ -46,7 +49,7 @@ public sealed class StreamingRunner : IDisposable
     public void Start()
     {
         if (_disposed) throw new ObjectDisposedException(nameof(StreamingRunner));
-        _queue = new BlockingCollection<(float[], long?)>(boundedCapacity: 4096); // 4096 chunks covers the full 30 s pre-roll cap (3000 × 10 ms chunks) plus margin: a swap's replay burst must never trip drop-oldest, and live backpressure still drops oldest beyond that (~10 s of 10 ms chunks absorbs cold-start decode lag; measured: cold-start decodes can run far slower than real time)
+        _queue = new BlockingCollection<(float[], long, bool)>(boundedCapacity: 4096); // 4096 chunks covers the full 30 s pre-roll cap (3000 × 10 ms chunks) plus margin: a swap's replay burst must never trip drop-oldest, and live backpressure still drops oldest beyond that (~10 s of 10 ms chunks absorbs cold-start decode lag; measured: cold-start decodes can run far slower than real time)
         _lastPartial = "";
         _inReplay = false;
         _currentChunkWallMs = null;
@@ -57,14 +60,14 @@ public sealed class StreamingRunner : IDisposable
         AppLog.Info("streaming: decode thread started");
     }
 
-    public void Push(float[] samples16k) => Enqueue(samples16k, null);
+    // Live chunks carry their ENQUEUE wall time (the capture clock) so a queue backlog —
+    // up to ~41 s at the 4096 capacity — cannot push timestamps past the audio they cover
+    // (review r21). Replayed pre-roll chunks carry their original capture wall (review r19).
+    public void Push(float[] samples16k) => Enqueue(samples16k, _nowMs(), replayed: false);
 
-    // Pre-roll replay: these samples were captured BEFORE the engine existed; carry their
-    // capture wall time so segment timestamps are backdated to when the audio actually
-    // happened instead of being stamped at (much later) replay time (review r19).
-    public void PushReplay(float[] samples16k, long captureWallMs) => Enqueue(samples16k, captureWallMs);
+    public void PushReplay(float[] samples16k, long captureWallMs) => Enqueue(samples16k, captureWallMs, replayed: true);
 
-    private void Enqueue(float[] samples16k, long? captureWallMs)
+    private void Enqueue(float[] samples16k, long wallMs, bool replayed)
     {
         var q = _queue;
         if (!_running || q is null) return;
@@ -77,7 +80,7 @@ public sealed class StreamingRunner : IDisposable
         {
             for (var attempts = 0; attempts < 9; attempts++)
             {
-                if (q.TryAdd((samples16k, captureWallMs))) return;
+                if (q.TryAdd((samples16k, wallMs, replayed))) return;
                 if (q.TryTake(out _))
                 {
                     var n = System.Threading.Interlocked.Increment(ref _droppedChunks);
@@ -101,16 +104,16 @@ public sealed class StreamingRunner : IDisposable
     {
         try
         {
-            foreach (var (chunk, captureWall) in _queue!.GetConsumingEnumerable())
+            foreach (var (chunk, wall, replayed) in _queue!.GetConsumingEnumerable())
             {
-                _currentChunkWallMs = captureWall;
-                if (captureWall is long cw)
+                _currentChunkWallMs = wall;
+                if (replayed)
                 {
                     // First replayed chunk after live audio: the open utterance starts at
                     // its capture time, not the (late) replay wall clock (review r19).
-                    if (!_inReplay) { _inReplay = true; _utteranceStartMs = cw; }
+                    if (!_inReplay) { _inReplay = true; _utteranceStartMs = wall; }
                 }
-                else if (_inReplay) _inReplay = false;
+                else _inReplay = false;
                 _backend.AcceptWaveform(chunk);
                 Emit();
             }
@@ -126,6 +129,9 @@ public sealed class StreamingRunner : IDisposable
             // pause/stop/restart recover instead of the failure being masked (review r11).
             _running = false;
             try { _queue?.CompleteAdding(); } catch { }
+            // Surface it: IsRunning must not keep claiming a live pipeline while Enqueue
+            // silently drops every later chunk (review r21).
+            try { Failed?.Invoke(ex.Message); } catch { }
         }
     }
 

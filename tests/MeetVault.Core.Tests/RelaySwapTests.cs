@@ -13,6 +13,7 @@ public sealed class RelaySwapTests
         public List<float[]> Pushes { get; } = new();
 #pragma warning disable CS0067 // the interface requires the events; this fake never raises them
         public event Action<Segment>? SegmentReady;
+    public event Action<string>? Failed;
         public event Action<string>? PartialReady;
 #pragma warning restore CS0067
         public Task StartAsync(CancellationToken ct) { IsRunning = true; return Task.CompletedTask; }

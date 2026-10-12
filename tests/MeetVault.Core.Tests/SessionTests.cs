@@ -14,6 +14,9 @@ sealed class FakeAudio : IAudioCapture
 sealed class FakeTranscriber : ISpeechTranscriber
 {
     public event Action<Segment>? SegmentReady;
+#pragma warning disable CS0067 // the interface requires the event; this fake never fails
+    public event Action<string>? Failed;
+#pragma warning restore CS0067
     public bool IsRunning { get; private set; }
     public Task StartAsync(CancellationToken ct) { IsRunning = true; return Task.CompletedTask; }
     public Task StopAsync(CancellationToken ct) { IsRunning = false; return Task.CompletedTask; }
@@ -43,6 +46,9 @@ sealed class DraftStore : IMeetingStore
 sealed class RawTranscriber : ISpeechTranscriber
 {
     public event Action<Segment>? SegmentReady;
+#pragma warning disable CS0067 // the interface requires the event; this fake never fails
+    public event Action<string>? Failed;
+#pragma warning restore CS0067
     public bool IsRunning { get; private set; }
     public Task StartAsync(CancellationToken ct) { IsRunning = true; return Task.CompletedTask; }
     public Task StopAsync(CancellationToken ct) { IsRunning = false; return Task.CompletedTask; }
@@ -78,19 +84,22 @@ internal static class TestSyncUtil
 public sealed class SessionTests
 {
     [Fact]
-    public async Task PauseGap_SkippedAudioNeverReappears()
+    public async Task PauseGap_ALateFinalIsKept_WithinTheGrace()
     {
+        // The pause latch waits for the flush, but a flush whose join TIMED OUT delivers
+        // the final shortly after: within the join budget it is the meeting's last
+        // sentence and must be kept (review r21).
         var tx = new RawTranscriber();
         var session = TestSyncUtil.UiLess(() => new MeetingSession(new FakeAudio(), tx, new FakeStore()));
         await session.StartAsync("mic", "app");
         tx.Emit(new Segment("a", "spk_1", 0, 1000, "one", true));
         await session.PauseAsync();
-        tx.Emit(new Segment("b", "spk_1", 1000, 2000, "ghost", true));
+        tx.Emit(new Segment("b", "spk_1", 1000, 2000, "late-final", true));
         await session.ResumeAsync();
         tx.Emit(new Segment("c", "spk_1", 3000, 4000, "two", true));
         await session.StopAsync();
-        Assert.DoesNotContain(session.Segments, s => s.Text == "ghost");
-        Assert.Equal(2, session.Segments.Count);
+        Assert.Contains(session.Segments, s => s.Text == "late-final");
+        Assert.Equal(3, session.Segments.Count);
     }
 
     [Fact]

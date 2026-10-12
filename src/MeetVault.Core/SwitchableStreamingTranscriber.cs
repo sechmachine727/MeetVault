@@ -22,6 +22,7 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
     private string? _activeModelDir;
     private volatile bool _disposed;                                 // set synchronously in Dispose; read by SwapTo
     private bool _coreDone;                                          // guarded by _swapOne
+    private bool _starting;                                          // engine start in flight; guarded by _swapLock (review r21)
 
     public SwitchableStreamingTranscriber(Func<string, IStreamingTranscriber> factory, Func<long>? clockMs = null)
     {
@@ -36,6 +37,7 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
     public bool IsRunning { get; private set; }
     public event Action<Segment>? SegmentReady;
     public event Action<string>? PartialReady;
+    public event Action<string>? Failed;
 
     public async Task StartAsync(CancellationToken ct)
     {
@@ -49,13 +51,27 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
             // first swap to replay — clearing it here dropped up to 6 s of captured speech
             // on an Auto-mode pause/resume (review r10).
             replay = inner is null ? Array.Empty<(float[], long)>() : _preRoll.ToArray();
-            if (inner is not null) _preRoll.Clear();
+            if (inner is not null) { _preRoll.Clear(); _starting = true; }
         }
         if (inner is not null)
         {
             // Observed: a failed start must surface to the caller, not die as an unobserved
             // task exception while the relay claims running (review r6).
-            await inner.StartAsync(ct).ConfigureAwait(false);
+            try { await inner.StartAsync(ct).ConfigureAwait(false); }
+            catch
+            {
+                // Keep the buffered pre-roll for the next attempt (review r21).
+                lock (_swapLock) _starting = false;
+                throw;
+            }
+            lock (_swapLock)
+            {
+                _starting = false;
+                // Chunks captured while the engine was starting waited in the pre-roll:
+                // append them so nothing is handed to a stopped engine and dropped
+                // (review r21).
+                if (_preRoll.Count > 0) { replay = replay.Concat(_preRoll).ToArray(); _preRoll.Clear(); }
+            }
             // Replay with each chunk's CAPTURE wall time so the buffered speech is
             // backdated to when it happened (review r19).
             foreach (var (chunk, wall) in replay) inner.PushReplay(chunk, wall);
@@ -65,7 +81,16 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
     public async Task StopAsync(CancellationToken ct)
     {
         IStreamingTranscriber? inner;
-        lock (_swapLock) { IsRunning = false; inner = _inner; }
+        lock (_swapLock)
+        {
+            IsRunning = false;
+            inner = _inner;
+            // No engine yet: the buffered pre-roll is stamped on the meeting clock that a
+            // resume rebases — carrying it across the pause would persist segments with
+            // EndMs < StartMs (review r21; r10 kept the buffer, but the rebase makes its
+            // stamps unusable).
+            if (inner is null) _preRoll.Clear();
+        }
         // Await the engine's stop: its flush joins the decode thread and delivers the final
         // through this relay BEFORE the caller's next step, so the pause latch ordering is
         // enforced instead of inferred from the dispatcher queue (review r10).
@@ -78,10 +103,11 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
         lock (_swapLock)
         {
             inner = _inner;
-            if (inner is null)
+            if (inner is null || _starting)
             {
-                // No engine yet (auto mode is still listening), or a swap is mid-flight:
-                // keep a bounded pre-roll so no speech is lost.
+                // No engine yet (auto mode is still listening), a swap is mid-flight, or
+                // the engine is still starting: keep a bounded pre-roll so no speech is
+                // lost and nothing is handed to a stopped engine (review r21).
                 _preRoll.Add((samples16k, _clock()));
                 TrimPreRollLocked();
                 return;
@@ -96,7 +122,7 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
         lock (_swapLock)
         {
             inner = _inner;
-            if (inner is null)
+            if (inner is null || _starting)
             {
                 _preRoll.Add((samples16k, captureWallMs));
                 TrimPreRollLocked();
@@ -149,6 +175,7 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
             }
             fresh.PartialReady += ForwardPartial;
             fresh.SegmentReady += ForwardSegment;
+            fresh.Failed += ForwardFailed;
             bool start;
             lock (_swapLock) start = IsRunning;
             if (start)
@@ -178,6 +205,7 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
                 catch (Exception ex) { AppLog.Warn("swap: flush failed: " + ex.Message); }
                 old.PartialReady -= ForwardPartial;
                 old.SegmentReady -= ForwardSegment;
+                old.Failed -= ForwardFailed;
                 // The teardown can join a stalled decode thread for up to 5 s; hand it to
                 // the pool like the Dispose timeout path so the UI thread never blocks on
                 // it (review r20).
@@ -207,6 +235,7 @@ public sealed class SwitchableStreamingTranscriber : IStreamingTranscriber, ISpe
 
     private void ForwardPartial(string text) => PartialReady?.Invoke(text);
     private void ForwardSegment(Segment segment) => SegmentReady?.Invoke(segment);
+    private void ForwardFailed(string message) => Failed?.Invoke(message);
 
     public void Dispose()
     {
