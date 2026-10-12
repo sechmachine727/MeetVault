@@ -384,4 +384,39 @@
   <data name="Set.BackendTimeout" xml:space="preserve"><value>the server did not answer in time</value></data>
   <data name="Set.BackendNetError" xml:space="preserve"><value>network error</value></data>
   <data name="Set.BackendBadUrl" xml:space="preserve"><value>that server URL is not valid</value></data>
+  <!-- Details: backend processing section -->
+  <data name="DetBackendHeader.Header" xml:space="preserve"><value>Backend processing</value></data>
+  <data name="DetBackendSend.Content" xml:space="preserve"><value>Send to backend</value></data>
+  <data name="DetBackendSend.AutomationProperties.Name" xml:space="preserve"><value>Send to backend</value></data>
+  <data name="DetBackendSend.ToolTipService.ToolTip" xml:space="preserve"><value>Upload this meeting to the backend and process it</value></data>
+  <data name="DetBackendCancel.Content" xml:space="preserve"><value>Cancel processing</value></data>
+  <data name="DetBackendCancel.AutomationProperties.Name" xml:space="preserve"><value>Cancel backend processing</value></data>
+  <data name="DetBackendOpen.Content" xml:space="preserve"><value>Open backend view</value></data>
+  <data name="DetBackendOpen.AutomationProperties.Name" xml:space="preserve"><value>Open backend view</value></data>
+  <data name="Det.BackendNotSent" xml:space="preserve"><value>Not sent to the backend yet.</value></data>
+  <data name="Det.BackendSending" xml:space="preserve"><value>Sending…</value></data>
+  <data name="Det.BackendSendingStep" xml:space="preserve"><value>Sending: {0}</value></data>
+  <data name="Det.BackendNoKey" xml:space="preserve"><value>Backend API key missing. Add it in Settings.</value></data>
+  <data name="Det.BackendNoUrl" xml:space="preserve"><value>Backend server URL missing. Add it in Settings.</value></data>
+  <data name="Det.BackendNoRecording" xml:space="preserve"><value>No saved recording for this meeting.</value></data>
+  <data name="Det.BackendNoMeeting" xml:space="preserve"><value>The meeting could not be loaded.</value></data>
+  <data name="Det.BackendUnreachable" xml:space="preserve"><value>The backend could not be reached. Check the server and the key, then try again.</value></data>
+  <data name="Det.BackendFailed" xml:space="preserve"><value>Backend processing failed: {0}</value></data>
+  <data name="Det.BackendCancelSent" xml:space="preserve"><value>Cancellation requested.</value></data>
+  <data name="Det.BackendReady" xml:space="preserve"><value>Backend processing is done.</value></data>
+  <data name="Back.State.None" xml:space="preserve"><value>not sent</value></data>
+  <data name="Back.State.Sending" xml:space="preserve"><value>sending</value></data>
+  <data name="Back.State.Uploaded" xml:space="preserve"><value>uploaded</value></data>
+  <data name="Back.State.Processing" xml:space="preserve"><value>processing</value></data>
+  <data name="Back.State.Ready" xml:space="preserve"><value>ready</value></data>
+  <data name="Back.State.Failed" xml:space="preserve"><value>failed</value></data>
+  <data name="Back.State.Deleted" xml:space="preserve"><value>deleted</value></data>
+  <data name="Back.State.Unknown" xml:space="preserve"><value>unknown</value></data>
+  <data name="Back.MockBadge" xml:space="preserve"><value>mock</value></data>
+  <data name="Back.Stale" xml:space="preserve"><value>Out of date: {0}</value></data>
+  <data name="Back.Stage.Create" xml:space="preserve"><value>creating meeting</value></data>
+  <data name="Back.Stage.Audio" xml:space="preserve"><value>uploading audio</value></data>
+  <data name="Back.Stage.Video" xml:space="preserve"><value>uploading screen video</value></data>
+  <data name="Back.Stage.Transcript" xml:space="preserve"><value>uploading transcript</value></data>
+  <data name="Back.Stage.Start" xml:space="preserve"><value>starting processing</value></data>
 </root>

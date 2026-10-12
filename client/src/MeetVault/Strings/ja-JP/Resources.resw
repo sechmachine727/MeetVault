@@ -384,4 +384,39 @@
   <data name="Set.BackendTimeout" xml:space="preserve"><value>サーバーが時間内に応答しませんでした</value></data>
   <data name="Set.BackendNetError" xml:space="preserve"><value>ネットワークエラー</value></data>
   <data name="Set.BackendBadUrl" xml:space="preserve"><value>サーバー URL が正しくありません</value></data>
+  <!-- Details: backend processing section -->
+  <data name="DetBackendHeader.Header" xml:space="preserve"><value>バックエンド処理</value></data>
+  <data name="DetBackendSend.Content" xml:space="preserve"><value>バックエンドに送信</value></data>
+  <data name="DetBackendSend.AutomationProperties.Name" xml:space="preserve"><value>バックエンドに送信</value></data>
+  <data name="DetBackendSend.ToolTipService.ToolTip" xml:space="preserve"><value>この会議をバックエンドにアップロードして処理します</value></data>
+  <data name="DetBackendCancel.Content" xml:space="preserve"><value>処理をキャンセル</value></data>
+  <data name="DetBackendCancel.AutomationProperties.Name" xml:space="preserve"><value>バックエンド処理をキャンセル</value></data>
+  <data name="DetBackendOpen.Content" xml:space="preserve"><value>バックエンド表示を開く</value></data>
+  <data name="DetBackendOpen.AutomationProperties.Name" xml:space="preserve"><value>バックエンド表示を開く</value></data>
+  <data name="Det.BackendNotSent" xml:space="preserve"><value>まだバックエンドに送信されていません。</value></data>
+  <data name="Det.BackendSending" xml:space="preserve"><value>送信中…</value></data>
+  <data name="Det.BackendSendingStep" xml:space="preserve"><value>送信中: {0}</value></data>
+  <data name="Det.BackendNoKey" xml:space="preserve"><value>バックエンド API キーがありません。設定で追加してください。</value></data>
+  <data name="Det.BackendNoUrl" xml:space="preserve"><value>バックエンドのサーバー URL がありません。設定で追加してください。</value></data>
+  <data name="Det.BackendNoRecording" xml:space="preserve"><value>この会議には保存された録音がありません。</value></data>
+  <data name="Det.BackendNoMeeting" xml:space="preserve"><value>会議を読み込めませんでした。</value></data>
+  <data name="Det.BackendUnreachable" xml:space="preserve"><value>バックエンドに接続できませんでした。サーバーとキーを確認して再試行してください。</value></data>
+  <data name="Det.BackendFailed" xml:space="preserve"><value>バックエンド処理に失敗しました: {0}</value></data>
+  <data name="Det.BackendCancelSent" xml:space="preserve"><value>キャンセルを要求しました。</value></data>
+  <data name="Det.BackendReady" xml:space="preserve"><value>バックエンド処理が完了しました。</value></data>
+  <data name="Back.State.None" xml:space="preserve"><value>未送信</value></data>
+  <data name="Back.State.Sending" xml:space="preserve"><value>送信中</value></data>
+  <data name="Back.State.Uploaded" xml:space="preserve"><value>アップロード済み</value></data>
+  <data name="Back.State.Processing" xml:space="preserve"><value>処理中</value></data>
+  <data name="Back.State.Ready" xml:space="preserve"><value>完了</value></data>
+  <data name="Back.State.Failed" xml:space="preserve"><value>失敗</value></data>
+  <data name="Back.State.Deleted" xml:space="preserve"><value>削除済み</value></data>
+  <data name="Back.State.Unknown" xml:space="preserve"><value>不明</value></data>
+  <data name="Back.MockBadge" xml:space="preserve"><value>mock</value></data>
+  <data name="Back.Stale" xml:space="preserve"><value>古い分析: {0}</value></data>
+  <data name="Back.Stage.Create" xml:space="preserve"><value>会議を作成中</value></data>
+  <data name="Back.Stage.Audio" xml:space="preserve"><value>音声をアップロード中</value></data>
+  <data name="Back.Stage.Video" xml:space="preserve"><value>画面録画をアップロード中</value></data>
+  <data name="Back.Stage.Transcript" xml:space="preserve"><value>文字起こしをアップロード中</value></data>
+  <data name="Back.Stage.Start" xml:space="preserve"><value>処理を開始中</value></data>
 </root>

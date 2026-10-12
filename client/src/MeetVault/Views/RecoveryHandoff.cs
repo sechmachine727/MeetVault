@@ -12,6 +12,12 @@ public static class PendingDetails
     public static string? MeetingId { get; set; }
 }
 
+// Details → Backend page handoff: which meeting's backend data to open.
+public static class PendingBackend
+{
+    public static string? MeetingId { get; set; }
+}
+
 // Single place that knows whether the configured model can run, and which model actually
 // runs live (Dashboard and Live must agree on the effective choice).
 public static class EngineModels

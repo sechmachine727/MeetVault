@@ -39,6 +39,8 @@ public sealed partial class MainWindow : Window
 
     public void NavigateToDetails() => NavigateTo(typeof(DetailsPage), "details");
 
+    public void NavigateToBackend() => NavigateTo(typeof(BackendPage), "backend");
+
     // Select the nav item (SelectionChanged navigates); if it is already selected,
     // navigate directly so the page still reloads with fresh Pending* state.
     private void NavigateTo(Type page, string tag)
@@ -62,6 +64,7 @@ public sealed partial class MainWindow : Window
                 "meetings" => typeof(MeetingsPage),
                 "details" => typeof(DetailsPage),
                 "settings" => typeof(SettingsPage),
+                "backend" => typeof(BackendPage),
                 _ => typeof(DashboardPage),
             });
         }

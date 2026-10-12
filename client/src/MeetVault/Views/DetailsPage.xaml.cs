@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using MeetVault.Core;
+using MeetVault.Core.Backend;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.ApplicationModel.DataTransfer;
@@ -28,6 +29,11 @@ public sealed partial class DetailsPage : Page
     private List<MediaTrack> _videoTracks = new();
     private MediaTrack? _videoTrack;
     private int _highlightIndex = -1;
+    // --- Backend processing ---
+    private bool _backendBusy;
+    private CancellationTokenSource? _backendCts;
+    private string? _backendId;
+    private string? _backendActiveJobId;
 
     public DetailsPage()
     {
@@ -77,6 +83,7 @@ public sealed partial class DetailsPage : Page
         ShowVideo();
         SubscribePlayhead();
         ShowPriorJob(_meeting);
+        ShowPriorBackend();
         UpdateLineStatus();
         Unloaded += (_, _) => { try { Player.Source = null; } catch { } try { VideoPlayer.Source = null; } catch { } };
     }
@@ -277,6 +284,50 @@ public sealed partial class DetailsPage : Page
         _ => Loc.T("Det.StateUnknown"),
     };
 
+    private static string NowIso() => DateTimeOffset.UtcNow.ToString("o");
+
+    // A queued debounce must be written before the backend serializes the transcript.
+    private void FlushEdits()
+    {
+        if (_saveTimer is null) return;
+        _saveTimer.Stop();
+        PersistEdits(null, null!);
+    }
+
+    private static string StageLabel(BackendSyncStage stage) => stage switch
+    {
+        BackendSyncStage.Creating => Loc.T("Back.Stage.Create"),
+        BackendSyncStage.UploadingAudio => Loc.T("Back.Stage.Audio"),
+        BackendSyncStage.UploadingVideo => Loc.T("Back.Stage.Video"),
+        BackendSyncStage.UploadingTranscript => Loc.T("Back.Stage.Transcript"),
+        _ => Loc.T("Back.Stage.Start"),
+    };
+
+    private static string DescribeBackendError(Exception ex) => ex switch
+    {
+        BackendApiException api => api.Code + ": " + api.Message,
+        ArgumentException => Loc.T("Det.BackendNoUrl"),
+        _ => Loc.T("Det.BackendUnreachable"),
+    };
+
+    // Prior backend state survives restarts via the backend_sync row.
+    private void ShowPriorBackend()
+    {
+        if (_meeting is null) return;
+        var sync = AppStore.Repo.LoadBackendSync(_meeting.Id);
+        BackendProgress.Visibility = Visibility.Collapsed;
+        BackendCancelButton.Visibility = Visibility.Collapsed;
+        BackendSteps.Text = "";
+        if (sync is null)
+        {
+            BackendState.Text = Loc.T("Det.BackendNotSent");
+            return;
+        }
+        BackendState.Text = Loc.T(BackendPresentation.StatusKey(sync.State))
+            + (sync.Mock ? " · " + Loc.T("Back.MockBadge") : "")
+            + (sync.LastError is { Length: > 0 } error ? " — " + error : "");
+    }
+
     private void SpeakerPicker_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is not ComboBox box || box.DataContext is not TranscriptLine line) return;
@@ -435,6 +486,11 @@ public sealed partial class DetailsPage : Page
         }
         finally { SendButton.IsEnabled = true; }
     }
+
+    // T61 replaces these three stubs with the full send/open flow.
+    private void BackendSend_Click(object sender, RoutedEventArgs e) { }
+    private void BackendCancel_Click(object sender, RoutedEventArgs e) { }
+    private void BackendOpen_Click(object sender, RoutedEventArgs e) { }
 
     private bool TryTranscript(out string text)
     {
