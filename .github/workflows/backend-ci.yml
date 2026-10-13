@@ -93,14 +93,12 @@ jobs:
         run: docker build -t meetvault-backend:ci .
       - name: Validate compose file
         env:
-          MVB_API_KEYS: ci-key
           POSTGRES_PASSWORD: ci-password
         run: docker compose config -q
       - name: Start the api against SQLite and wait for readiness
         run: |
           docker run -d --name mvb-ci -p 8080:8080 \
             -e MVB_ENV=dev \
-            -e MVB_API_KEYS=ci-key \
             -e MVB_DATABASE_URL=sqlite+pysqlite:////data/mvb.db \
             -e MVB_MEDIA_ROOT=/data/media \
             meetvault-backend:ci
@@ -109,11 +107,13 @@ jobs:
             sleep 2
           done
           test "${ready:-0}" = "1" || { docker logs mvb-ci; exit 1; }
-      - name: Smoke the API (auth + system info + openapi)
+      - name: Smoke the API (login + system info + openapi)
         run: |
           curl -fsS http://localhost:8080/readyz
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/v1/meetings)" = "401"
-          curl -fsS -H "Authorization: Bearer ci-key" http://localhost:8080/v1/system/info
+          docker exec mvb-ci python -m mvb.admin create-user --email ci@example.com --password ci-password-1
+          TOKEN=$(curl -fsS -X POST http://localhost:8080/v1/auth/login -H 'Content-Type: application/json' -d '{"email":"ci@example.com","password":"ci-password-1"}' | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+          curl -fsS -H "Authorization: Bearer $TOKEN" http://localhost:8080/v1/system/info
           curl -fsS http://localhost:8080/openapi.json | head -c 200
       - name: Container logs on failure
         if: failure()

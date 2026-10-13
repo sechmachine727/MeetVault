@@ -1,8 +1,11 @@
 # Meetvault_Backend deployment: Postgres + API + worker, one image each.
 #
-#   cp .env.example .env   # then set MVB_API_KEYS and POSTGRES_PASSWORD
+#   cp .env.example .env   # then set POSTGRES_PASSWORD
 #   docker compose up -d --build
-#   curl -H "Authorization: Bearer $MVB_API_KEYS" http://localhost:8080/v1/system/info
+#   TOKEN=$(curl -fsS -X POST http://localhost:8080/v1/auth/login \
+#     -H 'Content-Type: application/json' \
+#     -d '{"email":"you@example.com","password":"..."}' | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+#   curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/v1/system/info
 #
 # The api service runs the migrations before serving; the worker waits for the api to
 # become healthy, so migrations are never applied twice concurrently.
@@ -11,7 +14,6 @@ name: meetvault-backend
 x-app-env: &app-env
   MVB_ENV: prod
   MVB_DATABASE_URL: postgresql+psycopg://mvb:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/mvb
-  MVB_API_KEYS: ${MVB_API_KEYS:?set MVB_API_KEYS in .env}
   MVB_MEDIA_ROOT: /data/media
   MVB_MAX_UPLOAD_MB: ${MVB_MAX_UPLOAD_MB:-4096}
   MVB_JOB_STALE_SECONDS: ${MVB_JOB_STALE_SECONDS:-900}
