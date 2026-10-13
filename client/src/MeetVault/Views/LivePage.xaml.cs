@@ -73,7 +73,8 @@ public sealed partial class LivePage : Page
     {
         InitializeComponent();
         TranscriptList.ItemsSource = Lines.ToArray();
-        Lines.CollectionChanged += (_, _) => { TranscriptList.ItemsSource = Lines.ToArray(); TranscriptScroll.ChangeView(null, TranscriptScroll.ScrollableHeight, null); };
+        Lines.CollectionChanged += (_, _) => { TranscriptList.ItemsSource = Lines.ToArray(); TranscriptScroll.ChangeView(null, TranscriptScroll.ScrollableHeight, null); RefreshTranscriptEmpty(); };
+        RefreshTranscriptEmpty();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
         LiveBridge.LanguageRequested += OnLanguageRequested;
@@ -207,8 +208,11 @@ public sealed partial class LivePage : Page
         ResolveEngines();
         BuildLanguageCombo((AppStore.Repo.GetSetting("transcription.language") ?? "en").Trim().ToLowerInvariant());
         InitScreenSection();
-        _micLabel = NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == MicId).Name
+        var micDevice = NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == MicId);
+        _micLabel = micDevice.Name
             ?? (MicId == "0" ? Loc.T("Dash.WindowsDefault") : Loc.Tf("Live.DeviceN", MicId));
+        // 31-char ProductName buffer (eval D8): suffix the picker id like the Settings picker.
+        if (micDevice.Name is not null) _micLabel += " [" + micDevice.Id + "]";
         var id = PendingRecovery.MeetingId;
         PendingRecovery.MeetingId = null;
         if (id is not null)
@@ -452,9 +456,12 @@ public sealed partial class LivePage : Page
     }
 
     private void RefreshAudioStatus()
-        => AudioStatus.Text = _state == LiveState.Idle
+    {
+        AudioStatus.Text = _state == LiveState.Idle
             ? Loc.Tf("Live.AudioIdle", _micLabel)
             : _state == LiveState.Paused ? Loc.Tf("Live.AudioPaused", _micLabel) : Loc.Tf("Live.AudioRecording", _micLabel);
+        ToolTipService.SetToolTip(AudioStatus, AudioStatus.Text);
+    }
 
     // The recognizer consumes the raw 16 kHz stream (the runner enqueues; the engine
     // decodes on its own thread). Interim text arrives through PartialReady and finals
@@ -475,6 +482,10 @@ public sealed partial class LivePage : Page
             TryApplyPendingLanguage();
         });
 
+    // The transcript card explains itself when empty (eval D10).
+    private void RefreshTranscriptEmpty() => TranscriptEmpty.Visibility =
+        Lines.Count == 0 && PartialLine.Visibility != Visibility.Visible ? Visibility.Visible : Visibility.Collapsed;
+
     // Streaming engines publish the open utterance's interim text; it renders in the trailing
     // PartialLine under the list — NOT in the bound collection, whose change handler
     // re-snapshots ItemsSource: per-partial mutations rebuilt every container and stalled the
@@ -485,6 +496,7 @@ public sealed partial class LivePage : Page
         {
             PartialLine.Text = text;
             PartialLine.Visibility = Visibility.Visible;
+            RefreshTranscriptEmpty();
             TranscriptScroll.ChangeView(null, TranscriptScroll.ScrollableHeight, null);
         }
         else ClearPartialRow();
@@ -495,6 +507,7 @@ public sealed partial class LivePage : Page
     {
         PartialLine.Text = "";
         PartialLine.Visibility = Visibility.Collapsed;
+        RefreshTranscriptEmpty();
     }
 
     private void AddLine(string text)

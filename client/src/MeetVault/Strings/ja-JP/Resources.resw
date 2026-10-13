@@ -206,7 +206,7 @@
   <data name="Live.CaptureFailed" xml:space="preserve"><value>録音が予期せず停止しました（{0}）。「停止」で保存すると録音済みの内容を保持できます。</value></data>
   <data name="Live.StreamFailed" xml:space="preserve"><value>文字起こしが予期せず停止しました（{0}）。「停止」で保存すると録音済みの内容を保持できます。</value></data>
   <data name="Live.StopTitle" xml:space="preserve"><value>この会議を停止して保存しますか？</value></data>
-  <data name="Live.StopBody" xml:space="preserve"><value>録音を停止し、会議は {0} 行で保存されます。その後、この会議に追加することはできません。</value></data>
+  <data name="Live.StopBody" xml:space="preserve"><value>録音を停止し、会議は現時点で {0} 行で保存されます。その後、この会議に追加することはできません。</value></data>
   <data name="Live.StopConfirm" xml:space="preserve"><value>停止して保存</value></data>
   <data name="Live.KeepRecording" xml:space="preserve"><value>録音を続ける</value></data>
   <data name="Live.ResumedCount" xml:space="preserve"><value>「{0}」を再開しました。{1} 行を復元しました。</value></data>
@@ -315,7 +315,7 @@
   <data name="LivePreview.AutomationProperties.Name" xml:space="preserve"><value>ライブキャプチャプレビュー</value></data>
   <data name="LivePreviewPlaceholder.Text" xml:space="preserve"><value>画面収録の実行中、ここにライブプレビューが表示されます。</value></data>
   <data name="LiveRecBadge.Text" xml:space="preserve"><value>REC</value></data>
-  <data name="LiveTranscriptLabel.Text" xml:space="preserve"><value>ライブ文字起こし</value></data>
+  <data name="LiveTranscriptLabel.Text" xml:space="preserve"><value>文字起こし</value></data>
   <data name="Live.PreviewFps" xml:space="preserve"><value>{0} fps</value></data>
   <data name="Ov.Rec" xml:space="preserve"><value>録画中</value></data>
   <data name="Ov.ScreenToggle" xml:space="preserve"><value>画面収録の開始/停止</value></data>
@@ -487,4 +487,5 @@
   <data name="BackForgetLink.AutomationProperties.Name" xml:space="preserve"><value>この会議のバックエンド連携を解除する</value></data>
   <data name="Back.Unlinked" xml:space="preserve"><value>この会議のバックエンド連携を解除しました。</value></data>
   <data name="BackPageStatusLabel.Text" xml:space="preserve"><value>ステータス</value></data>
+  <data name="LiveTranscriptEmpty.Text" xml:space="preserve"><value>まだ何も認識されていません。発話が認識されるとここに行が表示されます。</value></data>
 </root>

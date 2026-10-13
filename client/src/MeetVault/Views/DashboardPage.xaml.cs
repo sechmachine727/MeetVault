@@ -25,8 +25,13 @@ public sealed partial class DashboardPage : Page
         GreetingTitle.Text = hour < 12 ? Loc.T("Dash.GreetingMorning") : hour < 18 ? Loc.T("Dash.GreetingAfternoon") : Loc.T("Dash.GreetingEvening");
         // audio.mic stores the numeric device id; resolve to the live device name.
         var micIdx = AppStore.Repo.GetSetting("audio.mic") ?? "";
-        var mic = MeetVault.Core.NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == micIdx).Name ?? Loc.T("Dash.WindowsDefault");
-        MicStatus.Text = string.IsNullOrWhiteSpace(mic) ? Loc.T("Dash.MicNotStarted") : mic;
+        var micDevice = MeetVault.Core.NAudioCapture.ListDevices().FirstOrDefault(d => d.Id.ToString() == micIdx);
+        // ProductName is a 31-char Win32 buffer, so same-prefix devices are ambiguous
+        // (eval D8): suffix the Settings picker id, which matches the picker entry.
+        var mic = micDevice.Name ?? Loc.T("Dash.WindowsDefault");
+        MicStatus.Text = string.IsNullOrWhiteSpace(mic) ? Loc.T("Dash.MicNotStarted")
+            : micDevice.Name is null ? mic : mic + " [" + micDevice.Id + "]";
+        ToolTipService.SetToolTip(MicStatus, MicStatus.Text);
         // Same resolution Live runs (EngineModels.ResolveLive): the dashboard must show
         // the effective model, not the configured one, or the two pages disagree.
         var resolution = EngineModels.ResolveLive(AppStore.Repo);

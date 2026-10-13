@@ -73,6 +73,8 @@
                                      bound collection (the ctor re-snapshots on every collection change). -->
                                 <TextBlock x:Name="PartialLine" TextWrapping="Wrap" Margin="8,0,0,0"
                                            Opacity="0.85" Visibility="Collapsed" />
+                                <TextBlock x:Name="TranscriptEmpty" x:Uid="LiveTranscriptEmpty" TextWrapping="Wrap"
+                                           Margin="8,0,0,0" Opacity="0.55" />
                             </StackPanel>
                         </ScrollViewer>
                     </Grid>
