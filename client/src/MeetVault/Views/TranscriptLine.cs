@@ -18,8 +18,8 @@ public sealed class TranscriptLine : INotifyPropertyChanged
     private bool _isActive;
 
     /// <summary>Playhead highlight: true while the Details player sits inside this line.
-    /// Never serialized: this type is the Gemini payload record (a live WinUI brush in the
-    /// JSON would throw at serialize time under source-gen — review r8).</summary>
+    /// Never serialized: a live WinUI brush in the JSON would throw at serialize time
+    /// under source-gen — review r8).</summary>
     [JsonIgnore]
     public bool IsActive
     {

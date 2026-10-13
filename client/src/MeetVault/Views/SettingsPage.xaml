@@ -242,25 +242,6 @@
             </StackPanel>
 
             <StackPanel Spacing="8">
-                <TextBlock x:Uid="SetGemini" Style="{StaticResource SubtitleTextBlockStyle}" />
-                <Grid ColumnSpacing="24">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="200" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Spacing="2" VerticalAlignment="Top">
-                        <TextBlock x:Uid="SetApiKey" FontWeight="SemiBold" />
-                        <TextBlock x:Uid="SetApiKeyDesc" Opacity="0.7" TextWrapping="Wrap" />
-                    </StackPanel>
-                    <StackPanel Grid.Column="1" Spacing="8" Orientation="Horizontal">
-                        <PasswordBox x:Name="ApiKeyBox" x:Uid="SetApiKeyBox" Width="280" />
-                        <Button x:Name="SaveKeyButton" x:Uid="SetSaveKey" Click="SaveKey_Click" />
-                    </StackPanel>
-                </Grid>
-                <TextBlock x:Name="GeminiStatus" Opacity="0.7" TextWrapping="Wrap" />
-            </StackPanel>
-
-            <StackPanel Spacing="8">
                 <TextBlock x:Uid="SetBackend" Style="{StaticResource SubtitleTextBlockStyle}" />
                 <TextBlock x:Uid="SetBackendNote" Opacity="0.7" TextWrapping="Wrap" />
                 <Grid ColumnSpacing="24">

@@ -1,8 +1,7 @@
 namespace MeetVault.Core.Backend;
 
 // On-disk cache of the newest server transcript/analysis per meeting, plus downloaded media.
-// Atomic writes (tmp + move) so a crash can never leave half a JSON document; mirrors the
-// Gemini-result pattern (%APPDATA%\MeetVault\backend\).
+// Atomic writes (tmp + move) so a crash can never leave half a JSON document.
 public sealed class BackendCache
 {
     private readonly string _root;

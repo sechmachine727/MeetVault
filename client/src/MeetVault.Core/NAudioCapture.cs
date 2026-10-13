@@ -335,7 +335,7 @@ public sealed class NAudioCapture : IAudioCapture, IDisposable
         }
     }
 
-    // MIME for a finalized recording, so playback and Gemini uploads get the right type.
+    // MIME for a finalized recording, so playback gets the right type.
     public static string ArchiveMime(string path) =>
         path.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase) ? "audio/mp4" : "audio/wav";
 

@@ -126,6 +126,10 @@ public sealed class BackendClient
     public Task DownloadMediaAsync(string assetId, string destinationPath, CancellationToken ct = default)
         => _transport.DownloadToFileAsync("/v1/media/" + assetId, destinationPath, ct);
 
+    // Structured Word export of the completed analysis (summary/sections/decisions/actions/Q&A).
+    public Task DownloadExportAsync(string backendId, string destinationPath, CancellationToken ct = default)
+        => _transport.DownloadToFileAsync("/v1/meetings/" + backendId + "/export.docx", destinationPath, ct);
+
     public async Task<BackendQaJob> AskAsync(string backendId, string question, string? sectionId = null, CancellationToken ct = default)
     {
         var json = JsonSerializer.Serialize(new BackendQaBody(question, sectionId, 8), BackendJsonContext.Default.BackendQaBody);

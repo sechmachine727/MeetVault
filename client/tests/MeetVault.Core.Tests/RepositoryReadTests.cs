@@ -42,17 +42,6 @@ public sealed class RepositoryReadTests : IDisposable
         Assert.Equal(new[] { "pau", "rec" }, _repo.LoadUnfinished().Select(m => m.Id));
     }
 
-    [Fact]
-    public void GeminiJob_SaveLoad_RoundTrip()
-    {
-        _repo.SaveJob(new GeminiJob("j1", "m1", GeminiJobState.Failed, 2, "boom", null));
-        var job = _repo.LoadJob("m1");
-        Assert.NotNull(job);
-        Assert.Equal((GeminiJobState.Failed, 2, "boom"), (job.State, job.Attempts, job.LastError));
-        _repo.SaveJob(job with { State = GeminiJobState.Succeeded, ResultPath = "r.json" });
-        Assert.Equal("r.json", _repo.LoadJob("m1")!.ResultPath);
-    }
-
     public void Dispose() { _repo.Dispose(); try { File.Delete(_path); } catch { } }
 
     [Fact]

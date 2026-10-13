@@ -27,7 +27,6 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
             CREATE TABLE IF NOT EXISTS speakers(meeting_id TEXT NOT NULL, speaker_id TEXT NOT NULL, display_name TEXT NOT NULL, gender TEXT NOT NULL DEFAULT 'Unknown', gender_index INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(meeting_id, speaker_id));
             CREATE TABLE IF NOT EXISTS transcript_segments(id TEXT PRIMARY KEY, meeting_id TEXT NOT NULL, speaker_id TEXT NOT NULL, start_ms INTEGER NOT NULL, end_ms INTEGER NOT NULL, text TEXT NOT NULL, is_final INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
-            CREATE TABLE IF NOT EXISTS gemini_jobs(id TEXT PRIMARY KEY, meeting_id TEXT NOT NULL, state TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT NULL, result_paths TEXT NULL, updated_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS media_tracks(id TEXT PRIMARY KEY, meeting_id TEXT NOT NULL, kind TEXT NOT NULL, path TEXT NOT NULL, mime TEXT NOT NULL DEFAULT 'video/mp4', start_offset_ms INTEGER NOT NULL DEFAULT 0, duration_ms INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS ix_media_tracks_meeting ON media_tracks(meeting_id);
             CREATE TABLE IF NOT EXISTS backend_sync(meeting_id TEXT PRIMARY KEY, backend_id TEXT NULL, state TEXT NOT NULL, last_error TEXT NULL, mock INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL);
@@ -219,7 +218,7 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
             }
         }
         using var tx = _db.BeginTransaction();
-        foreach (var table in new[] { "transcript_segments", "speakers", "gemini_jobs", "media_tracks", "backend_sync", "meetings" })
+        foreach (var table in new[] { "transcript_segments", "speakers", "media_tracks", "backend_sync", "meetings" })
         {
             using var d = _db.CreateCommand();
             d.Transaction = tx;
@@ -512,27 +511,6 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         var list = new List<Meeting>();
         while (r.Read()) list.Add(ReadMeeting(r));
         return list;
-    }
-
-    public void SaveJob(GeminiJob job)
-    {
-        using var c = _db.CreateCommand();
-        c.CommandText = "INSERT INTO gemini_jobs(id,meeting_id,state,attempts,last_error,result_paths,updated_at) VALUES($id,$m,$s,$a,$e,$r,$n) ON CONFLICT(id) DO UPDATE SET state=$s,attempts=$a,last_error=$e,result_paths=$r,updated_at=$n";
-        c.Parameters.AddWithValue("$id", job.Id); c.Parameters.AddWithValue("$m", job.MeetingId);
-        c.Parameters.AddWithValue("$s", job.State.ToString()); c.Parameters.AddWithValue("$a", job.Attempts);
-        c.Parameters.AddWithValue("$e", (object?)job.LastError ?? DBNull.Value); c.Parameters.AddWithValue("$r", (object?)job.ResultPath ?? DBNull.Value);
-        c.Parameters.AddWithValue("$n", DateTimeOffset.UtcNow.ToString("o"));
-        c.ExecuteNonQuery();
-    }
-
-    public GeminiJob? LoadJob(string meetingId)
-    {
-        using var c = _db.CreateCommand();
-        c.CommandText = "SELECT id,state,attempts,last_error,result_paths FROM gemini_jobs WHERE meeting_id=$m ORDER BY updated_at DESC LIMIT 1";
-        c.Parameters.AddWithValue("$m", meetingId);
-        using var r = c.ExecuteReader();
-        if (!r.Read()) return null;
-        return new GeminiJob(r.GetString(0), meetingId, Enum.TryParse<GeminiJobState>(r.GetString(1), out var js) ? js : GeminiJobState.Failed, r.GetInt32(2), r.IsDBNull(3) ? null : r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4));
     }
 
     public void SaveBackendSync(BackendSyncRow row)

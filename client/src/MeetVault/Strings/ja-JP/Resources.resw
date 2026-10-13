@@ -66,10 +66,6 @@
   <data name="DetExport.Content" xml:space="preserve"><value>ドキュメントにエクスポート</value></data>
   <data name="DetExport.AutomationProperties.Name" xml:space="preserve"><value>文字起こしをドキュメントにエクスポート</value></data>
   <data name="DetExport.ToolTipService.ToolTip" xml:space="preserve"><value>文字起こしをドキュメント内のテキストファイルに書き出します</value></data>
-  <data name="DetSend.Content" xml:space="preserve"><value>Gemini に送信</value></data>
-  <data name="DetSend.AutomationProperties.Name" xml:space="preserve"><value>Gemini に送信</value></data>
-  <data name="DetSend.ToolTipService.ToolTip" xml:space="preserve"><value>この会議のメディアと文字起こしを Gemini にアップロードします</value></data>
-  <data name="DetGeminiHeader.Header" xml:space="preserve"><value>Gemini ジョブ</value></data>
   <data name="DetTranscript.Text" xml:space="preserve"><value>文字起こし</value></data>
   <data name="DetEmpty.Text" xml:space="preserve"><value>まだ表示する会議がありません。ライブで会議を開始すると、ここに文字起こしが表示されます。</value></data>
   <data name="DetSpeakerName.AutomationProperties.Name" xml:space="preserve"><value>話者</value></data>
@@ -138,13 +134,6 @@
   <data name="SetOpenLog.AutomationProperties.Name" xml:space="preserve"><value>ログフォルダーを開く</value></data>
   <data name="SetShowLog.Content" xml:space="preserve"><value>ログを表示</value></data>
   <data name="SetShowLog.AutomationProperties.Name" xml:space="preserve"><value>ログを表示</value></data>
-  <data name="SetGemini.Text" xml:space="preserve"><value>Gemini</value></data>
-  <data name="SetApiKey.Text" xml:space="preserve"><value>API キー</value></data>
-  <data name="SetApiKeyDesc.Text" xml:space="preserve"><value>Windows 資格情報ロッカーに保存され、平文ファイルには保存されません。</value></data>
-  <data name="SetApiKeyBox.PlaceholderText" xml:space="preserve"><value>Gemini API キーを貼り付け</value></data>
-  <data name="SetApiKeyBox.AutomationProperties.Name" xml:space="preserve"><value>Gemini API キー</value></data>
-  <data name="SetSaveKey.Content" xml:space="preserve"><value>保存</value></data>
-  <data name="SetSaveKey.AutomationProperties.Name" xml:space="preserve"><value>Gemini API キーを保存</value></data>
 
   <!-- L4.1: Meetings page code strings -->
   <data name="Mtg.FromRepo" xml:space="preserve"><value>ローカルリポジトリの会議 {0} 件。</value></data>
@@ -224,15 +213,6 @@
   <!-- L4.4: Details page code strings -->
   <data name="Det.NoMeeting" xml:space="preserve"><value>まだ表示する会議がありません。ライブで会議を開始すると、ここに文字起こしが表示されます。</value></data>
   <data name="Det.NoMeetingSelected" xml:space="preserve"><value>会議が選択されていません</value></data>
-  <data name="Det.NoJobSent" xml:space="preserve"><value>まだジョブは送信されていません。</value></data>
-  <data name="Det.LastResult" xml:space="preserve"><value>前回の結果: {0} · 試行 {1} 回</value></data>
-  <data name="Det.ResultUnreadable" xml:space="preserve"><value>保存された結果を読み取れませんでした。</value></data>
-  <data name="Det.NoResult" xml:space="preserve"><value>ジョブは結果を返さずに終了しました。</value></data>
-  <data name="Det.StateQueued" xml:space="preserve"><value>待機中</value></data>
-  <data name="Det.StateUploading" xml:space="preserve"><value>アップロード中</value></data>
-  <data name="Det.StateSucceeded" xml:space="preserve"><value>成功</value></data>
-  <data name="Det.StateFailed" xml:space="preserve"><value>失敗</value></data>
-  <data name="Det.StateUnknown" xml:space="preserve"><value>不明</value></data>
   <data name="Det.EditSaveFailed" xml:space="preserve"><value>編集はメモリに保持されましたが、保存に失敗しました: {0}</value></data>
   <data name="Det.NoLines" xml:space="preserve"><value>行がありません</value></data>
   <data name="Det.LineCount" xml:space="preserve"><value>{0} 行</value></data>
@@ -247,18 +227,6 @@
   <data name="Det.SavedExport" xml:space="preserve"><value>{0} 行を {1} に保存しました。</value></data>
   <data name="Det.ExportFolderFailed" xml:space="preserve"><value>エクスポート先フォルダーが存在せず、作成できませんでした。設定の保存先を確認してください。</value></data>
   <data name="Det.ExportWriteFailed" xml:space="preserve"><value>文字起こしファイルを書き込めませんでした: {0}</value></data>
-  <data name="Det.NoApiKey" xml:space="preserve"><value>Gemini API キーが保存されていません。</value></data>
-  <data name="Det.AddApiKeyBody" xml:space="preserve"><value>設定で Gemini API キーを追加してから、もう一度送信してください。キーは Windows 資格情報ロッカーに保存され、ファイルには保存されません。</value></data>
-  <data name="Det.AddApiKeyStatus" xml:space="preserve"><value>送信する前に、設定で Gemini API キーを追加してください。</value></data>
-  <data name="Det.NoRecording" xml:space="preserve"><value>この会議には録音がありません。</value></data>
-  <data name="Det.NoAudioBody" xml:space="preserve"><value>この会議にはアップロードできる保存済み音声がありません。</value></data>
-  <data name="Det.NoAudioStatus" xml:space="preserve"><value>この会議には送信できる保存済み音声がありません。</value></data>
-  <data name="Det.Uploading" xml:space="preserve"><value>アップロード中…</value></data>
-  <data name="Det.GeminiSaved" xml:space="preserve"><value>Gemini が分析を返し、ローカルに保存しました。</value></data>
-  <data name="Det.GeminiFailed" xml:space="preserve"><value>Gemini ジョブが失敗しました: {0}</value></data>
-  <data name="Det.UnknownReason" xml:space="preserve"><value>不明な理由</value></data>
-  <data name="Det.UploadFailed" xml:space="preserve"><value>アップロードを完了できませんでした。</value></data>
-  <data name="Det.GeminiSendFailed" xml:space="preserve"><value>Gemini の送信に失敗しました: {0}</value></data>
   <data name="Det.EmptyTranscript" xml:space="preserve"><value>文字起こしが空です。</value></data>
   <data name="Det.ErrPermissionDenied" xml:space="preserve"><value>アクセスが拒否されました</value></data>
   <data name="Det.ErrFileInUse" xml:space="preserve"><value>ファイルが使用中か、ディスク容量が不足しています</value></data>
@@ -266,9 +234,6 @@
   <data name="Det.ErrGeneric" xml:space="preserve"><value>問題が発生しました</value></data>
 
   <!-- L4.5: Settings page code strings -->
-  <data name="Set.KeyCleared" xml:space="preserve"><value>キーを消去しました。</value></data>
-  <data name="Set.KeyStored" xml:space="preserve"><value>キーを Windows 資格情報ロッカーに保存しました。</value></data>
-  <data name="Set.KeyNotStored" xml:space="preserve"><value>キーを保存できませんでした。ポータブル版には資格情報ロッカーがありません。MSIX をインストールすると保存できます。</value></data>
   <data name="Set.SysSrcAllApps" xml:space="preserve"><value>すべてのアプリ</value></data>
   <data name="Set.On" xml:space="preserve"><value>オン</value></data>
   <data name="Set.Off" xml:space="preserve"><value>オフ</value></data>
@@ -338,7 +303,6 @@
   <data name="Set.UsageNone" xml:space="preserve"><value>使用量: 0 B — フォルダーはまだ存在しません。</value></data>
   <data name="Set.UsageMb" xml:space="preserve"><value>使用量: {0} MB（{1} 内）</value></data>
   <data name="Set.UsageUnavailable" xml:space="preserve"><value>使用量: 取得できません。</value></data>
-  <data name="Set.GeminiNoKey" xml:space="preserve"><value>資格情報ロッカーにキーがありません。</value></data>
   <data name="Set.SaveFailed" xml:space="preserve"><value>設定をディスクに保存できませんでした（{0}）。変更はこのセッションにのみ適用され、保存されません。</value></data>
   <data name="Set.ErrReadOnly" xml:space="preserve"><value>データフォルダーが読み取り専用です</value></data>
   <data name="Set.ErrNotWritable" xml:space="preserve"><value>データフォルダーに書き込みできません</value></data>
@@ -397,25 +361,13 @@
   <data name="Set.BackendNetError" xml:space="preserve"><value>ネットワークエラー</value></data>
   <data name="Set.BackendBadUrl" xml:space="preserve"><value>サーバー URL が正しくありません</value></data>
   <!-- Details: backend processing section -->
-  <data name="DetBackendHeader.Header" xml:space="preserve"><value>バックエンド処理</value></data>
-  <data name="DetBackendSend.Content" xml:space="preserve"><value>バックエンドに送信</value></data>
-  <data name="DetBackendSend.AutomationProperties.Name" xml:space="preserve"><value>バックエンドに送信</value></data>
-  <data name="DetBackendSend.ToolTipService.ToolTip" xml:space="preserve"><value>この会議をバックエンドにアップロードして処理します</value></data>
-  <data name="DetBackendCancel.Content" xml:space="preserve"><value>処理をキャンセル</value></data>
-  <data name="DetBackendCancel.AutomationProperties.Name" xml:space="preserve"><value>バックエンド処理をキャンセル</value></data>
-  <data name="DetBackendOpen.Content" xml:space="preserve"><value>バックエンド表示を開く</value></data>
-  <data name="DetBackendOpen.AutomationProperties.Name" xml:space="preserve"><value>バックエンド表示を開く</value></data>
-  <data name="Det.BackendNotSent" xml:space="preserve"><value>まだバックエンドに送信されていません。</value></data>
-  <data name="Det.BackendSending" xml:space="preserve"><value>送信中…</value></data>
   <data name="Det.BackendSendingStep" xml:space="preserve"><value>送信中: {0}</value></data>
   <data name="Det.BackendNoKey" xml:space="preserve"><value>バックエンド API キーがありません。設定で追加してください。</value></data>
   <data name="Det.BackendNoUrl" xml:space="preserve"><value>バックエンドのサーバー URL がありません。設定で追加してください。</value></data>
-  <data name="Det.BackendNoRecording" xml:space="preserve"><value>この会議には保存された録音がありません。</value></data>
   <data name="Det.BackendNoMeeting" xml:space="preserve"><value>会議を読み込めませんでした。</value></data>
   <data name="Det.BackendUnreachable" xml:space="preserve"><value>バックエンドに接続できませんでした。サーバーとキーを確認して再試行してください。</value></data>
   <data name="Det.BackendFailed" xml:space="preserve"><value>バックエンド処理に失敗しました: {0}</value></data>
   <data name="Det.BackendCancelSent" xml:space="preserve"><value>キャンセルを要求しました。</value></data>
-  <data name="Det.BackendReady" xml:space="preserve"><value>バックエンド処理が完了しました。</value></data>
   <data name="Det.BackendCancelled" xml:space="preserve"><value>バックエンドへの送信をキャンセルしました。</value></data>
   <data name="Det.BackendTimeout" xml:space="preserve"><value>バックエンドが時間内に応答しませんでした。もう一度お試しください。</value></data>
   <data name="Det.BackendCancelPending" xml:space="preserve"><value>ジョブはまだ開始されていません。少し待ってからもう一度キャンセルしてください。</value></data>

@@ -2,8 +2,7 @@ using MeetVault.Core;
 
 namespace MeetVault.Core.Tests;
 
-// FR6/FR7: the recorded media file must be linked to the meeting so Details can play
-// it and Gemini can upload it.
+// FR6/FR7: the recorded media file must be linked to the meeting so Details can play it.
 public sealed class MediaLinkTests
 {
     private sealed class AudioWithFile : IAudioCapture

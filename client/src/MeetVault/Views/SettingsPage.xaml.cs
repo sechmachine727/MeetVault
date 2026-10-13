@@ -7,8 +7,6 @@ namespace MeetVault.Views;
 
 public sealed partial class SettingsPage : Page
 {
-    private static CredentialLockerSecretStore Locker => AppStore.Secrets;
-    public static string? GeminiApiKey => Locker.Get("GeminiApiKey");
     // XAML parse fires Toggled/SelectionChanged before all fields exist.
     // Handlers stay silent until init completes.
     private bool _ready;
@@ -309,20 +307,6 @@ public sealed partial class SettingsPage : Page
         Refresh();
     }
 
-    private void SaveKey_Click(object sender, RoutedEventArgs e)
-    {
-        var key = ApiKeyBox.Password.Trim();
-        ApiKeyBox.Password = "";
-        if (key.Length == 0) Locker.Clear("GeminiApiKey"); else Locker.Set("GeminiApiKey", key);
-        var stored = Locker.Get("GeminiApiKey") is { Length: > 0 };
-        Refresh();
-
-        if (key.Length == 0) { StatusBar.Severity = InfoBarSeverity.Warning; StatusBar.Message = Loc.T("Set.KeyCleared"); }
-        else if (stored) { StatusBar.Severity = InfoBarSeverity.Success; StatusBar.Message = Loc.T("Set.KeyStored"); }
-        else { StatusBar.Severity = InfoBarSeverity.Warning; StatusBar.Message = Loc.T("Set.KeyNotStored"); }
-        StatusBar.IsOpen = true;
-    }
-
     private void BackendUrl_LostFocus(object sender, RoutedEventArgs e)
     {
         if (_loading || !_ready) return;
@@ -480,7 +464,7 @@ public sealed partial class SettingsPage : Page
             || PinSwitch is null
             || OpacitySlider is null || FontSizeBox is null || LinesBox is null || StoragePathBox is null
             || AudioStatus is null || TranscriptionStatus is null || OverlayStatus is null
-            || StorageStatus is null || UsageText is null || GeminiStatus is null || BackendStatus is null) return;
+            || StorageStatus is null || UsageText is null || BackendStatus is null) return;
         var micOn = MicSwitch.IsOn;
         var sysOn = SystemSwitch.IsOn;
         var sourceLabel = SourcePicker.SelectedItem as string ?? Loc.T("Set.SysSrcAllApps");
@@ -518,9 +502,6 @@ public sealed partial class SettingsPage : Page
         OverlayStatus.Text = Loc.Tf("Set.OverlayStatus", OnOffDisplay(PinSwitch.IsOn), OpacitySlider.Value.ToString("P0"), FontSizeBox.Value, LinesBox.Value);
         StorageStatus.Text = Loc.Tf("Set.StorageStatus", StoragePathBox.Text);
         UsageText.Text = DescribeUsage(StoragePathBox.Text);
-        GeminiStatus.Text = GeminiApiKey is null
-            ? Loc.T("Set.GeminiNoKey")
-            : Loc.T("Set.KeyStored");
         AccountState.Text = AppSession.IsSignedIn && AppSession.User is { } accountUser
             ? Loc.Tf("Set.AccountSignedIn", accountUser.Email)
             : Loc.T("Set.AccountSignedOut");

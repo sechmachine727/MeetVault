@@ -3,7 +3,7 @@ using Windows.Security.Credentials;
 
 namespace MeetVault.Views;
 
-// FR8: Gemini key lives in Windows Credential Locker, never in files or logs.
+// FR8: cloud credentials (the session token) live in Windows Credential Locker, never in files or logs.
 public sealed class CredentialLockerSecretStore : ISecretStore
 {
     private const string Resource = "MeetVault";
