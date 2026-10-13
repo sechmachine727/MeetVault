@@ -59,4 +59,45 @@ public sealed class BackendModelsTests
             BackendJsonContext.Default.BackendProcessBody);
         Assert.Equal("{\"steps\":[\"analyze\"],\"force\":true}", json);
     }
+
+    [Fact]
+    public void Meeting_ListFields_Bind_HasAnalysis_And_LatestJob()
+    {
+        const string json = """
+        {"id":"m1","title":"M","status":"ready","language":"en","source":"meetvault","external_id":null,
+         "started_at":null,"ended_at":null,"duration_ms":1,"deleted_at":null,"created_at":null,"updated_at":null,
+         "has_analysis":true,"latest_job_type":"analyze","latest_job_state":"succeeded"}
+        """;
+        var meeting = JsonSerializer.Deserialize(json, BackendJsonContext.Default.BackendMeeting)!;
+        Assert.True(meeting.HasAnalysis);
+        Assert.Equal("analyze", meeting.LatestJobType);
+        Assert.Equal("succeeded", meeting.LatestJobState);
+    }
+
+    [Fact]
+    public void MeetingDetail_And_Status_Carry_New_Fields()
+    {
+        const string detailJson = """
+        {"id":"m1","title":"M","status":"ready","language":"en","source":"meetvault","external_id":null,
+         "started_at":null,"ended_at":null,"duration_ms":1,"deleted_at":null,"created_at":null,"updated_at":null,
+         "media_count":1,"transcript_count":1,"active_transcript_id":"t1","speaker_count":2,
+         "has_analysis":true,"is_mock":false,"latest_job_type":"analyze","latest_job_state":"succeeded"}
+        """;
+        var detail = JsonSerializer.Deserialize(detailJson, BackendJsonContext.Default.BackendMeetingDetail)!;
+        Assert.True(detail.HasAnalysis);
+        Assert.Equal("analyze", detail.LatestJobType);
+        Assert.Equal("succeeded", detail.LatestJobState);
+        Assert.False(detail.IsMock);
+
+        const string statusJson = """
+        {"status":"failed","steps":{},"progress":0.0,"active_job_id":null,"active_transcript_id":null,
+         "fresh_kinds":[],"stale_kinds":[],"mock":false,"duration_ms":0,
+         "error":"boom","active_job_started_at":"2026-10-14T00:00:00Z"}
+        """;
+        var status = JsonSerializer.Deserialize(statusJson, BackendJsonContext.Default.BackendStatus)!;
+        Assert.Equal("boom", status.Error);
+        Assert.Equal("2026-10-14T00:00:00Z", status.ActiveJobStartedAt);
+        // Older payloads without the new fields must still bind (defaults stay null).
+        Assert.Null(JsonSerializer.Deserialize(StatusJson, BackendJsonContext.Default.BackendStatus)!.Error);
+    }
 }

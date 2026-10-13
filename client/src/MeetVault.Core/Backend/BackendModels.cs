@@ -14,12 +14,14 @@ public sealed record BackendPage<T>(List<T> Items, int Total, int Limit, int Off
 
 public sealed record BackendMeeting(
     string Id, string Title, string Status, string Language, string Source, string? ExternalId,
-    string? StartedAt, string? EndedAt, long DurationMs, string? DeletedAt, string? CreatedAt, string? UpdatedAt);
+    string? StartedAt, string? EndedAt, long DurationMs, string? DeletedAt, string? CreatedAt, string? UpdatedAt,
+    bool HasAnalysis = false, string? LatestJobType = null, string? LatestJobState = null);
 
 public sealed record BackendMeetingDetail(
     string Id, string Title, string Status, string Language, string Source, string? ExternalId,
     string? StartedAt, string? EndedAt, long DurationMs, string? DeletedAt, string? CreatedAt, string? UpdatedAt,
-    int MediaCount, int TranscriptCount, string? ActiveTranscriptId, int SpeakerCount, bool HasAnalysis, bool IsMock);
+    int MediaCount, int TranscriptCount, string? ActiveTranscriptId, int SpeakerCount, bool HasAnalysis, bool IsMock,
+    string? LatestJobType = null, string? LatestJobState = null);
 
 public sealed record BackendMediaAsset(
     string Id, string MeetingId, string Kind, string Role, string OriginalName, string ContentType,
@@ -59,7 +61,8 @@ public sealed record BackendJobDetail(
 public sealed record BackendProcessResult(string MeetingId, List<string> Steps, List<string> JobIds, int Enqueued);
 public sealed record BackendStatus(
     string Status, Dictionary<string, string> Steps, double Progress, string? ActiveJobId,
-    string? ActiveTranscriptId, List<string> FreshKinds, List<string> StaleKinds, bool Mock, long DurationMs);
+    string? ActiveTranscriptId, List<string> FreshKinds, List<string> StaleKinds, bool Mock, long DurationMs,
+    string? Error = null, string? ActiveJobStartedAt = null);
 public sealed record BackendSection(
     string Id, string MeetingId, string AnalysisRunId, int Ordinal, string Title, string Topic,
     long StartMs, long EndMs, string Summary, bool IsMock);
@@ -115,6 +118,7 @@ public sealed record BackendFormatASegment(long StartMs, long EndMs, string Text
 [JsonSerializable(typeof(Dictionary<string, BackendProviderInfo>))]
 [JsonSerializable(typeof(BackendSystemInfo))]
 [JsonSerializable(typeof(BackendPage<BackendMeeting>))]
+[JsonSerializable(typeof(BackendMeeting))]
 [JsonSerializable(typeof(BackendMeetingDetail))]
 [JsonSerializable(typeof(BackendMediaUpload))]
 [JsonSerializable(typeof(BackendPage<BackendMediaAsset>))]
