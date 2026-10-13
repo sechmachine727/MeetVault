@@ -371,6 +371,11 @@
   <data name="SetBackendUrlDesc.Text" xml:space="preserve"><value>The backend service address, for example http://localhost:8080.</value></data>
   <data name="SetBackendUrlBox.PlaceholderText" xml:space="preserve"><value>http://localhost:8080</value></data>
   <data name="SetBackendUrlBox.AutomationProperties.Name" xml:space="preserve"><value>Backend server URL</value></data>
+  <data name="SetAccount.Text" xml:space="preserve"><value>Account</value></data>
+  <data name="SetAccountDesc.Text" xml:space="preserve"><value>Cloud features need a signed-in account.</value></data>
+  <data name="SetAccountButton.Content" xml:space="preserve"><value>Manage</value></data>
+  <data name="Set.AccountSignedIn" xml:space="preserve"><value>Signed in as {0}</value></data>
+  <data name="Set.AccountSignedOut" xml:space="preserve"><value>Not signed in</value></data>
   <data name="SetBackendKey.Text" xml:space="preserve"><value>API key</value></data>
   <data name="SetBackendKeyDesc.Text" xml:space="preserve"><value>Stored in Windows Credential Locker, never in the database.</value></data>
   <data name="SetBackendKeyBox.PlaceholderText" xml:space="preserve"><value>Paste the backend API key</value></data>

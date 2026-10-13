@@ -371,6 +371,11 @@
   <data name="SetBackendUrlDesc.Text" xml:space="preserve"><value>バックエンドサービスのアドレス (例: http://localhost:8080)。</value></data>
   <data name="SetBackendUrlBox.PlaceholderText" xml:space="preserve"><value>http://localhost:8080</value></data>
   <data name="SetBackendUrlBox.AutomationProperties.Name" xml:space="preserve"><value>バックエンドのサーバー URL</value></data>
+  <data name="SetAccount.Text" xml:space="preserve"><value>アカウント</value></data>
+  <data name="SetAccountDesc.Text" xml:space="preserve"><value>クラウド機能にはサインインが必要です。</value></data>
+  <data name="SetAccountButton.Content" xml:space="preserve"><value>管理</value></data>
+  <data name="Set.AccountSignedIn" xml:space="preserve"><value>{0} でサインイン中</value></data>
+  <data name="Set.AccountSignedOut" xml:space="preserve"><value>サインインしていません</value></data>
   <data name="SetBackendKey.Text" xml:space="preserve"><value>API キー</value></data>
   <data name="SetBackendKeyDesc.Text" xml:space="preserve"><value>Windows 資格情報ロッカーに保存され、データベースには保存されません。</value></data>
   <data name="SetBackendKeyBox.PlaceholderText" xml:space="preserve"><value>バックエンド API キーを貼り付け</value></data>

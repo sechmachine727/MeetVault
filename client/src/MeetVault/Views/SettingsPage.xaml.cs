@@ -330,31 +330,23 @@ public sealed partial class SettingsPage : Page
         Refresh();
     }
 
-    private void SaveBackendKey_Click(object sender, RoutedEventArgs e)
+    private void ManageAccount_Click(object sender, RoutedEventArgs e)
     {
-        var key = BackendKeyBox.Password.Trim();
-        BackendKeyBox.Password = "";
-        if (key.Length == 0) Locker.Clear("BackendApiKey"); else Locker.Set("BackendApiKey", key);
-        var stored = Locker.Get("BackendApiKey") is { Length: > 0 };
-        Refresh();
-        StatusBar.Severity = key.Length == 0 ? InfoBarSeverity.Warning : stored ? InfoBarSeverity.Success : InfoBarSeverity.Warning;
-        StatusBar.Message = key.Length == 0 ? Loc.T("Set.BackendKeyCleared") : stored ? Loc.T("Set.BackendKeyStored") : Loc.T("Set.BackendKeyNotStored");
-        StatusBar.IsOpen = true;
+        if (App.Window is MainWindow window) window.NavigateToAccount();
     }
 
     private async void TestBackend_Click(object sender, RoutedEventArgs e)
     {
         if (_loading || !_ready) return;
         var url = (AppStore.Repo.GetSetting("backend.url") ?? "").Trim();
-        var key = Locker.Get("BackendApiKey");
         if (url.Length == 0) { Warn(Loc.T("Set.BackendNoUrl")); return; }
-        if (key is not { Length: > 0 }) { Warn(Loc.T("Set.BackendNoKey")); return; }
+        var token = AppStore.Secrets.Get("AuthToken"); // /readyz needs no auth; the token is harmless when present
         TestBackendButton.IsEnabled = false;
         BackendStatus.Text = Loc.T("Set.BackendTesting");
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-            using var transport = new MeetVault.Core.Backend.BackendHttpTransport(url, key);
+            using var transport = new MeetVault.Core.Backend.BackendHttpTransport(url, token);
             var client = new MeetVault.Core.Backend.BackendClient(transport);
             var ready = await client.GetReadyAsync(cts.Token);
             var providers = await client.GetProvidersAsync(cts.Token);
@@ -529,9 +521,9 @@ public sealed partial class SettingsPage : Page
         GeminiStatus.Text = GeminiApiKey is null
             ? Loc.T("Set.GeminiNoKey")
             : Loc.T("Set.KeyStored");
-        BackendStatus.Text = Locker.Get("BackendApiKey") is { Length: > 0 }
-            ? Loc.T("Set.BackendKeyStored")
-            : Loc.T("Set.BackendNoKey");
+        AccountState.Text = AppSession.IsSignedIn && AppSession.User is { } accountUser
+            ? Loc.Tf("Set.AccountSignedIn", accountUser.Email)
+            : Loc.T("Set.AccountSignedOut");
     }
 
     // Load-time write-back, ctor only: persists every control's current value once, after

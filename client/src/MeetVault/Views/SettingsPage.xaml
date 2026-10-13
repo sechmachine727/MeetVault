@@ -281,12 +281,12 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <StackPanel Spacing="2" VerticalAlignment="Top">
-                        <TextBlock x:Uid="SetBackendKey" FontWeight="SemiBold" />
-                        <TextBlock x:Uid="SetBackendKeyDesc" Opacity="0.7" TextWrapping="Wrap" />
+                        <TextBlock x:Uid="SetAccount" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetAccountDesc" Opacity="0.7" TextWrapping="Wrap" />
                     </StackPanel>
-                    <StackPanel Grid.Column="1" Spacing="8" Orientation="Horizontal">
-                        <PasswordBox x:Name="BackendKeyBox" x:Uid="SetBackendKeyBox" Width="280" />
-                        <Button x:Name="SaveBackendKeyButton" x:Uid="SetSaveBackendKey" Click="SaveBackendKey_Click" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
+                        <TextBlock x:Name="AccountState" VerticalAlignment="Center" />
+                        <Button x:Name="ManageAccountButton" x:Uid="SetAccountButton" Click="ManageAccount_Click" />
                         <Button x:Name="TestBackendButton" x:Uid="SetTestBackend" Click="TestBackend_Click" />
                     </StackPanel>
                 </Grid>
