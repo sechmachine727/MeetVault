@@ -197,3 +197,26 @@ keeping this a separate service.
 selected but unavailable degrades to the labelled mock and never blocks startup; the API
 reports what it actually used in `GET /v1/system/providers`. Point the container at LM Studio
 on the host with `MVB_LMSTUDIO_BASE_URL=http://host.docker.internal:1234/v1`.
+
+## Implemented client (2026-10-13)
+
+The Windows client (`../client/`) now implements this contract end to end — the 6-call flow in
+section 3 plus the feature surfaces. No endpoint or schema in this document changed; this section
+records the client side only.
+
+- Send flow: `POST /v1/meetings` (`source=meetvault`, `external_id` = the local meeting id) →
+  `POST …/media?kind=audio` → `POST …/media?kind=video&start_offset_ms=` per screen track →
+  `POST …/transcripts?align=auto` (Format A, real timings) → `POST …/process`
+  (`steps:["transcribe","diarize","align","analyze"]`) → poll `GET …/status` every 2 s. Re-send on a
+  linked meeting uploads a new transcript version + `POST …/process {steps:["analyze"],force:true}`;
+  media is never uploaded twice (the media POST appends an asset every call).
+- Rendered surfaces (Backend page): status + mock badge, server transcript (speakers + times,
+  click-to-seek), copy text, summary/agenda+sections/decisions/action items, Q&A ask, speakers
+  rename/merge/delete, transcript versions (activate/delete), jobs (watch SSE + cooperative cancel),
+  media list + Range-resumable download, re-run analysis, update transcript, remove from backend.
+- The API key lives only in Windows Credential Locker (entry `BackendApiKey`); the URL in the local
+  settings key `backend.url`. Mock output is never disguised: the `mock` badge is rendered and the
+  server's `[mock]` text prefixes pass through unchanged.
+- Evidence: the monorepo plan
+  `../.hermes/plans/2026-10-12_214842-meetvault-monorepo-backend-integration.md` Phase 8 (T80–T84)
+  and the client progress log `../client/docs/progress/progress_supersanta/`.

@@ -260,3 +260,28 @@ cross-checked against `vulkaninfo.exe` ("Failed to detect any valid GPUs").
 
 - Review fixes (TDD red->green, 42/42): StartAsync persists draft (crash-safe without Checkpoint); RecoverAsync requires mic id when restarting capture; LivePage passes persisted audio.mic/audio.source; enum-tolerant loads (bad status->Failed, bad gender->Unknown, bad job->Failed); RenameSpeaker rejects empty; Whisper null-language guard.
 - Audio probe (Harvey): base 5 segs RTF 1.73, tiny 3 segs RTF 1.10, all windows lang en low-prob (music), diarizer scope-local labels.
+
+## Backend integration (2026-10-13)
+
+Requirement-to-evidence ledger for the client's backend integration (Phase 8, T80–T84 of
+`.hermes/plans/2026-10-12_214842-meetvault-monorepo-backend-integration.md`). Evidence lives in the
+progress log (`docs/progress/progress_supersanta/PROGRESS_2026-10-13.md`) and the T82 checklist run
+in that session; the server contract is `../backend/docs/INTEGRATION.md`.
+
+| Feature area | Where | Evidence |
+|---|---|---|
+| Send/upload (create → audio → video → transcript → process) | Details ▸ Send to backend | T81 app log `backend: created meeting=…`, `audio uploaded asset=…`, `video uploaded asset=… offset_ms=2`, `transcript uploaded version=1`, `process enqueued=1`, `status processing` → `status ready`; server `/v1/meetings` one item, `external_id` matches |
+| Status + mock badge | Backend header | T82: `BackendStateText`=`ready`, `BackendMockBadge`=`mock`; `/status` `"mock":true` |
+| Server transcript (speakers + times, seek) | Backend ▸ Server transcript | T82: 29 rows, `Speaker 1/2` + `00:00…03:45`; click `00:32` row → player `Time elapsed 0:00:32` |
+| Copy text | Backend ▸ Copy text | T82: clipboard = the server transcript (`Speaker 1: [mock:en] Welcome…`) |
+| Summary | Backend ▸ Summary | T82: `[mock] Summary …` + two `• [mock] point …` bullets |
+| Agenda/sections | Backend ▸ Agenda & sections | T82: `[mock] Opening/Main topic/Wrap-up` with `[00:00] – 03:46` ranges |
+| Decisions / action items | Backend ▸ Decisions / Action items | T82: `[mock] decision …` / `[02:00] · Speaker 1`; `[mock] action …` / `Speaker 2`. Citation-seek not exercisable with mock data — the mock analyzer emits `segment_ids: []` |
+| Q&A | Backend ▸ Ask | T82: ask "what did we decide?" → `QaStatus=ready`; answer row `[mock] answer …` + two `[mm:ss]` citation lines; `dropped_citations` not rendered |
+| Speakers | Backend ▸ Speakers | T82: rename Speaker 1 → Alice (transcript relabels 18 rows); merge Speaker 2 → one speaker (29 segs); delete → server `[]`, transcript keeps text |
+| Versions | Backend ▸ Transcript versions | T82: `v2 · diarized · mock-transcriber · 29 segments · active` + `v1 · live_export · client · 12 segments`; Activate v1 → active swaps; delete non-active → one left |
+| Jobs | Backend ▸ Jobs | T82: per-type rows (`qa/diarize/analyze/align/transcribe · succeeded · 100%`); Watch → SSE lines in `EventsText`; cancel cooperative (a live running job → `state cancelled`) |
+| Media + download | Backend ▸ Media | T82: audio + screen-track rows; Download → `%APPDATA%\MeetVault\backend\media\cb412415_…m4a` (5,459,474 B = server size); second click completes cleanly. Screen-track offset is in the row data but the media template does not bind `Detail`, so offsets are not shown (deviation noted) |
+| Re-run analysis | Backend ▸ Re-run | T82: `stale_kinds` → `[]`, `fresh_kinds` repopulated |
+| Update transcript | Backend ▸ Update transcript | T82: version counter 1 → 2 (live_export, active); a new analyze job ran. `stale_kinds` lists the superseded v1 docs while `fresh_kinds` lists the v2 docs (backend semantics: a kind is stale when a superseded doc exists, fresh when the current one does — the lists overlap after a transcript swap) |
+| Remove from backend | Backend ▸ Remove | T82: confirm → server meeting `status=deleted` (soft, `deleted_at` set), `GET` → 404; picker drops the meeting |

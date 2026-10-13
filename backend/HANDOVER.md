@@ -4,6 +4,14 @@
 > `D:/workspace/MeetVault/backend` (git subtree, full history). The former standalone repo
 > `D:/workspace/Meetvault_Backend` is the archival copy. All paths below remain valid relative
 > to this directory.
+>
+> Client integration note (2026-10-13): the T72–T74 client hooks SHIPPED — the Windows client at
+> `../client/` now implements the full flow against this service (send/upload, status + mock badge,
+> server transcript, analysis, Q&A, speakers, versions, jobs, media download, re-run, update
+> transcript, remove). Details: the monorepo plan
+> `../.hermes/plans/2026-10-12_214842-meetvault-monorepo-backend-integration.md` (Phase 8, T80–T84)
+> and the client progress log `../client/docs/progress/progress_supersanta/`. `docs/INTEGRATION.md`
+> remains the authoritative contract.
 
 **Status: complete and verified to the limit of the authoring box.** Post-meeting
 transcription, diarization and LLM analysis for the MeetVault Windows app, as a standalone
@@ -24,15 +32,16 @@ service. Last updated 2026-10-12, at commit `09b0855` (branch `main`, working tr
   paths, plus `scripts/smoke.sh` (real uvicorn + worker over HTTP, 12/12 checks).
 - **Not verified here:** Docker/Postgres (no Docker daemon on this box → CI), and live
   `faster-whisper` / `pyannote` / OpenCode / an LM Studio-served model.
-- **Next step for the product:** wire the MeetVault client to the API (plan tasks T72–T74). The
-  contract is written up in `docs/INTEGRATION.md`; no client code has been written yet.
+- **Client integration:** shipped in the monorepo (2026-10-13) — the Windows client now implements
+  the full flow against this API. See the client integration note above; `docs/INTEGRATION.md` is
+  the contract.
 
 ---
 
 ## 2. What was delivered
 
 Scope came from the plan `D:/workspace/MeetVault/.hermes/plans/2026-10-12_125820-meetvault-backend.md`
-(tasks T01–T71, plus three *optional* client tasks T72–T74 that are deliberately not done).
+(tasks T01–T71; the three client hooks T72–T74 were later delivered in the monorepo client, 2026-10-13).
 
 | Phase | Tasks | Delivered |
 | --- | --- | --- |
@@ -46,7 +55,7 @@ Scope came from the plan `D:/workspace/MeetVault/.hermes/plans/2026-10-12_125820
 | Routers | T53–T60 | meetings CRUD + upload/process/status, media streaming, transcripts, speakers, analysis, Q&A |
 | Deployment | T61–T67 | Dockerfile, compose (Postgres + api + worker), CI, docs set, Makefile |
 | E2E + acceptance | T68–T71 | hermetic e2e over HTTP, standalone smoke script, acceptance evidence |
-| Client hooks | T72–T74 | **not done — optional, awaits the owner's go-ahead** |
+| Client hooks | T72–T74 | **shipped in the monorepo client (2026-10-13)** — full flow wired |
 
 ---
 
@@ -257,10 +266,10 @@ Per-criterion mapping (20 acceptance criteria → evidence) is in `docs/ACCEPTAN
 
 ## 10. Recommended next steps, in order
 
-1. **Client hooks (T72–T74)** — the only remaining product work: in MeetVault, after a meeting
-   ends, create the meeting (`source=meetvault`, `external_id` = the local meeting id), upload the
-   WAV/screen MP4, upload the exported live transcript, POST `/process`, poll `/status`, then fetch
-   `/transcript` + `/analysis`. Show a badge when `mock` is true. Contract: `docs/INTEGRATION.md`.
+1. **Client integration (T72–T74)** — DONE (2026-10-13): the Windows client at `../client/` sends a
+   finished meeting, polls `/status`, and renders the server transcript, analysis, Q&A, speakers,
+   versions, jobs and media, with the mock badge. Contract: `docs/INTEGRATION.md`; evidence: the
+   monorepo plan Phase 8 (T80–T84) + `../client/docs/progress/`.
 2. **Make CI green once** (`.github/workflows/ci.yml`): sqlite matrix, Postgres job, Docker build +
    `docker compose config` + a container smoke. That converts the two remaining "CI-only" rows into
    verified ones.

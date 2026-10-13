@@ -22,6 +22,7 @@ Per-process audio capture is implemented but has not been exercised against a ma
 - Live transcript view with a pinnable, always-on-top overlay (auto-opens with the meeting; recording indicator + screen-recording control included).
 - Meetings list with per-meeting delete; Details view with audio playback, screen-video playback synced to the transcript timeline (current line highlighted, click a line to seek), transcript edit, copy, and export.
 - Optional Gemini refinement with the API key stored in Windows Credential Locker.
+- Optional backend processing: send a finished meeting to a local Meetvault_Backend service for a re-transcribed speaker-labelled transcript, summaries, decisions/action items and Q&A (Settings ▸ Backend service). See the repository root README for the service.
 - Configurable file logging for support and debugging.
 
 ## Requirements
