@@ -116,6 +116,9 @@ public sealed partial class BackendPage : Page
         _busy = true;
         try
         {
+            // A previous load's error must not linger, but an error raised by THIS load's
+            // inner renderers must stay visible for the rest of the load.
+            StatusBar.IsOpen = false;
             using var transport = new BackendHttpTransport(
                 (AppStore.Repo.GetSetting("backend.url") ?? "").Trim(),
                 AppStore.Secrets.Get("BackendApiKey") ?? "");
@@ -146,7 +149,6 @@ public sealed partial class BackendPage : Page
             catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
             try { RenderMedia(await client.ListMediaAsync(_backendId)); } catch (BackendApiException ex) { AppLog.Warn("backend: media failed: " + ex.Code); }
             catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
-            StatusBar.IsOpen = false; // a previous error must not linger after a later successful load
         }
         catch (Exception ex)
         {
@@ -445,7 +447,7 @@ public sealed partial class BackendPage : Page
             CloseButtonText = Loc.T("Det.Cancel"),
             XamlRoot = XamlRoot,
         };
-        if (!TryClientUrl(out var url, out var key)) return;
+        if (!TryClientUrl(out var url, out var key)) { Status(InfoBarSeverity.Warning, Loc.T(url.Length == 0 ? "Det.BackendNoUrl" : "Det.BackendNoKey")); return; }
         try
         {
             if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
@@ -569,7 +571,7 @@ public sealed partial class BackendPage : Page
             CloseButtonText = Loc.T("Det.Cancel"),
             XamlRoot = XamlRoot,
         };
-        if (!TryClientUrl(out var url, out var key)) return;
+        if (!TryClientUrl(out var url, out var key)) { Status(InfoBarSeverity.Warning, Loc.T(url.Length == 0 ? "Det.BackendNoUrl" : "Det.BackendNoKey")); return; }
         try
         {
             if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
