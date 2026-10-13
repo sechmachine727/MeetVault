@@ -212,7 +212,10 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="{Binding Text}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding Detail}" Opacity="0.7" TextWrapping="Wrap" />
+                                </StackPanel>
                                 <Button x:Uid="BackPageDownload" Grid.Column="1" Click="MediaDownload_Click" />
                             </Grid>
                         </DataTemplate>

@@ -692,6 +692,8 @@ public sealed partial class LivePage : Page
                     buffer, Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8, w, h, Windows.Graphics.Imaging.BitmapAlphaMode.Premultiplied);
                 _previewSink ??= new Microsoft.UI.Xaml.Media.Imaging.SoftwareBitmapSource();
                 await _previewSink.SetBitmapAsync(bitmap);
+                // A stop during the await must not resurrect a collapsed card with a stale frame.
+                if (_screen?.IsRecording != true) return;
                 PreviewImage.Source = _previewSink;
                 PreviewBox.Visibility = Visibility.Visible;
                 PreviewEmpty.Visibility = Visibility.Collapsed;

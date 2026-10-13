@@ -146,6 +146,7 @@ public sealed partial class BackendPage : Page
             catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
             try { RenderMedia(await client.ListMediaAsync(_backendId)); } catch (BackendApiException ex) { AppLog.Warn("backend: media failed: " + ex.Code); }
             catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
+            StatusBar.IsOpen = false; // a previous error must not linger after a later successful load
         }
         catch (Exception ex)
         {
@@ -372,7 +373,7 @@ public sealed partial class BackendPage : Page
     private async void UpdateTranscript_Click(object sender, RoutedEventArgs e)
     {
         if (_backendId is null || _meeting is null) return;
-        if (!TryClientUrl(out var url, out var key)) { Status(InfoBarSeverity.Warning, Loc.T("Det.BackendNoUrl")); return; }
+        if (!TryClientUrl(out var url, out var key)) { Status(InfoBarSeverity.Warning, Loc.T(url.Length == 0 ? "Det.BackendNoUrl" : "Det.BackendNoKey")); return; }
         try
         {
             using var transport = new BackendHttpTransport(url, key);
@@ -401,7 +402,7 @@ public sealed partial class BackendPage : Page
     private async void Rerun_Click(object sender, RoutedEventArgs e)
     {
         if (_backendId is null) return;
-        if (!TryClientUrl(out var url, out var key)) { Status(InfoBarSeverity.Warning, Loc.T("Det.BackendNoUrl")); return; }
+        if (!TryClientUrl(out var url, out var key)) { Status(InfoBarSeverity.Warning, Loc.T(url.Length == 0 ? "Det.BackendNoUrl" : "Det.BackendNoKey")); return; }
         try
         {
             using var transport = new BackendHttpTransport(url, key);
@@ -463,7 +464,7 @@ public sealed partial class BackendPage : Page
         if (_backendId is null || _meeting is null) return;
         var question = QaBox.Text.Trim();
         if (question.Length == 0) return;
-        if (!TryClientUrl(out var url, out var key)) { Status(InfoBarSeverity.Warning, Loc.T("Det.BackendNoUrl")); return; }
+        if (!TryClientUrl(out var url, out var key)) { Status(InfoBarSeverity.Warning, Loc.T(url.Length == 0 ? "Det.BackendNoUrl" : "Det.BackendNoKey")); return; }
         AskButton.IsEnabled = false;
         QaStatus.Text = Loc.T("Back.AskQueued");
         try
