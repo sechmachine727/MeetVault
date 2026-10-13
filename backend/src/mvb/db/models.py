@@ -12,6 +12,38 @@ from mvb.db.base import Base
 TS = sa.DateTime(timezone=True)
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(sa.String(320), nullable=False)
+    display_name: Mapped[str] = mapped_column(sa.String(200), nullable=False, default="")
+    password_hash: Mapped[str] = mapped_column(sa.String(500), nullable=False)
+    is_active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(TS, nullable=False, server_default=sa.func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        TS, nullable=False, server_default=sa.func.now(), onupdate=sa.func.now()
+    )
+
+    __table_args__ = (sa.UniqueConstraint("email", name="uq_users_email"),)
+
+
+class AuthToken(Base):
+    __tablename__ = "auth_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        sa.Uuid(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TS, nullable=False, server_default=sa.func.now())
+    expires_at: Mapped[datetime] = mapped_column(TS, nullable=False)
+    last_used_at: Mapped[datetime | None] = mapped_column(TS)
+    revoked_at: Mapped[datetime | None] = mapped_column(TS)
+
+    __table_args__ = (sa.UniqueConstraint("token_hash", name="uq_auth_tokens_hash"),)
+
+
 class Meeting(Base):
     __tablename__ = "meetings"
 
@@ -24,6 +56,9 @@ class Meeting(Base):
     language: Mapped[str] = mapped_column(sa.String(8), nullable=False, default="")
     source: Mapped[str] = mapped_column(sa.String(32), nullable=False, default="meetvault")
     external_id: Mapped[str | None] = mapped_column(sa.String(200))
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.Uuid(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE")
+    )
     metadata_json: Mapped[dict[str, Any]] = mapped_column(sa.JSON, nullable=False, default=dict)
     deleted_at: Mapped[datetime | None] = mapped_column(TS)
     created_at: Mapped[datetime] = mapped_column(TS, nullable=False, server_default=sa.func.now())
@@ -35,7 +70,10 @@ class Meeting(Base):
     transcripts: Mapped[list[Transcript]] = relationship(back_populates="meeting", cascade="all, delete-orphan")
     speakers: Mapped[list[Speaker]] = relationship(back_populates="meeting", cascade="all, delete-orphan")
 
-    __table_args__ = (sa.UniqueConstraint("source", "external_id", name="uq_meetings_source_external"),)
+    __table_args__ = (
+        sa.UniqueConstraint("source", "external_id", name="uq_meetings_source_external"),
+        sa.Index("ix_meetings_user", "user_id"),
+    )
 
 
 class MediaAsset(Base):
