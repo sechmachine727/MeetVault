@@ -488,4 +488,7 @@
   <data name="Back.Unlinked" xml:space="preserve"><value>The backend link was removed from this meeting.</value></data>
   <data name="BackPageStatusLabel.Text" xml:space="preserve"><value>Status</value></data>
   <data name="LiveTranscriptEmpty.Text" xml:space="preserve"><value>Nothing recognized yet — lines appear here as speech is recognized.</value></data>
+  <!-- Account / session -->
+  <data name="Acc.SessionExpired" xml:space="preserve"><value>Your session has expired. Sign in again.</value></data>
+  <data name="Acc.Unreachable" xml:space="preserve"><value>Could not reach the cloud service.</value></data>
 </root>

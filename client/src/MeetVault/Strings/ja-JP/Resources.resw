@@ -488,4 +488,7 @@
   <data name="Back.Unlinked" xml:space="preserve"><value>この会議のバックエンド連携を解除しました。</value></data>
   <data name="BackPageStatusLabel.Text" xml:space="preserve"><value>ステータス</value></data>
   <data name="LiveTranscriptEmpty.Text" xml:space="preserve"><value>まだ何も認識されていません。発話が認識されるとここに行が表示されます。</value></data>
+  <!-- Account / session -->
+  <data name="Acc.SessionExpired" xml:space="preserve"><value>セッションの有効期限が切れました。もう一度サインインしてください。</value></data>
+  <data name="Acc.Unreachable" xml:space="preserve"><value>クラウドサービスに接続できませんでした。</value></data>
 </root>
