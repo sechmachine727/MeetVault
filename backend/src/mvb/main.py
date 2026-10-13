@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 
 from mvb.api.errors import install_error_handlers
-from mvb.api.routers import analysis, health, jobs, media, meetings, speakers, system, transcripts
+from mvb.api.routers import analysis, auth, health, jobs, media, meetings, speakers, system, transcripts
 from mvb.config import get_settings
 from mvb.logging_setup import configure_logging, request_id_var
 
@@ -55,6 +55,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(system.router, prefix="/v1")
+    app.include_router(auth.router, prefix="/v1")
     app.include_router(meetings.router, prefix="/v1")
     app.include_router(media.router, prefix="/v1")
     app.include_router(transcripts.router, prefix="/v1")
