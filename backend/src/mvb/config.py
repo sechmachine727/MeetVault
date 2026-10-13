@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 TranscriberName = Literal["mock", "faster_whisper"]
 DiarizerName = Literal["mock", "pyannote"]
-AnalyzerName = Literal["mock", "lmstudio", "opencode", "hermes"]
+AnalyzerName = Literal["mock", "lmstudio", "opencode", "opencode-go"]
 
 
 class Settings(BaseSettings):
@@ -43,8 +43,8 @@ class Settings(BaseSettings):
     lmstudio_api_key: str = ""
     opencode_base_url: str = "http://127.0.0.1:4096"
     opencode_api_key: str = ""
-    hermes_base_url: str = "http://127.0.0.1:8645/v1"
-    hermes_api_key: str = ""
+    opencode_go_base_url: str = "https://opencode.ai/zen/go/v1"
+    opencode_go_api_key: str = ""
 
     ffmpeg: str = "ffmpeg"
     ffprobe: str = "ffprobe"

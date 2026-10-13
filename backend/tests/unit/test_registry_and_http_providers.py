@@ -5,9 +5,9 @@ import pytest
 import respx
 
 from mvb.config import Settings
-from mvb.providers.analysis.hermes import HermesAnalyzer
 from mvb.providers.analysis.lmstudio import LmStudioAnalyzer
 from mvb.providers.analysis.opencode import OpenCodeAnalyzer
+from mvb.providers.analysis.opencode_go import OpenCodeGoAnalyzer
 from mvb.providers.registry import build_analyzer, build_diarizer, build_transcriber, describe_providers
 
 
@@ -125,49 +125,66 @@ def test_opencode_complete_json_reads_message_content() -> None:
     assert result.is_mock is False
 
 
-# ---- Hermes proxy analyzer (respx, no network) -----------------------------------
+# ---- OpenCode Go analyzer (respx, no network) -------------------------------------
 
-HX = "http://127.0.0.1:8645/v1"
-
-
-@respx.mock
-def test_hermes_ping_true_when_model_served() -> None:
-    respx.get(f"{HX}/models").mock(
-        return_value=httpx.Response(200, json={"data": [{"id": "deepseek/deepseek-v4.1-flash"}]})
-    )
-    assert HermesAnalyzer(base_url=HX, model="deepseek/deepseek-v4.1-flash").ping() is True
+GX = "https://opencode.ai/zen/go/v1"
 
 
 @respx.mock
-def test_hermes_ping_false_when_model_missing() -> None:
-    respx.get(f"{HX}/models").mock(return_value=httpx.Response(200, json={"data": [{"id": "other"}]}))
-    assert HermesAnalyzer(base_url=HX, model="deepseek/deepseek-v4.1-flash").ping() is False
+def test_opencode_go_ping_true_when_model_served() -> None:
+    respx.get(f"{GX}/models").mock(return_value=httpx.Response(200, json={"data": [{"id": "deepseek-v4.1-flash"}]}))
+    assert OpenCodeGoAnalyzer(base_url=GX, model="deepseek-v4.1-flash").ping() is True
 
 
 @respx.mock
-def test_hermes_complete_json_parses_content() -> None:
-    respx.post(f"{HX}/chat/completions").mock(
+def test_opencode_go_ping_false_when_model_missing() -> None:
+    respx.get(f"{GX}/models").mock(return_value=httpx.Response(200, json={"data": [{"id": "other"}]}))
+    assert OpenCodeGoAnalyzer(base_url=GX, model="deepseek-v4.1-flash").ping() is False
+
+
+@respx.mock
+def test_opencode_go_complete_json_parses_content() -> None:
+    route = respx.post(f"{GX}/chat/completions").mock(
         return_value=httpx.Response(
             200,
             json={
-                "model": "deepseek/deepseek-v4.1-flash",
+                "model": "deepseek-v4.1-flash",
                 "choices": [{"message": {"content": '{"text": "hi", "bullets": []}'}}],
             },
         )
     )
-    result = HermesAnalyzer(base_url=HX, model="deepseek/deepseek-v4.1-flash").complete_json(
+    result = OpenCodeGoAnalyzer(base_url=GX, model="deepseek-v4.1-flash").complete_json(
         system="s", user="u", schema={"type": "object"}, timeout_s=10
     )
     assert result.payload == {"text": "hi", "bullets": []}
     assert result.is_mock is False
-    assert result.provider == "hermes"
-    assert result.model == "deepseek/deepseek-v4.1-flash"
+    assert result.provider == "opencode-go"
+    assert result.model == "deepseek-v4.1-flash"
+    assert route.called
+    sent = respx.calls.last.request
+    assert sent.headers["User-Agent"] == "meetvault-backend/1.0"
+    assert sent.headers["x-opencode-session"]
 
 
-def test_hermes_requested_but_unreachable_falls_back_to_mock() -> None:
+@respx.mock
+def test_opencode_go_session_id_stable_per_instance() -> None:
+    respx.post(f"{GX}/chat/completions").mock(
+        return_value=httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}]})
+    )
+    first = OpenCodeGoAnalyzer(base_url=GX, model="m")
+    first.complete_json(system="s", user="u", schema={}, timeout_s=10)
+    first.complete_json(system="s", user="u", schema={}, timeout_s=10)
+    second = OpenCodeGoAnalyzer(base_url=GX, model="m")
+    sessions = [call.request.headers["x-opencode-session"] for call in respx.calls]
+    assert len(sessions) == 2
+    assert sessions[0] == sessions[1]
+    assert second.session_id != first.session_id
+
+
+def test_opencode_go_requested_but_unreachable_falls_back_to_mock() -> None:
     settings = Settings()
-    settings.analyzer = "hermes"  # type: ignore[assignment]
-    settings.hermes_base_url = "http://127.0.0.1:1/v1"  # nothing listens here
-    settings.hermes_api_key = ""
-    settings.analyzer_model = "deepseek/deepseek-v4.1-flash"
+    settings.analyzer = "opencode-go"  # type: ignore[assignment]
+    settings.opencode_go_base_url = "http://127.0.0.1:1/v1"  # nothing listens here
+    settings.opencode_go_api_key = ""
+    settings.analyzer_model = "deepseek-v4.1-flash"
     assert build_analyzer(settings).id == "mock-analyzer"
