@@ -11,8 +11,9 @@ This document is the contract. Every payload below is copy-pasteable.
 
 - Base URL: `http://<host>:8080`, all endpoints under `/v1` (health checks are at `/healthz`,
   `/readyz`).
-- Auth: `Authorization: Bearer <key>` on every `/v1` call. Keys live in `MVB_API_KEYS`
-  (comma-separated, server side only). `401 unauthorized` means a missing/wrong key.
+- Auth: `Authorization: Bearer <token>` on every `/v1` call, where `<token>` is a per-user
+  **session token** from `POST /v1/auth/login` (see *Auth and sessions* below). Static
+  `MVB_API_KEYS` is RETIRED — the server no longer reads it.
 - Errors always have this shape, whatever the failure:
 
 ```json
@@ -24,13 +25,33 @@ This document is the contract. Every payload below is copy-pasteable.
 - Anything produced by a mock provider is marked: `is_mock: true` on the object, and text
   fields carry a `[mock]` / `[mock:en]` prefix. Never display mock output as a real result.
 
+### Auth and sessions
+
+- `POST /v1/auth/login` takes `{"email","password"}` and returns
+  `{"token","expires_at","user":{"id","email","display_name"}}`. The token is a 43-char
+  URL-safe string; send it as `Authorization: Bearer $TOKEN` on every `/v1` call.
+- Tokens live `MVB_SESSION_TTL_DAYS` days (default 30). `POST /v1/auth/logout` revokes the
+  presented token; `GET /v1/auth/me` reports the current user and the token's lifetime.
+- `401 unauthorized` — missing, malformed or unknown token. `401 session_expired` — the token
+  exists but is expired or revoked. Both use the standard error envelope.
+- **Every meeting belongs to the user that created it.** A foreign resource answers `404
+  not_found` — the same shape as a genuinely missing one, so no existence leaks; `GET
+  /v1/meetings` only ever lists the caller's own meetings.
+
+#### Accepted limitation — global `source` + `external_id` uniqueness
+
+The `meetings` unique constraint on `source` + `external_id` remains **global** (the frozen
+design). A second user re-posting a foreign `external_id` is rejected by the database
+constraint rather than getting a private per-user namespace; a per-user namespace would need a
+`(user_id, source, external_id)` follow-up migration and is deliberately out of scope here.
+
 ## 1. Upload a finished meeting (6 calls)
 
 ### 1.1 Create the meeting
 
 ```bash
 curl -X POST http://localhost:8080/v1/meetings \
-  -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"title": "Weekly sync", "external_id": "mv-2026-10-12-0930",
        "started_at": "2026-10-12T02:30:00Z", "language": "en"}'
 ```
@@ -42,11 +63,15 @@ same `source`+`external_id` again returns the **existing** meeting with `200` in
 Response (`201`): the meeting, including `id` (server UUID — store it against the local
 meeting), `status` (`uploaded` → `processing` → `ready`), `duration_ms`, `media_count`, …
 
+The meeting object also carries the Cloud Storage list fields (computed in list and detail):
+`has_analysis` (a fresh analysis document exists), `latest_job_type` and `latest_job_state`
+(`queued` | `running` | `succeeded` | `failed` | `cancelled`).
+
 ### 1.2 Upload the recording
 
 ```bash
 curl -X POST "http://localhost:8080/v1/meetings/$MEETING_ID/media?kind=audio" \
-  -H "Authorization: Bearer $KEY" \
+  -H "Authorization: Bearer $TOKEN" \
   -F "file=@weekly-sync.wav;type=audio/wav"
 ```
 
@@ -68,7 +93,7 @@ either an object with a `segments` array or a bare array of `{Speaker, Text}` ro
 
 ```bash
 curl -X POST http://localhost:8080/v1/meetings/$MEETING_ID/transcripts \
-  -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '[{"Speaker":"Speaker 1","Text":"Welcome everyone."},
        {"Speaker":"Speaker 2","Text":"The release slips by a week."}]'
 ```
@@ -86,7 +111,7 @@ the untimed gaps filled.
 
 ```bash
 curl -X POST http://localhost:8080/v1/meetings/$MEETING_ID/process \
-  -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"steps": ["transcribe","diarize","align","analyze"], "language": "en"}'
 ```
 
@@ -106,16 +131,19 @@ error.
 ### 1.5 Track progress
 
 ```bash
-curl -H "Authorization: Bearer $KEY" http://localhost:8080/v1/meetings/$MEETING_ID/status
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/v1/meetings/$MEETING_ID/status
 ```
 
 ```json
 {"status": "processing", "steps": {"transcribe": "succeeded", "diarize": "running"},
- "progress": 0.5, "active_job_id": "…", "active_transcript_id": "…",
- "fresh_kinds": [], "stale_kinds": ["summary"], "mock": true, "duration_ms": 1834000}
+ "progress": 0.5, "active_job_id": "…", "active_transcript_id": "…", "active_job_started_at": "…",
+ "fresh_kinds": [], "stale_kinds": ["summary"], "error": null, "mock": true, "duration_ms": 1834000}
 ```
 
 - `status`: `uploaded` → `processing` → `ready` (or `failed`/`deleted`).
+- `active_job_started_at`: ISO start time of the running job (`null` when idle) — drives the
+  Cloud Storage row's elapsed time.
+- `error`: the latest failed job's error text (`null` when there is none).
 - `mock: true` means at least one part came from a mock provider. Surface it in the UI.
 - `stale_kinds`: analysis kinds that no longer match the active transcript/media and should
   be re-run or shown as outdated.
@@ -125,8 +153,8 @@ curl -H "Authorization: Bearer $KEY" http://localhost:8080/v1/meetings/$MEETING_
 ### 1.6 Fetch the results
 
 ```bash
-curl -H "Authorization: Bearer $KEY" http://localhost:8080/v1/meetings/$MEETING_ID/transcript
-curl -H "Authorization: Bearer $KEY" http://localhost:8080/v1/meetings/$MEETING_ID/analysis
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/v1/meetings/$MEETING_ID/transcript
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/v1/meetings/$MEETING_ID/analysis
 ```
 
 `…/transcript` returns the **active** version with all segments (`id`, `start_ms`, `end_ms`,
@@ -154,7 +182,7 @@ same applies to Q&A citations.
 
 ```bash
 curl -X POST http://localhost:8080/v1/meetings/$MEETING_ID/qa \
-  -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"question": "What did we decide about the release date?", "top_k": 8}'
 ```
 
@@ -162,6 +190,19 @@ Returns `202` with a `job_id`. When that job succeeds, the newest `qa` document 
 `answer`, `citations[]` carrying `segment_id`/`start_ms`/`end_ms`/`text`, and
 `dropped_citations`) appears in `GET /v1/meetings/{id}/qa` and in the analysis bundle.
 Add `section_id` to scope a question to one agenda section.
+
+### 1.8 Export the meeting as a Word document
+
+```bash
+curl -fsS -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/v1/meetings/$MEETING_ID/export.docx -o meeting.docx
+```
+
+`200` with
+`Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document` and
+`Content-Disposition: attachment; filename="<title-slug>.docx"`: the summary, agenda sections,
+decisions and action items as a `.docx`. A meeting with no fresh analysis answers
+`409 no_analysis`.
 
 ## 2. Re-running and staleness
 
@@ -175,6 +216,9 @@ Add `section_id` to scope a question to one agenda section.
   `POST /v1/speakers/{id}/merge` folds a duplicate diarization cluster into another.
 
 ## 3. Suggested client flow
+
+Log in once (`POST /v1/auth/login`) and hold the token — every call below carries
+`Authorization: Bearer <token>`.
 
 1. Meeting ends → `POST /v1/meetings` (store `id`), `POST …/media` (audio, then video).
 2. `POST …/transcripts` with the exported live transcript, if the user wants to keep it.

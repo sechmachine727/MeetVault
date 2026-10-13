@@ -49,7 +49,7 @@ plan; not committed to the repo)
 | Phase | Tasks | Delivered |
 | --- | --- | --- |
 | Bootstrap | T01–T06 | repo skeleton, `pyproject.toml`, hermetic test harness, settings |
-| Database | T07–T14 | 10 ORM models, hand-written portable migration `20261012_0001`, parity test |
+| Database | T07–T14 | 12 ORM models, hand-written portable migrations `20261012_0001` → `20261014_0002`, parity test |
 | API shell | T15–T22 | error envelope, JSON logging + request id, bearer auth, health/readyz, system router |
 | Storage + media | T23–T27 | traversal-guarded local storage, HTTP Range, ffprobe wrapper, 16 kHz extraction |
 | Jobs | T28–T32 | DB queue (portable), handler registry, worker loop, Jobs API, SSE events |
@@ -89,7 +89,7 @@ cd /d/workspace/Meetvault_Backend
 python -m venv .venv
 .venv/Scripts/python.exe -m pip install -U pip
 .venv/Scripts/python.exe -m pip install -e ".[dev]"      # Linux/macOS: .venv/bin/python
-cp .env.example .env                                     # set MVB_API_KEYS (and POSTGRES_PASSWORD for compose)
+cp .env.example .env                                     # set POSTGRES_PASSWORD (compose only); add a user with mvb.admin
 .venv/Scripts/python.exe -m alembic upgrade head
 .venv/Scripts/python.exe -m uvicorn mvb.main:app --port 8080
 # in a second shell:
@@ -103,7 +103,7 @@ Docs UI: `http://localhost:8080/docs` · liveness `/healthz` · readiness `/read
 ### 4.2 Docker / compose (Linux target)
 
 ```bash
-cp .env.example .env      # MVB_API_KEYS and POSTGRES_PASSWORD are REQUIRED
+cp .env.example .env      # POSTGRES_PASSWORD is REQUIRED
 docker compose up -d --build
 docker compose logs -f api worker
 ```
@@ -116,14 +116,16 @@ a container reaches LM Studio (or OpenCode) running on the host.
 All settings are env-only, prefix `MVB_`, defined in `src/mvb/config.py`, documented in
 `.env.example`. The ones that matter in practice:
 
-- `MVB_ENV` (`dev`|`prod`|`test`) — `prod` **refuses to start** without `MVB_API_KEYS`.
-- `MVB_API_KEYS` — comma-separated bearer keys; compared with `hmac.compare_digest`.
+- `MVB_ENV` (`dev`|`prod`|`test`) — environment label.
+- `MVB_SESSION_TTL_DAYS` — session-token lifetime in days (default 30).
+- Accounts are created out of band with `python -m mvb.admin create-user --email you@example.com`;
+  there are **no static API keys** — `MVB_API_KEYS` is retired and never read.
 - `MVB_DATABASE_URL` — `sqlite+pysqlite:///./_local.db` by default; compose sets Postgres.
 - `MVB_MEDIA_ROOT` — where recordings live (must be writable by api *and* worker).
 - `MVB_TRANSCRIBER` / `MVB_DIARIZER` / `MVB_ANALYZER` — `mock` (default) or a real engine.
 - `MVB_MAX_UPLOAD_MB`, `MVB_JOB_STALE_SECONDS`, `MVB_WORKER_POLL_SECONDS`,
   `MVB_ANALYZER_TIMEOUT_S`, `MVB_LMSTUDIO_BASE_URL`, `MVB_LMSTUDIO_API_KEY`,
-  `MVB_OPENCODE_BASE_URL`, `MVB_OPENCODE_API_KEY`, `MVB_FFMPEG`, `MVB_FFPROBE`, `MVB_LOG_LEVEL`.
+  `MVB_OPENCODE_GO_BASE_URL`, `MVB_OPENCODE_GO_API_KEY`, `MVB_FFMPEG`, `MVB_FFPROBE`, `MVB_LOG_LEVEL`.
 - `HF_TOKEN` — only for the real pyannote diarizer (compose passes `MVB_HF_TOKEN` through).
 
 Optional extras (not installed by default): `.[transcribe]` faster-whisper, `.[diarize]`
@@ -132,10 +134,12 @@ pyannote+torch, `.[prod]` psycopg.
 ### 4.4 First-run checklist for a new environment
 
 1. `ffmpeg` and `ffprobe` on PATH (probing and audio extraction depend on them).
-2. `.env`: strong `MVB_API_KEYS`, and Postgres password if using compose.
+2. `.env`: a Postgres password if using compose; create the first account with
+   `.venv/Scripts/python.exe -m mvb.admin create-user --email you@example.com`.
 3. `alembic upgrade head` (or let the api container do it).
 4. Start **both** the api and the worker — the api never runs jobs itself.
-5. `curl -X POST .../v1/meetings` then `/media` then `/process`; poll `/status` until `ready`.
+5. `POST /v1/auth/login` for a session token, then `curl -H "Authorization: Bearer $TOKEN" -X
+   POST .../v1/meetings` → `/media` → `/process`; poll `/status` until `ready`.
 6. Confirm `GET /v1/system/providers` names the provider you think you configured, and whether
    each capability is mock.
 
@@ -169,16 +173,18 @@ Five design rules carry most of the weight; keep them when extending:
 Storage: `$MVB_MEDIA_ROOT/<meeting_id>/<uuid><ext>` (server-generated keys; a client filename
 never reaches a path) and `$MVB_MEDIA_ROOT/_work/<meeting_id>/audio16k.wav` for decoded audio.
 
-Database: 10 tables, head `20261012_0001` — `meetings`, `media_assets`, `transcripts`,
-`transcript_segments`, `speakers`, `jobs`, `job_events`, `analysis_runs`, `sections`,
-`analysis_documents`. Portable types only; the one Postgres-specific statement
+Database: 12 tables, head `20261014_0002` — `users`, `auth_tokens`, `meetings`, `media_assets`,
+`transcripts`, `transcript_segments`, `speakers`, `jobs`, `job_events`, `analysis_runs`,
+`sections`, `analysis_documents`. Portable types only; the one Postgres-specific statement
 (`FOR UPDATE SKIP LOCKED`) is isolated in `src/mvb/jobs/queue.py`.
 
-## 6. API surface (33 paths, all `/v1` behind a bearer key)
+## 6. API surface (all `/v1` behind a bearer session token)
 
+- **Auth:** `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`.
 - **Meetings:** `POST/GET /meetings`, `GET/PATCH/DELETE /meetings/{id}`,
   `POST/GET /meetings/{id}/media`, `POST /meetings/{id}/process`, `GET /meetings/{id}/status`,
-  `GET /meetings/{id}/transcript[/text]`, `GET|POST /meetings/{id}/transcripts`,
+  `GET /meetings/{id}/transcript[/text]`, `GET /meetings/{id}/export.docx`,
+  `GET|POST /meetings/{id}/transcripts`,
   `POST /meetings/{id}/qa`, `GET /meetings/{id}/qa`.
 - **Transcripts:** `GET /transcripts/{id}`, `GET /transcripts/{id}/segments`,
   `POST /transcripts/{id}/activate`, `DELETE /transcripts/{id}`.
@@ -203,7 +209,7 @@ Full detail in `docs/API.md`; the client-facing walkthrough is `docs/INTEGRATION
 | Coverage | `... --cov=mvb --cov-report=term-missing` | 2702 stmts, 216 missed, **92%** |
 | Lint/format | `ruff check src tests` / `ruff format --check` | `All checks passed!` / already formatted |
 | OpenAPI | `make openapi` | 33 paths, schema builds |
-| Migrations | `alembic upgrade head` / `downgrade base` | 10 tables, round trip OK (SQLite) |
+| Migrations | `alembic upgrade head` / `downgrade base` | 12 tables, round trip OK (SQLite) |
 | Live smoke | `bash scripts/smoke.sh` | 12/12 `ok`, `PASS: full flow verified against the live server` |
 | Client untouched | `git -C ../MeetVault status --short` | only `?? .hermes/` |
 | Real provider path | `pytest tests/integration/test_lmstudio_pipeline.py` | adapter driven through a real job over a real socket; non-mock documents; unreachable engine → job succeeds, flagged mock |
@@ -269,20 +275,26 @@ Per-criterion mapping (20 acceptance criteria → evidence) is in `docs/ACCEPTAN
 
 ## 10. Recommended next steps, in order
 
-1. **Client integration (T72–T74)** — DONE (2026-10-13): the Windows client at `../client/` sends a
+1. **Multi-user auth + cloud API** — DONE (2026-10-14): accounts, DB-backed sessions
+   (`POST /v1/auth/login`), per-user ownership of meetings (a foreign id answers `404`), a
+   `GET /v1/meetings/{id}/export.docx` Word export, the Cloud Storage list/status fields, and the
+   `users` / `auth_tokens` tables (head `20261014_0002`). Static `MVB_API_KEYS` is retired.
+   Contract: `docs/INTEGRATION.md`; evidence:
+   `docs/progress/progress_supersanta/PROGRESS_2026-10-14.md`.
+2. **Client integration (T72–T74)** — DONE (2026-10-13): the Windows client at `../client/` sends a
    finished meeting, polls `/status`, and renders the server transcript, analysis, Q&A, speakers,
    versions, jobs and media, with the mock badge. Contract: `docs/INTEGRATION.md`; evidence: the
    monorepo plan Phase 8 (T80–T84) + `../client/docs/progress/`.
-2. **Make CI green once** (`.github/workflows/ci.yml`): sqlite matrix, Postgres job, Docker build +
-   `docker compose config` + a container smoke. That converts the two remaining "CI-only" rows into
-   verified ones.
-3. **Pin OpenCode's routes** against the installed version and run one live analysis.
-4. **Run a real LM Studio analysis** — start LM Studio, load a model, set
+3. **Make CI green once** (`.github/workflows/backend-ci.yml`): sqlite matrix, Postgres job, Docker
+   build + `docker compose config` + a container smoke. That converts the two remaining "CI-only"
+   rows into verified ones.
+4. **Pin OpenCode's routes** against the installed version and run one live analysis.
+5. **Run a real LM Studio analysis** — start LM Studio, load a model, set
    `MVB_ANALYZER=lmstudio` + `MVB_LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1`, then re-run
    `scripts/smoke.sh` with the analyzer switched on.
-5. **Optional hardening:** key rotation/rate limiting, media retention GC, worker concurrency load
-   test, Prometheus-style metrics, and a `/v1/meetings/{id}/export` (docx/markdown) if the client
-   wants an exportable report.
+6. **Optional hardening:** rate limiting, media retention GC, worker concurrency load test,
+   Prometheus-style metrics, and a per-user `(user_id, source, external_id)` namespace migration
+   (see the accepted limitation in `docs/INTEGRATION.md`).
 
 ---
 

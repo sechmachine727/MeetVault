@@ -1,6 +1,9 @@
 # API map
 
-All `/v1` routes require `Authorization: Bearer <key>`.
+All `/v1` routes require `Authorization: Bearer <token>` — a per-user session token from
+`POST /v1/auth/login` (missing, malformed or unknown → `401 unauthorized`; expired or revoked →
+`401 session_expired`). Static `MVB_API_KEYS` is retired. Every meeting is owned by the user that
+created it: a foreign id answers `404 not_found`, exactly like a missing one.
 
 ## Health & system
 
@@ -11,6 +14,14 @@ All `/v1` routes require `Authorization: Bearer <key>`.
 | GET | `/v1/system/info` | env, migration head, configured providers |
 | GET | `/v1/system/providers` | which providers are available, which is selected, mock state |
 | GET | `/openapi.json`, `/docs` | OpenAPI schema and Swagger UI |
+
+## Auth
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| POST | `/v1/auth/login` | exchange email + password for a session token (`MVB_SESSION_TTL_DAYS`, default 30) |
+| POST | `/v1/auth/logout` | revoke the presented token |
+| GET | `/v1/auth/me` | current user + token lifetime |
 
 ## Meetings
 
@@ -29,6 +40,11 @@ All `/v1` routes require `Authorization: Bearer <key>`.
 | GET | `/v1/meetings/{id}/transcripts` | transcript versions |
 | POST | `/v1/meetings/{id}/process` | start the pipeline (202) |
 | GET | `/v1/meetings/{id}/status` | progress, per-step state, staleness, mock flag |
+| GET | `/v1/meetings/{id}/export.docx` | Word export of the analysis (409 without fresh analysis) |
+
+`MeetingOut` (list and detail) carries the Cloud Storage fields `has_analysis`, `latest_job_type`
+and `latest_job_state` (`queued|running|succeeded|failed|cancelled`); `/status` adds
+`active_job_started_at` and `error`.
 
 ## Media
 

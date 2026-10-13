@@ -15,12 +15,21 @@ deterministic mock provider, and a missing provider never stops the service (see
     .venv/Scripts/python.exe -m pip install -e ".[dev]"      # Linux/macOS: .venv/bin/python
     cp .env.example .env
     .venv/Scripts/python.exe -m alembic upgrade head
+    .venv/Scripts/python.exe -m mvb.admin create-user --email you@example.com   # prompts for the password
     .venv/Scripts/python.exe -m uvicorn mvb.main:app --port 8080
     # API docs: http://localhost:8080/docs   Health: /healthz   Readiness: /readyz
 
+Every `/v1` call carries a per-user **session token** — there are no static API keys. Log in once
+(the client does this for you) and reuse the token:
+
+    TOKEN=$(curl -fsS -X POST http://localhost:8080/v1/auth/login \
+      -H 'Content-Type: application/json' \
+      -d '{"email":"you@example.com","password":"…"}' | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+    curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/v1/system/info
+
 ## Quick start (Docker)
 
-    cp .env.example .env      # set MVB_API_KEYS and POSTGRES_PASSWORD
+    cp .env.example .env      # set POSTGRES_PASSWORD
     docker compose up --build
 
 ## Provider configuration

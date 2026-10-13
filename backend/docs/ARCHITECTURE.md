@@ -60,9 +60,10 @@ would escape the root, so a hostile filename cannot influence a path. Uploads st
 
 ## Database
 
-10 tables: `meetings`, `media_assets`, `transcripts`, `transcript_segments`, `speakers`,
-`jobs`, `job_events`, `analysis_runs`, `sections`, `analysis_documents`. Migration head is
-`20261012_0001`, hand-written and portable (SQLite + Postgres). Hard deletes cascade at the
+12 tables: `users`, `auth_tokens`, `meetings`, `media_assets`, `transcripts`,
+`transcript_segments`, `speakers`, `jobs`, `job_events`, `analysis_runs`, `sections`,
+`analysis_documents`. Migration head is `20261014_0002`, hand-written and portable (SQLite +
+Postgres). Hard deletes cascade at the
 DB level (`ON DELETE CASCADE`), except `transcript_segments.speaker_id` which is `SET NULL`
 so deleting a speaker never deletes transcript text.
 
