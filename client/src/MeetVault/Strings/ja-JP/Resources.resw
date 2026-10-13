@@ -8,7 +8,7 @@
   <data name="NavDashboard.Content" xml:space="preserve"><value>ダッシュボード</value></data>
   <data name="NavLive.Content" xml:space="preserve"><value>ライブ</value></data>
   <data name="NavMeetings.Content" xml:space="preserve"><value>会議</value></data>
-  <data name="NavBackend.Content" xml:space="preserve"><value>バックエンド</value></data>
+  <data name="NavBackend.Content" xml:space="preserve"><value>クラウドストレージ</value></data>
   <data name="NavAccount.Content" xml:space="preserve"><value>アカウント</value></data>
 
   <!-- Shared: manage flyout, selection toolbar, table headers -->
@@ -365,12 +365,12 @@
   <data name="Nav.BackToDashboard" xml:space="preserve"><value>ダッシュボードに戻る</value></data>
 
   <!-- Backend service -->
-  <data name="SetBackend.Text" xml:space="preserve"><value>バックエンドサービス</value></data>
-  <data name="SetBackendNote.Text" xml:space="preserve"><value>ローカルサーバーでの会議後処理: より良い文字起こし、話者ラベル、要約、Q&amp;A。録音はローカルのまま、サーバーがなくても動作します。</value></data>
+  <data name="SetBackend.Text" xml:space="preserve"><value>クラウドサービス</value></data>
+  <data name="SetBackendNote.Text" xml:space="preserve"><value>クラウドサービスでの事後処理: より高精度な文字起こし、話者ラベル、要約、Q&amp;A。録音はローカルに保存され、サービスなしでも動作します。</value></data>
   <data name="SetBackendUrl.Text" xml:space="preserve"><value>サーバー URL</value></data>
-  <data name="SetBackendUrlDesc.Text" xml:space="preserve"><value>バックエンドサービスのアドレス (例: http://localhost:8080)。</value></data>
+  <data name="SetBackendUrlDesc.Text" xml:space="preserve"><value>クラウドサービスのアドレス (例: http://localhost:8080)。</value></data>
   <data name="SetBackendUrlBox.PlaceholderText" xml:space="preserve"><value>http://localhost:8080</value></data>
-  <data name="SetBackendUrlBox.AutomationProperties.Name" xml:space="preserve"><value>バックエンドのサーバー URL</value></data>
+  <data name="SetBackendUrlBox.AutomationProperties.Name" xml:space="preserve"><value>クラウドサービス URL</value></data>
   <data name="SetAccount.Text" xml:space="preserve"><value>アカウント</value></data>
   <data name="SetAccountDesc.Text" xml:space="preserve"><value>クラウド機能にはサインインが必要です。</value></data>
   <data name="SetAccountButton.Content" xml:space="preserve"><value>管理</value></data>
@@ -434,7 +434,7 @@
   <data name="Back.Stage.Video" xml:space="preserve"><value>画面録画をアップロード中</value></data>
   <data name="Back.Stage.Transcript" xml:space="preserve"><value>文字起こしをアップロード中</value></data>
   <data name="Back.Stage.Start" xml:space="preserve"><value>処理を開始中</value></data>
-  <data name="BackPageTitle.Text" xml:space="preserve"><value>バックエンド</value></data>
+  <data name="BackPageTitle.Text" xml:space="preserve"><value>クラウドストレージ</value></data>
   <data name="BackPageMeetingLabel.Text" xml:space="preserve"><value>会議</value></data>
   <data name="BackPagePick.PlaceholderText" xml:space="preserve"><value>同期済みの会議を選択</value></data>
   <data name="BackPagePick.AutomationProperties.Name" xml:space="preserve"><value>バックエンドの会議</value></data>
@@ -518,4 +518,68 @@
   <data name="Acc.SignedIn" xml:space="preserve"><value>サインインしました。</value></data>
   <data name="Acc.SignedOut" xml:space="preserve"><value>サインアウトしました。</value></data>
   <data name="Acc.NoUrl" xml:space="preserve"><value>先に設定でクラウドサービスの URL を設定してください。</value></data>
+  <!-- Cloud Storage screen -->
+  <data name="Cloud.Empty.Text" xml:space="preserve"><value>クラウド上の会議はまだありません。会議の「解析」セクションからアップロードしてください。</value></data>
+  <data name="Cloud.Error" xml:space="preserve"><value>クラウド上の会議を読み込めませんでした: {0}</value></data>
+  <data name="Cloud.SignInNeeded" xml:space="preserve"><value>クラウド上の会議を表示するにはサインインしてください。</value></data>
+  <data name="Cloud.SignInButton.Content" xml:space="preserve"><value>サインイン</value></data>
+  <data name="Cloud.Remove.Content" xml:space="preserve"><value>クラウドから削除</value></data>
+  <data name="Cloud.Remove.AutomationProperties.Name" xml:space="preserve"><value>クラウドから削除</value></data>
+  <data name="Cloud.RemoveTitle" xml:space="preserve"><value>クラウドから削除しますか？</value></data>
+  <data name="Cloud.RemoveBody" xml:space="preserve"><value>録音・文字起こし・解析結果がクラウドサービスから削除されます。ローカルの録音には影響しません。</value></data>
+  <data name="Cloud.Removed" xml:space="preserve"><value>クラウドから削除しました。</value></data>
+  <data name="Cloud.Open.AutomationProperties.Name" xml:space="preserve"><value>会議を開く</value></data>
+  <data name="Cloud.Meta" xml:space="preserve"><value>{0} · {1}</value></data>
+
+  <!-- Details: Analyze / Transcript / Summary / player -->
+  <data name="DetAnalyzeHeader.Text" xml:space="preserve"><value>会議を解析</value></data>
+  <data name="DetAnalyzeExplain.Text" xml:space="preserve"><value>この動画は、文字起こしの精度向上・議事録の要約・Q&amp;A のためにバックエンドへ送信されます。</value></data>
+  <data name="DetAnalyze.Content" xml:space="preserve"><value>解析</value></data>
+  <data name="DetAnalyzeAgain.Content" xml:space="preserve"><value>再解析</value></data>
+  <data name="DetAnalyzeRetry.Content" xml:space="preserve"><value>解析を再試行</value></data>
+  <data name="DetAnalyzeCancel.Content" xml:space="preserve"><value>解析をキャンセル</value></data>
+  <data name="DetAnalyzeForget.Content" xml:space="preserve"><value>このリンクを破棄</value></data>
+  <data name="DetAnalyzeNoRecording" xml:space="preserve"><value>解析できる録音がありません。</value></data>
+  <data name="DetAnalyzeSignIn" xml:space="preserve"><value>会議を解析するにはサインインしてください。</value></data>
+  <data name="DetAnalyzeSignInButton.Content" xml:space="preserve"><value>サインイン</value></data>
+  <data name="DetAnalyzeSubmitted" xml:space="preserve"><value>解析を受け付けました。</value></data>
+  <data name="DetAnalyzeRunning" xml:space="preserve"><value>解析を実行中です。この画面を離れても構いません。</value></data>
+  <data name="DetAnalyzeFailed" xml:space="preserve"><value>解析に失敗しました: {0}</value></data>
+  <data name="DetAnalyzeStatusLine" xml:space="preserve"><value>{0} - {1}</value></data>
+  <data name="An.NotAnalyzed" xml:space="preserve"><value>未解析</value></data>
+  <data name="An.Uploading" xml:space="preserve"><value>アップロード中</value></data>
+  <data name="An.Queued" xml:space="preserve"><value>待機中</value></data>
+  <data name="An.Processing" xml:space="preserve"><value>処理中</value></data>
+  <data name="An.Completed" xml:space="preserve"><value>解析済み</value></data>
+  <data name="An.Failed" xml:space="preserve"><value>解析失敗</value></data>
+  <data name="DetSummaryHeader.Text" xml:space="preserve"><value>会議の要約</value></data>
+  <data name="DetSummaryBefore" xml:space="preserve"><value>要約するには動画を解析してください。</value></data>
+  <data name="DetSummaryDuring" xml:space="preserve"><value>解析中です。完了すると要約が表示されます。</value></data>
+  <data name="DetSummaryFailed" xml:space="preserve"><value>解析に失敗したため要約はありません。「解析」セクションから再試行してください。</value></data>
+  <data name="DetDiscussionsHeader.Text" xml:space="preserve"><value>議題と議論</value></data>
+  <data name="DetDecisionsHeader.Text" xml:space="preserve"><value>決定事項</value></data>
+  <data name="DetActionsHeader.Text" xml:space="preserve"><value>アクション項目</value></data>
+  <data name="DetQaHeader.Text" xml:space="preserve"><value>Q&amp;A</value></data>
+  <data name="DetQaAsk.Content" xml:space="preserve"><value>質問</value></data>
+  <data name="DetQaBox.PlaceholderText" xml:space="preserve"><value>この会議について質問</value></data>
+  <data name="DetQaBox.AutomationProperties.Name" xml:space="preserve"><value>質問</value></data>
+  <data name="DetQaPending" xml:space="preserve"><value>考えています...</value></data>
+  <data name="DetCopySummary.Content" xml:space="preserve"><value>要約をコピー</value></data>
+  <data name="DetCopySummary.AutomationProperties.Name" xml:space="preserve"><value>要約をコピー</value></data>
+  <data name="DetExportWord.Content" xml:space="preserve"><value>Word にエクスポート</value></data>
+  <data name="DetExportWord.AutomationProperties.Name" xml:space="preserve"><value>要約を Word にエクスポート</value></data>
+  <data name="DetWordSaved" xml:space="preserve"><value>保存しました: {0}</value></data>
+  <data name="DetWordFailed" xml:space="preserve"><value>エクスポートに失敗しました: {0}</value></data>
+  <data name="DetWordNoAnalysis" xml:space="preserve"><value>先に会議を解析してください。</value></data>
+  <data name="Det.SourceLocal" xml:space="preserve"><value>ローカル文字起こし</value></data>
+  <data name="Det.SourceCloud" xml:space="preserve"><value>バックエンド強化版の文字起こし</value></data>
+  <data name="DetCloudEmpty" xml:space="preserve"><value>サーバー側の文字起こしはまだありません。</value></data>
+  <data name="DetPlayPause.AutomationProperties.Name" xml:space="preserve"><value>再生/一時停止</value></data>
+  <data name="DetPosition.AutomationProperties.Name" xml:space="preserve"><value>シーク</value></data>
+  <data name="DetVolume.AutomationProperties.Name" xml:space="preserve"><value>音量</value></data>
+  <data name="DetAspect.AutomationProperties.Name" xml:space="preserve"><value>アスペクト比</value></data>
+  <data name="DetAspect169" xml:space="preserve"><value>16:9</value></data>
+  <data name="DetAspect43" xml:space="preserve"><value>4:3</value></data>
+  <data name="DetAspectFit" xml:space="preserve"><value>フィット</value></data>
+  <data name="DetFullscreen.AutomationProperties.Name" xml:space="preserve"><value>全画面</value></data>
 </root>

@@ -8,7 +8,7 @@
   <data name="NavDashboard.Content" xml:space="preserve"><value>Dashboard</value></data>
   <data name="NavLive.Content" xml:space="preserve"><value>Live</value></data>
   <data name="NavMeetings.Content" xml:space="preserve"><value>Meetings</value></data>
-  <data name="NavBackend.Content" xml:space="preserve"><value>Backend</value></data>
+  <data name="NavBackend.Content" xml:space="preserve"><value>Cloud Storage</value></data>
   <data name="NavAccount.Content" xml:space="preserve"><value>Account</value></data>
 
   <!-- Shared: manage flyout, selection toolbar, table headers -->
@@ -365,12 +365,12 @@
   <data name="Nav.BackToDashboard" xml:space="preserve"><value>Back to Dashboard</value></data>
 
   <!-- Backend service -->
-  <data name="SetBackend.Text" xml:space="preserve"><value>Backend service</value></data>
-  <data name="SetBackendNote.Text" xml:space="preserve"><value>Post-meeting processing on a local server: better transcript, speaker labels, summary and Q&amp;A. Recording stays local and keeps working without it.</value></data>
+  <data name="SetBackend.Text" xml:space="preserve"><value>Cloud service</value></data>
+  <data name="SetBackendNote.Text" xml:space="preserve"><value>Post-meeting processing on your cloud service: better transcript, speaker labels, summary and Q&amp;A. Recording stays local and keeps working without it.</value></data>
   <data name="SetBackendUrl.Text" xml:space="preserve"><value>Server URL</value></data>
-  <data name="SetBackendUrlDesc.Text" xml:space="preserve"><value>The backend service address, for example http://localhost:8080.</value></data>
+  <data name="SetBackendUrlDesc.Text" xml:space="preserve"><value>The cloud service address, for example http://localhost:8080.</value></data>
   <data name="SetBackendUrlBox.PlaceholderText" xml:space="preserve"><value>http://localhost:8080</value></data>
-  <data name="SetBackendUrlBox.AutomationProperties.Name" xml:space="preserve"><value>Backend server URL</value></data>
+  <data name="SetBackendUrlBox.AutomationProperties.Name" xml:space="preserve"><value>Cloud service URL</value></data>
   <data name="SetAccount.Text" xml:space="preserve"><value>Account</value></data>
   <data name="SetAccountDesc.Text" xml:space="preserve"><value>Cloud features need a signed-in account.</value></data>
   <data name="SetAccountButton.Content" xml:space="preserve"><value>Manage</value></data>
@@ -434,7 +434,7 @@
   <data name="Back.Stage.Video" xml:space="preserve"><value>uploading screen video</value></data>
   <data name="Back.Stage.Transcript" xml:space="preserve"><value>uploading transcript</value></data>
   <data name="Back.Stage.Start" xml:space="preserve"><value>starting processing</value></data>
-  <data name="BackPageTitle.Text" xml:space="preserve"><value>Backend</value></data>
+  <data name="BackPageTitle.Text" xml:space="preserve"><value>Cloud Storage</value></data>
   <data name="BackPageMeetingLabel.Text" xml:space="preserve"><value>Meeting</value></data>
   <data name="BackPagePick.PlaceholderText" xml:space="preserve"><value>Choose a synced meeting</value></data>
   <data name="BackPagePick.AutomationProperties.Name" xml:space="preserve"><value>Backend meeting</value></data>
@@ -518,4 +518,68 @@
   <data name="Acc.SignedIn" xml:space="preserve"><value>Signed in.</value></data>
   <data name="Acc.SignedOut" xml:space="preserve"><value>Signed out.</value></data>
   <data name="Acc.NoUrl" xml:space="preserve"><value>Set the cloud service URL in Settings first.</value></data>
+  <!-- Cloud Storage screen -->
+  <data name="Cloud.Empty.Text" xml:space="preserve"><value>No cloud meetings yet. Upload one from a meeting's Analyze section.</value></data>
+  <data name="Cloud.Error" xml:space="preserve"><value>Could not load cloud meetings: {0}</value></data>
+  <data name="Cloud.SignInNeeded" xml:space="preserve"><value>Sign in to see your cloud meetings.</value></data>
+  <data name="Cloud.SignInButton.Content" xml:space="preserve"><value>Sign in</value></data>
+  <data name="Cloud.Remove.Content" xml:space="preserve"><value>Remove from cloud</value></data>
+  <data name="Cloud.Remove.AutomationProperties.Name" xml:space="preserve"><value>Remove from cloud</value></data>
+  <data name="Cloud.RemoveTitle" xml:space="preserve"><value>Remove from the cloud?</value></data>
+  <data name="Cloud.RemoveBody" xml:space="preserve"><value>The recording, transcript and analysis are deleted from the cloud service. The local recording is not affected.</value></data>
+  <data name="Cloud.Removed" xml:space="preserve"><value>Removed from the cloud.</value></data>
+  <data name="Cloud.Open.AutomationProperties.Name" xml:space="preserve"><value>Open meeting</value></data>
+  <data name="Cloud.Meta" xml:space="preserve"><value>{0} · {1}</value></data>
+
+  <!-- Details: Analyze / Transcript / Summary / player -->
+  <data name="DetAnalyzeHeader.Text" xml:space="preserve"><value>Analyze meeting</value></data>
+  <data name="DetAnalyzeExplain.Text" xml:space="preserve"><value>This video will be sent to the backend for analysis to provide improved transcription, meeting summarization, and Q&amp;A.</value></data>
+  <data name="DetAnalyze.Content" xml:space="preserve"><value>Analyze</value></data>
+  <data name="DetAnalyzeAgain.Content" xml:space="preserve"><value>Analyze again</value></data>
+  <data name="DetAnalyzeRetry.Content" xml:space="preserve"><value>Retry analysis</value></data>
+  <data name="DetAnalyzeCancel.Content" xml:space="preserve"><value>Cancel analysis</value></data>
+  <data name="DetAnalyzeForget.Content" xml:space="preserve"><value>Forget this link</value></data>
+  <data name="DetAnalyzeNoRecording" xml:space="preserve"><value>This meeting has no recording to analyze.</value></data>
+  <data name="DetAnalyzeSignIn" xml:space="preserve"><value>Sign in to analyze meetings.</value></data>
+  <data name="DetAnalyzeSignInButton.Content" xml:space="preserve"><value>Sign in</value></data>
+  <data name="DetAnalyzeSubmitted" xml:space="preserve"><value>Submitted for analysis.</value></data>
+  <data name="DetAnalyzeRunning" xml:space="preserve"><value>Analysis is running - you can leave this screen.</value></data>
+  <data name="DetAnalyzeFailed" xml:space="preserve"><value>Analysis failed: {0}</value></data>
+  <data name="DetAnalyzeStatusLine" xml:space="preserve"><value>{0} - {1}</value></data>
+  <data name="An.NotAnalyzed" xml:space="preserve"><value>Not analyzed</value></data>
+  <data name="An.Uploading" xml:space="preserve"><value>Uploading</value></data>
+  <data name="An.Queued" xml:space="preserve"><value>Queued</value></data>
+  <data name="An.Processing" xml:space="preserve"><value>Processing</value></data>
+  <data name="An.Completed" xml:space="preserve"><value>Analyzed</value></data>
+  <data name="An.Failed" xml:space="preserve"><value>Analysis failed</value></data>
+  <data name="DetSummaryHeader.Text" xml:space="preserve"><value>Meeting summary</value></data>
+  <data name="DetSummaryBefore" xml:space="preserve"><value>Please analyze the video for summarization.</value></data>
+  <data name="DetSummaryDuring" xml:space="preserve"><value>Analysis in progress - the summary appears when it completes.</value></data>
+  <data name="DetSummaryFailed" xml:space="preserve"><value>Analysis failed - no summary is available. Retry from the Analyze section.</value></data>
+  <data name="DetDiscussionsHeader.Text" xml:space="preserve"><value>Agenda &amp; discussion</value></data>
+  <data name="DetDecisionsHeader.Text" xml:space="preserve"><value>Decisions</value></data>
+  <data name="DetActionsHeader.Text" xml:space="preserve"><value>Action items</value></data>
+  <data name="DetQaHeader.Text" xml:space="preserve"><value>Q&amp;A</value></data>
+  <data name="DetQaAsk.Content" xml:space="preserve"><value>Ask</value></data>
+  <data name="DetQaBox.PlaceholderText" xml:space="preserve"><value>Ask about this meeting</value></data>
+  <data name="DetQaBox.AutomationProperties.Name" xml:space="preserve"><value>Question</value></data>
+  <data name="DetQaPending" xml:space="preserve"><value>Thinking...</value></data>
+  <data name="DetCopySummary.Content" xml:space="preserve"><value>Copy summary</value></data>
+  <data name="DetCopySummary.AutomationProperties.Name" xml:space="preserve"><value>Copy summary</value></data>
+  <data name="DetExportWord.Content" xml:space="preserve"><value>Export to Word</value></data>
+  <data name="DetExportWord.AutomationProperties.Name" xml:space="preserve"><value>Export summary to Word</value></data>
+  <data name="DetWordSaved" xml:space="preserve"><value>Saved {0}</value></data>
+  <data name="DetWordFailed" xml:space="preserve"><value>Export failed: {0}</value></data>
+  <data name="DetWordNoAnalysis" xml:space="preserve"><value>Analyze the meeting first.</value></data>
+  <data name="Det.SourceLocal" xml:space="preserve"><value>Local transcript</value></data>
+  <data name="Det.SourceCloud" xml:space="preserve"><value>Backend-enhanced transcript</value></data>
+  <data name="DetCloudEmpty" xml:space="preserve"><value>No server transcript yet.</value></data>
+  <data name="DetPlayPause.AutomationProperties.Name" xml:space="preserve"><value>Play or pause</value></data>
+  <data name="DetPosition.AutomationProperties.Name" xml:space="preserve"><value>Seek</value></data>
+  <data name="DetVolume.AutomationProperties.Name" xml:space="preserve"><value>Volume</value></data>
+  <data name="DetAspect.AutomationProperties.Name" xml:space="preserve"><value>Aspect ratio</value></data>
+  <data name="DetAspect169" xml:space="preserve"><value>16:9</value></data>
+  <data name="DetAspect43" xml:space="preserve"><value>4:3</value></data>
+  <data name="DetAspectFit" xml:space="preserve"><value>Fit</value></data>
+  <data name="DetFullscreen.AutomationProperties.Name" xml:space="preserve"><value>Fullscreen</value></data>
 </root>
