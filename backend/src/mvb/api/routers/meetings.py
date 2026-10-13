@@ -103,6 +103,20 @@ def create_meeting(payload: MeetingCreate, _: ApiKeyId, db: DbSession, response:
         if existing is not None:
             response.status_code = status.HTTP_200_OK
             return meeting_detail(db, existing)
+        # A soft-deleted row still holds the (source, external_id) unique key but is
+        # invisible to the lookup above, so re-creating it fell through to INSERT and
+        # hit the constraint (500). The user removed that meeting, so drop the
+        # tombstone (children cascade at the DB level) and insert fresh below.
+        tombstone = db.scalar(
+            select(Meeting).where(
+                Meeting.source == payload.source,
+                Meeting.external_id == payload.external_id,
+                Meeting.deleted_at.is_not(None),
+            )
+        )
+        if tombstone is not None:
+            db.delete(tombstone)
+            db.flush()
     meeting = Meeting(
         id=uuid.uuid4(),
         title=payload.title,
