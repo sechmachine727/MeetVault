@@ -5,6 +5,7 @@ import pytest
 import respx
 
 from mvb.config import Settings
+from mvb.providers.analysis.hermes import HermesAnalyzer
 from mvb.providers.analysis.lmstudio import LmStudioAnalyzer
 from mvb.providers.analysis.opencode import OpenCodeAnalyzer
 from mvb.providers.registry import build_analyzer, build_diarizer, build_transcriber, describe_providers
@@ -122,3 +123,51 @@ def test_opencode_complete_json_reads_message_content() -> None:
     assert result.payload == {"items": []}
     assert result.provider == "opencode"
     assert result.is_mock is False
+
+
+# ---- Hermes proxy analyzer (respx, no network) -----------------------------------
+
+HX = "http://127.0.0.1:8645/v1"
+
+
+@respx.mock
+def test_hermes_ping_true_when_model_served() -> None:
+    respx.get(f"{HX}/models").mock(
+        return_value=httpx.Response(200, json={"data": [{"id": "deepseek/deepseek-v4.1-flash"}]})
+    )
+    assert HermesAnalyzer(base_url=HX, model="deepseek/deepseek-v4.1-flash").ping() is True
+
+
+@respx.mock
+def test_hermes_ping_false_when_model_missing() -> None:
+    respx.get(f"{HX}/models").mock(return_value=httpx.Response(200, json={"data": [{"id": "other"}]}))
+    assert HermesAnalyzer(base_url=HX, model="deepseek/deepseek-v4.1-flash").ping() is False
+
+
+@respx.mock
+def test_hermes_complete_json_parses_content() -> None:
+    respx.post(f"{HX}/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "model": "deepseek/deepseek-v4.1-flash",
+                "choices": [{"message": {"content": '{"text": "hi", "bullets": []}'}}],
+            },
+        )
+    )
+    result = HermesAnalyzer(base_url=HX, model="deepseek/deepseek-v4.1-flash").complete_json(
+        system="s", user="u", schema={"type": "object"}, timeout_s=10
+    )
+    assert result.payload == {"text": "hi", "bullets": []}
+    assert result.is_mock is False
+    assert result.provider == "hermes"
+    assert result.model == "deepseek/deepseek-v4.1-flash"
+
+
+def test_hermes_requested_but_unreachable_falls_back_to_mock() -> None:
+    settings = Settings()
+    settings.analyzer = "hermes"  # type: ignore[assignment]
+    settings.hermes_base_url = "http://127.0.0.1:1/v1"  # nothing listens here
+    settings.hermes_api_key = ""
+    settings.analyzer_model = "deepseek/deepseek-v4.1-flash"
+    assert build_analyzer(settings).id == "mock-analyzer"

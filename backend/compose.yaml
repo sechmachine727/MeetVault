@@ -26,6 +26,8 @@ x-app-env: &app-env
   MVB_LMSTUDIO_API_KEY: ${MVB_LMSTUDIO_API_KEY:-}
   MVB_OPENCODE_BASE_URL: ${MVB_OPENCODE_BASE_URL:-http://host.docker.internal:4096}
   MVB_OPENCODE_API_KEY: ${MVB_OPENCODE_API_KEY:-}
+  MVB_HERMES_BASE_URL: ${MVB_HERMES_BASE_URL:-http://host.docker.internal:8645/v1}
+  MVB_HERMES_API_KEY: ${MVB_HERMES_API_KEY:-}
   MVB_LOG_LEVEL: ${MVB_LOG_LEVEL:-INFO}
   # Set MVB_HF_TOKEN to use the real pyannote diarizer. Never commit a real token.
   HF_TOKEN: ${MVB_HF_TOKEN:-}

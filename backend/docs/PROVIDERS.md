@@ -6,7 +6,7 @@ Three capabilities, each behind a protocol in `src/mvb/providers/base.py`:
 | --- | --- | --- |
 | Speech → text | `Transcriber.transcribe(path, language, duration_ms, progress)` | `providers/transcription/mock.py`, `providers/transcription/faster_whisper.py` |
 | Speaker turns | `Diarizer.diarize(path, duration_ms, num_speakers, progress)` | `providers/diarization/mock.py`, `providers/diarization/pyannote.py` |
-| Text → JSON | `Analyzer.complete_json(system, user, schema, timeout_s)` | `providers/analysis/mock.py`, `providers/analysis/lmstudio.py`, `providers/analysis/opencode.py` |
+| Text → JSON | `Analyzer.complete_json(system, user, schema, timeout_s)` | `providers/analysis/mock.py`, `providers/analysis/lmstudio.py`, `providers/analysis/opencode.py`, `providers/analysis/hermes.py` |
 
 Selection is by env: `MVB_TRANSCRIBER`, `MVB_DIARIZER`, `MVB_ANALYZER`.
 
@@ -51,6 +51,24 @@ LM Studio exposes an OpenAI-compatible server. Load a model in the UI (or `lms l
 (`MVB_ANALYZER_TIMEOUT_S`, default 120 s); an invalid or unreachable response degrades to the
 mock with the reason recorded. The model name is passed through verbatim, so
 `GET /v1/system/providers` shows exactly which model the analysis used.
+
+## Hermes proxy
+
+    MVB_ANALYZER=hermes
+    MVB_ANALYZER_MODEL=deepseek/deepseek-v4.1-flash
+    MVB_HERMES_BASE_URL=http://host.docker.internal:8645/v1
+    MVB_HERMES_API_KEY=
+
+The Hermes proxy (`hermes proxy start --port 8645`) forwards OpenAI-compatible
+requests to the operator's OAuth-authenticated provider, so the backend needs no AI
+credential of its own: any bearer token satisfies the proxy (it attaches the real
+credentials itself). The `HermesAnalyzer` reuses the LM Studio wire format verbatim
+(`GET /models` ping with a model-served check, `POST /chat/completions` with
+`response_format: {"type": "json_object"}`) and only reports `id: "hermes"`, so
+`GET /v1/system/providers` shows exactly which model the analysis used. The model id
+comes verbatim from the proxy's `GET /v1/models` listing (423 models on 2026-10-13,
+including `deepseek/deepseek-v4.1-flash`). The proxy is operator-run — the backend
+degrades to labelled mock when it is down, and paid models need Nous Portal credits.
 
 ## OpenCode
 

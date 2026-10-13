@@ -68,6 +68,18 @@ def build_analyzer(settings: Settings):  # type: ignore[no-untyped-def]
             _fallback("analyzer", requested, "opencode unreachable")
         except Exception as exc:
             _fallback("analyzer", requested, f"{type(exc).__name__}: {exc}")
+    if requested == "hermes":
+        try:
+            from mvb.providers.analysis.hermes import HermesAnalyzer
+
+            analyzer = HermesAnalyzer(
+                base_url=settings.hermes_base_url, api_key=settings.hermes_api_key, model=settings.analyzer_model
+            )
+            if analyzer.ping():
+                return analyzer
+            _fallback("analyzer", requested, "hermes proxy unreachable or model not served")
+        except Exception as exc:
+            _fallback("analyzer", requested, f"{type(exc).__name__}: {exc}")
     return MockAnalyzer()
 
 
