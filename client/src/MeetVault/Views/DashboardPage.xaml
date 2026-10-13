@@ -104,7 +104,7 @@
                                             </StackPanel>
                                             <Border Grid.Column="2" VerticalAlignment="Center" CornerRadius="10" Padding="10,3"
                                                     Background="{ThemeResource SubtleFillColorSecondaryBrush}">
-                                                <TextBlock Text="{Binding Status}" FontSize="12" Foreground="{Binding Status, Converter={StaticResource StatusBrushConverter}}" />
+                                                <TextBlock Text="{Binding Status}" FontSize="12" Foreground="{Binding StatusKind, Converter={StaticResource StatusBrushConverter}}" />
                                             </Border>
                                         </Grid>
                                     </Button>

@@ -10,9 +10,9 @@ namespace MeetVault.Views;
 /// <summary>Display projection of a <see cref="Meeting"/>; keeps formatted text out of the XAML.</summary>
 public sealed class MeetingCard : INotifyPropertyChanged
 {
-    public MeetingCard(string id, string title, string createdAt, string duration, string status, bool isDraft)
+    public MeetingCard(string id, string title, string createdAt, string duration, string status, string statusKind, bool isDraft)
     {
-        Id = id; Title = title; CreatedAt = createdAt; Duration = duration; Status = status; IsDraft = isDraft;
+        Id = id; Title = title; CreatedAt = createdAt; Duration = duration; Status = status; StatusKind = statusKind; IsDraft = isDraft;
     }
 
     public string Id { get; }
@@ -20,6 +20,10 @@ public sealed class MeetingCard : INotifyPropertyChanged
     public string CreatedAt { get; }
     public string Duration { get; }
     public string Status { get; }
+
+    // Non-localized status kind (the raw enum name) so the semantic brush never depends on
+    // a localized display label (Status stays the localized text for the pill).
+    public string StatusKind { get; }
     public bool IsDraft { get; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -77,7 +81,7 @@ public sealed class MeetingCard : INotifyPropertyChanged
 
 public static class MeetingCards
 {
-    public static MeetingCard ToCard(Meeting m) => new(m.Id, m.Title, m.StartedAt.ToString("g"), Duration(m), StatusLabel(m.Status), m.Status is MeetingStatus.Recording or MeetingStatus.Paused);
+    public static MeetingCard ToCard(Meeting m) => new(m.Id, m.Title, m.StartedAt.ToString("g"), Duration(m), StatusLabel(m.Status), m.Status.ToString(), m.Status is MeetingStatus.Recording or MeetingStatus.Paused);
 
     // Plain label for the raw enum.
     public static string StatusLabel(MeetingStatus status) => status switch

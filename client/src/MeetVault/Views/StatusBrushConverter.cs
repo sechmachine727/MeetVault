@@ -1,17 +1,18 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Data;
-using Microsoft.UI.Xaml.Media;
 
 namespace MeetVault.Views;
 
-// Semantic color for a meeting status label (Ready vs Paused were indistinguishable).
+// Semantic color for a meeting status KIND (the raw enum name, never the localized label —
+// the bound display text is the per-locale Mtg.Status* string).
 public sealed class StatusBrushConverter : IValueConverter
 {
     public object? Convert(object value, Type targetType, object parameter, string language)
     {
-        var state = value as string ?? "";
-        var key = state == "Ready" ? "SystemFillColorSuccessBrush"
-            : state is "Paused" or "In progress" ? "SystemFillColorCautionBrush"
+        var kind = value as string ?? "";
+        var key = kind == "Ready" ? "SystemFillColorSuccessBrush"
+            : kind == "Failed" ? "SystemFillColorCriticalBrush"
+            : kind is "Recording" or "Paused" or "Processing" ? "SystemFillColorCautionBrush"
             : "TextFillColorSecondaryBrush";
         return Application.Current.Resources.TryGetValue(key, out var brush) ? brush : null;
     }
