@@ -49,6 +49,16 @@ public sealed partial class DetailsPage : Page
     {
         InitializeComponent();
 
+        var cloudBackendId = PendingDetails.CloudBackendId;
+        PendingDetails.CloudBackendId = null;
+        if (cloudBackendId is not null)
+        {
+            _cloudBackendId = cloudBackendId;
+            _meeting = null;
+            InitializeCloudMode();
+            return;
+        }
+
         var targetId = PendingDetails.MeetingId;
         PendingDetails.MeetingId = null;
         _meeting = targetId is null ? AppStore.Repo.ListMeetings().FirstOrDefault() : AppStore.Repo.Load(targetId);
@@ -90,6 +100,8 @@ public sealed partial class DetailsPage : Page
         ShowPlayer();
         ShowVideo();
         SubscribePlayhead();
+        _ = RefreshAnalyzeAsync();
+        _ = LoadLocalCloudContentAsync();
         VideoPlayer.SizeChanged += (_, _) => ApplyAspect();
         Player.SizeChanged += (_, _) => ApplyAspect();
         UpdateAspectButton();
@@ -736,6 +748,68 @@ public sealed partial class DetailsPage : Page
     private void AnalyzeSignIn_Click(object sender, RoutedEventArgs e)
     {
         if (App.Window is MainWindow window) window.NavigateToAccount();
+    }
+
+    // --- Cloud mode (D11): a meeting opened from the Cloud Storage list with no local row ---
+
+    private async void InitializeCloudMode()
+    {
+        MeetingTitle.Text = Loc.T("Det.LoadingCloudMeeting");
+        if (!AppSession.TryCreateClient(out var client))
+        {
+            MeetingTitle.Text = Loc.T("DetAnalyzeSignIn");
+            RenderAnalyzeState(AnalysisState.NotAnalyzed, null);
+            return;
+        }
+        try
+        {
+            var detail = await client.GetMeetingAsync(_cloudBackendId!);
+            MeetingTitle.Text = detail.Title;
+            MeetingMeta.Text = (detail.StartedAt ?? detail.CreatedAt ?? "") + " \u00b7 " + detail.DurationMs / 1000 + "s";
+            await RefreshAnalyzeAsync();
+            await LoadCloudContentAsync(client, _cloudBackendId!);
+            await LoadCloudAudioAsync(client);
+        }
+        catch (BackendApiException ex)
+        {
+            if (ex.StatusCode == 401) AppSession.NoteAuthFailure(ex);
+            Status(InfoBarSeverity.Error, Loc.Tf("Cloud.Error", DescribeBackendError(ex)));
+        }
+        catch (Exception ex)
+        {
+            Status(InfoBarSeverity.Error, Loc.Tf("Cloud.Error", DescribeBackendError(ex)));
+        }
+    }
+
+    // Cloud-only meetings have no local recording: fetch the audio into the cache, then play it
+    // through the same Player element (Range-resume capable via the transport).
+    private async Task LoadCloudAudioAsync(BackendClient client)
+    {
+        try
+        {
+            var media = await client.ListMediaAsync(_cloudBackendId!);
+            var audio = media.FirstOrDefault(m => m.Kind == "audio");
+            if (audio is null) return;
+            var extension = audio.OriginalName.Contains('.') ? audio.OriginalName[(audio.OriginalName.LastIndexOf('.') + 1)..] : "m4a";
+            var path = new BackendCache(BackendCache.DefaultRoot).MediaPath(audio.Id, extension);
+            if (!File.Exists(path)) await client.DownloadMediaAsync(audio.Id, path, default);
+            Player.Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(path));
+            Player.Visibility = Visibility.Visible;
+            SubscribePlayhead();
+            ApplyAspect();
+        }
+        catch (Exception ex) { MeetVault.Core.AppLog.Warn("details: cloud audio failed: " + ex.Message); }
+    }
+
+    // Local meetings that already have a cloud copy: fetch transcript/summary for the swap.
+    private async Task LoadLocalCloudContentAsync()
+    {
+        if (_meeting is null) return;
+        var sync = AppStore.Repo.LoadBackendSync(_meeting.Id);
+        if (sync?.BackendId is { } id && sync.State is "ready" or "processing")
+        {
+            if (AppSession.TryCreateClient(out var c)) await LoadCloudContentAsync(c, id);
+        }
     }
 
     // --- Cloud transcript + summary (D8) ---

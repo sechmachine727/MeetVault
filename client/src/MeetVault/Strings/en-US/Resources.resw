@@ -483,6 +483,7 @@
   <data name="Cloud.Open.AutomationProperties.Name" xml:space="preserve"><value>Open meeting</value></data>
   <data name="Cloud.Meta" xml:space="preserve"><value>{0} · {1}</value></data>
   <data name="Cloud.OpenLabel" xml:space="preserve"><value>Open</value></data>
+  <data name="Det.LoadingCloudMeeting" xml:space="preserve"><value>Loading meeting from the cloud…</value></data>
 
   <!-- Details: Analyze / Transcript / Summary / player -->
   <data name="DetAnalyzeHeader.Text" xml:space="preserve"><value>Analyze meeting</value></data>

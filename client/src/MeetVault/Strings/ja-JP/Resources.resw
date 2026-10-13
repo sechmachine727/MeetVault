@@ -483,6 +483,7 @@
   <data name="Cloud.Open.AutomationProperties.Name" xml:space="preserve"><value>会議を開く</value></data>
   <data name="Cloud.Meta" xml:space="preserve"><value>{0} · {1}</value></data>
   <data name="Cloud.OpenLabel" xml:space="preserve"><value>開く</value></data>
+  <data name="Det.LoadingCloudMeeting" xml:space="preserve"><value>クラウドから会議を読み込んでいます…</value></data>
 
   <!-- Details: Analyze / Transcript / Summary / player -->
   <data name="DetAnalyzeHeader.Text" xml:space="preserve"><value>会議を解析</value></data>
