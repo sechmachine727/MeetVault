@@ -48,18 +48,17 @@ public sealed class BackendHttpTransport : IBackendTransport
     private readonly HttpClient _http;
     private readonly Uri _baseUri;
 
-    public BackendHttpTransport(string baseUrl, string apiKey, HttpMessageHandler? handler = null)
+    public BackendHttpTransport(string baseUrl, string? bearerToken, HttpMessageHandler? handler = null)
     {
         var url = (baseUrl ?? "").Trim().TrimEnd('/');
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
             || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
             throw new ArgumentException("Backend URL must be an absolute http(s) URL.", nameof(baseUrl));
-        if (string.IsNullOrWhiteSpace(apiKey))
-            throw new ArgumentException("Backend API key is required.", nameof(apiKey));
         _baseUri = uri;
         _http = new HttpClient(handler ?? new HttpClientHandler());
         _http.Timeout = TimeSpan.FromMinutes(10);
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        if (!string.IsNullOrWhiteSpace(bearerToken))
+            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
     }
 
     public async Task<string> SendAsync(BackendRequest request, CancellationToken ct)

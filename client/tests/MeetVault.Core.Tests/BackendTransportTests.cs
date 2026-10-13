@@ -92,10 +92,10 @@ public sealed class BackendTransportTests
     }
 
     [Fact]
-    public void Ctor_Rejects_NonAbsoluteUrl_AndMissingKey()
+    public void Ctor_RejectsNonAbsoluteUrl_AndAllowsBlankToken()
     {
         Assert.Throws<ArgumentException>(() => new BackendHttpTransport("localhost:8080", "k"));
-        Assert.Throws<ArgumentException>(() => new BackendHttpTransport("http://localhost:8080", " "));
+        using var tokenless = new BackendHttpTransport("http://localhost:8080", " ");
     }
 
     [Fact]
@@ -190,5 +190,25 @@ public sealed class BackendTransportTests
         Assert.Equal(2, events.Count);
         Assert.Equal("first", events[0].Message);
         Assert.Equal("second", events[1].Message);
+    }
+
+    [Fact]
+    public async Task Transport_WithoutToken_SendsNoAuthorizationHeader()
+    {
+        var handler = new BackendScriptedHandler();
+        handler.Enqueue(HttpStatusCode.OK, "{}");
+        using var transport = new BackendHttpTransport("http://127.0.0.1:1", bearerToken: null, handler);
+        await transport.SendAsync(new BackendRequest("GET", "/v1/auth/me"), default);
+        Assert.Null(handler.Requests[0].Auth);
+    }
+
+    [Fact]
+    public async Task Transport_WithToken_SendsBearerHeader()
+    {
+        var handler = new BackendScriptedHandler();
+        handler.Enqueue(HttpStatusCode.OK, "{}");
+        using var transport = new BackendHttpTransport("http://127.0.0.1:1", "tok-123", handler);
+        await transport.SendAsync(new BackendRequest("GET", "/v1/auth/me"), default);
+        Assert.Equal("Bearer tok-123", handler.Requests[0].Auth);
     }
 }
