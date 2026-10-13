@@ -101,6 +101,10 @@ public sealed record BackendFormatATranscript(string Source, string? Language, L
 public sealed record BackendFormatASegment(long StartMs, long EndMs, string Text, string SpeakerLabel);
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+[JsonSerializable(typeof(LoginBody))]
+[JsonSerializable(typeof(BackendSessionInfo))]
+[JsonSerializable(typeof(BackendMeInfo))]
+[JsonSerializable(typeof(BackendUser))]
 [JsonSerializable(typeof(BackendMeetingCreateBody))]
 [JsonSerializable(typeof(BackendProcessBody))]
 [JsonSerializable(typeof(BackendQaBody))]
