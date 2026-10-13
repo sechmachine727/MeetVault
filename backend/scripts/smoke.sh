@@ -34,11 +34,9 @@ WORK="$(mktemp -d)"
 if command -v cygpath >/dev/null 2>&1; then
   WORK="$(cygpath -w "$WORK" | sed 's|\\|/|g')"
 fi
-KEY="smoke-key"
 BASE="http://127.0.0.1:${PORT}"
 
 export MVB_ENV=dev
-export MVB_API_KEYS="$KEY"
 export MVB_DATABASE_URL="sqlite+pysqlite:///${WORK}/smoke.db"
 export MVB_MEDIA_ROOT="${WORK}/media"
 export MVB_LOG_LEVEL=WARNING
@@ -58,7 +56,7 @@ ok() { echo "ok   $*"; }
 
 api() { # api METHOD PATH [curl args…]
   local method="$1" path="$2"; shift 2
-  curl -fsS -X "$method" "${BASE}${path}" -H "Authorization: Bearer ${KEY}" "$@"
+  curl -fsS -X "$method" "${BASE}${path}" -H "Authorization: Bearer $TOKEN" "$@"
 }
 
 echo "== Meetvault_Backend smoke: $BASE =="
@@ -74,6 +72,11 @@ for i in $(seq 1 40); do
 done
 grep -q '"status":"ok"' "$WORK/health.txt" || fail "unexpected /healthz body: $(cat "$WORK/health.txt")"
 ok "server ready on port $PORT"
+
+"$PY" -m mvb.admin create-user --email smoke@example.com --password smoke-pass-1
+TOKEN="$(curl -fsS -X POST "$BASE/v1/auth/login" -H 'Content-Type: application/json' \
+  -d '{"email":"smoke@example.com","password":"smoke-pass-1"}' \
+  | "$PY" -c 'import json,sys; print(json.load(sys.stdin)["token"])')"
 
 api GET /readyz -o "$WORK/readyz.json"
 grep -q '"status":"ready"' "$WORK/readyz.json" || fail "readiness is not ok: $(cat "$WORK/readyz.json")"
