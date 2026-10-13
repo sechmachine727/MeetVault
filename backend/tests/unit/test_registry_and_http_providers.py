@@ -6,7 +6,6 @@ import respx
 
 from mvb.config import Settings
 from mvb.providers.analysis.lmstudio import LmStudioAnalyzer
-from mvb.providers.analysis.opencode import OpenCodeAnalyzer
 from mvb.providers.analysis.opencode_go import OpenCodeGoAnalyzer
 from mvb.providers.registry import build_analyzer, build_diarizer, build_transcriber, describe_providers
 
@@ -97,32 +96,6 @@ def test_lmstudio_complete_json_raises_on_http_error() -> None:
     respx.post(f"{BASE}/chat/completions").mock(return_value=httpx.Response(500, json={"error": "boom"}))
     with pytest.raises(httpx.HTTPStatusError):
         LmStudioAnalyzer(base_url=BASE, model="m").complete_json(system="s", user="u", schema={}, timeout_s=10)
-
-
-# ---- OpenCode client (respx, no network) -------------------------------------------
-
-OC = "http://127.0.0.1:4096"
-
-
-@respx.mock
-def test_opencode_ping_true_on_200() -> None:
-    respx.get(f"{OC}/api/models").mock(return_value=httpx.Response(200, json={"models": []}))
-    assert OpenCodeAnalyzer(base_url=OC).ping() is True
-
-
-@respx.mock
-def test_opencode_ping_false_on_unreachable() -> None:
-    respx.get(f"{OC}/api/models").mock(side_effect=httpx.ConnectError("refused"))
-    assert OpenCodeAnalyzer(base_url=OC).ping() is False
-
-
-@respx.mock
-def test_opencode_complete_json_reads_message_content() -> None:
-    respx.post(f"{OC}/api/chat").mock(return_value=httpx.Response(200, json={"message": {"content": '{"items": []}'}}))
-    result = OpenCodeAnalyzer(base_url=OC, model="m").complete_json(system="s", user="u", schema={}, timeout_s=5)
-    assert result.payload == {"items": []}
-    assert result.provider == "opencode"
-    assert result.is_mock is False
 
 
 # ---- OpenCode Go analyzer (respx, no network) -------------------------------------

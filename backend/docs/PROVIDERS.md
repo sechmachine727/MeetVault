@@ -6,7 +6,7 @@ Three capabilities, each behind a protocol in `src/mvb/providers/base.py`:
 | --- | --- | --- |
 | Speech → text | `Transcriber.transcribe(path, language, duration_ms, progress)` | `providers/transcription/mock.py`, `providers/transcription/faster_whisper.py` |
 | Speaker turns | `Diarizer.diarize(path, duration_ms, num_speakers, progress)` | `providers/diarization/mock.py`, `providers/diarization/pyannote.py` |
-| Text → JSON | `Analyzer.complete_json(system, user, schema, timeout_s)` | `providers/analysis/mock.py`, `providers/analysis/lmstudio.py`, `providers/analysis/opencode.py`, `providers/analysis/opencode_go.py` |
+| Text → JSON | `Analyzer.complete_json(system, user, schema, timeout_s)` | `providers/analysis/mock.py`, `providers/analysis/lmstudio.py`, `providers/analysis/opencode_go.py` |
 
 Selection is by env: `MVB_TRANSCRIBER`, `MVB_DIARIZER`, `MVB_ANALYZER`.
 
@@ -69,18 +69,8 @@ listing on 2026-10-13). The API key is the same one Hermes runs on — export it
 backend environment; the registry still degrades to labelled mock when the gateway is
 unreachable, and per-call spend follows the Go plan limits.
 
-## OpenCode
-
-    MVB_ANALYZER=opencode
-    MVB_OPENCODE_BASE_URL=http://host.docker.internal:4096
-    MVB_OPENCODE_API_KEY=
-
-The client is deliberately thin: it posts `{system, user, schema}` to
-`POST {base}/session/{id}/message`-style JSON endpoints and parses a JSON object out of the
-reply. Because OpenCode's HTTP surface is not stable across versions, the adapter is written
-so the endpoint shape lives in one place (`_post_json`); pin the real route for your version
-there when enabling it. It is exercised with `respx` in the unit tests, and a live call is
-skipped unless `MVB_RUN_LIVE=1`.
+> Removed 2026-10-13: the self-hosted `opencode serve` analyzer (`MVB_ANALYZER=opencode`)
+> is gone — its routes were never verified against a live server. Use `opencode-go` above.
 
 ## Adding a provider
 
