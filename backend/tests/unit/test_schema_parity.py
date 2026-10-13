@@ -10,9 +10,18 @@ import mvb.db.models  # noqa: F401
 from mvb.db.base import Base
 
 EXPECTED_TABLES = {
-    "meetings", "media_assets", "transcripts", "transcript_segments", "speakers",
-    "jobs", "job_events", "analysis_runs", "sections", "analysis_documents",
-    "users", "auth_tokens",
+    "meetings",
+    "media_assets",
+    "transcripts",
+    "transcript_segments",
+    "speakers",
+    "jobs",
+    "job_events",
+    "analysis_runs",
+    "sections",
+    "analysis_documents",
+    "users",
+    "auth_tokens",
 }
 
 
