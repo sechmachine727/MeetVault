@@ -201,7 +201,7 @@ on the host with `MVB_LMSTUDIO_BASE_URL=http://host.docker.internal:1234/v1`.
 ## Implemented client (2026-10-13)
 
 The Windows client (`../client/`) now implements this contract end to end — the 6-call flow in
-section 3 plus the feature surfaces. No endpoint or schema in this document changed; this section
+section 1 plus the feature surfaces. No endpoint or schema in this document changed; this section
 records the client side only.
 
 - Send flow: `POST /v1/meetings` (`source=meetvault`, `external_id` = the local meeting id) →
@@ -218,5 +218,6 @@ records the client side only.
   settings key `backend.url`. Mock output is never disguised: the `mock` badge is rendered and the
   server's `[mock]` text prefixes pass through unchanged.
 - Evidence: the monorepo plan
-  `../.hermes/plans/2026-10-12_214842-meetvault-monorepo-backend-integration.md` Phase 8 (T80–T84)
+  `../.hermes/plans/2026-10-12_214842-meetvault-monorepo-backend-integration.md` (an out-of-tree
+  working plan; not committed to the repo) Phase 8 (T80–T84)
   and the client progress log `../client/docs/progress/progress_supersanta/`.

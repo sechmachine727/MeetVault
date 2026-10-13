@@ -9,7 +9,8 @@
 > `../client/` now implements the full flow against this service (send/upload, status + mock badge,
 > server transcript, analysis, Q&A, speakers, versions, jobs, media download, re-run, update
 > transcript, remove). Details: the monorepo plan
-> `../.hermes/plans/2026-10-12_214842-meetvault-monorepo-backend-integration.md` (Phase 8, T80–T84)
+> `../.hermes/plans/2026-10-12_214842-meetvault-monorepo-backend-integration.md` (an out-of-tree
+> working plan; not committed to the repo) (Phase 8, T80–T84)
 > and the client progress log `../client/docs/progress/progress_supersanta/`. `docs/INTEGRATION.md`
 > remains the authoritative contract.
 
@@ -40,7 +41,9 @@ service. Last updated 2026-10-12, at commit `09b0855` (branch `main`, working tr
 
 ## 2. What was delivered
 
-Scope came from the plan `D:/workspace/MeetVault/.hermes/plans/2026-10-12_125820-meetvault-backend.md`
+Scope came from the plan
+`D:/workspace/MeetVault/.hermes/plans/2026-10-12_125820-meetvault-backend.md` (an out-of-tree working
+plan; not committed to the repo)
 (tasks T01–T71; the three client hooks T72–T74 were later delivered in the monorepo client, 2026-10-13).
 
 | Phase | Tasks | Delivered |
@@ -288,7 +291,7 @@ Per-criterion mapping (20 acceptance criteria → evidence) is in `docs/ACCEPTAN
 | Thing | Location |
 | --- | --- |
 | Service repo | `D:/workspace/Meetvault_Backend` (branch `main`, 15 commits) |
-| Build plan (work queue, T01–T71) | `D:/workspace/MeetVault/.hermes/plans/2026-10-12_125820-meetvault-backend.md` |
+| Build plan (work queue, T01–T71) | `D:/workspace/MeetVault/.hermes/plans/2026-10-12_125820-meetvault-backend.md` (out-of-tree working plan; not committed) |
 | Progress / source of truth | `docs/progress/progress_supersanta/PROGRESS_2026-10-12.md` |
 | Client integration contract | `docs/INTEGRATION.md` |
 | Endpoint map | `docs/API.md` · Architecture: `docs/ARCHITECTURE.md` |
