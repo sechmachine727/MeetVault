@@ -1,27 +1,20 @@
 from __future__ import annotations
 
-from fastapi.testclient import TestClient
 
-from mvb.main import create_app
-
-client = TestClient(create_app())
-HEADERS = {"Authorization": "Bearer test-key"}
-
-
-def test_system_info_requires_auth() -> None:
+def test_system_info_requires_auth(client) -> None:
     assert client.get("/v1/system/info").status_code == 401
 
 
-def test_system_info_reports_version_and_migration_head() -> None:
-    response = client.get("/v1/system/info", headers=HEADERS)
+def test_system_info_reports_version_and_migration_head(client, auth_headers) -> None:
+    response = client.get("/v1/system/info", headers=auth_headers)
     assert response.status_code == 200
     body = response.json()
     assert body["version"] == "0.1.0"
-    assert body["migration_head"] == "20261012_0001"
+    assert body["migration_head"] == "20261014_0002"
 
 
-def test_providers_endpoint_distinguishes_requested_and_effective() -> None:
-    response = client.get("/v1/system/providers", headers=HEADERS)
+def test_providers_endpoint_distinguishes_requested_and_effective(client, auth_headers) -> None:
+    response = client.get("/v1/system/providers", headers=auth_headers)
     assert response.status_code == 200
     body = response.json()
     assert set(body) == {"transcriber", "diarizer", "analyzer"}

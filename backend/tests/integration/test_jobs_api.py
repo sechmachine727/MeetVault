@@ -6,8 +6,8 @@ from mvb.db.models import Meeting
 from mvb.jobs.queue import complete, enqueue
 
 
-def _meeting(db_session, title: str = "standup") -> Meeting:  # type: ignore[no-untyped-def]
-    meeting = Meeting(id=uuid.uuid4(), title=title)
+def _meeting(db_session, title: str = "standup", user_id=None) -> Meeting:  # type: ignore[no-untyped-def]
+    meeting = Meeting(id=uuid.uuid4(), title=title, user_id=user_id)
     db_session.add(meeting)
     db_session.commit()
     return meeting
@@ -32,8 +32,9 @@ def test_unknown_job_is_404_with_envelope(client, auth_headers) -> None:  # type
     assert client.get(f"/v1/jobs/{job_id}/events", headers=auth_headers).status_code == 404
 
 
-def test_job_detail_includes_events(client, auth_headers, db_session) -> None:  # type: ignore[no-untyped-def]
-    job = enqueue(db_session, job_type="media_probe", meeting_id=None, params={"a": 1})
+def test_job_detail_includes_events(client, auth_headers, auth_user, db_session) -> None:  # type: ignore[no-untyped-def]
+    meeting = _meeting(db_session, user_id=auth_user.id)
+    job = enqueue(db_session, job_type="media_probe", meeting_id=meeting.id, params={"a": 1})
     db_session.commit()
     response = client.get(f"/v1/jobs/{job.id}", headers=auth_headers)
     assert response.status_code == 200
@@ -48,8 +49,9 @@ def test_job_detail_includes_events(client, auth_headers, db_session) -> None:  
     assert body["events"][-1]["message"] == "queued media_probe"
 
 
-def test_cancel_queued_job(client, auth_headers, db_session) -> None:  # type: ignore[no-untyped-def]
-    job = enqueue(db_session, job_type="transcribe", meeting_id=None)
+def test_cancel_queued_job(client, auth_headers, auth_user, db_session) -> None:  # type: ignore[no-untyped-def]
+    meeting = _meeting(db_session, user_id=auth_user.id)
+    job = enqueue(db_session, job_type="transcribe", meeting_id=meeting.id)
     db_session.commit()
     response = client.post(f"/v1/jobs/{job.id}/cancel", headers=auth_headers)
     assert response.status_code == 200
@@ -58,8 +60,9 @@ def test_cancel_queued_job(client, auth_headers, db_session) -> None:  # type: i
     assert body["finished_at"] is not None
 
 
-def test_cancel_already_succeeded_job_is_unchanged(client, auth_headers, db_session) -> None:  # type: ignore[no-untyped-def]
-    job = enqueue(db_session, job_type="transcribe", meeting_id=None)
+def test_cancel_already_succeeded_job_is_unchanged(client, auth_headers, auth_user, db_session) -> None:  # type: ignore[no-untyped-def]
+    meeting = _meeting(db_session, user_id=auth_user.id)
+    job = enqueue(db_session, job_type="transcribe", meeting_id=meeting.id)
     db_session.commit()
     complete(db_session, job, result={"ok": True})
     db_session.commit()
@@ -68,9 +71,9 @@ def test_cancel_already_succeeded_job_is_unchanged(client, auth_headers, db_sess
     assert response.json()["state"] == "succeeded"
 
 
-def test_meeting_jobs_list_is_paginated(client, auth_headers, db_session) -> None:  # type: ignore[no-untyped-def]
-    meeting = _meeting(db_session)
-    other = _meeting(db_session, "other")
+def test_meeting_jobs_list_is_paginated(client, auth_headers, auth_user, db_session) -> None:  # type: ignore[no-untyped-def]
+    meeting = _meeting(db_session, user_id=auth_user.id)
+    other = _meeting(db_session, "other", user_id=auth_user.id)
     enqueue(db_session, job_type="transcribe", meeting_id=meeting.id)
     enqueue(db_session, job_type="analyze", meeting_id=meeting.id)
     enqueue(db_session, job_type="transcribe", meeting_id=other.id)
@@ -86,8 +89,9 @@ def test_meeting_jobs_list_is_paginated(client, auth_headers, db_session) -> Non
     assert {item["type"] for item in body["items"]} == {"transcribe", "analyze"}
 
 
-def test_job_events_stream(client, auth_headers, db_session) -> None:  # type: ignore[no-untyped-def]
-    job = enqueue(db_session, job_type="media_probe", meeting_id=None)
+def test_job_events_stream(client, auth_headers, auth_user, db_session) -> None:  # type: ignore[no-untyped-def]
+    meeting = _meeting(db_session, user_id=auth_user.id)
+    job = enqueue(db_session, job_type="media_probe", meeting_id=meeting.id)
     db_session.commit()
     complete(db_session, job, result={})
     db_session.commit()

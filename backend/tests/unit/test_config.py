@@ -17,19 +17,6 @@ def test_defaults_are_dev_safe(monkeypatch: pytest.MonkeyPatch) -> None:
     assert s.max_upload_mb == 4096
 
 
-def test_api_keys_are_split_and_trimmed(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("MVB_API_KEYS", " alpha , beta,, ")
-    s = Settings()
-    assert s.api_keys == ["alpha", "beta"]
-
-
-def test_prod_requires_keys(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("MVB_ENV", "prod")
-    monkeypatch.setenv("MVB_API_KEYS", "")
-    with pytest.raises(ValidationError):
-        Settings()
-
-
 def test_provider_choices_are_validated(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MVB_ANALYZER", "not-a-provider")
     with pytest.raises(ValidationError):

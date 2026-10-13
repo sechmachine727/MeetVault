@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Literal
 
-from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 TranscriberName = Literal["mock", "faster_whisper"]
 DiarizerName = Literal["mock", "pyannote"]
@@ -20,10 +19,6 @@ class Settings(BaseSettings):
     env: Literal["dev", "prod", "test"] = "dev"
     host: str = "0.0.0.0"
     port: int = 8080
-    # NoDecode: the env value is a comma-separated string, not JSON, so the raw value
-    # reaches the validator below (pydantic-settings otherwise tries json.loads on it).
-    api_keys: Annotated[list[str], NoDecode] = Field(default_factory=list)
-
     database_url: str = "sqlite+pysqlite:///./_local.db"
     media_root: Path = Path("./data/media")
     max_upload_mb: int = 4096
@@ -48,19 +43,6 @@ class Settings(BaseSettings):
     ffmpeg: str = "ffmpeg"
     ffprobe: str = "ffprobe"
     log_level: str = "INFO"
-
-    @field_validator("api_keys", mode="before")
-    @classmethod
-    def _split_keys(cls, value: object) -> object:
-        if isinstance(value, str):
-            return [part.strip() for part in value.split(",") if part.strip()]
-        return value
-
-    @model_validator(mode="after")
-    def _prod_requires_keys(self) -> Settings:
-        if self.env == "prod" and not self.api_keys:
-            raise ValueError("MVB_API_KEYS must be set when MVB_ENV=prod")
-        return self
 
     @property
     def max_upload_bytes(self) -> int:

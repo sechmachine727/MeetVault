@@ -37,7 +37,6 @@ def _clean_env(monkeypatch: pytest.MonkeyPatch, media_root: Path, tmp_path: Path
         if key.startswith("MVB_"):
             monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("MVB_ENV", "test")
-    monkeypatch.setenv("MVB_API_KEYS", "test-key")
     monkeypatch.setenv("MVB_DATABASE_URL", POSTGRES_TEST_URL or f"sqlite+pysqlite:///{tmp_path / 'test.db'}")
     monkeypatch.setenv("MVB_MEDIA_ROOT", str(media_root))
     monkeypatch.setenv("MVB_LOG_LEVEL", "WARNING")
@@ -74,8 +73,8 @@ def client():  # type: ignore[no-untyped-def]
 
 
 @pytest.fixture
-def auth_headers() -> dict[str, str]:
-    return {"Authorization": "Bearer test-key"}
+def auth_headers(auth_user):  # type: ignore[no-untyped-def]
+    return auth_user.headers
 
 
 @pytest.fixture

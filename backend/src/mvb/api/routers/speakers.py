@@ -4,11 +4,10 @@ import uuid
 
 from fastapi import APIRouter
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
-from mvb.api.deps import ApiKeyId, DbSession
+from mvb.api.deps import CurrentUser, DbSession
 from mvb.api.errors import ApiError
-from mvb.api.routers.meetings import get_meeting
+from mvb.api.routers.meetings import get_meeting, get_owned_speaker
 from mvb.db.models import Speaker, TranscriptSegment
 from mvb.schemas.common import OkResponse
 from mvb.schemas.speakers import SpeakerMerge, SpeakerMergeOut, SpeakerOut, SpeakerPatch, SpeakerWithStatsOut
@@ -16,18 +15,11 @@ from mvb.schemas.speakers import SpeakerMerge, SpeakerMergeOut, SpeakerOut, Spea
 router = APIRouter(tags=["speakers"])
 
 
-def get_speaker(db: Session, speaker_id: uuid.UUID) -> Speaker:
-    speaker = db.get(Speaker, speaker_id)
-    if speaker is None:
-        raise ApiError(404, "not_found", "Speaker not found", {"speaker_id": str(speaker_id)})
-    return speaker
-
-
 @router.get("/meetings/{meeting_id}/speakers", response_model=list[SpeakerWithStatsOut])
-def list_speakers(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> list[SpeakerWithStatsOut]:
+def list_speakers(meeting_id: uuid.UUID, user: CurrentUser, db: DbSession) -> list[SpeakerWithStatsOut]:
     """Speakers of a meeting with how much each one talks — the client uses this for the
     speaker legend."""
-    get_meeting(db, meeting_id)
+    get_meeting(db, meeting_id, user)
     rows = db.scalars(select(Speaker).where(Speaker.meeting_id == meeting_id).order_by(Speaker.label)).all()
     out: list[SpeakerWithStatsOut] = []
     for speaker in rows:
@@ -45,10 +37,10 @@ def list_speakers(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> list[Spe
 
 
 @router.patch("/speakers/{speaker_id}", response_model=SpeakerOut)
-def rename_speaker(speaker_id: uuid.UUID, payload: SpeakerPatch, _: ApiKeyId, db: DbSession) -> SpeakerOut:
+def rename_speaker(speaker_id: uuid.UUID, payload: SpeakerPatch, user: CurrentUser, db: DbSession) -> SpeakerOut:
     """Rename a speaker ("Speaker 2" -> "Ana"). The denormalised label on every segment of
     the meeting is updated with it so transcripts stay consistent."""
-    speaker = get_speaker(db, speaker_id)
+    speaker = get_owned_speaker(db, speaker_id, user)
     conflict = db.scalar(
         select(Speaker).where(
             Speaker.meeting_id == speaker.meeting_id,
@@ -74,11 +66,11 @@ def rename_speaker(speaker_id: uuid.UUID, payload: SpeakerPatch, _: ApiKeyId, db
 
 
 @router.post("/speakers/{speaker_id}/merge", response_model=SpeakerMergeOut)
-def merge_speaker(speaker_id: uuid.UUID, payload: SpeakerMerge, _: ApiKeyId, db: DbSession) -> SpeakerMergeOut:
+def merge_speaker(speaker_id: uuid.UUID, payload: SpeakerMerge, user: CurrentUser, db: DbSession) -> SpeakerMergeOut:
     """Fold one speaker into another (diarization split one person in two). The source
     speaker row is deleted and its segments are relabelled."""
-    source = get_speaker(db, speaker_id)
-    target = get_speaker(db, payload.target_speaker_id)
+    source = get_owned_speaker(db, speaker_id, user)
+    target = get_owned_speaker(db, payload.target_speaker_id, user)
     if source.meeting_id != target.meeting_id:
         raise ApiError(
             422,
@@ -103,9 +95,9 @@ def merge_speaker(speaker_id: uuid.UUID, payload: SpeakerMerge, _: ApiKeyId, db:
 
 
 @router.delete("/speakers/{speaker_id}", response_model=OkResponse)
-def delete_speaker(speaker_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> OkResponse:
+def delete_speaker(speaker_id: uuid.UUID, user: CurrentUser, db: DbSession) -> OkResponse:
     """Delete a speaker; its segments keep their text and just lose the link."""
-    speaker = get_speaker(db, speaker_id)
+    speaker = get_owned_speaker(db, speaker_id, user)
     cleared = db.scalar(
         select(func.count()).select_from(TranscriptSegment).where(TranscriptSegment.speaker_id == speaker.id)
     )

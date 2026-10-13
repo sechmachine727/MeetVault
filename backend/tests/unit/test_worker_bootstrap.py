@@ -9,7 +9,6 @@ SCRIPT = textwrap.dedent(
     """
     import os, sys
     os.environ["MVB_ENV"] = "dev"
-    os.environ["MVB_API_KEYS"] = "k"
     os.environ["MVB_DATABASE_URL"] = "sqlite+pysqlite:///" + sys.argv[1]
     os.environ["MVB_MEDIA_ROOT"] = sys.argv[2]
     os.environ["MVB_LOG_LEVEL"] = "WARNING"

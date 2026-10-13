@@ -43,6 +43,7 @@ def seed_meeting_with_audio(
     title: str = "Test meeting",
     external_id: str | None = None,
     language: str = "en",
+    user_id: uuid.UUID | None = None,
 ) -> tuple[Any, Any]:
     """Insert a meeting plus one probed audio asset whose file exists under media_root."""
     from mvb.db.models import MediaAsset, Meeting
@@ -57,6 +58,7 @@ def seed_meeting_with_audio(
         status="uploaded",
         language=language,
         external_id=external_id,
+        user_id=user_id,
         metadata_json={},
     )
     session.add(meeting)

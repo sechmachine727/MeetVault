@@ -8,21 +8,14 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from mvb.api.deps import ApiKeyId, DbSession, Pagination
+from mvb.api.deps import CurrentUser, DbSession, Pagination
 from mvb.api.errors import ApiError
-from mvb.api.routers.meetings import active_transcript_of, segments_of
+from mvb.api.routers.meetings import active_transcript_of, get_meeting, get_owned_transcript, segments_of
 from mvb.db.models import Meeting, Transcript, TranscriptSegment
 from mvb.schemas.common import OkResponse, Page
 from mvb.schemas.transcripts import SegmentOut, TranscriptDetailOut, TranscriptOut
 
 router = APIRouter(tags=["transcripts"])
-
-
-def get_transcript(db: Session, transcript_id: uuid.UUID) -> Transcript:
-    transcript = db.get(Transcript, transcript_id)
-    if transcript is None:
-        raise ApiError(404, "not_found", "Transcript not found", {"transcript_id": str(transcript_id)})
-    return transcript
 
 
 def _detail(db: Session, transcript: Transcript, duration_ms: int = 0) -> TranscriptDetailOut:
@@ -38,8 +31,9 @@ def _meeting_duration(db: Session, meeting_id: uuid.UUID) -> int:
 
 
 @router.get("/meetings/{meeting_id}/transcript", response_model=TranscriptDetailOut)
-def get_active_transcript(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> TranscriptDetailOut:
+def get_active_transcript(meeting_id: uuid.UUID, user: CurrentUser, db: DbSession) -> TranscriptDetailOut:
     """The active transcript with every segment, oldest first — what the client displays."""
+    get_meeting(db, meeting_id, user)
     transcript = active_transcript_of(db, meeting_id)
     if transcript is None:
         raise ApiError(404, "not_found", "This meeting has no active transcript", {"meeting_id": str(meeting_id)})
@@ -49,11 +43,12 @@ def get_active_transcript(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> 
 @router.get("/meetings/{meeting_id}/transcript/text", response_class=PlainTextResponse)
 def get_active_transcript_text(
     meeting_id: uuid.UUID,
-    _: ApiKeyId,
+    user: CurrentUser,
     db: DbSession,
     speaker_prefix: Annotated[bool, Query()] = True,
 ) -> PlainTextResponse:
     """The active transcript as plain text (one segment per line) for copy/paste or export."""
+    get_meeting(db, meeting_id, user)
     transcript = active_transcript_of(db, meeting_id)
     if transcript is None:
         raise ApiError(404, "not_found", "This meeting has no active transcript", {"meeting_id": str(meeting_id)})
@@ -65,8 +60,9 @@ def get_active_transcript_text(
 
 
 @router.get("/meetings/{meeting_id}/transcripts", response_model=Page[TranscriptOut])
-def list_transcripts(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession, page: Pagination) -> Page[TranscriptOut]:
+def list_transcripts(meeting_id: uuid.UUID, user: CurrentUser, db: DbSession, page: Pagination) -> Page[TranscriptOut]:
     """Every version of this meeting's transcript, newest version first."""
+    get_meeting(db, meeting_id, user)
     limit, offset = page
     total = db.scalar(select(func.count()).select_from(Transcript).where(Transcript.meeting_id == meeting_id)) or 0
     rows = db.scalars(
@@ -85,15 +81,15 @@ def list_transcripts(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession, page: Pa
 
 
 @router.get("/transcripts/{transcript_id}", response_model=TranscriptDetailOut)
-def get_transcript_detail(transcript_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> TranscriptDetailOut:
-    transcript = get_transcript(db, transcript_id)
+def get_transcript_detail(transcript_id: uuid.UUID, user: CurrentUser, db: DbSession) -> TranscriptDetailOut:
+    transcript = get_owned_transcript(db, transcript_id, user)
     return _detail(db, transcript, _meeting_duration(db, transcript.meeting_id))
 
 
 @router.get("/transcripts/{transcript_id}/segments", response_model=Page[SegmentOut])
 def list_segments(
     transcript_id: uuid.UUID,
-    _: ApiKeyId,
+    user: CurrentUser,
     db: DbSession,
     page: Pagination,
     start_ms: Annotated[int | None, Query(ge=0)] = None,
@@ -101,7 +97,7 @@ def list_segments(
 ) -> Page[SegmentOut]:
     """Paged segments; `start_ms`/`end_ms` clip to a time window (segments that overlap it)."""
     limit, offset = page
-    get_transcript(db, transcript_id)
+    get_owned_transcript(db, transcript_id, user)
     conditions = [TranscriptSegment.transcript_id == transcript_id]
     if start_ms is not None:
         conditions.append(TranscriptSegment.end_ms > start_ms)
@@ -120,9 +116,9 @@ def list_segments(
 
 
 @router.post("/transcripts/{transcript_id}/activate", response_model=OkResponse)
-def activate_transcript(transcript_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> OkResponse:
+def activate_transcript(transcript_id: uuid.UUID, user: CurrentUser, db: DbSession) -> OkResponse:
     """Make this version the active one (e.g. roll back from a bad ASR run)."""
-    transcript = get_transcript(db, transcript_id)
+    transcript = get_owned_transcript(db, transcript_id, user)
     for row in db.scalars(select(Transcript).where(Transcript.meeting_id == transcript.meeting_id)).all():
         row.is_active = row.id == transcript.id
     db.commit()
@@ -130,9 +126,9 @@ def activate_transcript(transcript_id: uuid.UUID, _: ApiKeyId, db: DbSession) ->
 
 
 @router.delete("/transcripts/{transcript_id}", response_model=OkResponse)
-def delete_transcript(transcript_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> OkResponse:
+def delete_transcript(transcript_id: uuid.UUID, user: CurrentUser, db: DbSession) -> OkResponse:
     """Delete one non-active transcript version."""
-    transcript = get_transcript(db, transcript_id)
+    transcript = get_owned_transcript(db, transcript_id, user)
     if transcript.is_active:
         raise ApiError(
             409,

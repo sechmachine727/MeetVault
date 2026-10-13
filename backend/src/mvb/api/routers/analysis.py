@@ -7,10 +7,10 @@ from fastapi import APIRouter, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from mvb.api.deps import ApiKeyId, DbSession, Pagination
+from mvb.api.deps import CurrentUser, DbSession, Pagination
 from mvb.api.errors import ApiError
 from mvb.api.routers.meetings import get_meeting
-from mvb.db.models import AnalysisDocument, AnalysisRun, Job, Section
+from mvb.db.models import AnalysisDocument, AnalysisRun, Job, Meeting, Section, User
 from mvb.jobs.queue import enqueue
 from mvb.pipeline.status import meeting_status
 from mvb.schemas.analysis import (
@@ -51,11 +51,8 @@ def latest_sections(db: Session, meeting_id: uuid.UUID, run_id: uuid.UUID | None
     return list(db.scalars(select(Section).where(*conditions).order_by(Section.ordinal)).all())
 
 
-@router.get("/meetings/{meeting_id}/analysis", response_model=AnalysisBundleOut)
-def get_analysis_bundle(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> AnalysisBundleOut:
-    """Everything the client renders after processing, in one round trip: summary, agenda
-    sections with their summaries, decisions, action items, previous Q&A, and staleness."""
-    get_meeting(db, meeting_id)
+def build_analysis_bundle(db: Session, meeting: Meeting) -> AnalysisBundleOut:
+    meeting_id = meeting.id
     status_payload = meeting_status(db, meeting_id)
     latest_run = db.scalar(
         select(AnalysisRun)
@@ -111,10 +108,15 @@ def get_analysis_bundle(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> An
     )
 
 
+@router.get("/meetings/{meeting_id}/analysis", response_model=AnalysisBundleOut)
+def get_analysis_bundle(meeting_id: uuid.UUID, user: CurrentUser, db: DbSession) -> AnalysisBundleOut:
+    return build_analysis_bundle(db, get_meeting(db, meeting_id, user))
+
+
 @router.get("/meetings/{meeting_id}/sections", response_model=list[SectionOut])
-def list_sections(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> list[SectionOut]:
+def list_sections(meeting_id: uuid.UUID, user: CurrentUser, db: DbSession) -> list[SectionOut]:
     """Agenda sections of the newest analysis run, in meeting order."""
-    get_meeting(db, meeting_id)
+    get_meeting(db, meeting_id, user)
     latest_run = db.scalar(
         select(AnalysisRun)
         .where(AnalysisRun.meeting_id == meeting_id)
@@ -127,10 +129,10 @@ def list_sections(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> list[Sec
 
 @router.get("/meetings/{meeting_id}/sections/{section_id}/summary", response_model=AnalysisDocumentOut)
 def get_section_summary(
-    meeting_id: uuid.UUID, section_id: uuid.UUID, _: ApiKeyId, db: DbSession
+    meeting_id: uuid.UUID, section_id: uuid.UUID, user: CurrentUser, db: DbSession
 ) -> AnalysisDocumentOut:
     """The newest summary document for one section."""
-    get_meeting(db, meeting_id)
+    get_meeting(db, meeting_id, user)
     section = db.get(Section, section_id)
     if section is None or section.meeting_id != meeting_id:
         raise ApiError(404, "not_found", "Section not found", {"section_id": str(section_id)})
@@ -152,7 +154,7 @@ def get_section_summary(
 @router.get("/meetings/{meeting_id}/documents", response_model=Page[AnalysisDocumentOut])
 def list_documents(
     meeting_id: uuid.UUID,
-    _: ApiKeyId,
+    user: CurrentUser,
     db: DbSession,
     page: Pagination,
     kind: Annotated[str | None, Query(max_length=32)] = None,
@@ -160,7 +162,7 @@ def list_documents(
 ) -> Page[AnalysisDocumentOut]:
     """Analysis documents (newest first), optionally filtered by kind."""
     limit, offset = page
-    get_meeting(db, meeting_id)
+    get_meeting(db, meeting_id, user)
     conditions = [AnalysisDocument.meeting_id == meeting_id]
     if kind:
         conditions.append(AnalysisDocument.kind == kind)
@@ -183,19 +185,19 @@ def list_documents(
 
 
 @router.get("/meetings/{meeting_id}/decisions", response_model=AnalysisDocumentOut)
-def get_decisions(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> AnalysisDocumentOut:
+def get_decisions(meeting_id: uuid.UUID, user: CurrentUser, db: DbSession) -> AnalysisDocumentOut:
     """The newest decisions document."""
-    return _one_kind(db, meeting_id, "decisions")
+    return _one_kind(db, meeting_id, user, "decisions")
 
 
 @router.get("/meetings/{meeting_id}/action-items", response_model=AnalysisDocumentOut)
-def get_action_items(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> AnalysisDocumentOut:
+def get_action_items(meeting_id: uuid.UUID, user: CurrentUser, db: DbSession) -> AnalysisDocumentOut:
     """The newest action-items document."""
-    return _one_kind(db, meeting_id, "action_items")
+    return _one_kind(db, meeting_id, user, "action_items")
 
 
-def _one_kind(db: Session, meeting_id: uuid.UUID, kind: str) -> AnalysisDocumentOut:
-    get_meeting(db, meeting_id)
+def _one_kind(db: Session, meeting_id: uuid.UUID, user: User, kind: str) -> AnalysisDocumentOut:
+    get_meeting(db, meeting_id, user)
     document = db.scalar(
         select(AnalysisDocument)
         .where(AnalysisDocument.meeting_id == meeting_id, AnalysisDocument.kind == kind)
@@ -210,7 +212,7 @@ def _one_kind(db: Session, meeting_id: uuid.UUID, kind: str) -> AnalysisDocument
 @router.post("/meetings/{meeting_id}/qa", response_model=QAResponse, status_code=status.HTTP_202_ACCEPTED)
 def ask_question(
     meeting_id: uuid.UUID,
-    _: ApiKeyId,
+    user: CurrentUser,
     db: DbSession,
     request: QARequest,
 ) -> QAResponse:
@@ -223,7 +225,7 @@ def ask_question(
     The body is validated by the declared model, so a missing or blank `question` is a 422 in
     the standard error envelope — not a 500 from an unguarded model_validate inside the handler.
     """
-    get_meeting(db, meeting_id)
+    get_meeting(db, meeting_id, user)
     if request.section_id is not None:
         section = db.get(Section, request.section_id)
         if section is None or section.meeting_id != meeting_id:
@@ -244,10 +246,10 @@ def ask_question(
 
 
 @router.get("/meetings/{meeting_id}/qa", response_model=Page[AnalysisDocumentOut])
-def list_qa(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession, page: Pagination) -> Page[AnalysisDocumentOut]:
+def list_qa(meeting_id: uuid.UUID, user: CurrentUser, db: DbSession, page: Pagination) -> Page[AnalysisDocumentOut]:
     """Previously asked questions, newest first."""
     limit, offset = page
-    get_meeting(db, meeting_id)
+    get_meeting(db, meeting_id, user)
     conditions = [AnalysisDocument.meeting_id == meeting_id, AnalysisDocument.kind == "qa"]
     total = db.scalar(select(func.count()).select_from(AnalysisDocument).where(*conditions)) or 0
     rows = db.scalars(
@@ -266,10 +268,10 @@ def list_qa(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession, page: Pagination)
 
 
 @router.get("/meetings/{meeting_id}/analysis/runs", response_model=Page[AnalysisRunOut])
-def list_runs(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession, page: Pagination) -> Page[AnalysisRunOut]:
+def list_runs(meeting_id: uuid.UUID, user: CurrentUser, db: DbSession, page: Pagination) -> Page[AnalysisRunOut]:
     """Analysis history, newest first (a stale document points at the run that produced it)."""
     limit, offset = page
-    get_meeting(db, meeting_id)
+    get_meeting(db, meeting_id, user)
     total = db.scalar(select(func.count()).select_from(AnalysisRun).where(AnalysisRun.meeting_id == meeting_id)) or 0
     rows = db.scalars(
         select(AnalysisRun)
@@ -287,7 +289,7 @@ def list_runs(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession, page: Paginatio
 
 
 @router.get("/meetings/{meeting_id}/jobs/latest", response_model=list[dict])
-def latest_jobs(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> list[dict]:
+def latest_jobs(meeting_id: uuid.UUID, user: CurrentUser, db: DbSession) -> list[dict]:
     """Compact per-step job state, in pipeline order — a lighter alternative to
     /meetings/{id}/jobs for polling.
 
@@ -295,7 +297,7 @@ def latest_jobs(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> list[dict]
     (media_probe 0 … analyze 4, qa 200), so the order is exact even on SQLite, whose timestamps
     only have one-second resolution and would otherwise tie every job of one run.
     """
-    get_meeting(db, meeting_id)
+    get_meeting(db, meeting_id, user)
     rows = db.scalars(
         select(Job).where(Job.meeting_id == meeting_id).order_by(Job.priority.asc(), Job.created_at.asc(), Job.id.asc())
     ).all()

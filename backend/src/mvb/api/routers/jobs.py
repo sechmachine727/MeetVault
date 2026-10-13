@@ -8,10 +8,9 @@ from collections.abc import Iterator
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
-from mvb.api.deps import ApiKeyId, DbSession, Pagination
-from mvb.api.errors import ApiError
+from mvb.api.deps import CurrentUser, DbSession, Pagination
+from mvb.api.routers.meetings import get_meeting, get_owned_job
 from mvb.db.base import get_session_factory
 from mvb.db.models import Job, JobEvent
 from mvb.jobs.queue import TERMINAL_STATES, cancel
@@ -25,17 +24,10 @@ EVENTS_POLL_SECONDS = 1.0
 EVENTS_MAX_SECONDS = 15 * 60
 
 
-def _get_job(db: Session, job_id: uuid.UUID) -> Job:
-    job = db.get(Job, job_id)
-    if job is None:
-        raise ApiError(404, "not_found", "Job not found", {"job_id": str(job_id)})
-    return job
-
-
 @router.get("/jobs/{job_id}", response_model=JobDetailOut)
-def get_job(job_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> JobDetailOut:
+def get_job(job_id: uuid.UUID, user: CurrentUser, db: DbSession) -> JobDetailOut:
     """One job plus its most recent events, oldest first."""
-    job = _get_job(db, job_id)
+    job = get_owned_job(db, job_id, user)
     rows = db.scalars(
         select(JobEvent).where(JobEvent.job_id == job_id).order_by(JobEvent.id.desc()).limit(DETAIL_EVENT_LIMIT)
     ).all()
@@ -45,8 +37,9 @@ def get_job(job_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> JobDetailOut:
 
 
 @router.get("/meetings/{meeting_id}/jobs", response_model=Page[JobOut])
-def list_meeting_jobs(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession, page: Pagination) -> Page[JobOut]:
+def list_meeting_jobs(meeting_id: uuid.UUID, user: CurrentUser, db: DbSession, page: Pagination) -> Page[JobOut]:
     """Job history for one meeting, newest first."""
+    get_meeting(db, meeting_id, user)
     limit, offset = page
     total = db.scalar(select(func.count()).select_from(Job).where(Job.meeting_id == meeting_id)) or 0
     rows = db.scalars(
@@ -65,18 +58,20 @@ def list_meeting_jobs(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession, page: P
 
 
 @router.post("/jobs/{job_id}/cancel", response_model=JobOut)
-def cancel_job(job_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> Job:
+def cancel_job(job_id: uuid.UUID, user: CurrentUser, db: DbSession) -> Job:
     """Cancel a queued/running job. Terminal jobs are returned unchanged (idempotent)."""
-    job = _get_job(db, job_id)
+    job = get_owned_job(db, job_id, user)
     cancel(db, job)
     db.commit()
     return job
 
 
 @router.get("/jobs/{job_id}/events")
-def job_events(job_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> StreamingResponse:
+def job_events(job_id: uuid.UUID, user: CurrentUser, db: DbSession) -> StreamingResponse:
     """text/event-stream over job_events; closes when the job reaches a terminal state (cap 15 min)."""
-    _get_job(db, job_id)
+    # Ownership is verified ONCE here with the request session; the stream body below keeps
+    # operating on the already-verified job_id through its own sessions, by design.
+    get_owned_job(db, job_id, user)
     return StreamingResponse(
         _event_stream(job_id),
         media_type="text/event-stream",

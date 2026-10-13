@@ -63,4 +63,4 @@ def test_migrations_round_trip_on_postgres() -> None:  # pragma: no cover - CI o
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(Config("alembic.ini"))
-    assert script.get_current_head() == "20261012_0001"
+    assert script.get_current_head() == "20261014_0002"

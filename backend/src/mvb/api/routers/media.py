@@ -6,11 +6,10 @@ from typing import Annotated, BinaryIO
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
 
-from mvb.api.deps import ApiKeyId, DbSession, SettingsDep
+from mvb.api.deps import CurrentUser, DbSession, SettingsDep
 from mvb.api.errors import ApiError
-from mvb.db.models import MediaAsset
+from mvb.api.routers.meetings import get_owned_asset
 from mvb.schemas.common import OkResponse
 from mvb.schemas.media import MediaAssetOut
 from mvb.storage.local import LocalStorage
@@ -21,13 +20,6 @@ router = APIRouter(tags=["media"])
 CHUNK = 1024 * 256
 
 
-def get_asset(db: Session, asset_id: uuid.UUID) -> MediaAsset:
-    asset = db.get(MediaAsset, asset_id)
-    if asset is None:
-        raise ApiError(404, "not_found", "Media asset not found", {"asset_id": str(asset_id)})
-    return asset
-
-
 def _stream(handle: BinaryIO, start: int, end: int) -> Iterator[bytes]:
     try:
         yield from iter_file_range(handle, start, end, chunk=CHUNK)
@@ -36,23 +28,23 @@ def _stream(handle: BinaryIO, start: int, end: int) -> Iterator[bytes]:
 
 
 @router.get("/media/{asset_id}/info", response_model=MediaAssetOut)
-def media_info(asset_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> MediaAssetOut:
+def media_info(asset_id: uuid.UUID, user: CurrentUser, db: DbSession) -> MediaAssetOut:
     """Metadata for one stored recording (no bytes)."""
-    return MediaAssetOut.model_validate(get_asset(db, asset_id))
+    return MediaAssetOut.model_validate(get_owned_asset(db, asset_id, user))
 
 
 @router.get("/media/{asset_id}")
 def download_media(
     asset_id: uuid.UUID,
     request: Request,
-    _: ApiKeyId,
+    user: CurrentUser,
     db: DbSession,
     settings: SettingsDep,
     disposition: Annotated[str, Query(pattern="^(inline|attachment)$")] = "inline",
 ) -> StreamingResponse:
     """Stream the stored file, honouring a single `Range` header (206 Partial Content) so
     clients can seek inside recordings."""
-    asset = get_asset(db, asset_id)
+    asset = get_owned_asset(db, asset_id, user)
     storage = LocalStorage(settings.media_root)
     path = storage.path_for(asset.storage_key)
     if not path.exists():
@@ -75,9 +67,9 @@ def download_media(
 
 
 @router.delete("/media/{asset_id}", response_model=OkResponse)
-def delete_media(asset_id: uuid.UUID, _: ApiKeyId, db: DbSession, settings: SettingsDep) -> OkResponse:
+def delete_media(asset_id: uuid.UUID, user: CurrentUser, db: DbSession, settings: SettingsDep) -> OkResponse:
     """Remove one stored recording (file and row)."""
-    asset = get_asset(db, asset_id)
+    asset = get_owned_asset(db, asset_id, user)
     LocalStorage(settings.media_root).delete(asset.storage_key)
     db.delete(asset)
     db.commit()

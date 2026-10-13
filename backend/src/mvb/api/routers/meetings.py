@@ -8,15 +8,17 @@ from fastapi import APIRouter, Body, File, Query, Response, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from mvb.api.deps import ApiKeyId, DbSession, Pagination, SettingsDep
+from mvb.api.deps import CurrentUser, DbSession, Pagination, SettingsDep
 from mvb.api.errors import ApiError
 from mvb.db.models import (
     AnalysisDocument,
+    Job,
     MediaAsset,
     Meeting,
     Speaker,
     Transcript,
     TranscriptSegment,
+    User,
 )
 from mvb.media.probe import probe_media
 from mvb.pipeline.align import align_segments
@@ -43,11 +45,45 @@ router = APIRouter(tags=["meetings"])
 VIDEO_SUFFIXES = (".mp4", ".mkv", ".webm", ".mov")
 
 
-def get_meeting(db: Session, meeting_id: uuid.UUID, *, include_deleted: bool = False) -> Meeting:
+def get_meeting(db: Session, meeting_id: uuid.UUID, user: User, *, include_deleted: bool = False) -> Meeting:
+    """Load a meeting the USER owns. Missing AND foreign rows both raise the same 404 so a
+    foreign id is indistinguishable from a nonexistent one."""
     meeting = db.get(Meeting, meeting_id)
-    if meeting is None or (meeting.deleted_at is not None and not include_deleted):
+    if meeting is None or meeting.user_id != user.id or (meeting.deleted_at is not None and not include_deleted):
         raise ApiError(404, "not_found", "Meeting not found", {"meeting_id": str(meeting_id)})
     return meeting
+
+
+def get_owned_transcript(db: Session, transcript_id: uuid.UUID, user: User) -> Transcript:
+    transcript = db.get(Transcript, transcript_id)
+    if transcript is None:
+        raise ApiError(404, "not_found", "Transcript not found", {"transcript_id": str(transcript_id)})
+    get_meeting(db, transcript.meeting_id, user)
+    return transcript
+
+
+def get_owned_speaker(db: Session, speaker_id: uuid.UUID, user: User) -> Speaker:
+    speaker = db.get(Speaker, speaker_id)
+    if speaker is None:
+        raise ApiError(404, "not_found", "Speaker not found", {"speaker_id": str(speaker_id)})
+    get_meeting(db, speaker.meeting_id, user)
+    return speaker
+
+
+def get_owned_asset(db: Session, asset_id: uuid.UUID, user: User) -> MediaAsset:
+    asset = db.get(MediaAsset, asset_id)
+    if asset is None:
+        raise ApiError(404, "not_found", "Media asset not found", {"asset_id": str(asset_id)})
+    get_meeting(db, asset.meeting_id, user)
+    return asset
+
+
+def get_owned_job(db: Session, job_id: uuid.UUID, user: User) -> Job:
+    job = db.get(Job, job_id)
+    if job is None or job.meeting_id is None:
+        raise ApiError(404, "not_found", "Job not found", {"job_id": str(job_id)})
+    get_meeting(db, job.meeting_id, user)
+    return job
 
 
 def segments_of(db: Session, transcript_id: uuid.UUID) -> list[TranscriptSegment]:
@@ -89,7 +125,7 @@ def meeting_detail(db: Session, meeting: Meeting) -> MeetingDetailOut:
 
 
 @router.post("/meetings", response_model=MeetingDetailOut, status_code=status.HTTP_201_CREATED)
-def create_meeting(payload: MeetingCreate, _: ApiKeyId, db: DbSession, response: Response) -> MeetingDetailOut:
+def create_meeting(payload: MeetingCreate, user: CurrentUser, db: DbSession, response: Response) -> MeetingDetailOut:
     """Create a meeting. Re-posting the same `source`+`external_id` returns the existing
     meeting with 200 instead of 201, so client retries are safe."""
     if payload.external_id:
@@ -97,6 +133,7 @@ def create_meeting(payload: MeetingCreate, _: ApiKeyId, db: DbSession, response:
             select(Meeting).where(
                 Meeting.source == payload.source,
                 Meeting.external_id == payload.external_id,
+                Meeting.user_id == user.id,
                 Meeting.deleted_at.is_(None),
             )
         )
@@ -111,6 +148,7 @@ def create_meeting(payload: MeetingCreate, _: ApiKeyId, db: DbSession, response:
             select(Meeting).where(
                 Meeting.source == payload.source,
                 Meeting.external_id == payload.external_id,
+                Meeting.user_id == user.id,
                 Meeting.deleted_at.is_not(None),
             )
         )
@@ -127,6 +165,7 @@ def create_meeting(payload: MeetingCreate, _: ApiKeyId, db: DbSession, response:
         ended_at=payload.ended_at,
         duration_ms=payload.duration_ms,
         status="uploaded",
+        user_id=user.id,
         metadata_json=payload.metadata,
     )
     db.add(meeting)
@@ -136,7 +175,7 @@ def create_meeting(payload: MeetingCreate, _: ApiKeyId, db: DbSession, response:
 
 @router.get("/meetings", response_model=Page[MeetingOut])
 def list_meetings(
-    _: ApiKeyId,
+    user: CurrentUser,
     db: DbSession,
     page: Pagination,
     q: Annotated[str | None, Query(max_length=200)] = None,
@@ -145,7 +184,7 @@ def list_meetings(
 ) -> Page[MeetingOut]:
     """Newest first; `q` matches the title, `status` filters the pipeline state."""
     limit, offset = page
-    conditions = []
+    conditions = [Meeting.user_id == user.id]
     if not include_deleted:
         conditions.append(Meeting.deleted_at.is_(None))
     if q:
@@ -169,13 +208,13 @@ def list_meetings(
 
 
 @router.get("/meetings/{meeting_id}", response_model=MeetingDetailOut)
-def get_meeting_detail(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> MeetingDetailOut:
-    return meeting_detail(db, get_meeting(db, meeting_id))
+def get_meeting_detail(meeting_id: uuid.UUID, user: CurrentUser, db: DbSession) -> MeetingDetailOut:
+    return meeting_detail(db, get_meeting(db, meeting_id, user))
 
 
 @router.patch("/meetings/{meeting_id}", response_model=MeetingDetailOut)
-def patch_meeting(meeting_id: uuid.UUID, payload: MeetingPatch, _: ApiKeyId, db: DbSession) -> MeetingDetailOut:
-    meeting = get_meeting(db, meeting_id)
+def patch_meeting(meeting_id: uuid.UUID, payload: MeetingPatch, user: CurrentUser, db: DbSession) -> MeetingDetailOut:
+    meeting = get_meeting(db, meeting_id, user)
     data = payload.model_dump(exclude_unset=True)
     metadata = data.pop("metadata", None)
     if metadata is not None:
@@ -190,14 +229,14 @@ def patch_meeting(meeting_id: uuid.UUID, payload: MeetingPatch, _: ApiKeyId, db:
 @router.delete("/meetings/{meeting_id}", response_model=OkResponse)
 def delete_meeting(
     meeting_id: uuid.UUID,
-    _: ApiKeyId,
+    user: CurrentUser,
     db: DbSession,
     settings: SettingsDep,
     purge_files: Annotated[bool, Query()] = True,
 ) -> OkResponse:
     """Soft-delete the meeting (rows are kept so transcripts stay auditable);
     `purge_files` also removes its media files from disk."""
-    meeting = get_meeting(db, meeting_id)
+    meeting = get_meeting(db, meeting_id, user)
     meeting.deleted_at = datetime.now(UTC)
     meeting.status = "deleted"
     db.commit()
@@ -207,9 +246,9 @@ def delete_meeting(
 
 
 @router.get("/meetings/{meeting_id}/media", response_model=Page[MediaAssetOut])
-def list_media(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession, page: Pagination) -> Page[MediaAssetOut]:
+def list_media(meeting_id: uuid.UUID, user: CurrentUser, db: DbSession, page: Pagination) -> Page[MediaAssetOut]:
     limit, offset = page
-    get_meeting(db, meeting_id)
+    get_meeting(db, meeting_id, user)
     total = db.scalar(select(func.count()).select_from(MediaAsset).where(MediaAsset.meeting_id == meeting_id)) or 0
     rows = db.scalars(
         select(MediaAsset)
@@ -229,7 +268,7 @@ def list_media(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession, page: Paginati
 @router.post("/meetings/{meeting_id}/media", response_model=MediaUploadOut, status_code=status.HTTP_201_CREATED)
 async def upload_media(
     meeting_id: uuid.UUID,
-    _: ApiKeyId,
+    user: CurrentUser,
     db: DbSession,
     settings: SettingsDep,
     file: Annotated[UploadFile, File()],
@@ -239,7 +278,7 @@ async def upload_media(
 ) -> MediaUploadOut:
     """Store one recording (audio or video) and probe it. An audio upload also sets the
     meeting's duration, which transcript alignment depends on."""
-    meeting = get_meeting(db, meeting_id)
+    meeting = get_meeting(db, meeting_id, user)
     original_name = file.filename or "upload.bin"
     suffix = "." + original_name.rsplit(".", 1)[-1].lower() if "." in original_name else ""
     if kind == "audio" and suffix in VIDEO_SUFFIXES:
@@ -293,7 +332,7 @@ async def upload_media(
 )
 def upload_transcript(
     meeting_id: uuid.UUID,
-    _: ApiKeyId,
+    user: CurrentUser,
     db: DbSession,
     payload: Annotated[Any, Body()],
     align: Annotated[str, Query(pattern="^(auto|scale|proportional)$")] = "auto",
@@ -303,7 +342,7 @@ def upload_transcript(
     """Import a transcript exported by the MeetVault client (Format A: segments with optional
     times; Format B: a bare list of {Speaker, Text} rows). Untimed segments are distributed
     over the real media duration so the timeline cannot drift."""
-    meeting = get_meeting(db, meeting_id)
+    meeting = get_meeting(db, meeting_id, user)
     if isinstance(payload, dict) and not payload.get("segments") and payload.get("text"):
         payload = [{"text": chunk.strip()} for chunk in str(payload["text"]).split("\n\n") if chunk.strip()]
     parsed = parse_transcript_payload(payload)
@@ -362,7 +401,7 @@ def upload_transcript(
 @router.post("/meetings/{meeting_id}/process", response_model=ProcessResponse, status_code=status.HTTP_202_ACCEPTED)
 def process_meeting(
     meeting_id: uuid.UUID,
-    _: ApiKeyId,
+    user: CurrentUser,
     db: DbSession,
     payload: ProcessRequest | None = None,
     steps: Annotated[list[str] | None, Query()] = None,
@@ -375,7 +414,7 @@ def process_meeting(
     `job_ids: []` with 202 means the pipeline was already running (idempotent). The body is the
     declared `ProcessRequest` model, so it is documented in OpenAPI and malformed input is a 422
     in the standard error envelope."""
-    meeting = get_meeting(db, meeting_id)
+    meeting = get_meeting(db, meeting_id, user)
     options = payload or ProcessRequest()
     wanted = steps or options.steps
     unknown = [step for step in wanted if step not in STEP_ORDER]
@@ -401,8 +440,8 @@ def process_meeting(
 
 
 @router.get("/meetings/{meeting_id}/status", response_model=MeetingStatusOut)
-def get_status(meeting_id: uuid.UUID, _: ApiKeyId, db: DbSession) -> MeetingStatusOut:
+def get_status(meeting_id: uuid.UUID, user: CurrentUser, db: DbSession) -> MeetingStatusOut:
     """Aggregate progress: per-step state, progress fraction, active job and transcript,
     which analysis kinds are fresh or stale, and whether any result is mock."""
-    meeting = get_meeting(db, meeting_id)
+    meeting = get_meeting(db, meeting_id, user)
     return MeetingStatusOut.model_validate(meeting_status(db, meeting.id))
