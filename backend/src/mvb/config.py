@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     job_stale_seconds: int = 900
     worker_poll_seconds: float = 2.0
     worker_concurrency: int = 1
+    session_ttl_days: int = 30
 
     transcriber: TranscriberName = "mock"
     transcriber_model: str = "small"

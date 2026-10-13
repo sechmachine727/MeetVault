@@ -51,3 +51,10 @@ def test_max_upload_bytes_and_sqlite_flag() -> None:
     s.max_upload_mb = 2
     assert s.max_upload_bytes == 2 * 1024 * 1024
     assert s.is_sqlite is True
+
+
+def test_session_ttl_default_and_override(monkeypatch):
+    monkeypatch.delenv("MVB_SESSION_TTL_DAYS", raising=False)
+    assert Settings().session_ttl_days == 30
+    monkeypatch.setenv("MVB_SESSION_TTL_DAYS", "7")
+    assert Settings().session_ttl_days == 7
