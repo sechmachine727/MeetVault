@@ -7,227 +7,43 @@
             <TextBlock x:Uid="BackPageTitle" Style="{StaticResource TitleTextBlockStyle}" />
             <InfoBar x:Name="StatusBar" IsOpen="False" Severity="Informational">
                 <InfoBar.ActionButton>
-                    <Button x:Name="ForgetLinkButton" x:Uid="BackForgetLink" Click="ForgetLink_Click" Visibility="Collapsed" />
+                    <Button x:Name="SignInActionButton" x:Uid="Cloud.SignInButton" Click="SignIn_Click" Visibility="Collapsed" />
                 </InfoBar.ActionButton>
             </InfoBar>
-
-            <Grid ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock x:Uid="BackPageMeetingLabel" VerticalAlignment="Center" FontWeight="SemiBold" />
-                <ComboBox x:Name="BackendMeetingPicker" x:Uid="BackPagePick" Grid.Column="1" MinWidth="360" HorizontalAlignment="Left"
-                          SelectionChanged="Meeting_SelectionChanged" />
-                <Button x:Name="RefreshButton" x:Uid="BackPageRefresh" Grid.Column="2" Click="Refresh_Click" />
-                <Button x:Name="PlayButton" x:Uid="BackPagePlay" Grid.Column="3" Click="Play_Click" />
-            </Grid>
-
-            <TextBlock x:Name="EmptyState" x:Uid="BackPageEmpty" Opacity="0.7" TextWrapping="Wrap" Visibility="Collapsed" />
-
-            <StackPanel x:Name="ContentPanel" Spacing="8">
-                <TextBlock x:Uid="BackPageStatusLabel" Opacity="0.7" />
-                <TextBlock x:Name="BackendStateText" FontWeight="SemiBold" TextWrapping="Wrap" />
-                <TextBlock x:Name="BackendMockBadge" Opacity="0.8" FontStyle="Italic" Visibility="Collapsed" />
-                <TextBlock x:Name="BackendStaleText" Opacity="0.7" TextWrapping="Wrap" />
-                <ProgressBar x:Name="BackendProgressBar" Visibility="Collapsed" Minimum="0" Maximum="100" />
-                <TextBlock x:Name="BackendStepsText" Opacity="0.7" TextWrapping="Wrap" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="RerunButton" x:Uid="BackPageRerun" Click="Rerun_Click" />
-                    <Button x:Name="UpdateTranscriptButton" x:Uid="BackPageUpdateTranscript" Click="UpdateTranscript_Click" />
-                    <Button x:Name="RemoveButton" x:Uid="BackPageRemove" Click="Remove_Click"
-                            Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
-                </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Button x:Name="RefreshButton" x:Uid="BackPageRefresh" Click="Refresh_Click" />
+                <ProgressRing x:Name="LoadingRing" IsActive="False" Width="20" Height="20" />
             </StackPanel>
-
-            <MediaPlayerElement x:Name="BackendPlayer" AreTransportControlsEnabled="True" MaxHeight="220" Visibility="Collapsed" />
-
-            <Expander x:Uid="BackPageTranscript" HorizontalAlignment="Stretch">
-                <StackPanel Spacing="6">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button x:Name="CopyTextButton" x:Uid="BackPageCopyText" Click="CopyText_Click" />
-                    </StackPanel>
-                    <ItemsControl x:Name="TranscriptList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Tapped="TranscriptRow_Tapped" CornerRadius="4" Padding="4">
-                                    <StackPanel Orientation="Horizontal" Spacing="12">
-                                        <TextBlock Text="{Binding Time}" Width="80" Opacity="0.7" VerticalAlignment="Top" />
-                                        <TextBlock Text="{Binding Speaker}" Width="140" FontWeight="SemiBold" VerticalAlignment="Top" TextWrapping="Wrap" />
-                                        <TextBlock Text="{Binding Text}" TextWrapping="Wrap" MaxWidth="700" />
-                                    </StackPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-            </Expander>
-
-            <Expander x:Uid="BackPageSummary" HorizontalAlignment="Stretch">
-                <StackPanel Spacing="6">
-                    <TextBlock x:Name="SummaryText" TextWrapping="Wrap" />
-                    <ItemsControl x:Name="SummaryBullets">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,2,0,0" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-            </Expander>
-
-            <Expander x:Uid="BackPageAgenda" HorizontalAlignment="Stretch">
-                <ItemsControl x:Name="AgendaList">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Margin="0,4,0,0">
-                                <TextBlock Text="{Binding Text}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding Detail}" Opacity="0.7" TextWrapping="Wrap" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </Expander>
-
-            <Expander x:Uid="BackPageDecisions" HorizontalAlignment="Stretch">
-                <ItemsControl x:Name="DecisionsList">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Tapped="CitationRow_Tapped" CornerRadius="4" Padding="4">
-                                <StackPanel>
-                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
-                                    <TextBlock Text="{Binding Detail}" Opacity="0.7" />
-                                </StackPanel>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </Expander>
-
-            <Expander x:Uid="BackPageActions" HorizontalAlignment="Stretch">
-                <ItemsControl x:Name="ActionsList">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Tapped="CitationRow_Tapped" CornerRadius="4" Padding="4">
-                                <StackPanel>
-                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
-                                    <TextBlock Text="{Binding Detail}" Opacity="0.7" />
-                                </StackPanel>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </Expander>
-
-            <Expander x:Uid="BackPageQa" HorizontalAlignment="Stretch">
-                <StackPanel Spacing="6">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBox x:Name="QaBox" x:Uid="BackPageQaBox" Width="420" />
-                        <Button x:Name="AskButton" x:Uid="BackPageAsk" Click="Ask_Click" />
-                    </StackPanel>
-                    <TextBlock x:Name="QaStatus" Opacity="0.7" TextWrapping="Wrap" />
-                    <ItemsControl x:Name="QaList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Tapped="CitationRow_Tapped" CornerRadius="4" Padding="4">
-                                    <StackPanel Margin="0,4,0,0">
-                                        <TextBlock Text="{Binding Text}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                        <TextBlock Text="{Binding Detail}" TextWrapping="Wrap" />
-                                    </StackPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-            </Expander>
-
-            <Expander x:Uid="BackPageSpeakers" HorizontalAlignment="Stretch">
-                <ItemsControl x:Name="SpeakersList">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Grid ColumnSpacing="8" Margin="0,4,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="220" />
-                                    <ColumnDefinition Width="180" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="180" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBox Text="{Binding Label, Mode=TwoWay}" />
-                                <TextBlock Text="{Binding Stats}" Grid.Column="1" Opacity="0.7" VerticalAlignment="Center" />
-                                <Button x:Uid="BackPageSave" Grid.Column="2" Click="SpeakerSave_Click" />
-                                <ComboBox Grid.Column="3" Loaded="SpeakerMergeCombo_Loaded" SelectionChanged="SpeakerMergeCombo_SelectionChanged" />
-                                <Button x:Uid="BackPageMerge" Grid.Column="4" Click="SpeakerMerge_Click" />
-                                <Button x:Uid="BackPageDeleteSpeaker" Grid.Column="5" Click="SpeakerDelete_Click" />
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </Expander>
-
-            <Expander x:Uid="BackPageVersions" HorizontalAlignment="Stretch">
-                <ItemsControl x:Name="VersionsList">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Grid ColumnSpacing="8" Margin="0,4,0,0">
+            <TextBlock x:Name="EmptyState" x:Uid="Cloud.Empty" Opacity="0.7" TextWrapping="Wrap" Visibility="Collapsed" />
+            <ItemsControl x:Name="MeetingsList">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                CornerRadius="8" Padding="16" Margin="0,0,0,8">
+                            <Grid ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="{Binding Text}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                                <Button x:Uid="BackPageActivate" Grid.Column="1" Click="VersionActivate_Click" />
-                                <Button x:Uid="BackPageDeleteVersion" Grid.Column="2" Click="VersionDelete_Click" />
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </Expander>
-
-            <Expander x:Uid="BackPageJobs" HorizontalAlignment="Stretch">
-                <StackPanel Spacing="6">
-                    <ItemsControl x:Name="JobsList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid ColumnSpacing="8" Margin="0,4,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                                    <Button x:Uid="BackPageWatch" Grid.Column="1" Click="JobWatch_Click" />
-                                    <Button x:Uid="BackPageCancelJob" Grid.Column="2" Click="JobCancel_Click" />
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <TextBlock x:Name="EventsText" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" Opacity="0.8" />
-                </StackPanel>
-            </Expander>
-
-            <Expander x:Uid="BackPageMedia" HorizontalAlignment="Stretch">
-                <ItemsControl x:Name="MediaList">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Grid ColumnSpacing="8" Margin="0,4,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
-                                    <TextBlock Text="{Binding Detail}" Opacity="0.7" TextWrapping="Wrap" />
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding Meta}" Opacity="0.7" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding StatusLine}" Opacity="0.8" TextWrapping="Wrap" />
                                 </StackPanel>
-                                <Button x:Uid="BackPageDownload" Grid.Column="1" Click="MediaDownload_Click" />
+                                <Button Grid.Column="1" Content="{Binding OpenLabel}"
+                                        AutomationProperties.Name="{Binding OpenAutomation}"
+                                        Click="Open_Click" Tag="{Binding}" />
+                                <Button Grid.Column="2" Content="{Binding RemoveLabel}"
+                                        AutomationProperties.Name="{Binding RemoveAutomation}"
+                                        Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                        Click="Remove_Click" Tag="{Binding}" />
                             </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </Expander>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
         </StackPanel>
     </ScrollViewer>
 </Page>

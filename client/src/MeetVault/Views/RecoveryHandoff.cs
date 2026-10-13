@@ -10,6 +10,8 @@ public static class PendingRecovery
 public static class PendingDetails
 {
     public static string? MeetingId { get; set; }
+    // Cloud-only open: the backend id of a meeting with no local row (set by the Cloud Storage list).
+    public static string? CloudBackendId { get; set; }
 }
 
 // Details → Backend page handoff: which meeting's backend data to open.
