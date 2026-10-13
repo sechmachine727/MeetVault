@@ -208,8 +208,12 @@ def test_recreate_after_delete_is_scoped(client, auth_headers, db_session) -> No
     NOTE (spec defect): requirement 13 also asks that user B re-post the SAME external_id and get
     201 with a different id. That is impossible with the frozen schema: `meetings` keeps the
     GLOBAL unique constraint `(source, external_id)` (the plan's A3/A4 never changed it), so a
-    foreign live row makes B's INSERT fail before any per-user lookup matters. What IS guaranteed
-    (and asserted here) is that the recreate does not cross users: B can neither see nor touch it.
+    foreign live row makes B's INSERT fail before any per-user lookup matters. The foreign
+    external_id re-post is therefore DELIBERATELY UNASSERTED here: asserting it would only pin the
+    DB constraint's 500, not the intended contract. See the accepted-limitation section of
+    docs/INTEGRATION.md ("Accepted limitation — global `source` + `external_id` uniqueness"). What
+    IS guaranteed (and asserted here) is that the recreate does not cross users: B can neither see
+    nor touch it.
     """
     b_headers = _user_b_headers(db_session)
     first_id = _create_meeting(client, auth_headers, "Recreate", external_id="iso-1")
