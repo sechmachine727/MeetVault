@@ -24,3 +24,4 @@ def test_session_token_is_random_and_hash_is_stable() -> None:
     raw_b, _ = new_session_token()
     assert raw_a != raw_b
     assert len(digest_a) == 64
+    assert token_hash(raw_a) == digest_a
