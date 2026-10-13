@@ -7,8 +7,9 @@ using Microsoft.UI.Xaml.Controls;
 namespace MeetVault.Views;
 
 // Server transcript / analysis / Q&A workspace for one synced meeting. Everything renders from the
-// backend (the source of truth); the on-disk cache is written at terminal status and reading it
-// back for offline open is future work. The local recording is the default player source.
+// backend (the source of truth); the on-disk cache is written on every successful load and at
+// terminal status — reading it back for offline open is future work. The local recording is the
+// default player source.
 public sealed partial class BackendPage : Page
 {
     public sealed class LineRow
@@ -78,6 +79,7 @@ public sealed partial class BackendPage : Page
     private async Task LoadAsync()
     {
         if (_busy) return;
+        _downloaded.Clear(); // a previous meeting's download must never be played as this one's
         var index = BackendMeetingPicker.SelectedIndex;
         if (index < 0 || index >= _synced.Count) return;
         _meeting = _synced[index].Meeting;
@@ -106,6 +108,9 @@ public sealed partial class BackendPage : Page
             BackendProgressBar.Value = 0;
             BackendProgressBar.Visibility = Visibility.Collapsed;
             BackendPlayer.Source = null;
+            QaStatus.Text = "";
+            EventsText.Text = "";
+            QaBox.Text = "";
             return;
         }
         _busy = true;
@@ -133,20 +138,18 @@ public sealed partial class BackendPage : Page
             }
             catch (BackendApiException ex) { AppLog.Warn("backend: analysis fetch failed: " + ex.Code); }
             catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
-            try { RenderSpeakers(await client.ListSpeakersAsync(_backendId)); } catch (BackendApiException) { }
+            try { RenderSpeakers(await client.ListSpeakersAsync(_backendId)); } catch (BackendApiException ex) { AppLog.Warn("backend: speakers failed: " + ex.Code); }
             catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
-            try { RenderVersions(await client.ListTranscriptsAsync(_backendId)); } catch (BackendApiException) { }
+            try { RenderVersions(await client.ListTranscriptsAsync(_backendId)); } catch (BackendApiException ex) { AppLog.Warn("backend: versions failed: " + ex.Code); }
             catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
-            try { RenderJobs(await client.ListJobsAsync(_backendId)); } catch (BackendApiException) { }
+            try { RenderJobs(await client.ListJobsAsync(_backendId)); } catch (BackendApiException ex) { AppLog.Warn("backend: jobs failed: " + ex.Code); }
             catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
-            try { RenderMedia(await client.ListMediaAsync(_backendId)); } catch (BackendApiException) { }
+            try { RenderMedia(await client.ListMediaAsync(_backendId)); } catch (BackendApiException ex) { AppLog.Warn("backend: media failed: " + ex.Code); }
             catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
         }
         catch (Exception ex)
         {
-            StatusBar.Severity = InfoBarSeverity.Error;
-            StatusBar.Message = Loc.Tf("Back.LoadFailed", ex is BackendApiException api ? api.Code + ": " + api.Message : ex.Message);
-            StatusBar.IsOpen = true;
+            Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex)));
         }
         finally { _busy = false; }
     }
@@ -361,7 +364,7 @@ public sealed partial class BackendPage : Page
     private static string DescribeBackendError(Exception ex) => ex switch
     {
         BackendApiException api => api.Code + ": " + api.Message,
-        ArgumentException => Loc.T("Det.BackendNoUrl"),
+        ArgumentException argument => argument.Message.Contains("key", StringComparison.OrdinalIgnoreCase) ? Loc.T("Det.BackendNoKey") : Loc.T("Det.BackendNoUrl"),
         TaskCanceledException => Loc.T("Det.BackendTimeout"),
         _ => Loc.T("Det.BackendUnreachable"),
     };
@@ -374,15 +377,15 @@ public sealed partial class BackendPage : Page
         {
             using var transport = new BackendHttpTransport(url, key);
             var client = new BackendClient(transport);
-            var media = await client.ListMediaAsync(_backendId);
-            var probedMs = media.FirstOrDefault(m => m.Kind == "audio")?.DurationMs;
-            var alignMs = _meeting.EndedAt is { } endedAt ? Math.Max(0, (long)(endedAt - _meeting.StartedAt).TotalMilliseconds) : 0;
             var segments = AppStore.Repo.LoadSegments(_meeting.Id);
             if (!segments.Any(s => !string.IsNullOrWhiteSpace(s.Text)))
             {
                 Status(InfoBarSeverity.Warning, Loc.T("Det.EmptyTranscript"));
                 return;
             }
+            var media = await client.ListMediaAsync(_backendId);
+            var probedMs = media.FirstOrDefault(m => m.Kind == "audio")?.DurationMs;
+            var alignMs = _meeting.EndedAt is { } endedAt ? Math.Max(0, (long)(endedAt - _meeting.StartedAt).TotalMilliseconds) : 0;
             var formatA = BackendFormatter.ToFormatA(_meeting,
                 segments, AppStore.Repo.LoadSpeakers(_meeting.Id), alignMs > 0 ? alignMs : probedMs);
             await client.UploadTranscriptAsync(_backendId, formatA, _meeting.Language);
@@ -418,12 +421,13 @@ public sealed partial class BackendPage : Page
         // poll loop (and the Re-run / Update-transcript handlers) running forever; after the
         // deadline the last observed status comes back.
         var deadline = DateTime.UtcNow.AddMinutes(10);
-        var status = await client.GetStatusAsync(_backendId!);
+        var id = _backendId!; // a picker switch mid-poll must not make the loop follow the new meeting
+        var status = await client.GetStatusAsync(id);
         RenderStatus(status);
         while (status.Status is not ("ready" or "failed" or "deleted") && DateTime.UtcNow < deadline)
         {
             await Task.Delay(TimeSpan.FromSeconds(2));
-            status = await client.GetStatusAsync(_backendId!);
+            status = await client.GetStatusAsync(id);
             RenderStatus(status);
         }
         return status;
@@ -440,10 +444,10 @@ public sealed partial class BackendPage : Page
             CloseButtonText = Loc.T("Det.Cancel"),
             XamlRoot = XamlRoot,
         };
-        if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
         if (!TryClientUrl(out var url, out var key)) return;
         try
         {
+            if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
             using var transport = new BackendHttpTransport(url, key);
             var client = new BackendClient(transport);
             await client.DeleteMeetingAsync(_backendId);
@@ -564,10 +568,10 @@ public sealed partial class BackendPage : Page
             CloseButtonText = Loc.T("Det.Cancel"),
             XamlRoot = XamlRoot,
         };
-        if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
         if (!TryClientUrl(out var url, out var key)) return;
         try
         {
+            if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
             using var transport = new BackendHttpTransport(url, key);
             var client = new BackendClient(transport);
             await client.DeleteSpeakerAsync(row.Id);
