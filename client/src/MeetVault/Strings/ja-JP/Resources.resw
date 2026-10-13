@@ -9,6 +9,7 @@
   <data name="NavLive.Content" xml:space="preserve"><value>ライブ</value></data>
   <data name="NavMeetings.Content" xml:space="preserve"><value>会議</value></data>
   <data name="NavBackend.Content" xml:space="preserve"><value>バックエンド</value></data>
+  <data name="NavAccount.Content" xml:space="preserve"><value>アカウント</value></data>
 
   <!-- Shared: manage flyout, selection toolbar, table headers -->
   <data name="Manage.ToolTipService.ToolTip" xml:space="preserve"><value>会議の管理</value></data>
@@ -491,4 +492,25 @@
   <!-- Account / session -->
   <data name="Acc.SessionExpired" xml:space="preserve"><value>セッションの有効期限が切れました。もう一度サインインしてください。</value></data>
   <data name="Acc.Unreachable" xml:space="preserve"><value>クラウドサービスに接続できませんでした。</value></data>
+  <data name="AccTitle.Text" xml:space="preserve"><value>アカウント</value></data>
+  <data name="AccIntro.Text" xml:space="preserve"><value>クラウド機能 (解析のためのアップロード、クラウドストレージ一覧) の利用にはサインインが必要です。ローカルでの録音と文字起こしはアカウントなしで動作します。</value></data>
+  <data name="AccEmailLabel.Text" xml:space="preserve"><value>メールアドレス</value></data>
+  <data name="AccEmailBox.PlaceholderText" xml:space="preserve"><value>you@example.com</value></data>
+  <data name="AccEmailBox.AutomationProperties.Name" xml:space="preserve"><value>メールアドレス</value></data>
+  <data name="AccPasswordLabel.Text" xml:space="preserve"><value>パスワード</value></data>
+  <data name="AccPasswordBox.PlaceholderText" xml:space="preserve"><value>パスワード</value></data>
+  <data name="AccPasswordBox.AutomationProperties.Name" xml:space="preserve"><value>パスワード</value></data>
+  <data name="AccSignIn.Content" xml:space="preserve"><value>サインイン</value></data>
+  <data name="AccSignIn.AutomationProperties.Name" xml:space="preserve"><value>サインイン</value></data>
+  <data name="AccSignOut.Content" xml:space="preserve"><value>サインアウト</value></data>
+  <data name="AccSignOut.AutomationProperties.Name" xml:space="preserve"><value>サインアウト</value></data>
+  <data name="AccSignedInLabel.Text" xml:space="preserve"><value>サインイン済み</value></data>
+  <data name="Acc.SignedInAs" xml:space="preserve"><value>{0} でサインインしています。</value></data>
+  <data name="Acc.ExpiresAt" xml:space="preserve"><value>セッションの有効期限: {0}</value></data>
+  <data name="Acc.MissingFields" xml:space="preserve"><value>メールアドレスとパスワードを入力してください。</value></data>
+  <data name="Acc.InvalidCredentials" xml:space="preserve"><value>メールアドレスまたはパスワードが正しくありません。</value></data>
+  <data name="Acc.SignInFailed" xml:space="preserve"><value>サインインに失敗しました: {0}</value></data>
+  <data name="Acc.SignedIn" xml:space="preserve"><value>サインインしました。</value></data>
+  <data name="Acc.SignedOut" xml:space="preserve"><value>サインアウトしました。</value></data>
+  <data name="Acc.NoUrl" xml:space="preserve"><value>先に設定でクラウドサービスの URL を設定してください。</value></data>
 </root>

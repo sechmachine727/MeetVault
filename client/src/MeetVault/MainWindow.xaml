@@ -21,6 +21,7 @@
                 <NavigationViewItem x:Uid="NavLive" Tag="live" Icon="Microphone" />
                 <NavigationViewItem x:Uid="NavMeetings" Tag="meetings" Icon="Library" />
                 <NavigationViewItem x:Uid="NavBackend" Tag="backend" Icon="Globe" />
+                <NavigationViewItem x:Uid="NavAccount" Tag="account" Icon="Contact" />
             </NavigationView.MenuItems>
             <Frame x:Name="RootFrame" />
         </NavigationView>
