@@ -39,7 +39,7 @@
   <data name="DashEngineLabel.Text" xml:space="preserve"><value>エンジン</value></data>
   <data name="DashRecent.Text" xml:space="preserve"><value>最近の会議</value></data>
   <data name="DashEmptyTitle.Text" xml:space="preserve"><value>まだ会議がありません</value></data>
-  <data name="DashEmptyBody.Text" xml:space="preserve"><value>最初の会議を開始すると、時刻・Gemini 要約付きの文字起こしがここに表示されます。</value></data>
+  <data name="DashEmptyBody.Text" xml:space="preserve"><value>最初の会議を開始すると、時刻・要約付きの文字起こしがここに表示されます。</value></data>
   <data name="DashGreeting.Text" xml:space="preserve"><value>録音の準備ができました</value></data>
 
   <!-- Meetings -->
@@ -340,18 +340,8 @@
   <data name="SetAccountButton.Content" xml:space="preserve"><value>管理</value></data>
   <data name="Set.AccountSignedIn" xml:space="preserve"><value>{0} でサインイン中</value></data>
   <data name="Set.AccountSignedOut" xml:space="preserve"><value>サインインしていません</value></data>
-  <data name="SetBackendKey.Text" xml:space="preserve"><value>API キー</value></data>
-  <data name="SetBackendKeyDesc.Text" xml:space="preserve"><value>Windows 資格情報ロッカーに保存され、データベースには保存されません。</value></data>
-  <data name="SetBackendKeyBox.PlaceholderText" xml:space="preserve"><value>バックエンド API キーを貼り付け</value></data>
-  <data name="SetBackendKeyBox.AutomationProperties.Name" xml:space="preserve"><value>バックエンド API キー</value></data>
-  <data name="SetSaveBackendKey.Content" xml:space="preserve"><value>保存</value></data>
-  <data name="SetSaveBackendKey.AutomationProperties.Name" xml:space="preserve"><value>バックエンド API キーを保存</value></data>
   <data name="SetTestBackend.Content" xml:space="preserve"><value>接続をテスト</value></data>
   <data name="SetTestBackend.AutomationProperties.Name" xml:space="preserve"><value>バックエンド接続をテスト</value></data>
-  <data name="Set.BackendKeyStored" xml:space="preserve"><value>バックエンドのキーを資格情報ロッカーに保存しました。</value></data>
-  <data name="Set.BackendKeyCleared" xml:space="preserve"><value>バックエンドのキーを消去しました。</value></data>
-  <data name="Set.BackendKeyNotStored" xml:space="preserve"><value>バックエンドのキーを保存できませんでした。</value></data>
-  <data name="Set.BackendNoKey" xml:space="preserve"><value>資格情報ロッカーにバックエンドのキーがありません。</value></data>
   <data name="Set.BackendNoUrl" xml:space="preserve"><value>先にサーバー URL を入力してください。</value></data>
   <data name="Set.BackendTesting" xml:space="preserve"><value>接続を確認しています…</value></data>
   <data name="Set.BackendReady" xml:space="preserve"><value>準備完了 · {0}</value></data>

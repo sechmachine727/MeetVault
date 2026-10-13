@@ -39,7 +39,7 @@
   <data name="DashEngineLabel.Text" xml:space="preserve"><value>Engine</value></data>
   <data name="DashRecent.Text" xml:space="preserve"><value>Recent meetings</value></data>
   <data name="DashEmptyTitle.Text" xml:space="preserve"><value>No meetings yet</value></data>
-  <data name="DashEmptyBody.Text" xml:space="preserve"><value>Start your first meeting and the transcript lands here with timing and Gemini summaries.</value></data>
+  <data name="DashEmptyBody.Text" xml:space="preserve"><value>Start your first meeting and the transcript lands here with timing and summaries.</value></data>
   <data name="DashGreeting.Text" xml:space="preserve"><value>Ready to capture</value></data>
 
   <!-- Meetings -->
@@ -340,18 +340,8 @@
   <data name="SetAccountButton.Content" xml:space="preserve"><value>Manage</value></data>
   <data name="Set.AccountSignedIn" xml:space="preserve"><value>Signed in as {0}</value></data>
   <data name="Set.AccountSignedOut" xml:space="preserve"><value>Not signed in</value></data>
-  <data name="SetBackendKey.Text" xml:space="preserve"><value>API key</value></data>
-  <data name="SetBackendKeyDesc.Text" xml:space="preserve"><value>Stored in Windows Credential Locker, never in the database.</value></data>
-  <data name="SetBackendKeyBox.PlaceholderText" xml:space="preserve"><value>Paste the backend API key</value></data>
-  <data name="SetBackendKeyBox.AutomationProperties.Name" xml:space="preserve"><value>Backend API key</value></data>
-  <data name="SetSaveBackendKey.Content" xml:space="preserve"><value>Save</value></data>
-  <data name="SetSaveBackendKey.AutomationProperties.Name" xml:space="preserve"><value>Save backend API key</value></data>
   <data name="SetTestBackend.Content" xml:space="preserve"><value>Test connection</value></data>
   <data name="SetTestBackend.AutomationProperties.Name" xml:space="preserve"><value>Test backend connection</value></data>
-  <data name="Set.BackendKeyStored" xml:space="preserve"><value>Backend key stored in Credential Locker.</value></data>
-  <data name="Set.BackendKeyCleared" xml:space="preserve"><value>Backend key cleared.</value></data>
-  <data name="Set.BackendKeyNotStored" xml:space="preserve"><value>The backend key could not be stored.</value></data>
-  <data name="Set.BackendNoKey" xml:space="preserve"><value>No backend key in Credential Locker.</value></data>
   <data name="Set.BackendNoUrl" xml:space="preserve"><value>Add the server URL first.</value></data>
   <data name="Set.BackendTesting" xml:space="preserve"><value>Testing the connection…</value></data>
   <data name="Set.BackendReady" xml:space="preserve"><value>Ready · {0}</value></data>
