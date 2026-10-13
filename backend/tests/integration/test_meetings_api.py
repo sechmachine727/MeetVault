@@ -88,3 +88,17 @@ def test_delete_then_recreate_meeting_with_content(client, media_root: Path, aut
     )
     assert recreated.status_code == 201, recreated.text
     assert recreated.json()["id"] != old_id
+
+
+def test_meeting_list_reports_job_and_analysis_fields(client, auth_headers) -> None:
+    created = client.post("/v1/meetings", json={"title": "Fields"}, headers=auth_headers).json()
+    row = client.get("/v1/meetings", headers=auth_headers).json()["items"][0]
+    assert row["id"] == created["id"]
+    assert row["has_analysis"] is False
+    assert row["latest_job_type"] is None
+    assert row["latest_job_state"] is None
+    # queue a pipeline; the list must surface the newest job
+    client.post(f"/v1/meetings/{created['id']}/process", json={}, headers=auth_headers)
+    row = client.get("/v1/meetings", headers=auth_headers).json()["items"][0]
+    assert row["latest_job_type"] == "transcribe"
+    assert row["latest_job_state"] == "queued"

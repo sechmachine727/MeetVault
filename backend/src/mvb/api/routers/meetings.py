@@ -121,7 +121,35 @@ def meeting_detail(db: Session, meeting: Meeting) -> MeetingDetailOut:
         )
     )
     detail.is_mock = bool(active is not None and active.is_mock)
+    if (job := _page_job_fields(db, [meeting.id]).get(meeting.id)) is not None:
+        detail.latest_job_type, detail.latest_job_state = job
     return detail
+
+
+def _page_job_fields(db: Session, meeting_ids: list[uuid.UUID]) -> dict[uuid.UUID, tuple[str, str]]:
+    """Latest job (type, state) per meeting for the ids IN this page (two queries total)."""
+    if not meeting_ids:
+        return {}
+    rows = db.execute(
+        select(Job.meeting_id, Job.type, Job.state)
+        .where(Job.meeting_id.in_(meeting_ids))
+        .order_by(Job.created_at.desc(), Job.id.desc())
+    ).all()
+    latest: dict[uuid.UUID, tuple[str, str]] = {}
+    for meeting_id, job_type, state in rows:
+        latest.setdefault(meeting_id, (job_type, state))
+    return latest
+
+
+def _analyzed_ids(db: Session, meeting_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+    if not meeting_ids:
+        return set()
+    rows = db.scalars(
+        select(AnalysisDocument.meeting_id)
+        .where(AnalysisDocument.meeting_id.in_(meeting_ids), AnalysisDocument.stale.is_(False))
+        .distinct()
+    ).all()
+    return set(rows)
 
 
 @router.post("/meetings", response_model=MeetingDetailOut, status_code=status.HTTP_201_CREATED)
@@ -199,12 +227,17 @@ def list_meetings(
         .limit(limit)
         .offset(offset)
     ).all()
-    return Page[MeetingOut](
-        items=[MeetingOut.model_validate(row) for row in rows],
-        total=int(total),
-        limit=limit,
-        offset=offset,
-    )
+    ids = [row.id for row in rows]
+    latest = _page_job_fields(db, ids)
+    analyzed = _analyzed_ids(db, ids)
+    items: list[MeetingOut] = []
+    for row in rows:
+        item = MeetingOut.model_validate(row)
+        item.has_analysis = row.id in analyzed
+        if (job := latest.get(row.id)) is not None:
+            item.latest_job_type, item.latest_job_state = job
+        items.append(item)
+    return Page[MeetingOut](items=items, total=int(total), limit=limit, offset=offset)
 
 
 @router.get("/meetings/{meeting_id}", response_model=MeetingDetailOut)

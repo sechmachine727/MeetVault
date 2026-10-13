@@ -45,6 +45,10 @@ class MeetingOut(ORMModel):
     deleted_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    # Availability summary for list screens (computed in the router, not columns).
+    has_analysis: bool = False
+    latest_job_type: str | None = None
+    latest_job_state: str | None = None
 
 
 class MeetingDetailOut(MeetingOut):
@@ -68,6 +72,8 @@ class MeetingStatusOut(ORMModel):
     stale_kinds: list[str] = Field(default_factory=list)
     mock: bool = False
     duration_ms: int = 0
+    active_job_started_at: str | None = None
+    error: str | None = None
 
 
 class MediaUploadOut(ORMModel):

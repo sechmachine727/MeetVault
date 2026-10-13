@@ -20,6 +20,8 @@ def meeting_status(session: Session, meeting_id: uuid.UUID) -> dict:
     for job in jobs:
         steps[job.type] = job.state
     running = next((job for job in jobs if job.state == "running"), None)
+    active_started = next((job.started_at for job in jobs if job.state == "running"), None)
+    last_error = next((job.error for job in reversed(jobs) if job.state == "failed" and job.error), None)
     succeeded = [job.progress for job in jobs if job.state == "succeeded"]
     transcript = session.scalar(
         select(Transcript).where(Transcript.meeting_id == meeting_id, Transcript.is_active.is_(True))
@@ -53,6 +55,8 @@ def meeting_status(session: Session, meeting_id: uuid.UUID) -> dict:
         "stale_kinds": stale,
         "mock": is_mock,
         "duration_ms": meeting.duration_ms,
+        "active_job_started_at": active_started.isoformat() if active_started else None,
+        "error": last_error,
     }
 
 
