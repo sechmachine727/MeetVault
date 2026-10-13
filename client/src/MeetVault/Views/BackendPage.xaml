@@ -5,7 +5,11 @@
     <ScrollViewer>
         <StackPanel Padding="24" Spacing="12" MaxWidth="1100" HorizontalAlignment="Left">
             <TextBlock x:Uid="BackPageTitle" Style="{StaticResource TitleTextBlockStyle}" />
-            <InfoBar x:Name="StatusBar" IsOpen="False" Severity="Informational" />
+            <InfoBar x:Name="StatusBar" IsOpen="False" Severity="Informational">
+                <InfoBar.ActionButton>
+                    <Button x:Name="ForgetLinkButton" x:Uid="BackForgetLink" Click="ForgetLink_Click" Visibility="Collapsed" />
+                </InfoBar.ActionButton>
+            </InfoBar>
 
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
@@ -24,8 +28,9 @@
             <TextBlock x:Name="EmptyState" x:Uid="BackPageEmpty" Opacity="0.7" TextWrapping="Wrap" Visibility="Collapsed" />
 
             <StackPanel x:Name="ContentPanel" Spacing="8">
+                <TextBlock x:Uid="BackPageStatusLabel" Opacity="0.7" />
                 <TextBlock x:Name="BackendStateText" FontWeight="SemiBold" TextWrapping="Wrap" />
-                <TextBlock x:Name="BackendMockBadge" Text="mock" Opacity="0.8" FontStyle="Italic" Visibility="Collapsed" />
+                <TextBlock x:Name="BackendMockBadge" Opacity="0.8" FontStyle="Italic" Visibility="Collapsed" />
                 <TextBlock x:Name="BackendStaleText" Opacity="0.7" TextWrapping="Wrap" />
                 <ProgressBar x:Name="BackendProgressBar" Visibility="Collapsed" Minimum="0" Maximum="100" />
                 <TextBlock x:Name="BackendStepsText" Opacity="0.7" TextWrapping="Wrap" />

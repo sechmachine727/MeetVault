@@ -421,7 +421,7 @@
   <data name="Back.State.Failed" xml:space="preserve"><value>failed</value></data>
   <data name="Back.State.Deleted" xml:space="preserve"><value>deleted</value></data>
   <data name="Back.State.Unknown" xml:space="preserve"><value>unknown</value></data>
-  <data name="Back.MockBadge" xml:space="preserve"><value>mock</value></data>
+  <data name="Back.MockBadge" xml:space="preserve"><value>mock data</value></data>
   <data name="Back.Stale" xml:space="preserve"><value>Out of date: {0}</value></data>
   <data name="Back.Stage.Create" xml:space="preserve"><value>creating meeting</value></data>
   <data name="Back.Stage.Audio" xml:space="preserve"><value>uploading audio</value></data>
@@ -483,4 +483,8 @@
   <data name="Back.Downloading" xml:space="preserve"><value>Downloading…</value></data>
   <data name="Back.Downloaded" xml:space="preserve"><value>Downloaded to {0}</value></data>
   <data name="Back.LoadFailed" xml:space="preserve"><value>Could not load backend data: {0}</value></data>
+  <data name="BackForgetLink.Content" xml:space="preserve"><value>Forget this link</value></data>
+  <data name="BackForgetLink.AutomationProperties.Name" xml:space="preserve"><value>Forget the backend link for this meeting</value></data>
+  <data name="Back.Unlinked" xml:space="preserve"><value>The backend link was removed from this meeting.</value></data>
+  <data name="BackPageStatusLabel.Text" xml:space="preserve"><value>Status</value></data>
 </root>

@@ -86,8 +86,12 @@ public sealed partial class BackendPage : Page
         _backendId = _synced[index].Sync.BackendId;
         EmptyState.Visibility = Visibility.Collapsed;
         ContentPanel.Visibility = Visibility.Visible;
-        BackendStateText.Text = Loc.T(BackendPresentation.StatusKey(_synced[index].Sync.State));
-        BackendMockBadge.Visibility = _synced[index].Sync.Mock ? Visibility.Visible : Visibility.Collapsed;
+        var sync = _synced[index].Sync;
+        // A failed row must say why (eval D2): the Details page already appends LastError.
+        BackendStateText.Text = Loc.T(BackendPresentation.StatusKey(sync.State))
+            + (sync.LastError is { Length: > 0 } error ? " — " + error : "");
+        BackendMockBadge.Text = Loc.T("Back.MockBadge");
+        BackendMockBadge.Visibility = sync.Mock ? Visibility.Visible : Visibility.Collapsed;
         if (_backendId is null)
         {
             // Never show the previous meeting's server data for a row without a backend id.
@@ -119,6 +123,7 @@ public sealed partial class BackendPage : Page
             // A previous load's error must not linger, but an error raised by THIS load's
             // inner renderers must stay visible for the rest of the load.
             StatusBar.IsOpen = false;
+            ForgetLinkButton.Visibility = Visibility.Collapsed;
             using var transport = new BackendHttpTransport(
                 (AppStore.Repo.GetSetting("backend.url") ?? "").Trim(),
                 AppStore.Secrets.Get("BackendApiKey") ?? "");
@@ -153,17 +158,34 @@ public sealed partial class BackendPage : Page
         catch (Exception ex)
         {
             Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex)));
+            // The server copy is gone but the local link remains (eval D5): offer to
+            // forget it instead of leaving a permanently failing row.
+            ForgetLinkButton.Visibility = ex is BackendApiException api && api.Code == "not_found"
+                ? Visibility.Visible : Visibility.Collapsed;
         }
         finally { _busy = false; }
+    }
+
+    private void ForgetLink_Click(object sender, RoutedEventArgs e)
+    {
+        if (_meeting is null) return;
+        AppStore.Repo.ClearBackendSync(_meeting.Id);
+        ForgetLinkButton.Visibility = Visibility.Collapsed;
+        Status(InfoBarSeverity.Informational, Loc.T("Back.Unlinked"));
+        ReloadPicker();
     }
 
     private void RenderStatus(BackendStatus status)
     {
         BackendStateText.Text = Loc.T(BackendPresentation.StatusKey(status.Status));
+        BackendMockBadge.Text = Loc.T("Back.MockBadge");
         BackendMockBadge.Visibility = status.Mock ? Visibility.Visible : Visibility.Collapsed;
         BackendStepsText.Text = BackendPresentation.StepsSummary(status.Steps);
-        BackendStaleText.Text = status.StaleKinds.Count > 0
-            ? Loc.Tf("Back.Stale", string.Join(", ", status.StaleKinds)) : "";
+        // A kind with a current document is not out of date even when superseded
+        // documents exist (eval D3): surface only stale kinds with no fresh document.
+        var outdated = status.StaleKinds.Except(status.FreshKinds, StringComparer.Ordinal).ToList();
+        BackendStaleText.Text = outdated.Count > 0
+            ? Loc.Tf("Back.Stale", string.Join(", ", outdated)) : "";
         BackendProgressBar.Visibility = status.Status == "processing" || status.Status == "uploaded"
             ? Visibility.Visible : Visibility.Collapsed;
         BackendProgressBar.Value = BackendPresentation.Percent(status.Progress);
@@ -186,6 +208,7 @@ public sealed partial class BackendPage : Page
 
     private void RenderAnalysis(BackendBundle bundle)
     {
+        BackendMockBadge.Text = Loc.T("Back.MockBadge");
         if (bundle.Mock) BackendMockBadge.Visibility = Visibility.Visible;
         SummaryText.Text = bundle.Summary?.Text ?? "";
         SummaryBullets.ItemsSource = (bundle.Summary?.Bullets ?? new List<string>()).Select(b => "• " + b).ToArray();

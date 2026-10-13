@@ -421,7 +421,7 @@
   <data name="Back.State.Failed" xml:space="preserve"><value>失敗</value></data>
   <data name="Back.State.Deleted" xml:space="preserve"><value>削除済み</value></data>
   <data name="Back.State.Unknown" xml:space="preserve"><value>不明</value></data>
-  <data name="Back.MockBadge" xml:space="preserve"><value>mock</value></data>
+  <data name="Back.MockBadge" xml:space="preserve"><value>モックデータ</value></data>
   <data name="Back.Stale" xml:space="preserve"><value>古い分析: {0}</value></data>
   <data name="Back.Stage.Create" xml:space="preserve"><value>会議を作成中</value></data>
   <data name="Back.Stage.Audio" xml:space="preserve"><value>音声をアップロード中</value></data>
@@ -483,4 +483,8 @@
   <data name="Back.Downloading" xml:space="preserve"><value>ダウンロード中…</value></data>
   <data name="Back.Downloaded" xml:space="preserve"><value>{0} にダウンロードしました</value></data>
   <data name="Back.LoadFailed" xml:space="preserve"><value>バックエンドのデータを読み込めませんでした: {0}</value></data>
+  <data name="BackForgetLink.Content" xml:space="preserve"><value>このリンクを解除</value></data>
+  <data name="BackForgetLink.AutomationProperties.Name" xml:space="preserve"><value>この会議のバックエンド連携を解除する</value></data>
+  <data name="Back.Unlinked" xml:space="preserve"><value>この会議のバックエンド連携を解除しました。</value></data>
+  <data name="BackPageStatusLabel.Text" xml:space="preserve"><value>ステータス</value></data>
 </root>
