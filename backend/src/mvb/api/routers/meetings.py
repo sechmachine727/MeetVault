@@ -20,6 +20,7 @@ from mvb.db.models import (
     TranscriptSegment,
     User,
 )
+from mvb.export.docx import build_summary_docx
 from mvb.media.probe import probe_media
 from mvb.pipeline.align import align_segments
 from mvb.pipeline.chain import STEP_ORDER, enqueue_pipeline
@@ -478,3 +479,26 @@ def get_status(meeting_id: uuid.UUID, user: CurrentUser, db: DbSession) -> Meeti
     which analysis kinds are fresh or stale, and whether any result is mock."""
     meeting = get_meeting(db, meeting_id, user)
     return MeetingStatusOut.model_validate(meeting_status(db, meeting.id))
+
+
+DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
+@router.get("/meetings/{meeting_id}/export.docx")
+def export_meeting_docx(meeting_id: uuid.UUID, user: CurrentUser, db: DbSession) -> Response:
+    """Structured Word export of the completed analysis (summary, sections, decisions,
+    action items, Q&A). 409 `no_analysis` when there is nothing fresh to export."""
+    from mvb.api.routers.analysis import build_analysis_bundle
+
+    meeting = get_meeting(db, meeting_id, user)
+    bundle = build_analysis_bundle(db, meeting)
+    has_content = bool(bundle.summary or bundle.sections or bundle.decisions or bundle.action_items or bundle.qa)
+    if not has_content:
+        raise ApiError(409, "no_analysis", "This meeting has no completed analysis yet.")
+    payload = build_summary_docx(meeting=meeting, bundle=bundle)
+    slug = "-".join("".join(ch if ch.isalnum() else " " for ch in (meeting.title or "meeting")).split())[:80]
+    return Response(
+        content=payload,
+        media_type=DOCX_MIME,
+        headers={"Content-Disposition": f'attachment; filename="{slug or "meeting"}.docx"'},
+    )
