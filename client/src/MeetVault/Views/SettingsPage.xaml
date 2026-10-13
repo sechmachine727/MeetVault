@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:MeetVault.Views">
     <ScrollViewer>
-        <StackPanel Padding="24" Spacing="20" MaxWidth="900" HorizontalAlignment="Left">
+        <StackPanel Padding="24" Spacing="20" MaxWidth="1100" HorizontalAlignment="Stretch">
 
             <TextBlock x:Uid="SetTitle" Style="{StaticResource TitleTextBlockStyle}" />
             <InfoBar x:Name="StatusBar" IsOpen="False" Severity="Informational" />
