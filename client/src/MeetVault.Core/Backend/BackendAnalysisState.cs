@@ -1,0 +1,41 @@
+namespace MeetVault.Core.Backend;
+
+public enum AnalysisState { NotAnalyzed, Uploading, Queued, Processing, Completed, Failed }
+
+// Single mapping from backend-reported state to the six user-visible analysis states.
+// Rules (keep in sync with docs/INTEGRATION.md):
+// - Backend status is authoritative whenever it is available (status != null).
+// - Uploading is a client-only state (media is still being sent, backend unknown/not started).
+// - Completed requires the analyze step succeeded AND fresh analysis documents exist.
+public static class BackendAnalysisState
+{
+    public static AnalysisState Map(BackendSyncRow? sync, BackendStatus? status, bool hasFreshAnalysis)
+    {
+        if (status is not null)
+        {
+            status.Steps.TryGetValue("analyze", out var analyze);
+            if (analyze == "failed" || status.Status == "failed") return AnalysisState.Failed;
+            if (analyze == "succeeded" && hasFreshAnalysis) return AnalysisState.Completed;
+            if (status.Steps.Values.Any(v => v == "running")) return AnalysisState.Processing;
+            if (status.Steps.Values.Any(v => v == "queued")) return AnalysisState.Queued;
+            return AnalysisState.NotAnalyzed;
+        }
+        return sync?.State switch
+        {
+            "sending" => AnalysisState.Uploading,
+            "processing" => AnalysisState.Processing,
+            "ready" => AnalysisState.Completed,
+            "failed" or "not_found" => AnalysisState.Failed,
+            _ => AnalysisState.NotAnalyzed,
+        };
+    }
+
+    public static AnalysisState FromCloudRow(string meetingStatus, string? latestJobType, string? latestJobState, bool hasAnalysis)
+    {
+        if (latestJobType == "analyze" && latestJobState == "succeeded" && hasAnalysis) return AnalysisState.Completed;
+        if (latestJobState == "running") return AnalysisState.Processing;
+        if (latestJobState == "queued") return AnalysisState.Queued;
+        if (latestJobState == "failed" || meetingStatus == "failed") return AnalysisState.Failed;
+        return meetingStatus == "ready" ? AnalysisState.Completed : AnalysisState.NotAnalyzed;
+    }
+}
