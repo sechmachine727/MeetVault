@@ -78,3 +78,38 @@ def seed_meeting_with_audio(
     session.add(asset)
     session.commit()
     return meeting, asset
+
+
+def create_user_with_token(
+    session: Any,
+    *,
+    email: str = "test@example.com",
+    password: str = "test-password-1",
+    display_name: str = "Test User",
+    ttl_days: int = 30,
+) -> tuple[Any, str]:
+    """Create a user + session token row; return (User, raw_token)."""
+    import uuid as _uuid
+    from datetime import UTC, datetime, timedelta
+
+    from mvb.db.models import AuthToken, User
+    from mvb.security import hash_password, new_session_token
+
+    user = User(
+        id=_uuid.uuid4(),
+        email=email.lower(),
+        display_name=display_name,
+        password_hash=hash_password(password),
+    )
+    session.add(user)
+    raw, digest = new_session_token()
+    session.add(
+        AuthToken(
+            id=_uuid.uuid4(),
+            user_id=user.id,
+            token_hash=digest,
+            expires_at=datetime.now(UTC) + timedelta(days=ttl_days),
+        )
+    )
+    session.commit()
+    return user, raw

@@ -76,3 +76,13 @@ def client():  # type: ignore[no-untyped-def]
 @pytest.fixture
 def auth_headers() -> dict[str, str]:
     return {"Authorization": "Bearer test-key"}
+
+
+@pytest.fixture
+def auth_user(db_session):  # type: ignore[no-untyped-def]
+    from types import SimpleNamespace
+
+    from tests.helpers import create_user_with_token
+
+    user, raw = create_user_with_token(db_session)
+    return SimpleNamespace(id=user.id, email=user.email, token=raw, headers={"Authorization": f"Bearer {raw}"})
