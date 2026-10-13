@@ -49,12 +49,23 @@ public sealed partial class DetailsPage : Page
     {
         InitializeComponent();
 
+        // Release the players' sources on unload for every path (local, cloud-only, no meeting):
+        // registering this before the cloud-mode early return keeps cloud mode covered too (review fix).
+        Unloaded += (_, _) =>
+        {
+            try { Player.Source = null; } catch { }
+            try { VideoPlayer.Source = null; } catch { }
+            try { _backendCts?.Cancel(); } catch { } // the poll stops with the page (plan decision #8)
+        };
+
         var cloudBackendId = PendingDetails.CloudBackendId;
         PendingDetails.CloudBackendId = null;
         if (cloudBackendId is not null)
         {
             _cloudBackendId = cloudBackendId;
             _meeting = null;
+            // A pending local handoff must not survive a cloud navigation (spec D11 prose).
+            PendingDetails.MeetingId = null;
             InitializeCloudMode();
             return;
         }
@@ -107,12 +118,6 @@ public sealed partial class DetailsPage : Page
         UpdateAspectButton();
         ApplyAspect();
         UpdateLineStatus();
-        Unloaded += (_, _) =>
-        {
-            try { Player.Source = null; } catch { }
-            try { VideoPlayer.Source = null; } catch { }
-            try { _backendCts?.Cancel(); } catch { } // the poll stops with the page (plan decision #8)
-        };
     }
 
     private static string FormatDuration(Meeting m)

@@ -42,6 +42,11 @@ public sealed partial class BackendPage : Page
             MeetingsList.ItemsSource = null;
             EmptyState.Visibility = Visibility.Visible;
             EmptyState.Text = AppSession.LastError ?? Loc.T("Cloud.SignInNeeded");
+            // The sign-in button is the InfoBar's ActionButton: a closed InfoBar hides it, so the
+            // signed-out page must open the bar to expose the only sign-in affordance (review fix).
+            StatusBar.Severity = InfoBarSeverity.Informational;
+            StatusBar.Message = EmptyState.Text;
+            StatusBar.IsOpen = true;
         }
     }
 
