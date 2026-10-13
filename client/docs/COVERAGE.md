@@ -285,3 +285,31 @@ in that session; the server contract is `../backend/docs/INTEGRATION.md`.
 | Re-run analysis | Backend ▸ Re-run | T82: `stale_kinds` → `[]`, `fresh_kinds` repopulated |
 | Update transcript | Backend ▸ Update transcript | T82: version counter 1 → 2 (live_export, active); a new analyze job ran. `stale_kinds` lists the superseded v1 docs while `fresh_kinds` lists the v2 docs (backend semantics: a kind is stale when a superseded doc exists, fresh when the current one does — the lists overlap after a transcript swap) |
 | Remove from backend | Backend ▸ Remove | T82: confirm → server meeting `status=deleted` (soft, `deleted_at` set), `GET` → 404; picker drops the meeting |
+
+## Multi-user auth + Cloud Storage (2026-10-14)
+
+Requirement-to-evidence ledger for the client side of the login + cloud redesign (PART D, D1–D12 of
+`.hermes/plans/2026-10-14_041528-auth-login-cloud-redesign.md`). The server contract is
+`../backend/docs/INTEGRATION.md`; the client work log is
+`docs/progress/progress_supersanta/PROGRESS_2026-10-14.md`.
+
+| Feature area | Where | Evidence |
+|---|---|---|
+| Session state + client factory | `src/MeetVault/Views/AppSession.cs` | Token in Windows Credential Locker (`AuthToken`), email/display name in the settings DB; `TryCreateClient` refuses without a URL or token; a `401` clears the token and reports `Acc.SessionExpired`. Verified by the app-project build (0 errors) and the resw completeness net; the UIA sign-in drill is owner-side (there is no UI test project). |
+| Login / Account screen | `LoginPage.xaml(.cs)`, `MainWindow.xaml` `NavAccount` ▸ tag `account` | Renders the signed-out form, signs in through `AuthClient`, shows the signed-in state, and offers Sign out. `MainWindow.NavigateToAccount()` is the single entry point (Settings + Cloud Storage + Details call it). Verified by the app-project build; the `Acc.*`/`NavAccount` keys are checked by `LocalizationResourceTests`. |
+| Cloud-service settings card | `SettingsPage.xaml(.cs)` | The API-key row became an Account row (state text + Manage + Test); `TestBackend_Click` probes `/readyz` with the session token from the vault (the probe needs no auth). |
+| Strings wave | `Strings/en-US/Resources.resw`, `Strings/ja-JP/Resources.resw` | en/ja key parity, every `Loc.T`/`Loc.Tf` key and every XAML `x:Uid` resolves, `{n}` placeholder parity — `LocalizationResourceTests` green at every commit of this wave. |
+| Details player controls + aspect ratio | `DetailsPage.xaml(.cs)` | 16:9 default, cycle 16:9 → 4:3 → Fit, transport bar (play/pause, seek, volume, fullscreen) under the player; geometry in `MeetVault.Core/PlayerGeometry.cs` (`PlayerGeometryTests`, 7 cases). |
+| Details ▸ Analyze meeting | `DetailsPage.xaml.cs` (`Analyze_Click`, `RefreshAnalyzeAsync`, `RenderAnalyzeState`) | Six states (Not analyzed / Uploading / Queued / Processing / Analyzed / Analysis failed) from `BackendAnalysisState.Map` (`BackendAnalysisStateTests`, 13 cases); retry, cancel, and “Forget this link” for a `not_found` cloud copy. |
+| Details ▸ transcript swap | `DetailsPage.xaml(.cs)` (`LoadCloudContentAsync`, `RenderCloudTranscript`, `ShowLocalTranscript`) | Local editable list until the backend transcript exists, then the read-only backend-enhanced list with speaker + time and click-to-seek; a `404` keeps the local transcript on screen. |
+| Details ▸ Summary + Word export | `DetailsPage.xaml(.cs)` (`RenderSummary`, `CopySummary_Click`, `ExportWord_Click`) | Summary / agenda & discussion / decisions / action items / Q&A with citation seek, interactive ask, Copy summary, and Export to Word via `GET /v1/meetings/{id}/export.docx` (server side: `test_docx_export.py`). |
+| Gemini + old backend-processing removals | `src/MeetVault`, `src/MeetVault.Core` | `grep -rn "Gemini" src/MeetVault src/MeetVault.Core --include=*.cs --include=*.xaml` → 0 code hits; `grep -rn "DetBackendHeader" src/` → 0 hits; the Core suite dropped the removed Gemini tests. |
+| Cloud Storage screen | `BackendPage.xaml(.cs)` (class/file name unchanged) | Server-side list for the signed-in user (local-only meetings never appear), one card per meeting with title/meta/status, Open (local record via `external_id`, else the cloud copy via `backendId`) and Remove from cloud, auto-refresh every 10 s while anything is queued/processing, and a sign-in prompt when signed out. Retired here: the locally-synced picker, the per-meeting player, and the transcript/summary/agenda/decisions/actions/Q&A/speakers/versions/jobs/media expanders (now on Details or backend-only diagnostics). |
+| Details cloud mode + cloud navigation | `RecoveryHandoff.cs` (`PendingDetails.CloudBackendId`), `DetailsPage.xaml.cs` (`InitializeCloudMode`, `LoadCloudAudioAsync`, `LoadLocalCloudContentAsync`) | A cloud-only meeting opens by backend id, loads the server detail, transcript/summary and the audio into the cache for the shared player; a local meeting whose `backend_sync` row is ready/processing fetches the cloud content on open. No duplicate local records are created. |
+| Publish | `publish/win-x64` (gitignored) | `dotnet publish … --self-contained true -o publish/win-x64` then the staged `models/` copied alongside; `ls publish/win-x64/MeetVault.exe publish/win-x64/models/vosk` lists the exe and all seven Vosk model folders. |
+
+**Gates for this wave** (from `client/`): `dotnet build MeetVault.sln -c Release` → `Build succeeded.
+0 Error(s)` (the known 3 `CA1416` warnings remain); `dotnet test
+tests/MeetVault.Core.Tests/MeetVault.Core.Tests.csproj -c Release` → `Failed: 0, Passed: 324`.
+UI behavior is verified by the build gate plus the app log and UIA drives in the progress log; there
+is no UI test project, so view code carries no unit tests.
