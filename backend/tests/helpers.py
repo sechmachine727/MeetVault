@@ -102,6 +102,7 @@ def create_user_with_token(
         password_hash=hash_password(password),
     )
     session.add(user)
+    session.flush()  # users row must exist before the FK row: no relationship() orders the flush
     raw, digest = new_session_token()
     session.add(
         AuthToken(
