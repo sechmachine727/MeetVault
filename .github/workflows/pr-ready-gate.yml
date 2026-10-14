@@ -1,0 +1,246 @@
+name: PR ready gate
+
+# Two jobs. The gate runs per pull request: on the opened event it makes sure the
+# description carries the confirmation checklist, and on the edited event it
+# treats the author ticking the last box as the signal to re-open. GitHub starts
+# a workflow for an edit only when a person makes it, so the draft workflow's own
+# description rewrite cannot re-open a pull request by itself.
+#
+# The sweep job covers pull requests that predate this workflow: they get no
+# opened or edited event, so a schedule (and a dispatch with no number) appends
+# the checklist to every open pull request that lacks one.
+#
+# pull_request_target, not pull_request: this workflow holds a write token, so it
+# runs the copy on the base branch and never checks out or executes pull request
+# head code.
+on:
+  pull_request_target:
+    types: [opened, edited]
+  schedule:
+    # Daily at 06:30 UTC, offset from the hour to avoid the Action load spike.
+    - cron: "30 6 * * *"
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number to check. Leave empty to sweep every open pull request.
+        required: false
+        type: number
+
+permissions:
+  contents: write
+  pull-requests: write
+  # Needed to wake the reviewer after the pull request re-opens.
+  actions: write
+
+concurrency:
+  group: pr-state-${{ github.event.pull_request.number || inputs.pr || 'sweep' }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    if: github.event_name != 'schedule' && (github.event_name != 'workflow_dispatch' || inputs.pr != '')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the checklist helper
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # Trusted helper code from the base branch, never the pull request head.
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - name: Re-open when every confirmation and review thread is clear
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          PULL_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
+        with:
+          script: |
+            const path = require("node:path");
+            const { ensureChecklist, parseChecklist } = require(
+              path.join(process.cwd(), ".github", "scripts", "pr-ready-checklist.cjs"),
+            );
+
+            const MARKER = "<!-- codex-pr-state -->";
+            const MAX_BEHIND = 5;
+            const { owner, repo } = context.repo;
+            const pull_number = Number(process.env.PULL_NUMBER);
+
+            // Only a description edit can change the checklist. Skip an edit that
+            // changed some other field, but never skip when the payload does not
+            // say what changed: a silent no-op would disable the gate.
+            const changes = context.payload.changes;
+            if (context.eventName !== "workflow_dispatch" && changes && !("body" in changes)) return;
+
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: pull_number, per_page: 100,
+            });
+            const existing = comments.find(
+              (comment) =>
+                comment.user?.login === "github-actions[bot]" && comment.body?.includes(MARKER),
+            );
+            const upsert = async (body) => {
+              if (existing) {
+                return github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+              }
+              return github.rest.issues.createComment({ owner, repo, issue_number: pull_number, body });
+            };
+
+            // An open pull request is already reviewable, and drafting it on open
+            // would suppress its first review. Make sure the checklist is present
+            // so the loop has boxes to tick, then leave it alone.
+            if (!pr.draft) {
+              const withChecklist = ensureChecklist(pr.body ?? "");
+              if (withChecklist !== (pr.body ?? "")) {
+                await github.rest.pulls.update({ owner, repo, pull_number, body: withChecklist });
+                await upsert([
+                  MARKER,
+                  "### Confirmation checklist added",
+                  "",
+                  "The description had no confirmation checklist, so one was appended. Tick every box",
+                  "before the pull request is re-opened after a change request, or after a push returns",
+                  "it to draft.",
+                ].join("\n"));
+              }
+              return;
+            }
+
+            const ensured = ensureChecklist(pr.body ?? "");
+            const readiness = parseChecklist(ensured);
+
+            const THREADS = [
+              "query ($owner: String!, $repo: String!, $number: Int!, $cursor: String) {",
+              "  repository(owner: $owner, name: $repo) {",
+              "    pullRequest(number: $number) {",
+              "      reviewThreads(first: 100, after: $cursor) {",
+              "        pageInfo { hasNextPage endCursor }",
+              "        nodes { isResolved path line }",
+              "      }",
+              "    }",
+              "  }",
+              "}",
+            ].join("\n");
+            const unresolved = [];
+            let cursor = null;
+            for (;;) {
+              const page = await github.graphql(THREADS, { owner, repo, number: pull_number, cursor });
+              const threads = page.repository.pullRequest.reviewThreads;
+              for (const node of threads.nodes) {
+                if (!node.isResolved) unresolved.push(node);
+              }
+              if (!threads.pageInfo.hasNextPage) break;
+              cursor = threads.pageInfo.endCursor;
+            }
+
+            const blockers = [];
+            if (readiness.total === 0) {
+              blockers.push("The confirmation checklist has no items to tick.");
+            } else if (!readiness.complete) {
+              blockers.push(
+                "**" + (readiness.total - readiness.checked) + " of " + readiness.total +
+                  "** confirmations are still unticked.",
+              );
+            }
+            if (unresolved.length > 0) {
+              const list = unresolved
+                .map((node) => "- " + node.path + (node.line ? ":" + node.line : ""))
+                .join("\n");
+              blockers.push("**" + unresolved.length + "** review thread(s) are unresolved:\n" + list);
+            }
+
+            // A stale branch means the review does not describe what would merge, so
+            // hold the re-open until the branch is brought up to date.
+            let behind = 0;
+            try {
+              const compare = await github.rest.repos.compareCommits({
+                owner, repo, base: pr.base.ref, head: pr.head.sha,
+              });
+              behind = compare.data.behind_by ?? 0;
+            } catch (error) {
+              core.warning("Could not compare against " + pr.base.ref + ": " + (error.message ?? error));
+            }
+            if (behind >= MAX_BEHIND) {
+              blockers.push(
+                "The branch is **" + behind + "** commits behind " + pr.base.ref +
+                  ". Update it from " + pr.base.ref + " before re-opening; a review of a stale branch does not describe what merges.",
+              );
+            }
+
+            if (blockers.length > 0) {
+              // Persist the block when the description did not carry one, so the
+              // author has boxes to tick.
+              if (ensured !== (pr.body ?? "")) {
+                await github.rest.pulls.update({ owner, repo, pull_number, body: ensured });
+              }
+              await upsert([MARKER, "### Not ready to re-open", "", blockers.join("\n\n")].join("\n"));
+              return;
+            }
+
+            await github.graphql(
+              "mutation ($id: ID!) { markPullRequestReadyForReview(input: { pullRequestId: $id }) { pullRequest { isDraft } } }",
+              { id: pr.node_id },
+            );
+            await upsert([
+              MARKER,
+              "### Re-opened for review",
+              "",
+              "Every confirmation is recorded and no review thread is unresolved. The reviewer is running now.",
+            ].join("\n"));
+
+            // A GITHUB_TOKEN write does not start a workflow run, so the reviewer
+            // is woken explicitly instead of by the ready_for_review event.
+            await github.rest.actions.createWorkflowDispatch({
+              owner,
+              repo,
+              workflow_id: "pr-review.yml",
+              ref: context.payload.repository.default_branch,
+              inputs: { pr: String(pull_number) },
+            });
+
+  sweep:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.pr == '')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the checklist helper
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - name: Append the checklist to every open pull request that lacks one
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const path = require("node:path");
+            const { ensureChecklist } = require(
+              path.join(process.cwd(), ".github", "scripts", "pr-ready-checklist.cjs"),
+            );
+
+            const MARKER = "<!-- codex-pr-state -->";
+            const { owner, repo } = context.repo;
+            const pulls = await github.paginate(github.rest.pulls.list, {
+              owner, repo, state: "open", per_page: 100,
+            });
+
+            let added = 0;
+            for (const pr of pulls) {
+              const ensured = ensureChecklist(pr.body ?? "");
+              if (ensured === (pr.body ?? "")) continue;
+              await github.rest.pulls.update({ owner, repo, pull_number: pr.number, body: ensured });
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: pr.number,
+                body: [
+                  MARKER,
+                  "### Confirmation checklist added",
+                  "",
+                  "This pull request predates the confirmation checklist, so one was appended. Tick every",
+                  "box once the findings are addressed; the pull request re-opens for review when the last",
+                  "box is ticked and no review thread is unresolved.",
+                ].join("\n"),
+              });
+              added += 1;
+            }
+            core.notice("Appended the checklist to " + added + " of " + pulls.length + " open pull requests.");
+

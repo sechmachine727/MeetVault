@@ -12,6 +12,7 @@ A local-first Windows meeting recorder and transcriber: WinUI 3 app on .NET 8, w
 - `src/MeetVault.Core` — domain, session, engines, storage, Gemini, logging. No UI or WinUI types here.
 - `tests/MeetVault.Core.Tests` — xUnit tests for Core.
 - `docs/mvp-winui` — frozen spec. `docs/COVERAGE.md` and `BLOCKERS.md` track current status.
+- `.github` — the pull request review pipeline. See "Pull request review pipeline" below.
 
 Views call `MeetingSession` and nothing else. Engines and storage sit behind interfaces in `EngineInterfaces.cs`; the repository is the single writer of persisted state.
 
@@ -39,6 +40,25 @@ These keep the published app from crashing. Each was found the hard way.
 - Never commit `models/`, `cuda/`, or `vcruntime/`. They are gitignored and staged at the repository root. `models/` is copied into the publish folder by hand; the `Content` items below bundle `cuda/` and `vcruntime/` automatically. Staging procedure: [docs/CUDA-SETUP.md](docs/CUDA-SETUP.md).
 - Do not hand a live `ObservableCollection` across the WinRT boundary. Snapshot with `.ToArray()` and refresh on change (see `LivePage`, `DetailsPage`, `OverlayWindow`).
 
+## Pull request review pipeline
+
+Three workflows under `.github/workflows` review a pull request and gate its draft state. Read the file headers; they carry the reasoning. What matters when changing them:
+
+- `pr-review.yml` reviews an open pull request and posts a GitHub review with a verdict. A `critical` or `important` finding is a change request; anything else is accepted. The model returns one JSON object, described in [.github/codex/pr-review-prompt.md](.github/codex/pr-review-prompt.md).
+- `pr-auto-draft.yml` returns the pull request to draft and clears the checklist on a push, or on a change request.
+- `pr-ready-gate.yml` appends the checklist to a new pull request, re-opens a draft when every box is ticked and no review thread is unresolved, and sweeps open pull requests on a schedule.
+
+Constraints found the hard way:
+
+- `GITHUB_TOKEN` cannot approve: GitHub answers an `APPROVE` review with "GitHub Actions is not permitted to approve pull requests". An accepted verdict posts as a `COMMENT` review; only a change request uses `REQUEST_CHANGES`.
+- Only `synchronize`, a push, and a change request draft a pull request. Drafting on open would suppress the first review, so an opened pull request is only given the checklist.
+- The reviewer pins the rubric and `.github/codex/model-catalog.json` from the base commit, so a pull request cannot weaken the rules that judge it. A change to either file is reviewed by the base copy and takes effect on later pull requests.
+- `.github/codex/model-catalog.json` is a trimmed copy of the local catalog. Keep every field; the CLI rejects an entry missing `shell_type` or `base_instructions`. It overrides `base_instructions` with a review-specific prompt.
+- Pin actions to a commit SHA. Floating tags drift onto runtimes GitHub later deprecates.
+- The confirmation checklist in the pull request description is owned by `.github/scripts/pr-ready-checklist.cjs`. Do not hand-edit between its markers; change the block in that module and its test.
+- A branch five or more commits behind `main` cannot re-open: a review of a stale branch does not describe what merges.
+- The review runs on `ubuntu-latest`, so it builds and tests `MeetVault.Core` and its tests only. The WinUI app targets `net8.0-windows10.0.26100.0` and does not build there.
+
 ## Conventions
 
 - Tests use xUnit and built-in asserts. FluentAssertions is intentionally absent.
@@ -65,3 +85,4 @@ Record your work in `docs/progress/` as you go, so the next agent starts from ev
 - `docs/BUILD-LEDGER.md` — historical build log with engine measurements (past tense; not current status).
 - `docs/progress/` — per-contributor work log, one file per contributor per calendar day.
 - `BLOCKERS.md` — open items that need a specific machine or the user.
+- `.github/workflows/` and `.github/codex/` — the pull request review pipeline, its rubric, and its model catalog.
