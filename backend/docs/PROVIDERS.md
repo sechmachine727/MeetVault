@@ -70,10 +70,18 @@ with the reason recorded. The model name is passed through verbatim, so
   `analyze` job (agenda + per-section summaries + summary + decisions/actions = 4–8 calls) measured
   **387 s** and **425 s** on two meetings; a `/qa` answer took **24–42 s**. Launch with
   `MVB_ANALYZER_TIMEOUT_S=600`.
-- **A long real job holds SQLite's write lock:** the analyze job keeps its transaction open across
-  every model call, so a concurrent API *write* (the auth-token `last_used_at` touch is one) can
-  answer `500 database is locked` for the duration on SQLite. Postgres is unaffected; keep write
-  traffic low on SQLite while an analysis runs.
+- **The SQLite write-lock hold across model calls is FIXED (2026-10-14, commit `2b3857a`):** the
+  analyze job used to keep its transaction open across every model call, so a concurrent API *write*
+  (the auth-token `last_used_at` touch is one) answered `500 database is locked` for the whole
+  multi-minute job — reproduced live (login `500` while a job ran, `200` the moment it finished). The
+  pipeline now commits *before* each model call (`pipeline/analyze.py`, so no model call runs inside an
+  open write transaction) and the SQLite engine sets `PRAGMA journal_mode=WAL` plus
+  `PRAGMA busy_timeout=30000` on connect (`db/base.py`); a concurrent write now commits while the model
+  call is still parked, pinned by
+  `tests/integration/test_analysis_jobs.py::test_analyze_does_not_pin_the_write_lock_across_a_model_call`.
+  Honest residual nuance: a *single* SQLite statement still holds its own statement lock for as long as
+  it runs, so one very long write can still block another writer until `busy_timeout` expires — no
+  statement in the pipeline runs for minutes. Postgres was never affected (MVCC).
 
 ## OpenCode Go
 
