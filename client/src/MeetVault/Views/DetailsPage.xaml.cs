@@ -463,9 +463,10 @@ public sealed partial class DetailsPage : Page
     // the pure Core helper so the rule is unit-testable. Re-evaluated on every resize;
     // the load paths re-run it after each meeting load as belt-and-braces.
     // Stacked: one column, the outer viewer scrolls. TwoColumn: media stack left,
-    // transcript right. ThreeColumn (large screens): media left, transcript center,
-    // analysis right — the grid fills the viewport width (no 1200 cap) so wide screens
-    // read horizontally instead of one tall capped column.
+    // transcript right (grid capped 1200). Wide (large screens, owner direction
+    // 2026-10-14): the 16:9 video section is the WIDEST section - media left, one
+    // transcript + analysis rail right - the grid filling the viewport width (no 1200
+    // cap) and the video growing with its section instead of one tall capped column.
     private void RootScroll_SizeChanged(object sender, SizeChangedEventArgs e) => EvaluateLayout();
 
     private void EvaluateLayout()
@@ -474,6 +475,7 @@ public sealed partial class DetailsPage : Page
         var mode = DetailsLayout.Decide(RootScroll.ActualWidth, RootScroll.ActualHeight);
         if (mode != _layoutMode) ApplyLayout(mode);
         else if (mode != DetailsLayoutMode.Stacked) PageGrid.Height = RootScroll.ActualHeight;
+        ApplyAspect(); // the video height follows the mode's cap and its section width
     }
 
     private static void DetachFromParent(FrameworkElement element)
@@ -489,22 +491,23 @@ public sealed partial class DetailsPage : Page
         DetachFromParent(SummaryCard);
         DetachFromParent(RightRegion);
         PageGrid.ColumnDefinitions.Clear();
-        if (mode == DetailsLayoutMode.ThreeColumn)
+        if (mode == DetailsLayoutMode.Wide)
         {
-            // Media | transcript | analysis, the grid FILLING the wide viewport (no
-            // 1200 cap) and pinned to its height, so all three regions scroll
-            // internally. The player card never moves — media playback is never
-            // disrupted by a mode switch.
+            // Video-dominant two-column (owner direction 2026-10-14: the 16:9 video
+            // section must be the widest section; three sections are not wanted):
+            // the media section is left and WIDEST, the transcript + analysis cards
+            // ride ONE right rail, and the grid FILLS the wide viewport (no 1200
+            // cap) pinned to its height. The rail scrolls internally as one column;
+            // the player card never moves — media playback is never disrupted by a
+            // mode switch.
             PageGrid.MaxWidth = double.PositiveInfinity;
             PageGrid.Height = RootScroll.ActualHeight;
-            PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 560, MaxWidth = 720 });
-            PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 440 });
-            PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 520, MaxWidth = 640 });
-            PageGrid.Children.Add(TranscriptCard);
-            Grid.SetColumn(TranscriptCard, 1);
+            PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 560 });
+            PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 480, MaxWidth = 640 });
             PageGrid.Children.Add(RightRegion);
-            Grid.SetColumn(RightRegion, 2);
+            Grid.SetColumn(RightRegion, 1);
             RightRegion.Visibility = Visibility.Visible;
+            RightStack.Children.Add(TranscriptCard);
             RightStack.Children.Add(AnalyzeCard);
             RightStack.Children.Add(SummaryCard);
         }
@@ -543,7 +546,13 @@ public sealed partial class DetailsPage : Page
         var naturalW = VideoPlayer.MediaPlayer?.PlaybackSession?.NaturalVideoWidth ?? 0;
         var naturalH = VideoPlayer.MediaPlayer?.PlaybackSession?.NaturalVideoHeight ?? 0;
         if (target.ActualWidth <= 0) return; // not laid out yet; SizeChanged re-runs this
-        target.Height = PlayerGeometry.HeightFor(target.ActualWidth, _aspect, 540, naturalW, naturalH)
+        // In the wide tier the video section is the widest section, so the 16:9 video
+        // grows with it, up to the viewport minus the section's card chrome; in every
+        // other tier the historical 540 cap holds.
+        var maxHeight = _layoutMode == DetailsLayoutMode.Wide
+            ? Math.Max(540, RootScroll.ActualHeight - 320)
+            : 540;
+        target.Height = PlayerGeometry.HeightFor(target.ActualWidth, _aspect, maxHeight, naturalW, naturalH)
                         ?? double.NaN;
     }
 
