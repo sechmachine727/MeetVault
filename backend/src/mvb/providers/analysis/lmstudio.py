@@ -49,12 +49,18 @@ class LmStudioAnalyzer:
         body = {
             "model": self.model or "local-model",
             "messages": [
-                {"role": "system", "content": system + "\n\nJSON SCHEMA:\n" + json.dumps(schema, sort_keys=True)},
+                {
+                    "role": "system",
+                    "content": system + "\n\nRespond with a single JSON object that matches the provided schema.",
+                },
                 {"role": "user", "content": user},
             ],
             "temperature": 0.0,
             "stream": False,
-            "response_format": {"type": "json_object"},
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {"name": "mvb_analysis", "schema": schema, "strict": True},
+            },
         }
         with httpx.Client(timeout=timeout_s or self.timeout_s) as client:
             response = client.post(f"{self.base_url}/chat/completions", headers=self._headers(), json=body)

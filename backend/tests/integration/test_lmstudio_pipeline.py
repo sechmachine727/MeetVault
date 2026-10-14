@@ -20,8 +20,8 @@ pytestmark = pytest.mark.skipif(not ffmpeg_available(), reason="ffmpeg required 
 MODEL_ID = "stub-model"
 CAPTURED: list[dict[str, Any]] = []
 
-# The adapter sends the JSON schema inside the system message, so the stub recovers the kind
-# from it — exactly like a local model would be expected to.
+# The adapter sends the JSON schema in response_format.json_schema, so the stub recovers the
+# kind from there — exactly like a schema-constrained server would be expected to.
 KIND = re.compile(r'"x-kind":\s*"(\w+)"')
 
 
@@ -67,9 +67,9 @@ class _Handler(BaseHTTPRequestHandler):
             {"method": "POST", "path": self.path, "auth": self.headers.get("authorization", ""), "body": body}
         )
         assert self.path.endswith("/chat/completions"), self.path
-        system = body["messages"][0]["content"]
-        match = KIND.search(system)
-        assert match, f"the adapter must send the JSON schema; system message was {system[:200]!r}"
+        schema = body["response_format"]["json_schema"]["schema"]
+        match = KIND.search(json.dumps(schema))
+        assert match, f"the adapter must send the JSON schema; response_format was {body.get('response_format')!r}"
         self._send(
             {
                 "id": "chatcmpl-stub",
@@ -139,7 +139,7 @@ def test_lmstudio_analyzer_runs_through_the_pipeline(
     """The REAL LM Studio provider driven through a real analyze job over a real socket.
 
     The unit tests stub httpx; this exercises the actual request the adapter builds (model id,
-    bearer header, schema in the system message, response parsing) and the rows it produces.
+    bearer header, the schema in the response_format, response parsing) and the rows it produces.
     """
     _configure(monkeypatch, lmstudio_stub)
     meeting = _run_pipeline(db_session, media_root)
@@ -150,7 +150,10 @@ def test_lmstudio_analyzer_runs_through_the_pipeline(
     for item in posts:
         assert item["auth"] == "Bearer stub-key", "the configured api key must be sent"
         assert item["body"]["model"] == MODEL_ID
-        assert item["body"]["response_format"] == {"type": "json_object"}
+        rf = item["body"]["response_format"]
+        assert rf["type"] == "json_schema"
+        assert rf["json_schema"]["strict"] is True
+        assert isinstance(rf["json_schema"]["schema"], dict) and rf["json_schema"]["schema"]
         assert item["body"]["temperature"] == 0.0
         assert item["body"]["stream"] is False
         assert item["body"]["messages"][1]["role"] == "user"
