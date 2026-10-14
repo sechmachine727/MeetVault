@@ -49,7 +49,6 @@ public sealed partial class DetailsPage : Page
     // --- Cloud transcript + summary ---
     private string _summaryPlain = "";
     private readonly List<BackendSegment> _cloudSegments = new();
-    private readonly List<BackendSpeaker> _speakerRows = new();
 
     public DetailsPage()
     {
@@ -936,14 +935,6 @@ public sealed partial class DetailsPage : Page
             RenderSummary(bundle);
         }
         catch (Exception) { /* summary area keeps its during-state */ }
-        try
-        {
-            var speakers = await client.ListSpeakersAsync(backendId, ct);
-            RenderSpeakers(speakers);
-            var versions = await client.ListTranscriptsAsync(backendId, ct);
-            RenderVersions(versions);
-        }
-        catch { }
     }
 
     private void RenderCloudTranscript(BackendTranscriptDetail transcript)
@@ -1111,36 +1102,6 @@ public sealed partial class DetailsPage : Page
         }
     }
 
-    // --- Speakers + transcript versions (moved in from the old Backend screen) ---
-
-    private void RenderSpeakers(List<BackendSpeaker> speakers)
-    {
-        _speakerRows.Clear();
-        _speakerRows.AddRange(speakers);
-        SpeakersList.ItemsSource = _speakerRows
-            .Select(s => new SpeakerRow
-            {
-                Id = s.Id,
-                Label = s.Label,
-                Stats = Loc.Tf("Back.SpeakerStats", s.SegmentCount, (s.SpeakingMs / 1000).ToString()),
-                Preview = s.Preview,
-            })
-            .ToArray();
-    }
-
-    private void RenderVersions(List<BackendTranscript> versions)
-    {
-        VersionsList.ItemsSource = versions
-            .OrderByDescending(v => v.Version)
-            .Select(v => new NameRow
-            {
-                Id = v.Id,
-                Text = Loc.Tf("Back.VersionLine", v.Version, v.Source, v.Provider, v.SegmentCount) + (v.IsActive ? " \u00b7 " + Loc.T("Back.Active") : ""),
-                Detail = v.IsMock ? Loc.T("Back.MockBadge") : "",
-            })
-            .ToArray();
-    }
-
     private async void Ask_Click(object sender, RoutedEventArgs e)
     {
         var backendId = _cloudBackendId ?? _backendId;
@@ -1185,109 +1146,6 @@ public sealed partial class DetailsPage : Page
         return job;
     }
 
-    private void SpeakerMergeCombo_Loaded(object sender, RoutedEventArgs e)
-    {
-        if (sender is not ComboBox combo || combo.DataContext is not SpeakerRow row) return;
-        combo.ItemsSource = _speakerRows.Where(s => s.Id != row.Id).Select(s => s.Label).ToArray();
-    }
-
-    private void SpeakerMergeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (sender is ComboBox combo && combo.DataContext is SpeakerRow row && combo.SelectedItem is string label)
-            row.MergeTarget = label;
-    }
-
-    private async void SpeakerSave_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement fe || fe.DataContext is not SpeakerRow row) return;
-        var backendId = _cloudBackendId ?? _backendId;
-        if (backendId is null) return;
-        if (row.Label.Trim().Length == 0) return;
-        if (!AppSession.TryCreateClient(out var client)) return;
-        try
-        {
-            await client.RenameSpeakerAsync(row.Id, row.Label.Trim());
-            RenderSpeakers(await client.ListSpeakersAsync(backendId));
-            RenderCloudTranscript(await client.GetActiveTranscriptAsync(backendId));
-        }
-        catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
-        catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
-    }
-
-    private async void SpeakerMerge_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement fe || fe.DataContext is not SpeakerRow row
-            || row.MergeTarget is not { Length: > 0 } targetLabel) return;
-        var backendId = _cloudBackendId ?? _backendId;
-        if (backendId is null) return;
-        var target = _speakerRows.FirstOrDefault(s => s.Label == targetLabel);
-        if (target is null) return;
-        if (!AppSession.TryCreateClient(out var client)) return;
-        try
-        {
-            await client.MergeSpeakersAsync(row.Id, target.Id);
-            RenderSpeakers(await client.ListSpeakersAsync(backendId));
-            RenderCloudTranscript(await client.GetActiveTranscriptAsync(backendId));
-        }
-        catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
-        catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
-    }
-
-    private async void SpeakerDelete_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement fe || fe.DataContext is not SpeakerRow row) return;
-        var backendId = _cloudBackendId ?? _backendId;
-        if (backendId is null) return;
-        var confirm = new ContentDialog
-        {
-            Title = Loc.T("Back.SpeakerDeleteTitle"),
-            Content = Loc.Tf("Back.SpeakerDeleteBody", row.Label),
-            PrimaryButtonText = Loc.T("Back.Delete"),
-            CloseButtonText = Loc.T("Det.Cancel"),
-            XamlRoot = XamlRoot,
-        };
-        if (!AppSession.TryCreateClient(out var client)) { Status(InfoBarSeverity.Warning, Loc.T("DetAnalyzeSignIn")); return; }
-        try
-        {
-            if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
-            await client.DeleteSpeakerAsync(row.Id);
-            RenderSpeakers(await client.ListSpeakersAsync(backendId));
-            RenderCloudTranscript(await client.GetActiveTranscriptAsync(backendId));
-        }
-        catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
-        catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
-    }
-
-    private async void VersionActivate_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement fe || fe.DataContext is not NameRow row) return;
-        var backendId = _cloudBackendId ?? _backendId;
-        if (backendId is null) return;
-        if (!AppSession.TryCreateClient(out var client)) return;
-        try
-        {
-            await client.ActivateTranscriptAsync(row.Id);
-            await LoadCloudContentAsync(client, backendId);
-        }
-        catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
-        catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
-    }
-
-    private async void VersionDelete_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement fe || fe.DataContext is not NameRow row) return;
-        var backendId = _cloudBackendId ?? _backendId;
-        if (backendId is null) return;
-        if (!AppSession.TryCreateClient(out var client)) return;
-        try
-        {
-            await client.DeleteTranscriptAsync(row.Id);
-            await LoadCloudContentAsync(client, backendId);
-        }
-        catch (BackendApiException ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", ex.Code)); }
-        catch (Exception ex) { Status(InfoBarSeverity.Error, Loc.Tf("Back.LoadFailed", DescribeBackendError(ex))); }
-    }
-
     // --- Row models ---
 
     public sealed class CloudLineRow
@@ -1305,24 +1163,6 @@ public sealed partial class DetailsPage : Page
         public long? StartMs { get; set; }
         public List<string> SegmentIds { get; set; } = new();
         public DetailRow(string text, string detail) { Text = text; Detail = detail; }
-    }
-
-    public sealed class SpeakerRow
-    {
-        public string Id { get; set; } = "";
-        public string Label { get; set; } = "";
-        public string Stats { get; set; } = "";
-        public string Preview { get; set; } = "";
-        public string? MergeTarget { get; set; }
-    }
-
-    public sealed class NameRow
-    {
-        public string Id { get; set; } = "";
-        public string Text { get; set; } = "";
-        public string Detail { get; set; } = "";
-        public long? StartMs { get; set; }
-        public List<string> SegmentIds { get; set; } = new();
     }
 
     // --- Helpers ---

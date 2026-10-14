@@ -61,7 +61,6 @@
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="*" />
-                                    <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
                                 <Grid ColumnSpacing="12">
                                     <Grid.ColumnDefinitions>
@@ -117,50 +116,6 @@
                                                Opacity="0.7" TextWrapping="Wrap" VerticalAlignment="Center" HorizontalAlignment="Center"
                                                MaxWidth="320" TextAlignment="Center" Visibility="Collapsed" />
                                 </Grid>
-                                <StackPanel Grid.Row="2" Spacing="8">
-                                    <Expander x:Uid="BackPageVersions" HorizontalAlignment="Stretch">
-                                        <ItemsControl x:Name="VersionsList">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Grid ColumnSpacing="8" Margin="0,4,0,0">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                        </Grid.ColumnDefinitions>
-                                                        <TextBlock Text="{Binding Text}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                                                        <Button x:Uid="BackPageActivate" Grid.Column="1" Click="VersionActivate_Click" />
-                                                        <Button x:Uid="BackPageDeleteVersion" Grid.Column="2" Click="VersionDelete_Click" />
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </Expander>
-                                    <Expander x:Uid="BackPageSpeakers" HorizontalAlignment="Stretch">
-                                        <ItemsControl x:Name="SpeakersList">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Grid ColumnSpacing="8" Margin="0,4,0,0">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="220" />
-                                                            <ColumnDefinition Width="180" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                            <ColumnDefinition Width="180" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                        </Grid.ColumnDefinitions>
-                                                        <TextBox Text="{Binding Label, Mode=TwoWay}" />
-                                                        <TextBlock Text="{Binding Stats}" Grid.Column="1" Opacity="0.7" VerticalAlignment="Center" />
-                                                        <Button x:Uid="BackPageSave" Grid.Column="2" Click="SpeakerSave_Click" />
-                                                        <ComboBox Grid.Column="3" Loaded="SpeakerMergeCombo_Loaded" SelectionChanged="SpeakerMergeCombo_SelectionChanged" />
-                                                        <Button x:Uid="BackPageMerge" Grid.Column="4" Click="SpeakerMerge_Click" />
-                                                        <Button x:Uid="BackPageDeleteSpeaker" Grid.Column="5" Click="SpeakerDelete_Click" />
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </Expander>
-                                </StackPanel>
                             </Grid>
                         </ScrollViewer>
                     </Border>
