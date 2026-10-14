@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     port: int = 8080
     database_url: str = "sqlite+pysqlite:///./_local.db"
     media_root: Path = Path("./data/media")
+    # Where the management web console's static files live (see docs/API.md "Web console").
+    # Absent => the service boots API-only; a missing console is never a startup failure.
+    web_root: Path = Path("./web")
     max_upload_mb: int = 4096
     job_stale_seconds: int = 900
     worker_poll_seconds: float = 2.0
