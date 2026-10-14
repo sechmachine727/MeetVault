@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import threading
 import uuid
 from pathlib import Path
 
 import pytest
 from sqlalchemy import select
 
+import mvb.pipeline.analyze as analyze_module
+from mvb.db.base import session_scope
 from mvb.db.models import (
     AnalysisDocument,
     AnalysisRun,
@@ -229,3 +232,51 @@ def test_status_reports_progress_and_staleness(db_session, media_root: Path) -> 
     after = meeting_status(db_session, meeting.id)
     assert after["fresh_kinds"] == []
     assert after["stale_kinds"]
+
+
+def test_analyze_does_not_pin_the_write_lock_across_a_model_call(
+    db_session, media_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: while the analyzer model call is in flight, a concurrent write must
+    not block/500 with 'database is locked' (the audit's live finding)."""
+    meeting, _ = seed_meeting_with_audio(db_session, media_root, seconds=10.0)
+    enqueue_pipeline(db_session, meeting_id=meeting.id)
+    db_session.commit()
+
+    in_flight, release = threading.Event(), threading.Event()
+
+    class BlockingAnalyzer(MockAnalyzer):
+        id, is_mock = "blocking-analyzer", False
+        one_shot = True
+
+        def complete_json(self, *, system: str, user: str, schema: dict, timeout_s: float) -> LLMResult:
+            if self.one_shot:  # block only the first (agenda) call
+                self.one_shot = False
+                in_flight.set()
+                release.wait(timeout=6.5)  # longer than sqlite's default 5 s lock timeout
+            base = super().complete_json(system=system, user=user, schema=schema, timeout_s=timeout_s)
+            return LLMResult(payload=dict(base.payload), provider=self.id, model="blocked", is_mock=False)
+
+    monkeypatch.setattr(analyze_module, "build_analyzer", lambda *_a, **_k: BlockingAnalyzer())
+
+    worker_done = threading.Event()
+
+    def _worker() -> None:
+        try:
+            for _ in range(20):
+                if not tick():
+                    break
+        finally:
+            worker_done.set()
+
+    threading.Thread(target=_worker, daemon=True).start()
+    assert in_flight.wait(timeout=60), "the analyzer call never started"
+
+    try:
+        with session_scope() as session:  # a concurrent write, like the API's auth-token touch
+            job = session.scalar(select(Job).where(Job.type == "analyze").order_by(Job.created_at.desc()).limit(1))
+            assert job is not None
+            job.progress = 0.42  # the commit is the point: it must not block on the lock
+    finally:
+        release.set()
+    assert worker_done.wait(timeout=60)

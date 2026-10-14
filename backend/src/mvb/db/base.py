@@ -30,9 +30,15 @@ def get_engine() -> Engine:
         if settings.is_sqlite:
 
             @event.listens_for(_engine, "connect")
-            def _fk_on(dbapi_conn: Any, _rec: Any) -> None:  # pragma: no cover - driver hook
+            def _sqlite_pragmas(dbapi_conn: Any, _rec: Any) -> None:  # pragma: no cover - driver hook
                 cur = dbapi_conn.cursor()
                 cur.execute("PRAGMA foreign_keys=ON")
+                # WAL: readers never block the writer and the writer never blocks readers.
+                # busy_timeout: a brief residual write burst retries instead of erroring
+                # 'database is locked'. (WAL needs shared-memory support — local disks and
+                # docker volumes are fine; some network mounts are not.)
+                cur.execute("PRAGMA journal_mode=WAL")
+                cur.execute("PRAGMA busy_timeout=30000")
                 cur.close()
 
         _SessionLocal = sessionmaker(bind=_engine, autoflush=False, expire_on_commit=False, class_=Session)

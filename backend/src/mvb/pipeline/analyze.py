@@ -208,6 +208,12 @@ def analyze_job(context: JobContext) -> dict:
     def call(kind: str, user: str, schema: dict | None = None) -> dict:
         nonlocal done
         context.check_cancelled()
+        # Never hold the write transaction (and with it SQLite's write lock) across the
+        # model call: local-model calls run minutes and every other write would block.
+        # This closes whatever transaction the previous block opened; the writes after
+        # the call (progress/event/this kind's stores) open a fresh, short one that the
+        # next call's commit — or the runner's final commit — closes.
+        context.session.commit()
         result = analyzer.complete_json(
             system=SYSTEM_ANALYST,
             user=user,
