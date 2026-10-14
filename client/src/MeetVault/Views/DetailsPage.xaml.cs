@@ -40,7 +40,6 @@ public sealed partial class DetailsPage : Page
     // through _backendId / the backend_sync row.
     private string? _cloudBackendId = null;
     // --- Player transport ---
-    private PlayerAspect _aspect = PlayerAspect.Ratio16x9;
     private bool _draggingSlider;
     private bool _applyingUi;
     // --- Responsive Details layout: two-column workspace vs stacked ---
@@ -122,7 +121,6 @@ public sealed partial class DetailsPage : Page
         _ = LoadLocalCloudContentAsync();
         VideoPlayer.SizeChanged += (_, _) => ApplyAspect();
         Player.SizeChanged += (_, _) => ApplyAspect();
-        UpdateAspectButton();
         ApplyAspect();
         UpdateLineStatus();
         EvaluateLayout();
@@ -437,26 +435,10 @@ public sealed partial class DetailsPage : Page
         }
     }
 
-    // --- Player control bar (D6): play/pause, seek, volume, aspect cycle, fullscreen ---
-
-    // Aspect modes: 16:9 (default), 4:3, Fit. The element height is computed from its own
-    // width so the ratio holds at any window size; Stretch=Uniform keeps the video uncropped.
-    private void Aspect_Click(object sender, RoutedEventArgs e)
-    {
-        _aspect = PlayerGeometry.Next(_aspect);
-        UpdateAspectButton();
-        ApplyAspect();
-    }
-
-    private void UpdateAspectButton()
-    {
-        AspectButton.Content = _aspect switch
-        {
-            PlayerAspect.Ratio16x9 => Loc.T("DetAspect169"),
-            PlayerAspect.Ratio4x3 => Loc.T("DetAspect43"),
-            _ => Loc.T("DetAspectFit"),
-        };
-    }
+    // --- Player control bar (D6): play/pause, seek, volume, fullscreen ---
+    // Fixed 16:9 (owner direction 2026-10-14): the aspect-cycle button is gone; the
+    // element height is computed from its own width so the ratio holds at any window
+    // size; Stretch=Uniform keeps the video uncropped.
 
     // Responsive Details layout. The mode follows the CONTENT size (the RootScroll
     // viewport: the page's own width, the navigation pane already excluded), decided by
@@ -552,7 +534,7 @@ public sealed partial class DetailsPage : Page
         var maxHeight = _layoutMode == DetailsLayoutMode.Wide
             ? Math.Max(540, RootScroll.ActualHeight - 320)
             : 540;
-        target.Height = PlayerGeometry.HeightFor(target.ActualWidth, _aspect, maxHeight, naturalW, naturalH)
+        target.Height = PlayerGeometry.HeightFor(target.ActualWidth, PlayerAspect.Ratio16x9, maxHeight, naturalW, naturalH)
                         ?? double.NaN;
     }
 

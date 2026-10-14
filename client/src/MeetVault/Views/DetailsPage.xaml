@@ -38,7 +38,6 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <Button x:Name="PlayPauseButton" x:Uid="DetPlayPause" Click="PlayPause_Click" MinWidth="48" />
                                 <TextBlock x:Name="PositionText" Grid.Column="1" VerticalAlignment="Center" Width="96" />
@@ -49,8 +48,7 @@
                                 <TextBlock x:Name="DurationText" Grid.Column="3" VerticalAlignment="Center" Width="96" />
                                 <Slider x:Name="VolumeSlider" Grid.Column="4" Width="120" Minimum="0" Maximum="100"
                                         Value="100" ValueChanged="VolumeSlider_ValueChanged" x:Uid="DetVolume" />
-                                <Button x:Name="AspectButton" Grid.Column="5" x:Uid="DetAspect" Click="Aspect_Click" MinWidth="64" />
-                                <Button x:Name="FullscreenButton" Grid.Column="6" x:Uid="DetFullscreen" Click="Fullscreen_Click" />
+                                <Button x:Name="FullscreenButton" Grid.Column="5" x:Uid="DetFullscreen" Click="Fullscreen_Click" />
                             </Grid>
                         </StackPanel>
                     </Border>
