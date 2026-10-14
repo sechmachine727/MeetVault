@@ -38,4 +38,11 @@ public static class BackendAnalysisState
         if (latestJobState == "failed" || meetingStatus == "failed") return AnalysisState.Failed;
         return meetingStatus == "ready" ? AnalysisState.Completed : AnalysisState.NotAnalyzed;
     }
+
+    // The mock badge reflects the ANALYSIS result, never the server-side pipeline flags:
+    // a real analyzer run over a mock server-side transcript is a real analysis. The run's
+    // is_mock is authoritative; the bundle-level mock is the fallback when the run record
+    // is absent; no analysis loaded means no badge.
+    public static bool ShowMockBadge(BackendBundle? analysis) =>
+        analysis is not null && (analysis.Run?.IsMock ?? analysis.Mock);
 }

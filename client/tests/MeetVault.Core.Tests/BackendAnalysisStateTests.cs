@@ -61,4 +61,31 @@ public class BackendAnalysisStateTests
         => Assert.Equal(expected, BackendAnalysisState.FromCloudRow(meetStatus, jobType, jobState, hasAnalysis));
 
     private static BackendSyncRow Sync(string state) => new("m1", "b1", state, null, false, "2026-10-14T00:00:00Z");
+
+    private static BackendBundle Bundle(bool? runIsMock, bool bundleMock) => new(
+        "m1", "t1",
+        runIsMock is null ? null
+            : new BackendAnalysisRun("r1", "t1", "opencode-go", "deepseek-v4.1-flash", "p1", runIsMock.Value, "succeeded", null),
+        null, new List<BackendAgendaItem>(), new List<BackendSection>(), new List<BackendSectionSummary>(),
+        new List<BackendDecision>(), new List<BackendActionItem>(), new List<BackendQaItem>(), new List<string>(), bundleMock);
+
+    [Fact]
+    public void ShowMockBadge_NoAnalysis_Hides()
+        => Assert.False(BackendAnalysisState.ShowMockBadge(null));
+
+    [Fact]
+    public void ShowMockBadge_RealRunOverMockPipeline_Hides()
+        => Assert.False(BackendAnalysisState.ShowMockBadge(Bundle(runIsMock: false, bundleMock: true)));
+
+    [Fact]
+    public void ShowMockBadge_MockRun_Shows()
+        => Assert.True(BackendAnalysisState.ShowMockBadge(Bundle(runIsMock: true, bundleMock: false)));
+
+    [Fact]
+    public void ShowMockBadge_NoRunBundleMock_Shows()
+        => Assert.True(BackendAnalysisState.ShowMockBadge(Bundle(runIsMock: null, bundleMock: true)));
+
+    [Fact]
+    public void ShowMockBadge_NoRunBundleReal_Hides()
+        => Assert.False(BackendAnalysisState.ShowMockBadge(Bundle(runIsMock: null, bundleMock: false)));
 }
