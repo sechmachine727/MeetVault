@@ -59,3 +59,32 @@ def test_missing_web_root_degrades_to_api_only(client, monkeypatch) -> None:
     with TestClient(create_app()) as solo:
         assert solo.get("/healthz").status_code == 200
         assert solo.get("/").status_code == 404
+
+
+ASSETS_EVERY_PAGE_NEEDS = [
+    "index.html",
+    "app.css",
+    "app.js",
+    "lib/api.js",
+    "lib/format.js",
+    "lib/router.js",
+    "lib/state.js",
+    "lib/dom.js",
+    "views/signin.js",
+    "views/meetings.js",
+    "views/meeting.js",
+    "views/system.js",
+]
+
+
+@pytest.mark.parametrize("relative", ASSETS_EVERY_PAGE_NEEDS)
+def test_every_console_asset_is_served(client, relative: str) -> None:
+    res = client.get(f"/assets/{relative}")
+    assert res.status_code == 200, relative
+    assert res.content, relative
+
+
+def test_app_js_imports_only_local_modules(client) -> None:
+    """No CDN, no third-party module: the CSP allows 'self' only."""
+    body = client.get("/assets/app.js").text
+    assert "http://" not in body and "https://" not in body
