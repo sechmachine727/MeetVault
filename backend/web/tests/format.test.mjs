@@ -12,6 +12,7 @@ import {
   describeJobState,
   friendlyError,
   pagingRange,
+  parseServerTime,
 } from "../lib/format.js";
 
 test("formatDuration renders h:mm:ss above an hour and m:ss below", () => {
@@ -28,6 +29,18 @@ test("formatElapsed counts up from an ISO start time", () => {
   assert.equal(formatElapsed(start, now), "1m 32s");
   assert.equal(formatElapsed(start, Date.parse(start) + 4_000), "4s");
   assert.equal(formatElapsed(null, now), "");
+});
+
+test("a naive server timestamp is read as UTC, never as local time", () => {
+  // SQLite hands DateTime(timezone=True) back naive, so /status can emit no zone designator.
+  // Date.parse would read it as local time (a 7-hour error in UTC+07:00).
+  const naive = "2026-10-15T00:00:00";
+  const now = Date.parse("2026-10-15T00:01:32Z");
+  assert.equal(formatElapsed(naive, now), "1m 32s");
+  assert.equal(parseServerTime(naive), "2026-10-15T00:00:00Z");
+  assert.equal(parseServerTime("2026-10-15T00:00:00Z"), "2026-10-15T00:00:00Z");
+  assert.equal(parseServerTime("2026-10-15T07:00:00+07:00"), "2026-10-15T07:00:00+07:00");
+  assert.equal(formatDate("2026-10-15T00:31:00"), "15 Oct 2026, 00:31");
 });
 
 test("formatDate is a stable, locale-independent label", () => {

@@ -15,7 +15,7 @@ export function formatDuration(ms) {
 
 export function formatElapsed(startedAtIso, nowMs) {
   if (!startedAtIso) return "";
-  const started = Date.parse(startedAtIso);
+  const started = Date.parse(parseServerTime(startedAtIso));
   if (Number.isNaN(started)) return "";
   const secs = Math.max(0, Math.floor(((nowMs ?? Date.now()) - started) / 1000));
   if (secs < 60) return `${secs}s`;
@@ -25,9 +25,19 @@ export function formatElapsed(startedAtIso, nowMs) {
   return `${Math.floor(m / 60)}h ${m % 60}m`;
 }
 
+// The backend stores UTC but SQLite hands the timestamps back NAIVE, so /status can emit
+// "2026-10-15T00:31:00" with no zone designator. Date.parse() would read that as LOCAL time
+// (a 7-hour error on this box, and a different one everywhere else), so a missing offset is
+// pinned to UTC before parsing.
+export function parseServerTime(value) {
+  if (typeof value !== "string" || value === "") return value;
+  const hasZone = /(Z|[+-]\d{2}:?\d{2})$/.test(value);
+  return hasZone ? value : `${value}Z`;
+}
+
 export function formatDate(iso) {
   if (!iso) return "—";
-  const d = new Date(iso);
+  const d = new Date(parseServerTime(iso));
   if (Number.isNaN(d.getTime())) return "—";
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}, ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
