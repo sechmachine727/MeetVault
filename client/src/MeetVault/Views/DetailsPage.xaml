@@ -167,7 +167,7 @@
                         </ScrollViewer>
                     </Border>
 
-                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    <Border x:Name="AnalyzeCard" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                             CornerRadius="8" Padding="16">
                         <StackPanel Spacing="8">
@@ -186,7 +186,7 @@
                         </StackPanel>
                     </Border>
 
-                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    <Border x:Name="SummaryCard" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                             CornerRadius="8" Padding="16">
                         <StackPanel Spacing="8">
@@ -264,6 +264,9 @@
                         </StackPanel>
                     </Border>
                 </StackPanel>
+            </ScrollViewer>
+            <ScrollViewer x:Name="RightRegion" Visibility="Collapsed" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="RightStack" Spacing="12" />
             </ScrollViewer>
         </Grid>
     </ScrollViewer>
