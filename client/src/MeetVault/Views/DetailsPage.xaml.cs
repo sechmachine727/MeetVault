@@ -462,6 +462,10 @@ public sealed partial class DetailsPage : Page
     // viewport: the page's own width, the navigation pane already excluded), decided by
     // the pure Core helper so the rule is unit-testable. Re-evaluated on every resize;
     // the load paths re-run it after each meeting load as belt-and-braces.
+    // Stacked: one column, the outer viewer scrolls. TwoColumn: media stack left,
+    // transcript right. ThreeColumn (large screens): media left, transcript center,
+    // analysis right — the grid fills the viewport width (no 1200 cap) so wide screens
+    // read horizontally instead of one tall capped column.
     private void RootScroll_SizeChanged(object sender, SizeChangedEventArgs e) => EvaluateLayout();
 
     private void EvaluateLayout()
@@ -469,21 +473,52 @@ public sealed partial class DetailsPage : Page
         if (RootScroll.ActualWidth <= 0 || RootScroll.ActualHeight <= 0) return; // not laid out yet
         var mode = DetailsLayout.Decide(RootScroll.ActualWidth, RootScroll.ActualHeight);
         if (mode != _layoutMode) ApplyLayout(mode);
-        else if (mode == DetailsLayoutMode.TwoColumn) PageGrid.Height = RootScroll.ActualHeight;
+        else if (mode != DetailsLayoutMode.Stacked) PageGrid.Height = RootScroll.ActualHeight;
+    }
+
+    private static void DetachFromParent(FrameworkElement element)
+    {
+        if (element.Parent is Panel panel) panel.Children.Remove(element);
     }
 
     private void ApplyLayout(DetailsLayoutMode mode)
     {
         _layoutMode = mode;
-        if (TranscriptCard.Parent is Panel parent) parent.Children.Remove(TranscriptCard);
+        DetachFromParent(TranscriptCard);
+        DetachFromParent(AnalyzeCard);
+        DetachFromParent(SummaryCard);
+        DetachFromParent(RightRegion);
         PageGrid.ColumnDefinitions.Clear();
-        if (mode == DetailsLayoutMode.TwoColumn)
+        if (mode == DetailsLayoutMode.ThreeColumn)
         {
+            // Media | transcript | analysis, the grid FILLING the wide viewport (no
+            // 1200 cap) and pinned to its height, so all three regions scroll
+            // internally. The player card never moves — media playback is never
+            // disrupted by a mode switch.
+            PageGrid.MaxWidth = double.PositiveInfinity;
+            PageGrid.Height = RootScroll.ActualHeight;
+            PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 560, MaxWidth = 720 });
+            PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 440 });
+            PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 520, MaxWidth = 640 });
+            PageGrid.Children.Add(TranscriptCard);
+            Grid.SetColumn(TranscriptCard, 1);
+            PageGrid.Children.Add(RightRegion);
+            Grid.SetColumn(RightRegion, 2);
+            RightRegion.Visibility = Visibility.Visible;
+            RightStack.Children.Add(AnalyzeCard);
+            RightStack.Children.Add(SummaryCard);
+        }
+        else if (mode == DetailsLayoutMode.TwoColumn)
+        {
+            // Media stack left, transcript right — the verified tier: grid capped at
+            // 1200 and centered, pinned height, both columns scrolling internally.
+            PageGrid.MaxWidth = 1200;
+            PageGrid.Height = RootScroll.ActualHeight;
             PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 560 });
             PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 360, MaxWidth = 560 });
-            // Pinning the grid to the viewport height bounds both star columns, so the
-            // left region and the transcript each scroll INTERNALLY and independently.
-            PageGrid.Height = RootScroll.ActualHeight;
+            RightRegion.Visibility = Visibility.Collapsed;
+            LeftStack.Children.Add(AnalyzeCard);
+            LeftStack.Children.Add(SummaryCard);
             PageGrid.Children.Add(TranscriptCard);
             Grid.SetColumn(TranscriptCard, 1);
         }
@@ -492,9 +527,12 @@ public sealed partial class DetailsPage : Page
             // Natural height: LeftRegion and the card's TranscriptScroll grow to their
             // content, so the OUTER RootScroll scrolls the whole page in the stacked
             // order: title, StatusBar, meeting, player, TRANSCRIPT, analyze, summary.
+            PageGrid.MaxWidth = 1200;
             PageGrid.Height = double.NaN;
-            Grid.SetColumn(TranscriptCard, 0);
-            LeftStack.Children.Insert(4, TranscriptCard);
+            RightRegion.Visibility = Visibility.Collapsed;
+            LeftStack.Children.Add(TranscriptCard);
+            LeftStack.Children.Add(AnalyzeCard);
+            LeftStack.Children.Add(SummaryCard);
             PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         }
     }
