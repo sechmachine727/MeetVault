@@ -9,11 +9,11 @@
             </Grid.ColumnDefinitions>
             <ScrollViewer x:Name="LeftRegion" Grid.Column="0" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel x:Name="LeftStack" Spacing="12">
-                    <TextBlock x:Uid="DetTitle" Style="{StaticResource TitleTextBlockStyle}" />
+                    <TextBlock x:Name="TitleBlock" x:Uid="DetTitle" Style="{StaticResource TitleTextBlockStyle}" />
 
                     <InfoBar x:Name="StatusBar" IsOpen="False" Severity="Informational" />
 
-                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    <Border x:Name="MeetingCard" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                             CornerRadius="8" Padding="16">
                         <StackPanel Spacing="4">
@@ -218,9 +218,16 @@
                     </Border>
                 </StackPanel>
             </ScrollViewer>
-            <ScrollViewer x:Name="RightRegion" Visibility="Collapsed" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel x:Name="RightStack" Spacing="12" />
+            <ScrollViewer x:Name="RightRegion" Visibility="Collapsed" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled" SizeChanged="RightRegion_SizeChanged">
+                <Grid x:Name="RightGrid" RowSpacing="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" MinHeight="240" />
+                    </Grid.RowDefinitions>
+                </Grid>
             </ScrollViewer>
+            <StackPanel x:Name="HeaderStack" Spacing="12" Visibility="Collapsed" />
         </Grid>
     </ScrollViewer>
 </Page>

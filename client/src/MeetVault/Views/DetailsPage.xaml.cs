@@ -445,9 +445,12 @@ public sealed partial class DetailsPage : Page
     // the load paths re-run it after each meeting load as belt-and-braces.
     // Stacked: one column, the outer viewer scrolls. TwoColumn: media stack left,
     // transcript right (grid capped 1200). Wide (large screens, owner direction
-    // 2026-10-14): the 16:9 video section is the WIDEST section - media left, one
-    // transcript + analysis rail right - the grid filling the viewport width (no 1200
-    // cap) and the video growing with its section instead of one tall capped column.
+    // 2026-10-14, rounds 2-3): exactly two sections - the 16:9 video section left and
+    // WIDEST; a header row (title + StatusBar) spans both columns; the rail's panels
+    // ALIGN with the meeting panel; Analyze + Summary cover the top of the rail and the
+    // TRANSCRIPT section covers the remaining part as its own bounded scrollable pane;
+    // the grid fills the viewport width (no 1200 cap) and the video grows with its
+    // section.
     private void RootScroll_SizeChanged(object sender, SizeChangedEventArgs e) => EvaluateLayout();
 
     private void EvaluateLayout()
@@ -464,6 +467,14 @@ public sealed partial class DetailsPage : Page
         if (element.Parent is Panel panel) panel.Children.Remove(element);
     }
 
+    // In the wide tier the rail grid is pinned to the rail viewport (a star row under a
+    // ScrollViewer would otherwise size to its content, leaving the transcript
+    // unbounded); the belt pin in ApplyLayout is corrected here to the exact cell.
+    private void RightRegion_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (_layoutMode == DetailsLayoutMode.Wide) RightGrid.Height = RightRegion.ActualHeight;
+    }
+
     private void ApplyLayout(DetailsLayoutMode mode)
     {
         _layoutMode = mode;
@@ -471,26 +482,47 @@ public sealed partial class DetailsPage : Page
         DetachFromParent(AnalyzeCard);
         DetachFromParent(SummaryCard);
         DetachFromParent(RightRegion);
+        DetachFromParent(TitleBlock);
+        DetachFromParent(StatusBar);
         PageGrid.ColumnDefinitions.Clear();
+        PageGrid.RowDefinitions.Clear();
         if (mode == DetailsLayoutMode.Wide)
         {
-            // Video-dominant two-column (owner direction 2026-10-14: the 16:9 video
-            // section must be the widest section; three sections are not wanted):
-            // the media section is left and WIDEST, the transcript + analysis cards
-            // ride ONE right rail, and the grid FILLS the wide viewport (no 1200
-            // cap) pinned to its height. The rail scrolls internally as one column;
-            // the player card never moves — media playback is never disrupted by a
-            // mode switch.
+            // Owner direction (2026-10-14, round 3): exactly two sections. A header row
+            // (title + StatusBar) spans both columns; row 1 holds the media section and
+            // the rail, their tops level with the MEETING card. The rail covers Analyze
+            // + Summary at its top and the TRANSCRIPT section covers the remaining
+            // part as its own bounded scrollable pane. The player card never moves —
+            // media playback is never disrupted by a mode switch.
             PageGrid.MaxWidth = double.PositiveInfinity;
             PageGrid.Height = RootScroll.ActualHeight;
             PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 560 });
             PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 480, MaxWidth = 640 });
+            PageGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            PageGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            PageGrid.Children.Add(HeaderStack);
+            Grid.SetRow(HeaderStack, 0);
+            Grid.SetColumn(HeaderStack, 0);
+            Grid.SetColumnSpan(HeaderStack, 2);
+            HeaderStack.Visibility = Visibility.Visible;
+            HeaderStack.Children.Add(TitleBlock);
+            HeaderStack.Children.Add(StatusBar);
+            Grid.SetRow(LeftRegion, 1);
+            Grid.SetColumn(LeftRegion, 0);
             PageGrid.Children.Add(RightRegion);
+            Grid.SetRow(RightRegion, 1);
             Grid.SetColumn(RightRegion, 1);
             RightRegion.Visibility = Visibility.Visible;
-            RightStack.Children.Add(TranscriptCard);
-            RightStack.Children.Add(AnalyzeCard);
-            RightStack.Children.Add(SummaryCard);
+            RightGrid.Height = RootScroll.ActualHeight; // belt; RightRegion_SizeChanged pins the exact cell
+            RightGrid.Children.Add(AnalyzeCard);
+            Grid.SetRow(AnalyzeCard, 0);
+            Grid.SetColumn(AnalyzeCard, 0);
+            RightGrid.Children.Add(SummaryCard);
+            Grid.SetRow(SummaryCard, 1);
+            Grid.SetColumn(SummaryCard, 0);
+            RightGrid.Children.Add(TranscriptCard);
+            Grid.SetRow(TranscriptCard, 2);
+            Grid.SetColumn(TranscriptCard, 0);
         }
         else if (mode == DetailsLayoutMode.TwoColumn)
         {
@@ -500,10 +532,16 @@ public sealed partial class DetailsPage : Page
             PageGrid.Height = RootScroll.ActualHeight;
             PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 560 });
             PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 360, MaxWidth = 560 });
+            HeaderStack.Visibility = Visibility.Collapsed;
+            Grid.SetRow(LeftRegion, 0);
+            Grid.SetColumn(LeftRegion, 0);
             RightRegion.Visibility = Visibility.Collapsed;
+            LeftStack.Children.Insert(0, TitleBlock);
+            LeftStack.Children.Insert(1, StatusBar);
             LeftStack.Children.Add(AnalyzeCard);
             LeftStack.Children.Add(SummaryCard);
             PageGrid.Children.Add(TranscriptCard);
+            Grid.SetRow(TranscriptCard, 0);
             Grid.SetColumn(TranscriptCard, 1);
         }
         else
@@ -513,8 +551,14 @@ public sealed partial class DetailsPage : Page
             // order: title, StatusBar, meeting, player, TRANSCRIPT, analyze, summary.
             PageGrid.MaxWidth = 1200;
             PageGrid.Height = double.NaN;
+            HeaderStack.Visibility = Visibility.Collapsed;
+            Grid.SetRow(LeftRegion, 0);
+            Grid.SetColumn(LeftRegion, 0);
             RightRegion.Visibility = Visibility.Collapsed;
+            LeftStack.Children.Insert(0, TitleBlock);
+            LeftStack.Children.Insert(1, StatusBar);
             LeftStack.Children.Add(TranscriptCard);
+            Grid.SetColumn(TranscriptCard, 0);
             LeftStack.Children.Add(AnalyzeCard);
             LeftStack.Children.Add(SummaryCard);
             PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -528,10 +572,10 @@ public sealed partial class DetailsPage : Page
         var naturalH = VideoPlayer.MediaPlayer?.PlaybackSession?.NaturalVideoHeight ?? 0;
         if (target.ActualWidth <= 0) return; // not laid out yet; SizeChanged re-runs this
         // In the wide tier the video section is the widest section, so the 16:9 video
-        // grows with it, up to the viewport minus the section's card chrome; in every
-        // other tier the historical 540 cap holds.
+        // grows with it, up to the viewport minus the header row and the section's card
+        // chrome; in every other tier the historical 540 cap holds.
         var maxHeight = _layoutMode == DetailsLayoutMode.Wide
-            ? Math.Max(540, RootScroll.ActualHeight - 320)
+            ? Math.Max(540, RootScroll.ActualHeight - 480)
             : 540;
         target.Height = PlayerGeometry.HeightFor(target.ActualWidth, PlayerAspect.Ratio16x9, maxHeight, naturalW, naturalH)
                         ?? double.NaN;
