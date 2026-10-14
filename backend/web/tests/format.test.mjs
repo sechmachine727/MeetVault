@@ -82,6 +82,16 @@ test("friendlyError maps the error envelope codes", () => {
   assert.equal(friendlyError({ code: "who_knows" }), "who_knows");
 });
 
+test("friendlyError falls back to the server's own message for codes it does not know", () => {
+  // e.g. DELETE on the active transcript answers 409 with code "conflict" and a real sentence.
+  assert.equal(
+    friendlyError({ code: "conflict", message: "Cannot delete the active transcript; activate another version first" }),
+    "Cannot delete the active transcript; activate another version first",
+  );
+  assert.equal(friendlyError({ code: "conflict" }), "conflict");
+  assert.equal(friendlyError({ code: "not_found", message: "Meeting not found" }), "That meeting is not on the server.");
+});
+
 test("pagingRange describes the page window", () => {
   assert.deepEqual(pagingRange({ total: 40, limit: 20, offset: 0 }), {
     from: 1,

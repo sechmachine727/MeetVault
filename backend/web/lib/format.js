@@ -100,7 +100,9 @@ const ERROR_TEXT = {
 
 export function friendlyError(errorBody) {
   const code = errorBody && errorBody.code ? errorBody.code : "error";
-  return ERROR_TEXT[code] ?? code;
+  // An unmapped code falls back to the server's own sentence (e.g. 409 `conflict`: "Cannot delete
+  // the active transcript…"), then to the bare code so nothing is ever swallowed silently.
+  return ERROR_TEXT[code] ?? (errorBody && errorBody.message) ?? code;
 }
 
 export function pagingRange({ total, limit, offset }) {

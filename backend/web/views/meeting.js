@@ -200,6 +200,16 @@ export async function renderMeeting(ctx, route) {
     }, 2000);
   }
 
+  const TAB_LABELS = {
+    overview: "Overview",
+    transcript: "Transcript",
+    analysis: "Analysis",
+    qa: "Q&A",
+    speakers: "Speakers",
+    versions: "Versions",
+    jobs: "Jobs",
+  };
+
   function tabButton(name) {
     return el(
       "button",
@@ -213,7 +223,7 @@ export async function renderMeeting(ctx, route) {
           renderTab();
         },
       },
-      name[0].toUpperCase() + name.slice(1),
+      TAB_LABELS[name],
     );
   }
 
