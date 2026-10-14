@@ -22,6 +22,7 @@ export async function renderMeetings(ctx, route) {
     page: null,
     statusById: {},
     pollTimer: null,
+    searchTimer: null,
     disposed: false,
   };
 
@@ -35,10 +36,15 @@ export async function renderMeetings(ctx, route) {
     placeholder: "Search titles…",
     value: state.q,
     "aria-label": "Search meetings",
-    onchange: (event) => {
+    // `input` (debounced), not `change`: a change event only fires on blur, so typing then
+    // reading the list would show stale rows.
+    oninput: (event) => {
       state.q = event.target.value.trim();
-      state.offset = 0;
-      ctx.navigate("meetings", { params: params() });
+      clearTimeout(state.searchTimer);
+      state.searchTimer = setTimeout(() => {
+        state.offset = 0;
+        ctx.navigate("meetings", { params: params() });
+      }, 250);
     },
   });
   const statusFilter = el(
@@ -93,7 +99,11 @@ export async function renderMeetings(ctx, route) {
     const statusBits = [statusLabel(kind), step, progressText, elapsed].filter(Boolean);
     const badges = [];
     if (meeting.has_analysis) badges.push(el("span", { class: "pill", "data-testid": "analyzed-badge", text: "Analyzed" }));
-    if (status && status.mock) badges.push(el("span", { class: "pill mock", "data-testid": "mock-badge", text: "Mock data" }));
+    // Deliberately NO mock badge here: the list payload cannot prove what was mocked, and the
+    // aggregate /status flag is true whenever ANY step ran mocked (it told the owner a genuine
+    // analysis was mock data — see the Details badge pitfall in the project notes). The badges
+    // that state WHAT is mock live on the detail header ("Mock transcript") and the Analysis tab
+    // ("Mock analysis"), each derived from the object it describes.
     if (status && status.stale_kinds && status.stale_kinds.length) {
       badges.push(
         el("span", {
@@ -197,11 +207,11 @@ export async function renderMeetings(ctx, route) {
         offset: state.offset,
       });
       state.page = page;
-      // Elapsed time and progress live on /status, not on the list payload: fetch it for the
-      // rows that are actually moving (bounded fan-out).
-      const moving = page.items.filter((m) => isProcessing(m.latest_job_state));
+      // Elapsed time, progress and staleness live on /status, not on the list payload: fetch it
+      // for the rows that are moving or already analyzed (bounded to one page).
+      const interesting = page.items.filter((m) => isProcessing(m.latest_job_state) || m.has_analysis);
       const statuses = await Promise.all(
-        moving.map((m) =>
+        interesting.map((m) =>
           ctx.api.status(m.id).then(
             (value) => [m.id, value],
             () => [m.id, null],
