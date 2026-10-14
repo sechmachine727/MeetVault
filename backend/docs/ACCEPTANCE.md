@@ -30,11 +30,12 @@ Anything not verified on this machine is labelled as such rather than claimed.
 
 - **Docker and Postgres are not exercised on this machine** — there is no Docker daemon here.
   The image, compose file and Postgres job are validated in CI (`.github/workflows/ci.yml`).
-- **Real AI engines**: the LM Studio adapter is now exercised end to end through a real job and a
-  real socket (`tests/integration/test_lmstudio_pipeline.py`, including the unreachable-engine
-  fallback). The remaining ones — a real `faster_whisper`/`pyannote` model and a live OpenCode
-  instance — need `MVB_RUN_LIVE=1` plus the engine installed; LM Studio itself was not running on
-  this box at the end of the build, so a call against a served model is still unverified.
+- **Real AI engines**: the LM Studio adapter is exercised end to end twice over — through a real job
+  and a real socket (`tests/integration/test_lmstudio_pipeline.py`, including the unreachable-engine
+  fallback) AND, since 2026-10-14, live against the local server's `qwen3.8-27b-gsq-rco` model (two
+  meetings analysed end to end, non-mock bundles and `/qa`). The remaining ones — a real
+  `faster_whisper`/`pyannote` model and a live OpenCode instance — need `MVB_RUN_LIVE=1` plus the
+  engine installed.
 - **OpenCode Go's client contract** is pinned in `providers/analysis/opencode_go.py`: an
   identifying `User-Agent` plus a stable `x-opencode-session` per instance (the managed
   gateway requires both; generic SDK names risk blocks).

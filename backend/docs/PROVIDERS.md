@@ -23,7 +23,7 @@ labelled mock and logged:
 
 ```json
 {"event": "provider_fallback", "capability": "analyzer", "requested": "lmstudio",
- "reason": "LM Studio unreachable: ConnectError", "fallback": "mock-analyzer"}
+ "reason": "lm studio unreachable or no model served", "fallback": "mock-analyzer"}
 ```
 
 The service therefore always starts, `GET /v1/system/providers` reports what is available and
@@ -42,15 +42,38 @@ LM Studio exposes an OpenAI-compatible server. Load a model in the UI (or `lms l
 
     MVB_ANALYZER=lmstudio
     MVB_ANALYZER_MODEL=        # empty -> whatever instance the server has loaded
-    MVB_LMSTUDIO_BASE_URL=http://host.docker.internal:1234/v1
-    MVB_LMSTUDIO_API_KEY=      # only if the server requires one
+    MVB_LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1
+    MVB_LMSTUDIO_API_KEY=      # required when the server has auth enabled (see below)
 
-`host.docker.internal` is how a container reaches LM Studio on the host (compose sets
-`extra_hosts` for it). The client posts to `/chat/completions` with
-`response_format: {"type": "json_schema"}` and a hard timeout
-(`MVB_ANALYZER_TIMEOUT_S`, default 120 s); an invalid or unreachable response degrades to the
-mock with the reason recorded. The model name is passed through verbatim, so
+The client posts to `/chat/completions` with a schema-ENFORCED output contract —
+`response_format: {"type": "json_schema", "json_schema": {"name": "mvb_analysis", "schema": <the
+kind's JSON schema>, "strict": true}}` (the schema travels in `response_format`, not appended to the
+system message), `temperature 0`, `stream false` — under a hard timeout
+(`MVB_ANALYZER_TIMEOUT_S`, default 120 s). An invalid or unreachable response degrades to the mock
+with the reason recorded. The model name is passed through verbatim, so
 `GET /v1/system/providers` shows exactly which model the analysis used.
+
+### The local server on the authoring box (verified 2026-10-14)
+
+- **Bind:** `http://127.0.0.1:1234/v1` — the server listens on **IPv4 loopback only** (`http://[::1]:1234`
+  is refused). A container reaches the host copy at `http://host.docker.internal:1234/v1` (compose
+  sets `extra_hosts` for it); the Tailscale proxy (`http://binblows:1234`) is for OTHER machines on the
+  tailnet, so the backend stays on `127.0.0.1`. The server runs only while the LM Studio app is up.
+- **Auth is mandatory:** no key or a wrong key answers `401`; the valid key with `GET /v1/models`
+  answers `200`. The key is the Hermes-held `LM_API_KEY` — read it by path into
+  `MVB_LMSTUDIO_API_KEY` at launch and never commit or echo it.
+- **Models this box serves:** `lmstudio-community/qwen3.8-27b`, `unsloth/qwen3.8-27b`,
+  `qwen3.8-27b-gsq-rco` (the owner's custom build, used as `MVB_ANALYZER_MODEL`), plus
+  `text-embedding-nomic-embed-text-v1.5` (an embedding model — irrelevant to the analyzer).
+- **Measured timings (2026-10-14, RX 7900 XTX / Vulkan):** ~42 tok/s, but the model emits heavy
+  reasoning — a trivial call is ~100–130 s wall and the no-think soft tag does not disable it. A full
+  `analyze` job (agenda + per-section summaries + summary + decisions/actions = 4–8 calls) measured
+  **387 s** and **425 s** on two meetings; a `/qa` answer took **24–42 s**. Launch with
+  `MVB_ANALYZER_TIMEOUT_S=600`.
+- **A long real job holds SQLite's write lock:** the analyze job keeps its transaction open across
+  every model call, so a concurrent API *write* (the auth-token `last_used_at` touch is one) can
+  answer `500 database is locked` for the duration on SQLite. Postgres is unaffected; keep write
+  traffic low on SQLite while an analysis runs.
 
 ## OpenCode Go
 

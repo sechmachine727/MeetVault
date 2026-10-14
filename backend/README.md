@@ -38,7 +38,7 @@ Every `/v1` call carries a per-user **session token** — there are no static AP
 |---|---|---|---|
 | Transcription | `MVB_TRANSCRIBER` | `mock` (default), `faster_whisper` | needs the `transcribe` extra |
 | Diarization | `MVB_DIARIZER` | `mock` (default), `pyannote` | needs the `diarize` extra + `HF_TOKEN` |
-| LLM analysis | `MVB_ANALYZER` | `mock` (default), `lmstudio`, `opencode` | HTTP providers; see `docs/PROVIDERS.md` |
+| LLM analysis | `MVB_ANALYZER` | `mock` (default), `lmstudio`, `opencode-go` | HTTP providers; see `docs/PROVIDERS.md` |
 
 A requested provider that cannot be constructed (missing package, unreachable host)
 **falls back to the mock** and the reason is reported by `GET /v1/system/providers`

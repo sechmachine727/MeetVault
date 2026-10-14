@@ -240,7 +240,8 @@ keeping this a separate service.
 (`mock` default, `faster_whisper`, `pyannote`, `lmstudio`, `opencode-go`). A provider that is
 selected but unavailable degrades to the labelled mock and never blocks startup; the API
 reports what it actually used in `GET /v1/system/providers`. Point the container at LM Studio
-on the host with `MVB_LMSTUDIO_BASE_URL=http://host.docker.internal:1234/v1`.
+on the host with `MVB_LMSTUDIO_BASE_URL=http://host.docker.internal:1234/v1` and supply
+`MVB_LMSTUDIO_API_KEY` — the local server authenticates every call (no key → `401`).
 
 ## Implemented client (2026-10-13)
 

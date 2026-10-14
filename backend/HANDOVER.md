@@ -248,9 +248,10 @@ Per-criterion mapping (20 acceptance criteria → evidence) is in `docs/ACCEPTAN
   YAML-validated; verification is the CI `docker` job.
 - **Postgres** — the same suite runs against it in CI via `MVB_TEST_DATABASE_URL`; locally only
   SQLite. The only dialect-specific code is in `jobs/queue.py`.
-- **Live engines** — `faster-whisper`, `pyannote` (needs torch + `HF_TOKEN`), OpenCode, and a real
-  LM Studio-served model. The LM Studio *adapter* is socket-verified; LM Studio was not running at
-  the end of the build, so a call against an actual loaded model remains unverified. Run with
+- **Live engines** — `faster-whisper`, `pyannote` (needs torch + `HF_TOKEN`) and OpenCode remain
+  unverified here. The LM Studio path IS verified live on this box (2026-10-14): the local
+  `qwen3.8-27b-gsq-rco` model analysed two meetings end to end (`is_mock false`, no `[mock]` text,
+  non-mock `/qa`), with the wire pinned by `tests/integration/test_lmstudio_pipeline.py`. Run with
   `MVB_RUN_LIVE=1` to include the opt-in live tests.
 - **OpenCode HTTP routes** — deliberately pinned in one function
   (`providers/analysis/opencode.py::_post_json`) because they move between releases; re-pin
@@ -289,9 +290,11 @@ Per-criterion mapping (20 acceptance criteria → evidence) is in `docs/ACCEPTAN
    build + `docker compose config` + a container smoke. That converts the two remaining "CI-only"
    rows into verified ones.
 4. **Pin OpenCode's routes** against the installed version and run one live analysis.
-5. **Run a real LM Studio analysis** — start LM Studio, load a model, set
-   `MVB_ANALYZER=lmstudio` + `MVB_LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1`, then re-run
-   `scripts/smoke.sh` with the analyzer switched on.
+5. **Run a real LM Studio analysis** — DONE (2026-10-14): the local server's
+   `qwen3.8-27b-gsq-rco` is the verified live analyzer (`MVB_ANALYZER=lmstudio`,
+   `MVB_LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1`, `MVB_LMSTUDIO_API_KEY` read from the Hermes
+   `.env` by path). Evidence: `docs/progress/progress_supersanta/PROGRESS_2026-10-14.md`. Note that
+   `scripts/smoke.sh` itself stays mock-scoped — its own assertions require the mock providers.
 6. **Optional hardening:** rate limiting, media retention GC, worker concurrency load test,
    Prometheus-style metrics, and a per-user `(user_id, source, external_id)` namespace migration
    (see the accepted limitation in `docs/INTEGRATION.md`).
