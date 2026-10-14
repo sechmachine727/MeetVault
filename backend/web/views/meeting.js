@@ -9,6 +9,8 @@ import {
   friendlyError,
   isProcessing,
   formatBytes,
+  outOfDateKinds,
+  outOfDateBundleKinds,
 } from "../lib/format.js";
 
 const TABS = ["overview", "transcript", "analysis", "qa", "speakers", "versions", "jobs"];
@@ -104,8 +106,10 @@ export async function renderMeeting(ctx, route) {
         el("button", { class: "danger", type: "button", dataset: { action: "remove" }, onclick: () => removeMeeting() }, "Remove from cloud"),
       ),
       status.error ? el("div", { class: "banner error", "data-testid": "job-error", text: `Last job failed: ${status.error}` }) : null,
-      status.stale_kinds && status.stale_kinds.length
-        ? el("div", { class: "banner", "data-testid": "stale-banner", text: `Out of date: ${status.stale_kinds.join(", ")} — re-run analysis to refresh.` })
+      // Only kinds with no FRESH document are genuinely out of date: a re-run marks its predecessor
+      // stale while the new one is current, so an unfiltered banner cries stale over current data.
+      outOfDateKinds(status).length
+        ? el("div", { class: "banner", "data-testid": "stale-banner", text: `Out of date: ${outOfDateKinds(status).join(", ")} — re-run analysis to refresh.` })
         : null,
     );
   }
@@ -153,6 +157,51 @@ export async function renderMeeting(ctx, route) {
     } catch (err) {
       ctx.toast(friendlyError(err));
     }
+  }
+
+  // Deleting a version is not a local-only act: the server CASCADES every analysis document and
+  // run derived from that transcript, so the meeting loses its summary/decisions/actions/answers.
+  // Disclosing that is the difference between a destructive button and a trap (found by testing:
+  // deleting the diarized version emptied analysis_runs and analysis_documents).
+  function confirmDeleteVersion(version) {
+    const dialog = el(
+      "dialog",
+      { "data-testid": "delete-version-dialog" },
+      el("h3", {}, `Delete transcript version #${version.version}?`),
+      el(
+        "p",
+        {},
+        "The version is removed from the server — and so is every analysis derived from it (summary, agenda, decisions, action items and answers), because the server cascades them. Re-run analysis afterwards to rebuild them.",
+      ),
+      el(
+        "div",
+        { class: "dialog-actions" },
+        el("button", { type: "button", class: "cancel", onclick: () => dialog.close() }, "Cancel"),
+        el(
+          "button",
+          {
+            type: "button",
+            class: "primary confirm",
+            onclick: async () => {
+              try {
+                await ctx.api.deleteTranscript(version.id);
+                dialog.close();
+                ctx.toast("Version deleted.");
+                await renderTab();
+                await loadHead();
+              } catch (err) {
+                dialog.close();
+                ctx.toast(friendlyError(err));
+              }
+            },
+          },
+          "Delete version",
+        ),
+      ),
+    );
+    document.body.append(dialog);
+    dialog.addEventListener("close", () => dialog.remove());
+    dialog.showModal();
   }
 
   function removeMeeting() {
@@ -488,8 +537,8 @@ export async function renderMeeting(ctx, route) {
     // never from /status's aggregate, which is true whenever any step ran mocked.
     const analysisMock = bundle.run ? bundle.run.is_mock : bundle.mock;
     if (analysisMock) card.append(el("span", { class: "pill mock", "data-testid": "mock-analysis-badge", text: "Mock analysis" }));
-    if (bundle.stale_kinds && bundle.stale_kinds.length) {
-      card.append(el("div", { class: "banner", text: `Out of date: ${bundle.stale_kinds.join(", ")}` }));
+    if (outOfDateBundleKinds(bundle).length) {
+      card.append(el("div", { class: "banner", text: `Out of date: ${outOfDateBundleKinds(bundle).join(", ")}` }));
     }
     if (bundle.run) {
       card.append(
@@ -754,16 +803,7 @@ export async function renderMeeting(ctx, route) {
                 class: "danger",
                 type: "button",
                 "data-testid": "delete-version",
-                onclick: async () => {
-                  try {
-                    await ctx.api.deleteTranscript(version.id);
-                    ctx.toast("Version deleted.");
-                    await renderTab();
-                    await loadHead();
-                  } catch (err) {
-                    ctx.toast(friendlyError(err));
-                  }
-                },
+                onclick: () => confirmDeleteVersion(version),
               },
               "Delete",
             ),

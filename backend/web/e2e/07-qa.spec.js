@@ -24,7 +24,11 @@ test("a citation seeks the recording it came from", async ({ signedIn }) => {
 test("asking a new question queues a job and the worker answers it", async ({ signedIn }) => {
   await openMeeting(signedIn, READY);
   await signedIn.getByRole("tab", { name: "Q&A" }).click();
-  const before = await signedIn.getByTestId("qa-history").locator(".row").count();
+  const history = signedIn.getByTestId("qa-history");
+  // Auto-waiting assertion: the panel renders asynchronously after the tab click, so a bare
+  // count() would read 0 and look like a bug.
+  await expect(history.locator(".row").first()).toBeVisible();
+  const before = await history.locator(".row").count();
 
   await signedIn.getByLabel("Ask about this meeting").fill("What is the rollout plan?");
   const [request] = await Promise.all([
@@ -36,15 +40,16 @@ test("asking a new question queues a job and the worker answers it", async ({ si
   expect(payload.top_k).toBe(8);
   await expect(signedIn.getByRole("status").filter({ hasText: "Question queued" })).toBeVisible();
 
-  // The demo stack runs the real worker, so the answer lands (the tab re-renders on demand).
+  // The demo stack runs the real worker, so the answer lands; reload and count again.
   await expect
     .poll(
       async () => {
         await signedIn.reload();
         await signedIn.getByRole("tab", { name: "Q&A" }).click();
+        await signedIn.getByTestId("qa-history").locator(".row").first().waitFor({ state: "visible", timeout: 8000 });
         return signedIn.getByTestId("qa-history").locator(".row").count();
       },
-      { timeout: 30_000, intervals: [2000] },
+      { timeout: 45_000, intervals: [2000] },
     )
     .toBeGreaterThan(before);
 });

@@ -115,6 +115,32 @@ export function friendlyError(errorBody) {
   return ERROR_TEXT[code] ?? (errorBody && errorBody.message) ?? code;
 }
 
+// Genuinely out-of-date analysis kinds: stale with NO fresh document of that kind. A re-run marks
+// its predecessor stale while the new one is current, so an unfiltered stale_kinds list cries
+// stale over current data (the desktop client filters the same way).
+export function outOfDateKinds(status) {
+  const stale = (status && status.stale_kinds) || [];
+  const fresh = new Set((status && status.fresh_kinds) || []);
+  return stale.filter((kind) => !fresh.has(kind));
+}
+
+// The analysis bundle copies status' stale_kinds but carries no fresh_kinds, so the same rule is
+// applied against the bundle's own contents: a kind is out of date only when it is stale AND the
+// bundle has no document of that kind.
+export function outOfDateBundleKinds(bundle) {
+  const stale = (bundle && bundle.stale_kinds) || [];
+  const present = new Set();
+  if (bundle) {
+    if (bundle.summary) present.add("summary");
+    if (bundle.agenda) present.add("agenda");
+    if (bundle.decisions) present.add("decisions");
+    if (bundle.action_items) present.add("action_items");
+    if ((bundle.sections || []).length) present.add("section_summary");
+    if ((bundle.qa || []).length) present.add("qa");
+  }
+  return stale.filter((kind) => !present.has(kind));
+}
+
 export function pagingRange({ total, limit, offset }) {
   if (!total) return { from: 0, to: 0, total: 0, hasPrev: false, hasNext: false };
   const from = offset + 1;

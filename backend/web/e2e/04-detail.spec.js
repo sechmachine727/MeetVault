@@ -26,7 +26,8 @@ test("the overview lists the server recordings with size and a download action",
   await expect(media.locator(".row")).toHaveCount(1);
   await expect(media).toContainText("demo-1.wav");
   await expect(media).toContainText("audio");
-  await expect(media.locator(".meta")).toContainText("KB");
+  // 30 s of 48 kHz mono PCM ≈ 2.8 MB — assert the shape, not a unit.
+  await expect(media.locator(".meta")).toContainText(/\d+(\.\d+)? (KB|MB)/);
 });
 
 test("Re-run analysis posts the analyze step with force and reports the toast", async ({ signedIn }) => {
@@ -38,6 +39,19 @@ test("Re-run analysis posts the analyze step with force and reports the toast", 
   expect(request.url()).toContain("steps=analyze");
   expect(request.url()).toContain("force=true");
   await expect(signedIn.getByRole("status").filter({ hasText: "Analysis queued." })).toBeVisible();
+
+  // Wait for the worker to settle, then prove the honest staleness rule: a re-run marks its
+  // predecessor stale, but the kinds that now have a FRESH document must NOT be reported as out of
+  // date (an unfiltered banner cried stale over current data — seen in a screenshot).
+  await expect.poll(async () => signedIn.getByTestId("status").textContent(), { timeout: 30_000 }).toContain("Ready");
+  await expect(signedIn.getByTestId("stale-banner")).toHaveCount(0);
+  await signedIn.getByRole("tab", { name: "Analysis" }).click();
+  await expect(signedIn.getByTestId("summary-bullets")).toBeVisible();
+
+  // The list row applies the same rule — a superseded-but-replaced kind must not show as outdated.
+  await signedIn.goto("/#/meetings");
+  await expect(signedIn.locator(".row", { hasText: READY })).toBeVisible();
+  await expect(signedIn.locator(".row", { hasText: READY }).getByTestId("stale-pill")).toHaveCount(0);
 });
 
 test("an unprocessed meeting says so instead of pretending", async ({ signedIn }) => {

@@ -9,6 +9,7 @@ import {
   friendlyError,
   pagingRange,
   isProcessing,
+  outOfDateKinds,
 } from "../lib/format.js";
 import { shouldPoll, POLL_MS } from "../lib/state.js";
 
@@ -104,12 +105,12 @@ export async function renderMeetings(ctx, route) {
     // analysis was mock data — see the Details badge pitfall in the project notes). The badges
     // that state WHAT is mock live on the detail header ("Mock transcript") and the Analysis tab
     // ("Mock analysis"), each derived from the object it describes.
-    if (status && status.stale_kinds && status.stale_kinds.length) {
+    if (status && outOfDateKinds(status).length) {
       badges.push(
         el("span", {
           class: "pill stale",
           "data-testid": "stale-pill",
-          text: `Outdated: ${status.stale_kinds.join(", ")}`,
+          text: `Outdated: ${outOfDateKinds(status).join(", ")}`,
         }),
       );
     }
@@ -220,9 +221,10 @@ export async function renderMeetings(ctx, route) {
       );
       state.statusById = Object.fromEntries(statuses);
       clear(rows);
-      const stale = Object.values(state.statusById)
-        .flatMap((s) => (s ? s.stale_kinds : []))
-        .filter(Boolean);
+      // A kind can be stale as HISTORY while a fresh document of that kind exists (a re-run marks
+      // its predecessor stale). Only kinds with no fresh document are genuinely out of date — the
+      // desktop client filters the same way, otherwise the banner cries stale over current data.
+      const stale = [...new Set(Object.values(state.statusById).flatMap((s) => outOfDateKinds(s)))];
       if (stale.length) {
         staleBanner.textContent = `Some analysis is out of date for the material that is now active: ${[...new Set(stale)].join(", ")}. Re-run analysis to refresh it.`;
         staleBanner.hidden = false;

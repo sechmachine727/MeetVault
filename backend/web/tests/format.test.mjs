@@ -13,6 +13,8 @@ import {
   friendlyError,
   pagingRange,
   parseServerTime,
+  outOfDateKinds,
+  outOfDateBundleKinds,
 } from "../lib/format.js";
 
 test("formatDuration renders h:mm:ss above an hour and m:ss below", () => {
@@ -103,6 +105,38 @@ test("friendlyError falls back to the server's own message for codes it does not
   );
   assert.equal(friendlyError({ code: "conflict" }), "conflict");
   assert.equal(friendlyError({ code: "not_found", message: "Meeting not found" }), "That meeting is not on the server.");
+});
+
+test("outOfDateKinds ignores kinds that also have a fresh document", () => {
+  // A re-run marks its predecessor stale while the new document is current, so stale_kinds can
+  // list kinds that are NOT out of date. Only stale-without-fresh is a real staleness signal.
+  assert.deepEqual(
+    outOfDateKinds({ stale_kinds: ["summary", "decisions"], fresh_kinds: ["summary", "decisions", "agenda"] }),
+    [],
+  );
+  assert.deepEqual(
+    outOfDateKinds({ stale_kinds: ["summary", "qa"], fresh_kinds: ["summary"] }),
+    ["qa"],
+  );
+  assert.deepEqual(outOfDateKinds({ stale_kinds: [], fresh_kinds: [] }), []);
+  assert.deepEqual(outOfDateKinds(null), []);
+});
+
+test("outOfDateBundleKinds applies the same rule against the bundle's own contents", () => {
+  // The bundle copies status' stale_kinds but has no fresh_kinds, so "present in the bundle" is the
+  // fresh signal: after a re-run the superseded kinds are stale AND present again.
+  const bundle = {
+    stale_kinds: ["summary", "agenda", "decisions", "qa"],
+    summary: { text: "x", bullets: [] },
+    agenda: { items: [] },
+    decisions: { items: [] },
+    action_items: null,
+    sections: [{ id: "s1" }],
+    qa: [],
+  };
+  assert.deepEqual(outOfDateBundleKinds(bundle), ["qa"]);
+  assert.deepEqual(outOfDateBundleKinds({ stale_kinds: ["summary"], summary: null }), ["summary"]);
+  assert.deepEqual(outOfDateBundleKinds(null), []);
 });
 
 test("pagingRange describes the page window", () => {

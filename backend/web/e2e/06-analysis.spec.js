@@ -26,7 +26,7 @@ test("the analysis tab shows the summary, agenda, sections, decisions and action
   await expect(sections).toContainText("[mock]");
 
   await expect(signedIn.getByTestId("decision").locator(".row")).toHaveCount(1);
-  await expect(signedIn.getByTestId("decision")).toContainText("decided");
+  await expect(signedIn.getByTestId("decision")).toContainText("[mock] decision");
   await expect(signedIn.getByTestId("action").locator(".row")).toHaveCount(1);
   await expect(signedIn.getByTestId("action")).toContainText("Speaker 2");
   expect(consoleErrors).toEqual([]);

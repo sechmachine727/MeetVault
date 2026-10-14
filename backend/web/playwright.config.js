@@ -16,7 +16,10 @@ export default defineConfig({
     viewport: { width: 1440, height: 900 },
   },
   projects: [
-    { name: "desktop", testIgnore: /responsive\.spec\.js$/ },
+    // narrow FIRST: the responsive spec is read-only, so it runs against the pristine seed before
+    // the mutating specs (transcript activation makes the analysis stale, and deleting a version
+    // cascades the analysis away).
     { name: "narrow", testMatch: /responsive\.spec\.js$/, use: { viewport: { width: 420, height: 900 } } },
+    { name: "desktop", testIgnore: /responsive\.spec\.js$/ },
   ],
 });
