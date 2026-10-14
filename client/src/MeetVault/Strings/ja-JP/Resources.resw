@@ -402,27 +402,14 @@
   <data name="BackPageQaBox.AutomationProperties.Name" xml:space="preserve"><value>この会議についての質問</value></data>
   <data name="BackPageAsk.Content" xml:space="preserve"><value>質問</value></data>
   <data name="BackPageAsk.AutomationProperties.Name" xml:space="preserve"><value>バックエンドに質問</value></data>
-  <data name="BackPageSpeakers.Header" xml:space="preserve"><value>話者</value></data>
-  <data name="BackPageVersions.Header" xml:space="preserve"><value>文字起こしのバージョン</value></data>
   <data name="BackPageJobs.Header" xml:space="preserve"><value>ジョブ</value></data>
   <data name="BackPageMedia.Header" xml:space="preserve"><value>サーバー上のメディア</value></data>
-  <data name="BackPageSave.Content" xml:space="preserve"><value>保存</value></data>
-  <data name="BackPageMerge.Content" xml:space="preserve"><value>統合</value></data>
-  <data name="BackPageDeleteSpeaker.Content" xml:space="preserve"><value>削除</value></data>
-  <data name="BackPageActivate.Content" xml:space="preserve"><value>有効化</value></data>
-  <data name="BackPageDeleteVersion.Content" xml:space="preserve"><value>削除</value></data>
   <data name="BackPageWatch.Content" xml:space="preserve"><value>監視</value></data>
   <data name="BackPageCancelJob.Content" xml:space="preserve"><value>キャンセル</value></data>
   <data name="BackPageDownload.Content" xml:space="preserve"><value>ダウンロード</value></data>
   <data name="Back.NoLocalRecording" xml:space="preserve"><value>ローカルの録音がなく、ダウンロードもまだありません。</value></data>
   <data name="Back.Copied" xml:space="preserve"><value>サーバーの文字起こしをコピーしました。</value></data>
   <data name="Back.AskQueued" xml:space="preserve"><value>質問を送信しました — 回答を待っています…</value></data>
-  <data name="Back.SpeakerStats" xml:space="preserve"><value>{0} セグメント · {1} 秒</value></data>
-  <data name="Back.SpeakerDeleteTitle" xml:space="preserve"><value>この話者を削除しますか?</value></data>
-  <data name="Back.SpeakerDeleteBody" xml:space="preserve"><value>{0} を削除します。文字起こしのテキストは残ります。</value></data>
-  <data name="Back.Delete" xml:space="preserve"><value>削除</value></data>
-  <data name="Back.VersionLine" xml:space="preserve"><value>v{0} · {1} · {2} · {3} セグメント</value></data>
-  <data name="Back.Active" xml:space="preserve"><value>有効</value></data>
   <data name="Back.RerunStarted" xml:space="preserve"><value>再実行を開始しました…</value></data>
   <data name="Back.RemoveTitle" xml:space="preserve"><value>バックエンドから削除しますか?</value></data>
   <data name="Back.RemoveBody" xml:space="preserve"><value>サーバー上のこの会議のコピー、文字起こし、分析が削除されます。ローカルの録音は残ります。</value></data>
@@ -521,9 +508,5 @@
   <data name="DetPlayPause.AutomationProperties.Name" xml:space="preserve"><value>再生/一時停止</value></data>
   <data name="DetPosition.AutomationProperties.Name" xml:space="preserve"><value>シーク</value></data>
   <data name="DetVolume.AutomationProperties.Name" xml:space="preserve"><value>音量</value></data>
-  <data name="DetAspect.AutomationProperties.Name" xml:space="preserve"><value>アスペクト比</value></data>
-  <data name="DetAspect169" xml:space="preserve"><value>16:9</value></data>
-  <data name="DetAspect43" xml:space="preserve"><value>4:3</value></data>
-  <data name="DetAspectFit" xml:space="preserve"><value>フィット</value></data>
   <data name="DetFullscreen.AutomationProperties.Name" xml:space="preserve"><value>全画面</value></data>
 </root>

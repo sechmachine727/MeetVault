@@ -402,27 +402,14 @@
   <data name="BackPageQaBox.AutomationProperties.Name" xml:space="preserve"><value>Question about this meeting</value></data>
   <data name="BackPageAsk.Content" xml:space="preserve"><value>Ask</value></data>
   <data name="BackPageAsk.AutomationProperties.Name" xml:space="preserve"><value>Ask the backend</value></data>
-  <data name="BackPageSpeakers.Header" xml:space="preserve"><value>Speakers</value></data>
-  <data name="BackPageVersions.Header" xml:space="preserve"><value>Transcript versions</value></data>
   <data name="BackPageJobs.Header" xml:space="preserve"><value>Jobs</value></data>
   <data name="BackPageMedia.Header" xml:space="preserve"><value>Media on the server</value></data>
-  <data name="BackPageSave.Content" xml:space="preserve"><value>Save</value></data>
-  <data name="BackPageMerge.Content" xml:space="preserve"><value>Merge</value></data>
-  <data name="BackPageDeleteSpeaker.Content" xml:space="preserve"><value>Delete</value></data>
-  <data name="BackPageActivate.Content" xml:space="preserve"><value>Activate</value></data>
-  <data name="BackPageDeleteVersion.Content" xml:space="preserve"><value>Delete</value></data>
   <data name="BackPageWatch.Content" xml:space="preserve"><value>Watch</value></data>
   <data name="BackPageCancelJob.Content" xml:space="preserve"><value>Cancel</value></data>
   <data name="BackPageDownload.Content" xml:space="preserve"><value>Download</value></data>
   <data name="Back.NoLocalRecording" xml:space="preserve"><value>No local recording and nothing downloaded yet.</value></data>
   <data name="Back.Copied" xml:space="preserve"><value>Server transcript copied.</value></data>
   <data name="Back.AskQueued" xml:space="preserve"><value>Question sent — waiting for the answer…</value></data>
-  <data name="Back.SpeakerStats" xml:space="preserve"><value>{0} segments · {1} s</value></data>
-  <data name="Back.SpeakerDeleteTitle" xml:space="preserve"><value>Delete this speaker?</value></data>
-  <data name="Back.SpeakerDeleteBody" xml:space="preserve"><value>{0} will be removed; the transcript text stays.</value></data>
-  <data name="Back.Delete" xml:space="preserve"><value>Delete</value></data>
-  <data name="Back.VersionLine" xml:space="preserve"><value>v{0} · {1} · {2} · {3} segments</value></data>
-  <data name="Back.Active" xml:space="preserve"><value>active</value></data>
   <data name="Back.RerunStarted" xml:space="preserve"><value>Re-run started…</value></data>
   <data name="Back.RemoveTitle" xml:space="preserve"><value>Remove from the backend?</value></data>
   <data name="Back.RemoveBody" xml:space="preserve"><value>The server's copy, transcript and analysis for this meeting will be deleted. The local recording stays.</value></data>
@@ -521,9 +508,5 @@
   <data name="DetPlayPause.AutomationProperties.Name" xml:space="preserve"><value>Play or pause</value></data>
   <data name="DetPosition.AutomationProperties.Name" xml:space="preserve"><value>Seek</value></data>
   <data name="DetVolume.AutomationProperties.Name" xml:space="preserve"><value>Volume</value></data>
-  <data name="DetAspect.AutomationProperties.Name" xml:space="preserve"><value>Aspect ratio</value></data>
-  <data name="DetAspect169" xml:space="preserve"><value>16:9</value></data>
-  <data name="DetAspect43" xml:space="preserve"><value>4:3</value></data>
-  <data name="DetAspectFit" xml:space="preserve"><value>Fit</value></data>
   <data name="DetFullscreen.AutomationProperties.Name" xml:space="preserve"><value>Fullscreen</value></data>
 </root>
