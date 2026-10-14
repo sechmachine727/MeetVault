@@ -22,6 +22,10 @@ COPY alembic.ini ./
 RUN pip install --upgrade pip \
     && pip install ".[prod]"
 
+# The entrypoint applies migrations before any command (api or worker).
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Non-root runtime. /data holds media and must be writable by the api and worker.
 RUN useradd --create-home --uid 10001 app \
     && mkdir -p /data/media \
@@ -38,6 +42,8 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD curl -fsS http://127.0.0.1:8080/healthz || exit 1
 
-# Migrations are run by the api service before uvicorn starts (see compose.yaml);
-# `alembic upgrade head` here would race when several replicas start at once.
+# The entrypoint runs `alembic upgrade head` (idempotent) then execs this CMD.
+# Single-container runs are therefore zero-config: a fresh volume boots with a
+# complete schema. Compose no longer needs its own migration command.
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["uvicorn", "mvb.main:app", "--host", "0.0.0.0", "--port", "8080"]

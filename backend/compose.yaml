@@ -51,11 +51,8 @@ services:
   api:
     build: .
     environment: *app-env
-    # Migrations run once, before the first request, in a single api container.
-    command:
-      - sh
-      - -c
-      - alembic upgrade head && exec uvicorn mvb.main:app --host 0.0.0.0 --port 8080
+      # The image ENTRYPOINT applies `alembic upgrade head` (idempotent) before
+      # every command, so no per-service migration command is needed.
     ports:
       - "${MVB_PORT:-8080}:8080"
     volumes:
