@@ -98,7 +98,11 @@ def create_app() -> FastAPI:
     app.include_router(analysis.router, prefix="/v1")
 
     # The management web console (static assets + the index route). API-only when absent.
-    mount_web_console(app, get_settings())
+    # A FRESH Settings (not get_settings()): this function also runs at import time via the
+    # module-level `app = create_app()`, and populating the cached settings there would pin the
+    # ambient database for a whole test session (the cache is cleared per test, so only the
+    # first test would inherit it — which silently wrote rows into the dev ./_local.db).
+    mount_web_console(app, Settings())
     return app
 
 
