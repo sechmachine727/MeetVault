@@ -1,0 +1,15 @@
+{
+  "name": "meetvault-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "MeetVault management console (static SPA served by the FastAPI backend) + its browser tests",
+  "scripts": {
+    "test": "node --test \"tests/*.test.mjs\"",
+    "e2e": "playwright test",
+    "e2e:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

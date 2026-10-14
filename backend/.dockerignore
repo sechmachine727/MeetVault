@@ -10,3 +10,9 @@ tests/
 docs/
 *.db
 .hermes/
+web/node_modules/
+web/tests/
+web/e2e/
+web/package.json
+web/package-lock.json
+web/playwright.config.js
