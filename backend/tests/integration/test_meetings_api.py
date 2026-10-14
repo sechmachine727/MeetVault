@@ -102,3 +102,34 @@ def test_meeting_list_reports_job_and_analysis_fields(client, auth_headers) -> N
     row = client.get("/v1/meetings", headers=auth_headers).json()["items"][0]
     assert row["latest_job_type"] == "transcribe"
     assert row["latest_job_state"] == "queued"
+
+
+def test_force_process_on_processing_meeting_persists_the_job(client, auth_headers) -> None:
+    """Live-verified defect (E5 wave): a force re-run on a meeting whose aggregate
+    status is already `processing` (a worker died mid-pipeline) answered
+    `enqueued: 1` with a job id while the row was never committed, so the worker
+    could never claim it and the UI's Retry analysis was a silent no-op."""
+    created = client.post("/v1/meetings", json={"title": "Force re-run"}, headers=auth_headers).json()
+    meeting_id = created["id"]
+
+    # No worker runs in the test app: the first call leaves the aggregate `processing`.
+    first = client.post(f"/v1/meetings/{meeting_id}/process", json={}, headers=auth_headers)
+    assert first.status_code == 202, first.text
+    assert first.json()["enqueued"] == 1
+    status = client.get(f"/v1/meetings/{meeting_id}/status", headers=auth_headers).json()
+    assert status["status"] == "processing"
+
+    # A force re-run while already processing must persist the new job.
+    re_run = client.post(
+        f"/v1/meetings/{meeting_id}/process",
+        json={"steps": ["analyze"], "force": True},
+        headers=auth_headers,
+    )
+    assert re_run.status_code == 202, re_run.text
+    assert re_run.json()["enqueued"] == 1
+    job_id = re_run.json()["job_ids"][0]
+
+    # The row must survive the request: a fresh read answers 200 (not 404) and is queued.
+    persisted = client.get(f"/v1/jobs/{job_id}", headers=auth_headers)
+    assert persisted.status_code == 200, persisted.text
+    assert persisted.json()["state"] == "queued"

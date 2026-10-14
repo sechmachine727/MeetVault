@@ -462,8 +462,12 @@ def process_meeting(
         analyze_kinds=options.analyze_kinds,
         force=force or options.force,
     )
-    if created and meeting.status != "processing":
-        meeting.status = "processing"
+    if created:
+        # Commit whenever a job was created: enqueue only flushes, so a meeting already in
+        # `processing` (e.g. a force re-run while a pipeline is mid-flight) would otherwise
+        # answer `enqueued: 1` and drop the job with the request session.
+        if meeting.status != "processing":
+            meeting.status = "processing"
         db.commit()
     return ProcessResponse(
         meeting_id=meeting.id,
