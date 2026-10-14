@@ -584,18 +584,20 @@ public sealed partial class DetailsPage : Page
                 var result = await new BackendSync(client).SendAsync(meeting, segments, speakers, screens, null, progress, ct);
                 backendId = result.BackendId;
                 _backendId = backendId;
+                if (result.Process.JobIds.Count > 0) _backendActiveJobId = result.Process.JobIds[0];
                 if (meetingId is not null)
                     AppStore.Repo.SaveBackendSync(new(meetingId, backendId, "processing", null, false, NowIso()));
             }
             else
             {
                 // Already uploaded (or cloud-only): a re-run forces the analysis again.
-                await client.ProcessAsync(backendId, new[] { "analyze" }, force: true, ct: ct);
+                var rerun = await client.ProcessAsync(backendId, new[] { "analyze" }, force: true, ct: ct);
+                if (rerun.JobIds.Count > 0) _backendActiveJobId = rerun.JobIds[0];
             }
             RenderAnalyzeState(AnalysisState.Queued, null);
             var final = await new BackendSync(client).WaitForTerminalAsync(backendId, status =>
             {
-                _backendActiveJobId = status.ActiveJobId;
+                if (!string.IsNullOrEmpty(status.ActiveJobId)) _backendActiveJobId = status.ActiveJobId;
                 AnalyzeProgress.IsIndeterminate = false;
                 AnalyzeProgress.Value = BackendPresentation.Percent(status.Progress);
                 AnalyzeStepsText.Text = BackendPresentation.StepsSummary(status.Steps);
@@ -973,7 +975,7 @@ public sealed partial class DetailsPage : Page
     private void CopySummary_Click(object sender, RoutedEventArgs e)
     {
         if (_summaryPlain.Length == 0) { Status(InfoBarSeverity.Warning, Loc.T("DetWordNoAnalysis")); return; }
-        try { ToClipboard(_summaryPlain); Status(InfoBarSeverity.Success, Loc.T("Det.Copied")); }
+        try { ToClipboard(_summaryPlain); Status(InfoBarSeverity.Success, Loc.Tf("Det.Copied", _summaryPlain.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Length)); }
         catch (COMException) { Status(InfoBarSeverity.Error, Loc.T("Det.ClipboardBusy")); }
     }
 
