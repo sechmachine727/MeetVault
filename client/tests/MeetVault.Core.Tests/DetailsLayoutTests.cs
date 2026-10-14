@@ -14,11 +14,11 @@ public class DetailsLayoutTests
     [InlineData(1000, 520, DetailsLayoutMode.TwoColumn)]
     [InlineData(400, 300, DetailsLayoutMode.Stacked)]
     [InlineData(1679, 1360, DetailsLayoutMode.TwoColumn)]
-    [InlineData(1680, 1360, DetailsLayoutMode.ThreeColumn)]
+    [InlineData(1680, 1360, DetailsLayoutMode.Wide)]
     [InlineData(1680, 519, DetailsLayoutMode.Stacked)]
-    [InlineData(1680, 520, DetailsLayoutMode.ThreeColumn)]
-    [InlineData(2000, 1360, DetailsLayoutMode.ThreeColumn)]
-    [InlineData(2239, 1359, DetailsLayoutMode.ThreeColumn)]
+    [InlineData(1680, 520, DetailsLayoutMode.Wide)]
+    [InlineData(2000, 1360, DetailsLayoutMode.Wide)]
+    [InlineData(2239, 1359, DetailsLayoutMode.Wide)]
     public void Decide_pins_the_boundaries(double width, double height, DetailsLayoutMode expected)
         => Assert.Equal(expected, DetailsLayout.Decide(width, height));
 
@@ -27,6 +27,6 @@ public class DetailsLayoutTests
     {
         Assert.Equal(1000.0, DetailsLayout.MinTwoColumnWidthDip);
         Assert.Equal(520.0, DetailsLayout.MinTwoColumnHeightDip);
-        Assert.Equal(1680.0, DetailsLayout.MinThreeColumnWidthDip);
+        Assert.Equal(1680.0, DetailsLayout.MinWideWidthDip);
     }
 }
