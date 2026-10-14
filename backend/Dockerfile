@@ -22,6 +22,9 @@ COPY alembic.ini ./
 RUN pip install --upgrade pip \
     && pip install ".[prod]"
 
+# The management web console (static SPA, no build step) served from MVB_WEB_ROOT.
+COPY web ./web
+
 # The entrypoint applies migrations before any command (api or worker).
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
@@ -34,6 +37,7 @@ USER app
 
 ENV MVB_ENV=prod \
     MVB_MEDIA_ROOT=/data/media \
+    MVB_WEB_ROOT=/app/web \
     MVB_HOST=0.0.0.0 \
     MVB_PORT=8080
 
