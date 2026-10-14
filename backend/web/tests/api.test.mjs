@@ -1,0 +1,117 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import { ApiError, createApi } from "../lib/api.js";
+
+function jsonResponse(status, body) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+    headers: new Headers({ "content-type": "application/json" }),
+  };
+}
+
+test("a request carries the bearer token and parses JSON", async () => {
+  const calls = [];
+  const api = createApi({
+    fetchImpl: async (url, opts) => {
+      calls.push({ url, opts });
+      return jsonResponse(200, { items: [], total: 0, limit: 20, offset: 0 });
+    },
+    onAuthFailure: () => {},
+  });
+  api.setToken("tok-9");
+  const page = await api.listMeetings({ q: "sync" });
+  assert.equal(calls[0].url, "/v1/meetings?q=sync");
+  assert.equal(calls[0].opts.headers.Authorization, "Bearer tok-9");
+  assert.equal(page.total, 0);
+});
+
+test("the error envelope becomes an ApiError with its code", async () => {
+  const api = createApi({
+    fetchImpl: async () =>
+      jsonResponse(404, { error: { code: "not_found", message: "Meeting not found" }, request_id: "r1" }),
+    onAuthFailure: () => {},
+  });
+  await assert.rejects(
+    () => api.getMeeting("gone"),
+    (err) => {
+      assert.ok(err instanceof ApiError);
+      assert.equal(err.status, 404);
+      assert.equal(err.code, "not_found");
+      assert.equal(err.requestId, "r1");
+      return true;
+    },
+  );
+});
+
+test("a 401 fires the auth-failure hook", async () => {
+  let fired = 0;
+  const api = createApi({
+    fetchImpl: async () =>
+      jsonResponse(401, { error: { code: "session_expired", message: "expired" }, request_id: "r2" }),
+    onAuthFailure: () => {
+      fired += 1;
+    },
+  });
+  await assert.rejects(() => api.me());
+  assert.equal(fired, 1);
+});
+
+test("a transport failure becomes a network_error ApiError, not a raw TypeError", async () => {
+  const api = createApi({
+    fetchImpl: async () => {
+      throw new TypeError("Failed to fetch");
+    },
+    onAuthFailure: () => {},
+  });
+  await assert.rejects(
+    () => api.me(),
+    (err) => {
+      assert.equal(err.code, "network_error");
+      assert.equal(err.status, 0);
+      return true;
+    },
+  );
+});
+
+test("a 202 process response and an OkResponse DELETE both parse", async () => {
+  const bodies = [
+    jsonResponse(202, { meeting_id: "m1", steps: ["analyze"], job_ids: ["j1"], enqueued: 1 }),
+    jsonResponse(200, { ok: true, detail: {} }),
+  ];
+  const api = createApi({ fetchImpl: async () => bodies.shift(), onAuthFailure: () => {} });
+  const processed = await api.process("m1", { steps: ["analyze"], force: true });
+  assert.equal(processed.enqueued, 1);
+  const removed = await api.deleteMeeting("m1");
+  assert.equal(removed.ok, true);
+});
+
+test("process() sends steps as repeated query parameters, never a comma list", async () => {
+  const calls = [];
+  const api = createApi({
+    fetchImpl: async (url, opts) => {
+      calls.push({ url, opts });
+      return jsonResponse(202, { meeting_id: "m1", steps: [], job_ids: [], enqueued: 1 });
+    },
+    onAuthFailure: () => {},
+  });
+  await api.process("m1", { steps: ["transcribe", "analyze"], force: true });
+  assert.equal(calls[0].url, "/v1/meetings/m1/process?steps=transcribe&steps=analyze&force=true");
+});
+
+test("the speaker merge body uses the server's field name", async () => {
+  const calls = [];
+  const api = createApi({
+    fetchImpl: async (url, opts) => {
+      calls.push({ url, opts });
+      return jsonResponse(200, { merged_speaker_id: "a", target_speaker_id: "b", moved_segments: 0 });
+    },
+    onAuthFailure: () => {},
+  });
+  await api.mergeSpeaker("a", "b");
+  assert.equal(calls[0].url, "/v1/speakers/a/merge");
+  assert.equal(JSON.parse(calls[0].opts.body).target_speaker_id, "b");
+});
