@@ -623,6 +623,7 @@ public sealed partial class DetailsPage : Page
         finally
         {
             _backendBusy = false;
+            _backendActiveJobId = null;
             AnalyzeButton.IsEnabled = true;
             AnalyzeCancelButton.IsEnabled = false;
             await RefreshAnalyzeAsync();
