@@ -43,6 +43,10 @@ public sealed partial class DetailsPage : Page
     private PlayerAspect _aspect = PlayerAspect.Ratio16x9;
     private bool _draggingSlider;
     private bool _applyingUi;
+    // --- Responsive Details layout: two-column workspace vs stacked ---
+    // MUST start Stacked: the T4 XAML is authored in the stacked arrangement, and the
+    // first transition only fires when the real content size says two-column.
+    private DetailsLayoutMode _layoutMode = DetailsLayoutMode.Stacked;
     // --- Cloud transcript + summary ---
     private string _summaryPlain = "";
     private readonly List<BackendSegment> _cloudSegments = new();
@@ -121,6 +125,7 @@ public sealed partial class DetailsPage : Page
         UpdateAspectButton();
         ApplyAspect();
         UpdateLineStatus();
+        EvaluateLayout();
     }
 
     private static string FormatDuration(Meeting m)
@@ -453,9 +458,46 @@ public sealed partial class DetailsPage : Page
         };
     }
 
-    // Responsive layout: the real body lands with the layout task. The stub keeps the
-    // generated partial compiling from the XAML's SizeChanged wiring.
-    private void RootScroll_SizeChanged(object sender, SizeChangedEventArgs e) { }
+    // Responsive Details layout. The mode follows the CONTENT size (the RootScroll
+    // viewport: the page's own width, the navigation pane already excluded), decided by
+    // the pure Core helper so the rule is unit-testable. Re-evaluated on every resize;
+    // the load paths re-run it after each meeting load as belt-and-braces.
+    private void RootScroll_SizeChanged(object sender, SizeChangedEventArgs e) => EvaluateLayout();
+
+    private void EvaluateLayout()
+    {
+        if (RootScroll.ActualWidth <= 0 || RootScroll.ActualHeight <= 0) return; // not laid out yet
+        var mode = DetailsLayout.Decide(RootScroll.ActualWidth, RootScroll.ActualHeight);
+        if (mode != _layoutMode) ApplyLayout(mode);
+        else if (mode == DetailsLayoutMode.TwoColumn) PageGrid.Height = RootScroll.ActualHeight;
+    }
+
+    private void ApplyLayout(DetailsLayoutMode mode)
+    {
+        _layoutMode = mode;
+        if (TranscriptCard.Parent is Panel parent) parent.Children.Remove(TranscriptCard);
+        PageGrid.ColumnDefinitions.Clear();
+        if (mode == DetailsLayoutMode.TwoColumn)
+        {
+            PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 560 });
+            PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 360, MaxWidth = 560 });
+            // Pinning the grid to the viewport height bounds both star columns, so the
+            // left region and the transcript each scroll INTERNALLY and independently.
+            PageGrid.Height = RootScroll.ActualHeight;
+            PageGrid.Children.Add(TranscriptCard);
+            Grid.SetColumn(TranscriptCard, 1);
+        }
+        else
+        {
+            // Natural height: LeftRegion and the card's TranscriptScroll grow to their
+            // content, so the OUTER RootScroll scrolls the whole page in the stacked
+            // order: title, StatusBar, meeting, player, TRANSCRIPT, analyze, summary.
+            PageGrid.Height = double.NaN;
+            Grid.SetColumn(TranscriptCard, 0);
+            LeftStack.Children.Insert(4, TranscriptCard);
+            PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        }
+    }
 
     private void ApplyAspect()
     {
@@ -800,6 +842,7 @@ public sealed partial class DetailsPage : Page
             await RefreshAnalyzeAsync();
             await LoadCloudContentAsync(client, _cloudBackendId!);
             await LoadCloudAudioAsync(client);
+            EvaluateLayout();
         }
         catch (BackendApiException ex)
         {
