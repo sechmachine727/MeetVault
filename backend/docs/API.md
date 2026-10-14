@@ -54,6 +54,21 @@ and `latest_job_state` (`queued|running|succeeded|failed|cancelled`); `/status` 
 | GET | `/v1/media/{asset_id}/info` | asset metadata |
 | DELETE | `/v1/media/{asset_id}` | delete file + row |
 
+### Browser playback
+
+`GET /v1/media/{asset_id}` is bearer-only and the token is never accepted as a query parameter.
+A browser player therefore cannot use the URL directly: a web client fetches the asset with the
+`Authorization` header, wraps the response in a `blob:` object URL and plays that (seeking works
+off the blob). `Range` on this endpoint stays for non-browser clients.
+
+## Web console
+
+The same image serves a management console at `/` (static assets under `/assets`, from
+`MVB_WEB_ROOT`; the container sets `/app/web`). It exposes the Cloud Storage surfaces of the
+desktop client — list, open, transcript, analysis, Q&A, speakers, transcript versions, jobs,
+re-run analysis, Word export and remove — for the signed-in user, over the same `/v1` API and the
+same bearer session token.
+
 ## Transcripts & speakers
 
 | Method | Path | Purpose |
