@@ -92,7 +92,9 @@ export async function renderMeeting(ctx, route) {
         { class: "status" },
         el("span", { class: "pill", dataset: { kind }, "data-testid": "status", text: [statusLabel(kind), step, elapsed].filter(Boolean).join(" · ") }),
         state.meeting.has_analysis ? el("span", { class: "pill", "data-testid": "analyzed-badge", text: "Analyzed" }) : null,
-        status.mock ? el("span", { class: "pill mock", "data-testid": "mock-badge", text: "Mock data" }) : null,
+        // The detail payload's is_mock describes the ACTIVE TRANSCRIPT (its provider), so the badge
+        // says exactly that. The analysis' own mock state is on the Analysis tab.
+        state.meeting.is_mock ? el("span", { class: "pill mock", "data-testid": "mock-badge", text: "Mock transcript" }) : null,
       ),
       el(
         "div",
@@ -336,10 +338,12 @@ export async function renderMeeting(ctx, route) {
                   try {
                     await ctx.api.deleteMedia(asset.id);
                     ctx.toast("Recording deleted from the server.");
+                    const wasPlaying = asset.id === currentAssetId;
                     releaseBlob();
-                    if (asset.id === currentAssetId) player.removeAttribute("src");
+                    if (wasPlaying) player.removeAttribute("src");
                     await renderTab();
                     await loadHead();
+                    await loadPlayerBar();
                   } catch (err) {
                     ctx.toast(friendlyError(err));
                   }
@@ -480,7 +484,10 @@ export async function renderMeeting(ctx, route) {
     const segmentsById = Object.fromEntries((detail.segments || []).map((s) => [s.id, s]));
     const card = el("div", { class: "card", "data-testid": "analysis" });
     card.append(el("h2", {}, "Summary"));
-    if (bundle.mock) card.append(el("span", { class: "pill mock", "data-testid": "mock-badge", text: "Mock data" }));
+    // The analysis' mock state comes from the analysis RUN (the bundle flag is the fallback) —
+    // never from /status's aggregate, which is true whenever any step ran mocked.
+    const analysisMock = bundle.run ? bundle.run.is_mock : bundle.mock;
+    if (analysisMock) card.append(el("span", { class: "pill mock", "data-testid": "mock-analysis-badge", text: "Mock analysis" }));
     if (bundle.stale_kinds && bundle.stale_kinds.length) {
       card.append(el("div", { class: "banner", text: `Out of date: ${bundle.stale_kinds.join(", ")}` }));
     }
