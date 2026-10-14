@@ -21,7 +21,14 @@ def test_root_serves_the_app_shell(client) -> None:
     assert res.headers["content-type"].startswith("text/html")
     assert "MeetVault" in res.text
     assert res.headers["cache-control"] == "no-cache"
-    assert "default-src 'self'" in res.headers["content-security-policy"]
+    csp = res.headers["content-security-policy"]
+    assert "default-src 'self'" in csp
+    # The console plays /v1/media through a blob: object URL (a media element cannot send the
+    # bearer header), so media-src MUST allow blob: — without it Chromium refuses to load the
+    # recording and every seek silently does nothing (found by the Playwright suite).
+    assert "media-src 'self' blob:" in csp
+    assert "script-src 'self'" in csp
+    assert "'unsafe-inline'" not in csp
 
 
 def test_assets_are_served_with_the_right_mime_types(client) -> None:

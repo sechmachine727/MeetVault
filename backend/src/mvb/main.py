@@ -22,9 +22,11 @@ log = logging.getLogger(__name__)
 # localStorage, so a third-party script or an injected inline script must not be able to run.
 _WEB_INDEX_HEADERS = {
     "Cache-Control": "no-cache",
+    # `blob:` is required by media-src: the console fetches /v1/media with the bearer header and
+    # plays the response as an object URL (a media element cannot send an Authorization header).
     "Content-Security-Policy": (
-        "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
-        "media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+        "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; "
+        "media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
     ),
 }
 
