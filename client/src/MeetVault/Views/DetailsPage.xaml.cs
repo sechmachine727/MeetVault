@@ -33,6 +33,9 @@ public sealed partial class DetailsPage : Page
     private CancellationTokenSource? _backendCts;
     private string? _backendId;
     private string? _backendActiveJobId;
+    // --- Analysis result (badge source): the LAST loaded analysis bundle ---
+    private BackendBundle? _lastAnalysis;
+    private string _stateLabelKey = "An.NotAnalyzed";
     // A cloud-only meeting (no local row) carries its backend id here; local meetings link
     // through _backendId / the backend_sync row.
     private string? _cloudBackendId = null;
@@ -560,6 +563,8 @@ public sealed partial class DetailsPage : Page
         _backendCts?.Dispose();
         _backendCts = new CancellationTokenSource();
         _backendActiveJobId = null;
+        _lastAnalysis = null; // a new run: the old bundle's mock flag no longer applies
+        UpdateMockBadge();
         var ct = _backendCts.Token;
         try
         {
@@ -601,8 +606,6 @@ public sealed partial class DetailsPage : Page
                 AnalyzeProgress.IsIndeterminate = false;
                 AnalyzeProgress.Value = BackendPresentation.Percent(status.Progress);
                 AnalyzeStepsText.Text = BackendPresentation.StepsSummary(status.Steps);
-                AnalyzeMockBadge.Text = Loc.T("Back.MockBadge");
-                AnalyzeMockBadge.Visibility = status.Mock ? Visibility.Visible : Visibility.Collapsed;
             }, delay: null, ct);
             await OnAnalysisTerminalAsync(client, backendId, meetingId, final, ct);
         }
@@ -705,8 +708,8 @@ public sealed partial class DetailsPage : Page
             AnalysisState.Failed => "An.Failed",
             _ => "An.NotAnalyzed",
         };
-        AnalyzeStateText.Text = Loc.T(labelKey)
-            + (status is { Mock: true } ? " \u00b7 " + Loc.T("Back.MockBadge") : "");
+        _stateLabelKey = labelKey;
+        AnalyzeStateText.Text = BuildAnalyzeStateText();
         AnalyzeButton.Visibility = state is AnalysisState.Uploading or AnalysisState.Queued or AnalysisState.Processing
             ? Visibility.Collapsed : Visibility.Visible;
         AnalyzeButton.Content = state switch
@@ -732,6 +735,20 @@ public sealed partial class DetailsPage : Page
         }
     }
 
+    // The mock badge reflects the ANALYSIS result (the Core mapping), never the pipeline
+    // status flag: a real analyzer run over a mock server-side transcript is a real analysis.
+    private void UpdateMockBadge()
+    {
+        AnalyzeMockBadge.Text = Loc.T("Back.MockBadge");
+        AnalyzeMockBadge.Visibility = BackendAnalysisState.ShowMockBadge(_lastAnalysis)
+            ? Visibility.Visible : Visibility.Collapsed;
+        AnalyzeStateText.Text = BuildAnalyzeStateText();
+    }
+
+    private string BuildAnalyzeStateText()
+        => Loc.T(_stateLabelKey)
+            + (BackendAnalysisState.ShowMockBadge(_lastAnalysis) ? " \u00b7 " + Loc.T("Back.MockBadge") : "");
+
     private void AnalyzeCancel_Click(object sender, RoutedEventArgs e)
     {
         if (_backendActiveJobId is not { Length: > 0 }) { Status(InfoBarSeverity.Informational, Loc.T("Det.BackendCancelPending")); return; }
@@ -750,6 +767,8 @@ public sealed partial class DetailsPage : Page
         if (_meeting is null) return;
         AppStore.Repo.ClearBackendSync(_meeting.Id);
         _backendId = null;
+        _lastAnalysis = null;
+        UpdateMockBadge();
         RenderAnalyzeState(AnalysisState.NotAnalyzed, null);
     }
 
@@ -916,6 +935,8 @@ public sealed partial class DetailsPage : Page
             })
             .ToArray();
         _summaryPlain = BuildSummaryPlainText(bundle);
+        _lastAnalysis = bundle;
+        UpdateMockBadge();
     }
 
     // The exact text the Copy-summary button puts on the clipboard: overview, bullets,
