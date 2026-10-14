@@ -31,4 +31,6 @@ def test_app_module_import_does_not_populate_the_settings_cache() -> None:
         "raise SystemExit(0 if info.currsize == 0 else 1)"
     )
     result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
-    assert result.returncode == 0, f"create_app() populated the settings cache at import time: {result.stdout} {result.stderr}"
+    assert result.returncode == 0, (
+        f"create_app() populated the settings cache at import time: {result.stdout} {result.stderr}"
+    )
