@@ -60,6 +60,27 @@ test("a 401 fires the auth-failure hook", async () => {
   assert.equal(fired, 1);
 });
 
+test("a 401 from the LOGIN endpoint is bad credentials, not a dead session", async () => {
+  // Firing the hook here re-renders the page and wipes the "wrong password" message — the
+  // sign-in screen then shows a misleading "session expired" toast instead.
+  let fired = 0;
+  const api = createApi({
+    fetchImpl: async () =>
+      jsonResponse(401, { error: { code: "invalid_credentials", message: "Bad email or password" }, request_id: "r3" }),
+    onAuthFailure: () => {
+      fired += 1;
+    },
+  });
+  await assert.rejects(
+    () => api.login("demo@meetvault.local", "wrong"),
+    (err) => {
+      assert.equal(err.code, "invalid_credentials");
+      return true;
+    },
+  );
+  assert.equal(fired, 0);
+});
+
 test("a transport failure becomes a network_error ApiError, not a raw TypeError", async () => {
   const api = createApi({
     fetchImpl: async () => {

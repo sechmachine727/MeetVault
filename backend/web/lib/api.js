@@ -33,7 +33,7 @@ export function createApi({ fetchImpl, onAuthFailure, baseUrl = "" } = {}) {
     } catch {
       throw new ApiError(0, { error: { code: "network_error", message: "The service is unreachable." } });
     }
-    if (res.status === 401) fail();
+    if (res.status === 401 && !path.startsWith("/v1/auth/login")) fail();
     if (!res.ok) {
       let envelope = null;
       try {
