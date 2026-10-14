@@ -453,6 +453,10 @@ public sealed partial class DetailsPage : Page
         };
     }
 
+    // Responsive layout: the real body lands with the layout task. The stub keeps the
+    // generated partial compiling from the XAML's SizeChanged wiring.
+    private void RootScroll_SizeChanged(object sender, SizeChangedEventArgs e) { }
+
     private void ApplyAspect()
     {
         var target = VideoPlayer.Visibility == Visibility.Visible ? (FrameworkElement)VideoPlayer : Player;
