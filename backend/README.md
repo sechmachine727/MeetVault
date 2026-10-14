@@ -32,6 +32,26 @@ Every `/v1` call carries a per-user **session token** — there are no static AP
     cp .env.example .env      # set POSTGRES_PASSWORD
     docker compose up --build
 
+## Web console
+
+The same image also serves a management console for a signed-in user's cloud meetings — the
+browser equivalent of the desktop client's Cloud Storage screen: list/search/filter, open a
+meeting (transcript, analysis, Q&A, speakers, transcript versions, jobs), re-run analysis, export
+Word and remove a meeting from the cloud. Recording and uploads stay in the desktop app.
+
+- URL: `http://<host>:8080/` (the public deployment: `https://meetvault.supersanta.io.vn/`).
+- Assets come from `MVB_WEB_ROOT` (default `./web`; the image sets `/app/web`). If that directory
+  has no `index.html` the service boots API-only and logs `web_ui_disabled` — a missing console is
+  never a startup failure.
+- The page is served with a strict CSP and no third-party script; the session token is kept in the
+  browser's `localStorage` and cleared on sign-out and on any `401`.
+- Browser playback/download of `/v1/media/{id}` works off a blob fetched with the bearer header
+  (the token is never accepted as a query parameter).
+
+Tests: `node --test "tests/*.test.mjs"` under `backend/web/` for the pure logic, and the Playwright
+suite under `backend/web/e2e/` for the browser flows — see `web/e2e/README.md` for the exact
+start/seed/run commands. `docs/web-report/REPORT.md` is the delivered evidence.
+
 ## Provider configuration
 
 | Capability | Config key | Values | Notes |
