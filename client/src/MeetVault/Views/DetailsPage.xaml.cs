@@ -500,7 +500,9 @@ public sealed partial class DetailsPage : Page
             PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 480, MaxWidth = 640 });
             PageGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             PageGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            PageGrid.Children.Add(HeaderStack);
+            // HeaderStack is a PERMANENT PageGrid child (XAML) - position it, never
+            // re-add it: UIElementCollection.Add on an already-parented element
+            // throws and kills the process (execution-proven 2026-10-15 00:08).
             Grid.SetRow(HeaderStack, 0);
             Grid.SetColumn(HeaderStack, 0);
             Grid.SetColumnSpan(HeaderStack, 2);
