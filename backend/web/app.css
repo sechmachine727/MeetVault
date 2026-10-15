@@ -211,25 +211,102 @@ dialog .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; ma
 pre.meta { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; font-size: 12px; }
 
 /* ---------- sign-in ---------- */
-.signin { display: grid; place-items: center; min-height: 60vh; padding: 24px; }
+/* main carried a 1240px column cap, which pinned the card into a left-anchored strip beside the
+   rail: on the 2560px display its centre landed at 836px against a 1280px viewport middle, i.e.
+   hard left of centre, and it rode at 40% height. Dropping the cap and centring main's content puts
+   the card in the middle of the area beside the rail, on both axes. :has() scopes it to auth. */
+main.view:has(.signin) {
+  max-width: none;
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+.signin { display: grid; place-items: center; width: 100%; }
 .signin .card { width: min(400px, 100%); display: flex; flex-direction: column; gap: 14px; }
 
-/* ---------- responsive ---------- */
-@media (max-width: 860px) {
-  .app-shell { grid-template-columns: 1fr; }
+/* One gap for the whole auth form: as a plain block stack the two fields touched each other and the
+   action row sat flush against the password input (measured: label bottom 543px == row top 543px). */
+.signin form { display: flex; flex-direction: column; gap: 14px; }
+.signin form h2, .signin form p.sub, .signin form .banner { margin: 0; }
+
+/* The auth actions share ONE line: a stacked paragraph put "Create an account" on its own row
+   underneath the button, which read as an afterthought. The secondary is a link styled as a button
+   (a btn) so the pair reads as one control group and their heights match. */
+.form-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+a.btn, a.btn:hover { text-decoration: none; }
+/* ---------- responsive ----------
+   Four tiers, driven by the width the console actually has:
+
+     > 1120px   roomy: the rail column and the 1240px reading cap
+     <= 1120px  compact: a narrower rail, tighter gutters, the cap released
+     <= 720px   top bar: the rail becomes one row above the content
+     <= 520px   phone: one-line navigation and a tighter rhythm
+
+   The top-bar switch used to happen at 860px, which threw the rail away while a portrait tablet
+   still had ~640px of room for the content beside it; 720px keeps it until it genuinely crowds. */
+
+/* --- compact: narrower rail, no reading cap --- */
+@media (max-width: 1120px) {
+  :root { --rail: 184px; }
+  /* The 1240px cap exists to stop long lines on a huge display. Below it there is nothing to cap,
+     and keeping it made the column stop growing exactly where the extra room appeared. */
+  main.view { max-width: none; padding: 24px 24px 56px; }
+}
+
+/* --- portrait tablets and small windows: the rail becomes a top bar --- */
+@media (max-width: 720px) {
+  /* One column; the shell rule's minmax(0, 1fr) keeps the bar inside the viewport. */
+  .app-shell { grid-template-columns: minmax(0, 1fr); }
   .rail {
-    flex-direction: row; align-items: center; gap: 10px 16px;
+    flex-direction: row; align-items: center; gap: 8px 14px;
     /* WRAP, never shrink: as a shrinkable row the account block was crushed to 60px and the
        address shattered mid-word ("demo@m / eetvault.lo / cal"). Two tidy rows beat that. */
     flex-wrap: wrap;
-    border-right: none; border-bottom: 1px solid var(--border);
+    padding: 12px 16px; border-right: none; border-bottom: 1px solid var(--border);
   }
   .rail .brand { padding: 0; }
-  .rail nav { flex-direction: row; }
-  .rail footer { margin: 0; border: none; padding: 0; flex: 1 1 auto; min-width: 0; }
+  .rail nav { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+  .rail nav a { padding: 7px 10px; }
+  /* The account block keeps its natural size on the right; the address ellipsises, never wraps. */
+  .rail footer { margin: 0 0 0 auto; border: none; padding: 0; flex: 0 1 auto; min-width: 0; }
   .account { flex-direction: row; align-items: center; gap: 10px; padding: 0; }
   .account .who, .account .mail { overflow-wrap: normal; }
   .account .mail { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  main.view { padding: 18px 16px 48px; }
+  main.view { padding: 20px 16px 48px; }
+  h1 { font-size: 22px; }
+  h2 { font-size: 16px; }
+  p.sub { margin-bottom: 16px; }
+  /* One column of rows: the actions drop under the title instead of squeezing it. */
   .row { grid-template-columns: 1fr; }
+  /* A seven-tab strip on a phone scrolls sideways instead of stacking into three rows. */
+  .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+  .tabs button { flex: 0 0 auto; }
+  /* A 4-column segment table cannot fit a phone: let the table scroll inside its card rather than
+     wrap every cell into a paragraph. */
+  table.segments { display: block; overflow-x: auto; white-space: nowrap; }
+  .player-host video, .player-host audio { margin-top: 4px; }
+  dialog { max-width: calc(100vw - 32px); padding: 16px; }
+  /* The rail is a top bar here, so the auth card centres in what is left BELOW it - and main must
+     not still claim a full 100vh of its own, which scrolled the page by the bar's height. */
+  .app-shell:has(.signin) { display: flex; flex-direction: column; }
+  main.view:has(.signin) { flex: 1 1 auto; min-height: 0; }
+}
+
+/* --- phone: one navigation line and a tighter rhythm --- */
+@media (max-width: 520px) {
+  .rail { padding: 10px 12px; gap: 6px 10px; }
+  .brand-sub { display: none; } /* "Cloud" beside the wordmark is the first thing to go */
+  .rail nav { flex: 1 1 100%; overflow-x: auto; flex-wrap: nowrap; }
+  .account { width: 100%; justify-content: flex-end; }
+  main.view { padding: 16px 12px 40px; }
+  h1 { font-size: 20px; }
+  /* Controls read better as full-width rows than as a ragged two-per-line wrap. */
+  .toolbar { gap: 8px; }
+  .toolbar input[type="search"], .toolbar input[type="text"] { flex: 1 1 100%; }
+  .row { padding: 12px; }
+  .card { padding: 14px; }
+  .row .actions { gap: 6px; }
+  .row .actions button { flex: 1 1 auto; }
+  .toast { bottom: 16px; padding: 9px 14px; font-size: 14px; }
 }
