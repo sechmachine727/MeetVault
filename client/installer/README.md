@@ -61,15 +61,21 @@ Output: `client\publish\MeetVaultSetup-1.0.0.exe`.
    MSIX is only worth it with a real code-signing certificate — a self-signed one is not a
    regular-user experience.
 
-## Why the app needed a code change for this
+## Why the app has a DPAPI fallback (and why it is NOT the reason for this installer)
 
-`Windows.Security.Credentials.PasswordVault` (Windows Credential Locker) **requires package
-identity** and silently no-ops without it, so any unpackaged install — the portable zip or this
-installer — never persisted the backend session token: the user signed in again on every launch.
-`MeetVault.Core\DpapiSecretStore.cs` now stores each secret as a DPAPI-protected file under
-`%APPDATA%\MeetVault\secrets` (current user only, never plaintext), and `SecretStores.Choose` picks
-Credential Locker when the app *is* packaged (MSIX) and the DPAPI store when it is not. Tests:
-`tests\MeetVault.Core.Tests\SecretStoreTests.cs`.
+While setting this up I read `CredentialLockerSecretStore` and concluded that the WinRT
+`PasswordVault` needs package identity and silently no-ops without it — i.e. that any unpackaged
+install lost the session token on every restart. **Measurement says otherwise**: the freshly
+installed unpackaged build showed `Signed in as demo@example.com`, reading a token an earlier
+unpackaged run had stored, and no DPAPI file was ever created. The Locker works for unpackaged
+installs; a defensive null-guard is not proof of a null.
+
+`MeetVault.Core\DpapiSecretStore.cs` therefore stays only as a **fallback for machines where the
+Locker is genuinely unavailable** (no identity AND the OS refusing the vault):
+`SecretStores.Choose` prefers the Locker and falls back on null/throw, storing each secret as a
+DPAPI-protected file under `%APPDATA%\MeetVault\secrets` (current user only, never plaintext). Tests:
+`tests\MeetVault.Core.Tests\SecretStoreTests.cs`. It is a safety net, not a required change — the
+installer needs no code change for sign-in persistence.
 
 ## Facts about the artifact
 
@@ -85,7 +91,6 @@ Credential Locker when the app *is* packaged (MSIX) and the DPAPI store when it 
 
 ## Not verified here
 
-Sign-in persistence across a restart was proven at the unit level (round-trip, not-plaintext,
-wrong-entropy rejection) but **not** end-to-end in the installed app, because that needs a real
-sign-in. To close it: install, sign in, close the app, relaunch, and confirm it is still signed in
-(and that `%APPDATA%\MeetVault\secrets` holds a `*.bin` per key).
+Sign-in persistence itself **is** verified for the installed build (it read back the token an earlier
+unpackaged run had stored). What cannot be simulated here is a machine where the Credential Locker is
+genuinely unavailable — i.e. the DPAPI fallback path, which is covered by unit tests only.

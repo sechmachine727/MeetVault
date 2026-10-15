@@ -35,6 +35,20 @@ The deliverable carries only the models `EngineCatalog` offers — see [../ASR-E
 Staging more than that does not ship: the script and the `TrimUnshippedModels` target drop everything
 else, which is what keeps the zip near 1 GB instead of 3.3 GB.
 
+## Installer (regular users)
+
+The portable zip needs the user to unzip it and keep the folder together. For a normal Windows
+install — one file, per-user, no admin, models included — build the Inno Setup installer:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\build-installer.ps1
+```
+
+It stages the same payload (through `pack-portable.ps1 -SkipZip`), compiles `installer\MeetVault.iss`
+and prints the setup's size + SHA256. Output: `publish\MeetVaultSetup-1.0.0.exe`; installing it needs
+no elevation (it lands in `%LOCALAPPDATA%\Programs\MeetVault`). Details, the signing steps and the
+elevated cases: [../installer/README.md](../installer/README.md).
+
 The native libraries come from the package references during publish (`libvosk.dll` via the Vosk package). Copied by hand: `models/` (the Vosk and langid models) and — for a portable build on a machine without the VC++ redistributable — the staged `vcruntime/win-x64` DLLs (see the app project's Content items).
 
 ## 4. Package the MSIX

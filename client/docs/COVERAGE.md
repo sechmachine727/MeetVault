@@ -363,3 +363,40 @@ English meetings cannot be transcribed, and there is no runtime download path to
 **Machine state after the drill:** the two drill meetings (`e3fee00f…`, `c516f7d1…`) and their media
 (2 m4a + 1 screen mp4) were deleted; the owner's 3 meetings are untouched; `screen.enabled=true` and
 `transcription.language=auto` were restored; the app was closed.
+
+## Per-user installer + secret persistence (2026-10-15)
+
+The owner asked for an installer a regular user can just run. Two findings drove the shape:
+
+1. **A claim I had to retract.** Reading `CredentialLockerSecretStore` I concluded that the WinRT
+   `PasswordVault` silently no-ops without package identity, so every unpackaged install lost the
+   session token on every restart — and I acted on it. Measured afterwards, that is **false**: the
+   freshly installed unpackaged build showed `Signed in as demo@example.com` on the Account page,
+   reading a token an earlier unpackaged (portable) run had stored, and no DPAPI file was ever
+   created. A defensive null-guard in the code (`Vault` can be null) is not evidence that it *is*
+   null. The DPAPI store stays as a **fallback for machines where the Locker really is unavailable**
+   — `SecretStores.Choose` prefers the Locker and falls back only on null/throw — with 12 tests
+   pinning round-trip, non-plaintext storage, odd keys, corrupt files and wrong-entropy rejection.
+   It is not the fix for a broken unpackaged path; the installer needed no code change for sign-in
+   persistence.
+2. **MSIX is the wrong shape for a regular user**: a self-signed MSIX needs certificate trust or
+   developer mode, and a real code-signing cert costs money. So the deliverable is a per-user Inno
+   Setup installer: `PrivilegesRequired=lowest` (no UAC), `%LOCALAPPDATA%\Programs\MeetVault`,
+   Start-menu entry, optional desktop icon, uninstaller, `lzma2/normal` + solid, and the shipped
+   models bundled so it works offline on first launch. `installer\MeetVault.iss` +
+   `tools\build-installer.ps1` (stages through `pack-portable.ps1 -SkipZip` — one source of truth for
+   the payload — and refuses to build unless the exe and both shipped models are present).
+
+| Feature area | Where | Evidence |
+|---|---|---|
+| Secret persistence without identity | `src/MeetVault.Core/{DpapiSecretStore,SecretStores}.cs`, `Views/{CredentialLockerSecretStore,MeetingsPage}.xaml.cs` | 12 new Core tests, RED before the change (compile errors for the missing types); solution build 0 errors |
+| Installer script | `installer/MeetVault.iss` | per-user, `AppId` stable for upgrades, models bundled, uninstall leaves `%APPDATA%` alone |
+| Installer build | `tools/build-installer.ps1`, `tools/pack-portable.ps1 -SkipZip` | one payload source of truth; Inno Setup 6 installed per-user via `winget install --id JRSoftware.InnoSetup --scope user` (no admin) |
+| Docs | `installer/README.md`, `README.md`, `docs/mvp-winui/06-build-and-run.md` | the build command, the install shapes, and the elevated cases (all-users install, code signing, MSIX) |
+
+**Verified end-to-end (2026-10-15):** installer built (`publish\MeetVaultSetup-1.0.0.exe`, 1015.4 MB)
+→ installed per-user (exit 0, no UAC) → the installed app loaded **its own bundled model**
+(`vosk: loaded dir=…\Programs\MeetVault\models\vosk\large-ja`) → the Account page read the persisted
+token → uninstalled (exit 0) with the app dir and the Start-menu shortcut gone and
+`%APPDATA%\MeetVault` (meetings.db + the recordings) intact. The only unexercised case is a machine
+where the Locker is genuinely unavailable (the DPAPI fallback), which cannot be simulated here.

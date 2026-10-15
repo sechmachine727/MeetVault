@@ -69,7 +69,7 @@ The publish brings in the native libraries the app loads (`libvosk.dll` via the 
 
 For a **regular-user install** (one file, no admin, no UAC, models included) build the per-user installer instead: `tools\build-installer.ps1` → `publish\MeetVaultSetup-1.0.0.exe`. See [installer/README.md](installer/README.md).
 
-The portable build and the installer have no package identity, so the WinRT Windows Credential Locker is unavailable; the app falls back to a DPAPI-protected file under `%APPDATA%\MeetVault\secrets` (current user only, never plaintext — see [installer/README.md](installer/README.md)), so the sign-in token does persist across runs. Only an MSIX install uses Credential Locker itself.
+The portable build and the installer have no package identity, but the WinRT Windows Credential Locker still works for them (verified: a token stored by an unpackaged run was read back by a freshly installed build). If the Locker is ever unavailable — a locked-down machine — the app falls back to a DPAPI-protected file under `%APPDATA%\MeetVault\secrets` (current user only, never plaintext), so a sign-in can never silently fail to persist. See [installer/README.md](installer/README.md).
 
 The MSIX is produced by `dotnet build` with the Appx targets enabled:
 

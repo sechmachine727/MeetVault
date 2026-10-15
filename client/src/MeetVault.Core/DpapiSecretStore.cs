@@ -4,9 +4,11 @@ using System.Text;
 
 namespace MeetVault.Core;
 
-// A secret store that works WITHOUT package identity — the portable zip and any classic installer.
-// Windows Credential Locker's WinRT PasswordVault needs identity and silently no-ops without it
-// (see CredentialLockerSecretStore), which dropped the backend session token on every restart.
+// A secret store for machines where the WinRT PasswordVault is unavailable — no package identity
+// AND the OS refusing the vault. It is NOT the everyday path: measured 2026-10-15, the Locker
+// works in an unpackaged install (the freshly installed build read back a token stored by an
+// earlier unpackaged run), so SecretStores.Choose normally returns the Locker and this store never
+// runs. It exists so that a sign-in on a locked-down machine cannot silently fail to persist.
 // Each key is one file under <root>, DPAPI-protected for the current user: never plaintext on
 // disk, never a log line, and unreadable by another user or machine.
 [SupportedOSPlatform("windows")]

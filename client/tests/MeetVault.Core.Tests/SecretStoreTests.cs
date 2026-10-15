@@ -5,9 +5,10 @@ using MeetVault.Core;
 
 namespace MeetVault.Core.Tests;
 
-// An unpackaged install (the portable zip, or any classic setup.exe) has no package identity, so
-// the WinRT PasswordVault silently no-ops and the session token is lost on every restart. These
-// tests pin the replacement: a DPAPI-protected file per key, readable only by the same user.
+// A machine where the WinRT PasswordVault is unavailable (no package identity AND the OS refusing
+// the vault) must still be able to keep the session token: these tests pin the fallback store —
+// one DPAPI-protected file per key, readable only by the same user. NOTE: this is the fallback, not
+// the everyday path; the Locker itself works unpackaged (measured 2026-10-15).
 [SupportedOSPlatform("windows")]
 public sealed class DpapiSecretStoreTests : IDisposable
 {
