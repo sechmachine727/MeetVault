@@ -6,7 +6,10 @@
 [CmdletBinding()]
 param(
     [string]$Config = "Release",
-    [string]$RepoRoot = ""
+    [string]$RepoRoot = "",
+    # The installer pipeline stages the same tree and does not need the archive: skip the zip (and
+    # its minutes of lzma) with -SkipZip.
+    [switch]$SkipZip
 )
 $ErrorActionPreference = "Stop"
 
@@ -55,6 +58,17 @@ Get-ChildItem (Join-Path $ModelsOut "vosk") -Directory |
     Where-Object { $ShippedModels -notcontains $_.Name } |
     ForEach-Object { Write-Host ("  dropping " + $_.Name); Remove-Item -Recurse -Force $_.FullName }
 
+$modelsMb = [math]::Round((Get-ChildItem (Join-Path $ModelsOut "vosk") -Recurse -File | Measure-Object Length -Sum).Sum / 1MB, 1)
+$stageMb = [math]::Round((Get-ChildItem $PublishDir -Recurse -File | Measure-Object Length -Sum).Sum / 1MB, 1)
+
+if ($SkipZip) {
+    Write-Host "== zip skipped (-SkipZip) =="
+    Write-Host ""
+    Write-Host ("STAGE    " + $PublishDir + "  (" + $stageMb + " MB)")
+    Write-Host ("MODELS   " + $modelsMb + " MB: " + ($ShippedModels -join ", "))
+    return
+}
+
 Write-Host "== zip =="
 # One canonical package: drop a previous stamp so publish/ never holds two.
 Get-ChildItem $PublishRoot -Filter "MeetVault-*-portable.zip" | Remove-Item -Force
@@ -73,7 +87,6 @@ if (Test-Path $tar) {
 $size = (Get-Item $Zip).Length
 $mb = [math]::Round($size / 1MB, 1)
 $sha = (Get-FileHash $Zip -Algorithm SHA256).Hash
-$modelsMb = [math]::Round((Get-ChildItem (Join-Path $ModelsOut "vosk") -Recurse -File | Measure-Object Length -Sum).Sum / 1MB, 1)
 Write-Host ""
 Write-Host ("ZIP      " + $Zip)
 Write-Host ("SIZE     " + $mb + " MB (" + $size + " bytes)")
