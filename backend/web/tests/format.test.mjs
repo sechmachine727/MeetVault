@@ -97,6 +97,16 @@ test("friendlyError maps the error envelope codes", () => {
   assert.equal(friendlyError({ code: "who_knows" }), "who_knows");
 });
 
+test("the sign-up error codes get human sentences", () => {
+  assert.equal(friendlyError({ code: "email_taken" }), "That email already has an account. Sign in instead.");
+  assert.equal(friendlyError({ code: "weak_password" }), "Password must be at least 8 characters.");
+  assert.equal(friendlyError({ code: "invalid_email" }), "That does not look like an email address.");
+  assert.equal(
+    friendlyError({ code: "signup_disabled" }),
+    "Sign-up is turned off on this server. Ask the owner for an account.",
+  );
+});
+
 test("friendlyError falls back to the server's own message for codes it does not know", () => {
   // e.g. DELETE on the active transcript answers 409 with code "conflict" and a real sentence.
   assert.equal(
