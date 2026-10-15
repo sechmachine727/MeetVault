@@ -335,8 +335,8 @@ and the packager stages exactly those. Plan: `.hermes/plans/2026-10-15_134400-sh
 
 | | before | after |
 |---|---|---|
-| portable zip | 3,486,535,125 B (3.3 GB) | **1,320,511,909 B (1259.3 MB)** |
-| SHA256 | — | `9BAE321F941B633D4E35388904153463A4A28D8A692A0EF7107ACA7E089A598D` |
+| portable zip | 3,486,535,125 B (3.3 GB) | **~1,320,511,8xx B (1259.3 MB)** — stable across runs |
+| SHA256 | — | per-run, NOT reproducible: zip entries carry copy-time mtimes (two runs: `9BAE321F941B633D…`, `302BF9CAC1D03840…`) — quote the size, not a hash, unless you pin the mtimes |
 | staged models | 4.2 GB (7 dirs) | 1725.8 MB (`large-ja`, `large-vi`, `langid`) |
 | zip entries | — | 605, with **0** unshipped model paths (`tar -tf … \| grep -c 'small-en\|medium-en\|large-en\|small-ja\|small-vi'` → 0) |
 
