@@ -247,7 +247,7 @@
   <data name="Set.TranscriptionStatus" xml:space="preserve"><value>{0} · {1} download · {2}</value></data>
   <data name="Set.SizeSmallDetails" xml:space="preserve"><value>Small — the lightest and fastest to load, with basic accuracy. Not part of this build; see docs/ASR-ENGINES.md.</value></data>
   <data name="Set.SizeMediumDetails" xml:space="preserve"><value>Medium — more accurate than Small and still realtime on CPU. Not part of this build; see docs/ASR-ENGINES.md.</value></data>
-  <data name="Set.SizeLargeDetails" xml:space="preserve"><value>Large — the most accurate tier; heavier to load and run. Japanese 8.4% character error rate (~1.3 GB), Vietnamese (~103 MB).</value></data>
+  <data name="Set.SizeLargeDetails" xml:space="preserve"><value>Large — the most accurate tier; heavier to load and run. English 5.7% word error rate (~2.4 GB), Japanese 8.4% character error rate (~1.3 GB).</value></data>
   <data name="Set.ModelInstalled" xml:space="preserve"><value>installed</value></data>
   <data name="Set.ModelNotInstalled" xml:space="preserve"><value>not installed — Live falls back to an installed model until the files are staged (see docs/ASR-ENGINES.md)</value></data>
   <data name="Set.SizeSmall" xml:space="preserve"><value>Small</value></data>
