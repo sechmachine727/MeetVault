@@ -40,20 +40,23 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <Button x:Name="PlayPauseButton" x:Uid="DetPlayPause" Click="PlayPause_Click" MinWidth="48" />
-                                <TextBlock x:Name="PositionText" Grid.Column="1" VerticalAlignment="Center" Width="96" />
+                                <TextBlock x:Name="PositionText" Grid.Column="1" VerticalAlignment="Center" MinWidth="52" Margin="0,0,4,0" />
+                                <!-- No pointer-event attributes here: a Slider handles the pointer itself
+                                     (thumb drag and track press both mark it handled), so XAML-attached
+                                     pointer handlers never fire. The ctor hooks those routed events with
+                                     handledEventsToo, and the seek itself rides ValueChanged - see
+                                     DetailsPage.xaml.cs HookTransportInput / PositionSlider_ValueChanged. -->
                                 <Slider x:Name="PositionSlider" Grid.Column="2" Minimum="0" Maximum="1000"
-                                        ValueChanged="PositionSlider_ValueChanged"
-                                        PointerPressed="PositionSlider_PointerPressed"
-                                        PointerReleased="PositionSlider_PointerReleased" />
-                                <TextBlock x:Name="DurationText" Grid.Column="3" VerticalAlignment="Center" Width="96" />
-                                <Slider x:Name="VolumeSlider" Grid.Column="4" Width="120" Minimum="0" Maximum="100"
+                                        ValueChanged="PositionSlider_ValueChanged" />
+                                <TextBlock x:Name="DurationText" Grid.Column="3" VerticalAlignment="Center" MinWidth="52" Margin="4,0,0,0" />
+                                <Slider x:Name="VolumeSlider" Grid.Column="4" Width="96" Minimum="0" Maximum="100"
                                         Value="100" ValueChanged="VolumeSlider_ValueChanged" x:Uid="DetVolume" />
                                 <Button x:Name="FullscreenButton" Grid.Column="5" x:Uid="DetFullscreen" Click="Fullscreen_Click" />
                             </Grid>
                         </StackPanel>
                     </Border>
 
-                    <Border x:Name="TranscriptCard" Margin="0,0,0,8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    <Border x:Name="TranscriptCard" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                             CornerRadius="8" Padding="16">
                         <ScrollViewer x:Name="TranscriptScroll" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">

@@ -1,25 +1,34 @@
 namespace MeetVault.Core;
 
-public enum DetailsLayoutMode { TwoColumn, Wide, Stacked }
+public enum DetailsLayoutMode { Wide, Stacked }
 
 // Pure layout decision for the Details workspace, decided in code (never a XAML
 // AdaptiveTrigger) so the rule is unit-testable. Tiers by CONTENT size (the
-// RootScroll viewport). The height gate (>= 520) binds every multi-column tier;
-// the wide tier (owner direction 2026-10-14: the 16:9 video section must be
-// the widest section, and three sections are not wanted) is a video-dominant
-// TWO-column layout - the media section left and widest plus one transcript +
-// analysis rail right - so it needs the width that fits media (>= 560) + the
-// rail (>= 480) + spacing and padding (1092) with room for the video to grow.
+// RootScroll viewport).
+//
+// Owner direction 2026-10-15: "In smaller screen, the Meeting details UI completely
+// breaks. I want to keep the UI like the big screen." The big-screen workspace - the
+// video-dominant media region left plus one rail right (Analyze + Summary + Transcript) -
+// is therefore used at EVERY content size its two regions fit in, not only on a 1680+
+// display: on the owner's 1600x1000 display (1263 DIP of content) and in a windowed
+// 1678x754 window (1341 DIP) the workspace is the same as on the 2560x1440 display.
+// Below that width the regions cannot fit without clipping, so the page stacks.
 public static class DetailsLayout
 {
-    public const double MinTwoColumnWidthDip = 1000;
-    public const double MinTwoColumnHeightDip = 520;
-    public const double MinWideWidthDip = 1680;
+    // The two regions' minimums and the page's own geometry (PageGrid Padding="24",
+    // ColumnSpacing="12" in the XAML) - one source of truth, shared with the page.
+    public const double MinMediaWidthDip = 560;
+    public const double MinRailWidthDip = 480;
+    public const double PageSpacingDip = 12;
+    public const double PagePaddingDip = 24;
+    public const double MinWideHeightDip = 520;
+
+    // The workspace fits - without clipping either region - from exactly this content width up.
+    public const double MinWideWidthDip =
+        MinMediaWidthDip + MinRailWidthDip + PageSpacingDip + 2 * PagePaddingDip; // 1100
 
     public static DetailsLayoutMode Decide(double contentWidthDip, double contentHeightDip) =>
-        contentWidthDip >= MinWideWidthDip && contentHeightDip >= MinTwoColumnHeightDip
+        contentWidthDip >= MinWideWidthDip && contentHeightDip >= MinWideHeightDip
             ? DetailsLayoutMode.Wide
-            : contentWidthDip >= MinTwoColumnWidthDip && contentHeightDip >= MinTwoColumnHeightDip
-                ? DetailsLayoutMode.TwoColumn
-                : DetailsLayoutMode.Stacked;
+            : DetailsLayoutMode.Stacked;
 }

@@ -53,6 +53,7 @@ public sealed partial class DetailsPage : Page
     public DetailsPage()
     {
         InitializeComponent();
+        HookTransportInput();
 
         // Release the players' sources on unload for every path (local, cloud-only, no meeting):
         // registering this before the cloud-mode early return keeps cloud mode covered too (review fix).
@@ -443,9 +444,9 @@ public sealed partial class DetailsPage : Page
     // viewport: the page's own width, the navigation pane already excluded), decided by
     // the pure Core helper so the rule is unit-testable. Re-evaluated on every resize;
     // the load paths re-run it after each meeting load as belt-and-braces.
-    // Stacked: one column, the outer viewer scrolls. TwoColumn: media stack left,
-    // transcript right (grid capped 1200). Wide (large screens, owner direction
-    // 2026-10-14, rounds 2-3): exactly two sections - the 16:9 video section left and
+    // Wide (the big-screen workspace, owner direction 2026-10-15: a smaller screen must
+    // keep this same UI) is used at EVERY content size its two regions fit in (see
+    // DetailsLayout.MinWideWidthDip): exactly two sections - the 16:9 video section left and
     // WIDEST; a header row (title + StatusBar) spans both columns; the rail's panels
     // ALIGN with the meeting panel; Analyze + Summary cover the top of the rail and the
     // TRANSCRIPT section covers the remaining part as its own bounded scrollable pane;
@@ -496,8 +497,8 @@ public sealed partial class DetailsPage : Page
             // media playback is never disrupted by a mode switch.
             PageGrid.MaxWidth = double.PositiveInfinity;
             PageGrid.Height = RootScroll.ActualHeight;
-            PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 560 });
-            PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 480, MaxWidth = 640 });
+            PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = DetailsLayout.MinMediaWidthDip });
+            PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = DetailsLayout.MinRailWidthDip, MaxWidth = 640 });
             PageGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             PageGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             // HeaderStack is a PERMANENT PageGrid child (XAML) - position it, never
@@ -525,26 +526,6 @@ public sealed partial class DetailsPage : Page
             RightGrid.Children.Add(TranscriptCard);
             Grid.SetRow(TranscriptCard, 2);
             Grid.SetColumn(TranscriptCard, 0);
-        }
-        else if (mode == DetailsLayoutMode.TwoColumn)
-        {
-            // Media stack left, transcript right — the verified tier: grid capped at
-            // 1200 and centered, pinned height, both columns scrolling internally.
-            PageGrid.MaxWidth = 1200;
-            PageGrid.Height = RootScroll.ActualHeight;
-            PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 560 });
-            PageGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 360, MaxWidth = 560 });
-            HeaderStack.Visibility = Visibility.Collapsed;
-            Grid.SetRow(LeftRegion, 0);
-            Grid.SetColumn(LeftRegion, 0);
-            RightRegion.Visibility = Visibility.Collapsed;
-            LeftStack.Children.Insert(0, TitleBlock);
-            LeftStack.Children.Insert(1, StatusBar);
-            LeftStack.Children.Add(AnalyzeCard);
-            LeftStack.Children.Add(SummaryCard);
-            PageGrid.Children.Add(TranscriptCard);
-            Grid.SetRow(TranscriptCard, 0);
-            Grid.SetColumn(TranscriptCard, 1);
         }
         else
         {
@@ -614,27 +595,50 @@ public sealed partial class DetailsPage : Page
         finally { _applyingUi = false; }
     }
 
-    private void PositionSlider_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
-        => _draggingSlider = true;
-
-    private void PositionSlider_PointerReleased(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    // A Slider handles the pointer ITSELF: a thumb drag and a track press both mark the routed
+    // event handled, so a XAML PointerPressed/PointerReleased attribute on the Slider never fires
+    // (proven live 2026-10-15: a real press-drag-release moved the slider's value while the
+    // playhead stayed exactly where it was - the slider looked dead). Hook the events with
+    // handledEventsToo so the drag state is reliable, and let ValueChanged carry the seek for
+    // every other user gesture (a track click, arrow keys, an assistive-technology range set).
+    private void HookTransportInput()
     {
+        PositionSlider.AddHandler(Microsoft.UI.Xaml.UIElement.PointerPressedEvent,
+            new Microsoft.UI.Xaml.Input.PointerEventHandler((_, _) => _draggingSlider = true), true);
+        PositionSlider.AddHandler(Microsoft.UI.Xaml.UIElement.PointerReleasedEvent,
+            new Microsoft.UI.Xaml.Input.PointerEventHandler(OnSliderPointerReleased), true);
+        PositionSlider.AddHandler(Microsoft.UI.Xaml.UIElement.PointerCaptureLostEvent,
+            new Microsoft.UI.Xaml.Input.PointerEventHandler(OnSliderPointerReleased), true);
+    }
+
+    private void OnSliderPointerReleased(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (!_draggingSlider) return; // a capture loss with no press: nothing to commit
         _draggingSlider = false;
         CommitSliderSeek();
     }
 
     private void PositionSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     {
-        if (!_draggingSlider) return; // programmatic updates while playing must not re-seek
+        if (_applyingUi) return;     // the playhead writes the slider every tick: never a seek
+        if (_draggingSlider) return; // a drag commits once, on release
         CommitSliderSeek();
     }
 
+    // Slider position -> master (audio) playhead, in the meeting's own timeline. The labels are
+    // written from the REQUESTED position: MediaPlayer applies a seek asynchronously, so reading
+    // session.Position straight back would restore the pre-seek value and look like a dead slider.
     private void CommitSliderSeek()
     {
         var session = Player.MediaPlayer?.PlaybackSession;
         if (session is null) return;
-        var targetMs = PositionSlider.Value / 1000.0 * Math.Max(1, session.NaturalDuration.TotalMilliseconds);
-        try { session.Position = TimeSpan.FromMilliseconds(Math.Max(0, targetMs)); } catch { }
+        var totalMs = session.NaturalDuration.TotalMilliseconds;
+        if (totalMs <= 0) return; // no duration yet (nothing loaded, or a cloud track still arriving)
+        var targetMs = Math.Clamp(PositionSlider.Value / 1000.0 * totalMs, 0, totalMs);
+        try { session.Position = TimeSpan.FromMilliseconds(targetMs); } catch { }
+        var target = TimeSpan.FromMilliseconds(targetMs);
+        PositionText.Text = FormatClock(target);
+        SyncVideoTo(target); // the video follows at once (a paused seek raises no position tick)
     }
 
     // Transport UI: position text + slider + duration; the slider never fights an active drag.

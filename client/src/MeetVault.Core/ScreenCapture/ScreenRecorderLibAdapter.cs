@@ -11,6 +11,18 @@ namespace MeetVault.Core;
 /// Video-only: audio stays in NAudioCapture; playback pairs the MP4 with the m4a.</summary>
 public sealed class ScreenRecorderLibAdapter : IVideoRecorder
 {
+    /// <summary>The screen recording's encoder rate. Owner requirement: the screen recording runs
+    /// at 30 fps. With IsFixedFramerate the encoder receives a frame every 1/30 s (duplicating the
+    /// previous frame while the capture source is idle), so the WRITTEN FILE is a steady 30 fps
+    /// even on a static screen - measured 2026-10-15 on a real 135 s recording: 4061 of 4062
+    /// inter-frame deltas at exactly 33.33 ms. The rate is pinned here (and logged at every run
+    /// start) so it cannot drift silently; the file's own cadence is the proof, not the preview
+    /// meter - a static screen delivers few CAPTURED frames while the file stays 30 fps.</summary>
+    public const int FramesPerSecond = 30;
+
+    /// <summary>6 Mbps keeps on-screen text legible (the library default is 4 Mbps).</summary>
+    public const int VideoBitsPerSecond = 6_000_000;
+
     private readonly object _gate = new();
     private RunRecorder? _recorder;
 
@@ -202,7 +214,14 @@ public sealed class ScreenRecorderLibAdapter : IVideoRecorder
         // previous frame when the capture source is idle, so playback is a steady 30 fps
         // instead of a stuttery variable rate (library docs: "can fix stutter issues").
         // Bitrate raised to 6 Mbps for text legibility.
-        opts.VideoEncoderOptions = new VideoEncoderOptions { Framerate = 30, Bitrate = 6_000_000, Quality = 70, IsFixedFramerate = true };
+        opts.VideoEncoderOptions = new VideoEncoderOptions
+        {
+            Framerate = FramesPerSecond,
+            Bitrate = VideoBitsPerSecond,
+            Quality = 70,
+            IsFixedFramerate = true,
+        };
+        AppLog.Info("screen: encoder " + FramesPerSecond + " fps fixed, " + (VideoBitsPerSecond / 1_000_000) + " Mbps");
         try
         {
             var recorder = Recorder.CreateRecorder(opts);
