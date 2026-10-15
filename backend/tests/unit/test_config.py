@@ -45,3 +45,10 @@ def test_session_ttl_default_and_override(monkeypatch):
     assert Settings().session_ttl_days == 30
     monkeypatch.setenv("MVB_SESSION_TTL_DAYS", "7")
     assert Settings().session_ttl_days == 7
+
+
+def test_signup_defaults_on_and_can_be_closed(monkeypatch):
+    monkeypatch.delenv("MVB_ALLOW_SIGNUP", raising=False)
+    assert Settings().allow_signup is True
+    monkeypatch.setenv("MVB_ALLOW_SIGNUP", "false")
+    assert Settings().allow_signup is False

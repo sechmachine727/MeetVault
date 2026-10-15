@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     worker_poll_seconds: float = 2.0
     worker_concurrency: int = 1
     session_ttl_days: int = 30
+    # Self-service account creation on POST /v1/auth/register. Set false to close a public server
+    # and keep provisioning accounts with `python -m mvb.admin create-user`.
+    allow_signup: bool = True
 
     transcriber: TranscriberName = "mock"
     transcriber_model: str = "small"
