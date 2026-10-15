@@ -114,8 +114,14 @@ def test_register_duplicate_email_is_409(client) -> None:
 
 
 def test_register_duplicate_email_is_case_insensitive(client) -> None:
-    assert client.post("/v1/auth/register", json={"email": "case@example.com", "password": "brand-new-1"}).status_code == 201
-    assert client.post("/v1/auth/register", json={"email": "CASE@Example.COM", "password": "brand-new-1"}).status_code == 409
+    assert (
+        client.post("/v1/auth/register", json={"email": "case@example.com", "password": "brand-new-1"}).status_code
+        == 201
+    )
+    assert (
+        client.post("/v1/auth/register", json={"email": "CASE@Example.COM", "password": "brand-new-1"}).status_code
+        == 409
+    )
 
 
 def test_register_short_password_is_400(client) -> None:
