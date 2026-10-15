@@ -43,11 +43,11 @@ test("capture the console flow in order", async ({ page }) => {
   await page.getByTestId("overview").waitFor();
   await shot(page, "04-meeting-overview.png");
 
-  // The screen-recording track: the shared player swaps to a real <video> element.
-  const videoRow = page.getByTestId("media-list").locator(".row", { hasText: "-screen.mp4" });
-  await videoRow.getByTestId("load-playback").click();
-  await page.getByTestId("player-caption").filter({ hasText: "(video," }).waitFor();
-  await page.getByTestId("player-host").locator("video").waitFor();
+  // The screen-recording track is loaded by default now: the player shows a real <video> beside
+  // the meeting's audio, without anyone pressing "Load playback".
+  await page.getByTestId("video-player").waitFor();
+  await page.getByTestId("player-caption").filter({ hasText: "video:" }).waitFor();
+  await page.getByTestId("player-caption").filter({ hasText: "audio:" }).waitFor();
   await shot(page, "04b-screen-video.png");
 
   await page.getByRole("tab", { name: "Transcript" }).click();

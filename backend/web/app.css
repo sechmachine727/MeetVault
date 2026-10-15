@@ -185,7 +185,12 @@ ul.bullets li { margin-bottom: 6px; }
 .citation { font-size: 12px; color: var(--muted); margin-top: 4px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .citation button { padding: 1px 7px; font-size: 12px; }
 
-.player audio, .player video { width: 100%; margin-top: 8px; }
+/* The detail player holds up to two tracks: the screen recording (video, muted) and the meeting's
+   audio, loaded together and kept in step. The video comes first because it is the picture. */
+.player-host { display: flex; flex-direction: column; gap: 8px; }
+.player-host .player-slot { min-width: 0; }
+.player-host video, .player-host audio { width: 100%; margin-top: 8px; display: block; }
+.player-host .player-slot[hidden] { display: none; }
 
 .toast {
   position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);

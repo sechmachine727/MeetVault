@@ -21,7 +21,6 @@ export async function renderMeeting(ctx, route) {
     tab: TABS.includes(route.params.tab) ? route.params.tab : "overview",
     meeting: null,
     status: null,
-    blobUrl: null,
     disposed: false,
     pollTimer: null,
   };
@@ -30,48 +29,135 @@ export async function renderMeeting(ctx, route) {
   const playerBar = el("div", { class: "card", "data-testid": "player-bar" });
   const body = el("div", { "data-testid": "tab-body" });
 
-  // ONE shared player for the whole detail view: transcript rows, agenda items, sections and
-  // citations all seek into it. A media element cannot send the Authorization header, so the
+  // ONE logical player for the whole detail view: transcript rows, agenda items, sections and
+  // citations all seek into it. A media element cannot send the Authorization header, so each
   // source is a blob fetched with the header (docs/API.md "Browser playback").
   //
-  // The element SWAPS between <audio> and <video> with the loaded asset's kind: a screen-recording
-  // track must be watchable, not merely audible (an <audio> element plays an MP4's audio only).
+  // A meeting has up to TWO tracks and they are not alternatives: the screen recording is
+  // video-only (the desktop client records it without audio) and the sound lives in the separate
+  // audio track. So both load by default — <video> for the screen track, <audio> for the meeting's
+  // audio — and they are kept in step by paired playback below. Making them swap through one
+  // element is what used to need "Load playback" and left the video silent.
   const playerHost = el("div", { class: "player-host", "data-testid": "player-host" });
   const playerCaption = el("div", { class: "meta", "data-testid": "player-caption" });
-  let player = el("audio", { controls: true, "data-testid": "player" });
-  playerHost.append(player);
-  let currentAssetId = null;
 
-  function setCaption(asset) {
-    playerCaption.textContent = asset
-      ? `Playing: ${asset.original_name} (${asset.kind}, ${formatDuration(asset.duration_ms)})`
-      : "No recording on the server for this meeting.";
+  // The timeline anchor: what the transcript seeks against, and what the existing data-testid
+  // "player" keeps pointing at (the audio track when there is one, else the screen track).
+  const anchor = el("div", { class: "player-slot player-slot-anchor", "data-testid": "player-anchor" });
+  const companion = el("div", { class: "player-slot", "data-testid": "player-companion", hidden: true });
+
+  // Named mediaElement, not media: renderTab already binds `const media` to the media payload, and
+  // a function of the same name is shadowed inside it (TypeError: media is not a function).
+  function mediaElement(attrs) {
+    const { kind, muted, ...rest } = attrs;
+    const node = el(kind === "video" ? "video" : "audio", {
+      controls: true,
+      preload: "metadata",
+      ...rest,
+    });
+    // A video element carries the screen picture only. If such an MP4 ever has its own audio,
+    // muting it keeps the meeting's audio track the single source of sound (no doubling).
+    if (kind === "video" && muted) node.muted = true;
+    return node;
   }
 
-  function swapPlayerElement(kind) {
-    const wanted = kind === "video" ? "video" : "audio";
-    if (player.tagName.toLowerCase() === wanted) return;
-    const replacement = el(wanted, { controls: true, "data-testid": "player" });
-    player.replaceWith(replacement);
-    player = replacement;
+  // role "anchor" owns the transcript timeline; role "video" is the picture beside it.
+  let anchorTrack = { role: "anchor", kind: "audio", node: mediaElement({ kind: "audio", "data-testid": "player" }), asset: null, url: null };
+  let videoTrack = null;
+  let pairSync = false;
+
+  playerHost.append(companion);
+  playerHost.append(anchor);
+  anchor.append(anchorTrack.node);
+
+  function slots() {
+    return [anchorTrack, videoTrack].filter(Boolean);
   }
 
-  function releaseBlob() {
-    if (state.blobUrl) URL.revokeObjectURL(state.blobUrl);
-    state.blobUrl = null;
-    currentAssetId = null;
+  function trackFor(asset) {
+    if (asset.kind === "video") return videoTrack;
+    return anchorTrack;
   }
 
-  async function loadAsset(asset) {
-    if (currentAssetId === asset.id) return;
+  function setCaption() {
+    const audio = slots().find((t) => t.asset && t.kind === "audio");
+    const video = slots().find((t) => t.asset && t.kind === "video");
+    if (!audio && !video) {
+      playerCaption.textContent = "No recording on the server for this meeting.";
+      return;
+    }
+    const parts = [];
+    if (video) parts.push(`video: ${video.asset.original_name} (${formatDuration(video.asset.duration_ms)})`);
+    if (audio) parts.push(`audio: ${audio.asset.original_name} (${formatDuration(audio.asset.duration_ms)})`);
+    const synced = audio && video ? " — playing together" : "";
+    playerCaption.textContent = `Playing ${parts.join(" · ")}${synced}`;
+  }
+
+  function isLoaded(track) {
+    return Boolean(track && (track.url || track.node.getAttribute("src")));
+  }
+
+  // Loads one asset into its track (or clears it when asset is null), fetching the blob with the
+  // auth header. Returns the track so callers can start/sync playback.
+  async function showAsset(track, asset) {
+    if (!track) return null;
+    if (!asset) {
+      if (track.url) URL.revokeObjectURL(track.url);
+      track.url = null;
+      track.asset = null;
+      track.node.removeAttribute("src");
+      track.node.load();
+      setCaption();
+      return track;
+    }
+    if (track.asset && track.asset.id === asset.id) {
+      setCaption();
+      return track;
+    }
     const blob = await ctx.api.mediaBlob(asset.id);
-    releaseBlob();
-    state.blobUrl = URL.createObjectURL(blob);
-    currentAssetId = asset.id;
-    swapPlayerElement(asset.kind);
-    player.src = state.blobUrl;
-    // The caption names what is loaded NOW — it must follow a track switch, not only the mount.
-    setCaption(asset);
+    if (track.url) URL.revokeObjectURL(track.url);
+    track.url = URL.createObjectURL(blob);
+    track.asset = asset;
+    track.node.src = track.url;
+    setCaption();
+    return track;
+  }
+
+  // Paired playback: these two elements are one recording, so starting either starts both and
+  // pausing either pauses both. Without this, a native play on the busy <video> leaves the audio
+  // silent (and vice versa), which reads as "no sound".
+  function pairPlayback() {
+    if (pairSync) return;
+    const tracks = slots();
+    if (tracks.length < 2) return;
+    pairSync = true;
+    for (const source of tracks) {
+      source.node.addEventListener("play", () => {
+        if (source.node.dataset.mirror === "1") return;
+        for (const other of slots()) {
+          if (other === source || !isLoaded(other)) continue;
+          other.node.dataset.mirror = "1";
+          const done = () => delete other.node.dataset.mirror;
+          other.node.play().then(done, done);
+        }
+      });
+      source.node.addEventListener("pause", () => {
+        if (source.node.dataset.mirror === "1") return;
+        for (const other of slots()) {
+          if (other === source || other.node.paused || !isLoaded(other)) continue;
+          other.node.dataset.mirror = "1";
+          other.node.pause();
+          delete other.node.dataset.mirror;
+        }
+      });
+    }
+  }
+
+  function releaseBlobs() {
+    for (const track of slots()) {
+      if (track.url) URL.revokeObjectURL(track.url);
+      track.url = null;
+    }
   }
 
   async function downloadAsset(asset, fallbackName) {
@@ -84,14 +170,22 @@ export async function renderMeeting(ctx, route) {
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
   }
 
-  async function seekTo(seconds) {
-    if (!Number.isFinite(seconds)) return;
-    player.currentTime = Math.max(0, seconds);
+  // Seek one track and let paired playback bring the other along (the "play" event mirrors it).
+  async function seekIn(track, seconds) {
+    track.node.currentTime = Math.max(0, seconds);
     try {
-      await player.play();
+      await track.node.play();
     } catch {
       /* an autoplay refusal is not an error */
     }
+  }
+
+  // The transcript timeline is the audio track's whenever there is one (it is the meeting's
+  // timeline anchor); a video-only meeting seeks the screen track instead.
+  async function seekTo(seconds) {
+    if (!Number.isFinite(seconds)) return;
+    const target = anchorTrack.asset ? anchorTrack : videoTrack ?? anchorTrack;
+    await seekIn(target, seconds);
   }
 
   async function loadStatus() {
@@ -141,22 +235,55 @@ export async function renderMeeting(ctx, route) {
   async function loadPlayerBar() {
     clear(playerBar);
     const media = await ctx.api.listMedia(meetingId, { limit: 50 }).catch(() => ({ items: [] }));
-    // The AUDIO track is the meeting's timeline anchor (and what the transcript seeks against), so
-    // it is what the shared player shows by default; a screen-recording track is loaded on demand
-    // from the media list, which swaps the element to <video>.
-    const asset = media.items.find((item) => item.kind === "audio") || media.items[0];
-    setCaption(asset);
-    playerBar.append(playerCaption, playerHost);
-    if (asset && !currentAssetId) {
-      try {
-        await loadAsset(asset);
-      } catch (err) {
-        ctx.toast(friendlyError(err));
-      }
-    } else if (!asset) {
-      releaseBlob();
-      player.removeAttribute("src");
+    const videoAsset = media.items.find((item) => item.kind === "video") ?? null;
+    const audioAsset = media.items.find((item) => item.kind === "audio") ?? null;
+
+    // The screen track becomes the <video> that stays in the player (muted: the meeting's audio
+    // track is the sound), and the audio track becomes the timeline anchor beside it. A
+    // video-only meeting promotes its screen track to the anchor so the transcript still seeks;
+    // an audio-only meeting hides the video slot.
+    const anchorKind = audioAsset ? "audio" : videoAsset ? "video" : "audio";
+    if (anchorTrack.kind !== anchorKind) {
+      const replacement = mediaElement({
+        kind: anchorKind,
+        "data-testid": "player",
+        muted: anchorKind === "video" && Boolean(audioAsset),
+      });
+      anchorTrack.node.replaceWith(replacement);
+      anchorTrack = { ...anchorTrack, kind: anchorKind, node: replacement };
     }
+    const videoAnchor = anchorKind === "video";
+    if (videoAsset && !videoAnchor) {
+      if (!videoTrack || videoTrack.node.tagName.toLowerCase() !== "video") {
+        videoTrack = {
+          role: "video",
+          kind: "video",
+          node: mediaElement({ kind: "video", "data-testid": "video-player", muted: true }),
+          asset: null,
+          url: null,
+        };
+        clear(companion);
+        companion.append(videoTrack.node);
+      }
+      companion.hidden = false;
+    } else if (!videoAnchor) {
+      videoTrack = null;
+      clear(companion);
+      companion.hidden = true;
+    }
+
+    playerBar.append(playerCaption, playerHost);
+    try {
+      // Both by default — the user should never have to press "Load playback" to get the picture,
+      // and the picture is silent on its own, so the audio must load and play with it.
+      if (videoTrack) await showAsset(videoTrack, videoAsset);
+      await showAsset(anchorTrack, videoAnchor ? videoAsset : audioAsset);
+      pairPlayback();
+    } catch (err) {
+      ctx.toast(friendlyError(err));
+    }
+    if (!videoAsset && !audioAsset) releaseBlobs();
+    setCaption();
   }
 
   async function rerun() {
@@ -358,6 +485,10 @@ export async function renderMeeting(ctx, route) {
       mediaCard.append(el("div", { class: "empty", text: "No recordings on the server for this meeting." }));
     }
     for (const asset of media.items) {
+      // Loaded by default now, so the row action starts this track instead of loading it. For a
+      // video track that may start later than the meeting, playback begins at its offset.
+      const track = trackFor(asset);
+      const loaded = Boolean(track && isLoaded(track));
       mediaCard.append(
         el(
           "div",
@@ -386,16 +517,20 @@ export async function renderMeeting(ctx, route) {
               {
                 type: "button",
                 "data-testid": "load-playback",
+                text: loaded ? "Play" : "Load playback",
                 onclick: async () => {
                   try {
-                    await loadAsset(asset);
-                    await player.play().catch(() => {});
+                    const target = trackFor(asset);
+                    if (!target) return;
+                    await showAsset(target, asset);
+                    // A screen track may start later than the meeting: begin at its offset.
+                    const from = asset.kind === "video" && asset.start_offset_ms ? asset.start_offset_ms / 1000 : 0;
+                    await seekIn(target, from);
                   } catch (err) {
                     ctx.toast(friendlyError(err));
                   }
                 },
               },
-              "Load playback",
             ),
             el(
               "button",
@@ -422,9 +557,15 @@ export async function renderMeeting(ctx, route) {
                   try {
                     await ctx.api.deleteMedia(asset.id);
                     ctx.toast("Recording deleted from the server.");
-                    const wasPlaying = asset.id === currentAssetId;
-                    releaseBlob();
-                    if (wasPlaying) player.removeAttribute("src");
+                    // Drop the deleted track's element source (its blob is revoked below), then
+                    // rebuild the player so a remaining track becomes the anchor.
+                    for (const track of slots()) {
+                      if (track.asset?.id === asset.id) {
+                        track.node.removeAttribute("src");
+                        track.node.load();
+                        track.asset = null;
+                      }
+                    }
                     await renderTab();
                     await loadHead();
                     await loadPlayerBar();
@@ -926,7 +1067,7 @@ export async function renderMeeting(ctx, route) {
     () => {
       state.disposed = true;
       clearTimeout(state.pollTimer);
-      releaseBlob();
+      releaseBlobs();
     },
     { once: true },
   );

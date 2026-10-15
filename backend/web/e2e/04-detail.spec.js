@@ -5,7 +5,9 @@ const READY = "Cloud console review";
 test("opening a meeting shows the header, the facts and the player", async ({ signedIn, consoleErrors }) => {
   await openMeeting(signedIn, READY);
   await expect(signedIn.getByTestId("status")).toContainText("Ready");
-  await expect(signedIn.getByTestId("player-bar")).toContainText("Playing:");
+  await expect(signedIn.getByTestId("player-bar")).toContainText("Playing");
+  await expect(signedIn.getByTestId("player-caption")).toContainText("video:");
+  await expect(signedIn.getByTestId("player-caption")).toContainText("audio:");
 
   const subtitle = signedIn.locator("p.sub").first();
   await expect(subtitle).toContainText("2 recording(s)");
@@ -36,25 +38,41 @@ test("the overview lists both server recordings — the audio and the screen tra
   await expect(videoRow.locator(".meta")).toContainText("starts at 0:02");
 });
 
-test("the shared player defaults to the AUDIO track and swaps to <video> for the screen track", async ({
+test("the player loads BOTH recordings by default and plays them together", async ({
   signedIn,
   consoleErrors,
 }) => {
   await openMeeting(signedIn, READY);
-  // Default: the audio track is the timeline anchor the transcript seeks against.
-  await expect(signedIn.getByTestId("player-caption")).toContainText("(audio, 0:30)");
-  await expect(signedIn.getByTestId("player-host").locator("video")).toHaveCount(0);
+  // No "Load playback" press: the screen track is already a real <video> in the player, because a
+  // screen recording is video-only and the sound lives in the separate audio track.
+  const video = signedIn.getByTestId("video-player");
+  await expect(video).toHaveCount(1);
+  await expect(video).toBeVisible();
+  // The meeting's audio is loaded beside it (the transcript's timeline anchor).
+  const audio = signedIn.getByTestId("player");
+  await expect(audio).toHaveCount(1);
+  await expect(signedIn.getByTestId("player-caption")).toContainText("video:");
+  await expect(signedIn.getByTestId("player-caption")).toContainText("audio:");
+  await expect(signedIn.getByTestId("player-caption")).toContainText("playing together");
 
-  const videoRow = signedIn.getByTestId("media-list").locator(".row", { hasText: "demo-1-screen.mp4" });
-  await videoRow.getByTestId("load-playback").click();
-  await expect(signedIn.getByTestId("player-caption")).toContainText("(video, 0:30)");
+  // Both sources are real media with a duration — loaded, not merely present.
+  for (const element of [video, audio]) {
+    await expect.poll(async () => element.evaluate((node) => node.readyState), { timeout: 20_000 }).toBeGreaterThanOrEqual(1);
+    expect(await element.evaluate((node) => node.duration)).toBeGreaterThan(20);
+  }
+  // The video carries the picture only, so it must not double the sound.
+  expect(await video.evaluate((node) => node.muted)).toBe(true);
 
-  // A screen recording must be WATCHABLE: the element becomes a real <video> with a duration.
-  const element = signedIn.getByTestId("player-host").locator("video");
-  await expect(element).toHaveCount(1);
-  await expect.poll(async () => element.evaluate((node) => node.readyState), { timeout: 20_000 }).toBeGreaterThanOrEqual(1);
-  const duration = await element.evaluate((node) => node.duration);
-  expect(duration).toBeGreaterThan(20);
+  // Starting one starts the other: the audio must not stay silent behind the video.
+  await video.evaluate((node) => node.play());
+  await expect
+    .poll(async () => audio.evaluate((node) => node.paused), { timeout: 10_000 })
+    .toBe(false);
+  // ...and pausing one pauses the other.
+  await video.evaluate((node) => node.pause());
+  await expect
+    .poll(async () => audio.evaluate((node) => node.paused), { timeout: 10_000 })
+    .toBe(true);
   expect(consoleErrors).toEqual([]);
 });
 
