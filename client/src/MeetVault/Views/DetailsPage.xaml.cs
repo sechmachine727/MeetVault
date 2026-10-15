@@ -60,6 +60,9 @@ public sealed partial class DetailsPage : Page
     {
         InitializeComponent();
         HookTransportInput();
+        // One measurement line per distinct player stack: the geometry that was actually arranged
+        // is otherwise invisible (a yielded audio element is 0 dip tall in a screenshot).
+        MediaStack.LayoutUpdated += (_, _) => LogPlayerStack();
 
         // Release the players' sources on unload for every path (local, cloud-only, no meeting):
         // registering this before the cloud-mode early return keeps cloud mode covered too (review fix).
@@ -122,6 +125,7 @@ public sealed partial class DetailsPage : Page
         TranscriptSource.Text = Loc.T("Det.SourceLocal");
         ShowPlayer();
         ShowVideo();
+        SyncPlayerStack(); // a screen track on screen makes the audio element yield its box
         SubscribePlayhead();
         _ = RefreshAnalyzeAsync();
         _ = LoadLocalCloudContentAsync();
@@ -186,6 +190,7 @@ public sealed partial class DetailsPage : Page
         {
             VideoPlayer.Source = MediaSource.CreateFromUri(new Uri(track.Path));
             VideoPlayer.Visibility = Visibility.Visible;
+            SyncPlayerStack(); // the transport bar now rides directly under THIS video
             if (VideoPlayer.MediaPlayer is not { } vmp) return;
             vmp.IsMuted = true; // video-only file: the audio master is the sound
             var target = TimeSpan.FromMilliseconds(Math.Max(0, playheadMs - track.StartOffsetMs));
@@ -209,6 +214,7 @@ public sealed partial class DetailsPage : Page
             MeetVault.Core.AppLog.Warn("details: video track failed to load: " + ex.Message);
             VideoPlayer.Visibility = Visibility.Collapsed;
             _videoTrack = null;
+            SyncPlayerStack(); // no video on screen: the audio element is the media again
         }
     }
 
@@ -597,6 +603,7 @@ public sealed partial class DetailsPage : Page
 
     private void ApplyAspect()
     {
+        SyncPlayerStack(); // decide the stack BEFORE sizing: the target depends on the hand-off
         var target = VideoPlayer.Visibility == Visibility.Visible ? (FrameworkElement)VideoPlayer : Player;
         var naturalW = VideoPlayer.MediaPlayer?.PlaybackSession?.NaturalVideoWidth ?? 0;
         var naturalH = VideoPlayer.MediaPlayer?.PlaybackSession?.NaturalVideoHeight ?? 0;
@@ -609,6 +616,41 @@ public sealed partial class DetailsPage : Page
             : 540;
         target.Height = PlayerGeometry.HeightFor(target.ActualWidth, PlayerAspect.Ratio16x9, maxHeight, naturalW, naturalH)
                         ?? double.NaN;
+    }
+
+    // --- The media cell: the transport bar rides directly under whatever is on screen ---
+
+    // The AUDIO element is the media for an audio-only meeting, and nothing but dead space when a
+    // screen track is on screen: its box (up to 220 dip, plus a StackPanel gap either side) sat
+    // BETWEEN the video and the transport bar, which read as "the controls are nowhere near the
+    // video". Handing the cell to the video makes the bar hug the picture whatever its height
+    // (measured before: 236 dip of gap at a 479-dip video; after: the 8 dip RowSpacing). The
+    // element stays in the tree - Visible is untouched, only its layout box is given up - so the
+    // meeting's sound keeps playing through it.
+    private void SyncPlayerStack()
+    {
+        if (VideoPlayer.Visibility == Visibility.Visible) Player.Height = 0;
+        else if (Player.Height == 0) Player.Height = double.NaN;
+    }
+
+    // One line per distinct stack, so the geometry that was actually arranged is on the record.
+    private string _playerStackLogged = "";
+
+    private void LogPlayerStack()
+    {
+        try
+        {
+            var media = VideoPlayer.Visibility == Visibility.Visible ? (FrameworkElement)VideoPlayer : Player;
+            if (media.ActualHeight <= 0 || MediaStack.ActualHeight <= 0) return;
+            var mediaBottom = media.TransformToVisual(MediaStack).TransformPoint(new Windows.Foundation.Point(0, 0)).Y
+                              + media.ActualHeight;
+            var barTop = TransportBar.TransformToVisual(MediaStack).TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
+            var line = $"details: player stack — {media.Name} {media.ActualHeight:0} dip, audio {Player.ActualHeight:0} dip, transport bar {barTop - mediaBottom:0} dip below the media";
+            if (line == _playerStackLogged) return;
+            _playerStackLogged = line;
+            AppLog.Debug(line);
+        }
+        catch { /* a layout probe never breaks the page */ }
     }
 
     private void Fullscreen_Click(object sender, RoutedEventArgs e)

@@ -25,12 +25,20 @@
                     <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                             CornerRadius="8" Padding="16">
-                        <StackPanel Spacing="8">
-                            <MediaPlayerElement x:Name="VideoPlayer" AreTransportControlsEnabled="False"
-                                                Stretch="Uniform" Visibility="Collapsed" />
-                            <MediaPlayerElement x:Name="Player" AreTransportControlsEnabled="False"
+                        <!-- The transport bar must ride directly under whatever is on screen, whatever
+                             its height, so the two media elements share ONE cell (row 0) instead of
+                             stacking: the video is declared last, i.e. on top. The audio element's box
+                             used to sit between the video and the controls (220 dip of empty space). -->
+                        <Grid x:Name="MediaStack" RowSpacing="8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <MediaPlayerElement x:Name="Player" Grid.Row="0" AreTransportControlsEnabled="False"
                                                 MaxHeight="220" Visibility="Collapsed" />
-                            <Grid x:Name="TransportBar" ColumnSpacing="8">
+                            <MediaPlayerElement x:Name="VideoPlayer" Grid.Row="0" AreTransportControlsEnabled="False"
+                                                Stretch="Uniform" Visibility="Collapsed" />
+                            <Grid x:Name="TransportBar" Grid.Row="1" ColumnSpacing="8">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
@@ -53,7 +61,7 @@
                                         Value="100" ValueChanged="VolumeSlider_ValueChanged" x:Uid="DetVolume" />
                                 <Button x:Name="FullscreenButton" Grid.Column="5" x:Uid="DetFullscreen" Click="Fullscreen_Click" />
                             </Grid>
-                        </StackPanel>
+                        </Grid>
                     </Border>
 
                     <Border x:Name="TranscriptCard" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
