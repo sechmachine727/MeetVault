@@ -1,0 +1,148 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>MeetVault</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- The IVideoRecorder (ScreenRecorderLib) and its staged CRT payload are x64-only;
+         narrowing here makes a wrong-arch build fail at BUILD time instead of at the
+         first screen recording (review r7). -->
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    <PublishProfile Condition="Exists('Properties\PublishProfiles\win-$(Platform).pubxml')">win-$(Platform).pubxml</PublishProfile>
+    <UseWinUI>true</UseWinUI>
+    <WinUISDKReferences>false</WinUISDKReferences>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\SplashScreen.scale-200.png" />
+    <Content Include="Assets\LockScreenLogo.scale-200.png" />
+    <Content Include="Assets\Square150x150Logo.scale-200.png" />
+    <Content Include="Assets\Square44x44Logo.scale-200.png" />
+    <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
+    <Content Include="Assets\Square44x44Logo.targetsize-48_altform-lightunplated.png" />
+    <Content Include="Assets\StoreLogo.png" />
+    <Content Include="Assets\AppIcon.ico" />
+    <Content Include="Assets\Wide310x150Logo.scale-200.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+  <!--
+    Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging
+    Tools extension to be activated for this project even if the Windows App SDK Nuget
+    package has not yet been restored.
+  -->
+  <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <ProjectCapability Include="Msix" />
+  </ItemGroup>
+
+  <!--
+    Microsoft.Windows.SDK.BuildTools.WinApp adds first-class support for
+    `dotnet run` on packaged WinUI apps: it hooks the .NET CLI Run target to
+    register a debug identity via the winapp CLI and launch the app with
+    package identity (AUMID).
+    Set <EnableWinAppRunSupport>false</EnableWinAppRunSupport> in a
+    <PropertyGroup> above to opt out.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.7705" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260317003" />
+    <!-- WindowsAppSDK.ML ships its OWN Microsoft.ML.OnnxRuntime.dll with assembly version
+         0.0.0.0; it wins the publish copy race against Microsoft.ML.OnnxRuntime.Managed's
+         1.31.0.0 and the language detector then fails to load ("Could not load
+         Microsoft.ML.OnnxRuntime, Version=1.31.0.0"). The app uses no WindowsAppSDK ML
+         APIs, so the whole package's assets are excluded. -->
+    <PackageReference Include="Microsoft.WindowsAppSDK.ML" Version="1.8.2141" ExcludeAssets="all" PrivateAssets="all" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinApp" Version="0.3.1" />
+  </ItemGroup>
+  <!-- Unpackaged portable exe has no package identity: DeploymentManager.Initialize
+       dies REGDB_E_CLASSNOTREG. The installed MSIX keeps identity and is unaffected.
+       Bootstrap (DDLM) auto-init stays on so framework resolution still works. -->
+  <PropertyGroup>
+    <WindowsAppSdkDeploymentManagerInitialize>false</WindowsAppSdkDeploymentManagerInitialize>
+    <WindowsAppSdkBootstrapInitialize>true</WindowsAppSdkBootstrapInitialize>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MeetVault.Core\MeetVault.Core.csproj" />
+  </ItemGroup>
+
+  <!--
+    Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution
+    Explorer "Package and Publish" context menu entry to be enabled for this project even if
+    the Windows App SDK Nuget package has not yet been restored.
+  -->
+  <PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
+    <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
+    <!-- Never trim this app: ILLink strips the CsWinRT ABI vtable glue (an ItemsSource NRE in
+         GetAbiToProjectionVftblPtr). (It also used to halve the sherpa-onnx wrapper — sherpa
+         was removed 2026-10-11.) -->
+    <PublishTrimmed>False</PublishTrimmed>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Repo root, for the staged third-party payloads below. -->
+    <VaultRepoRoot>$(MSBuildThisFileDirectory)..\..\</VaultRepoRoot>
+  </PropertyGroup>
+
+  <!-- Redistribution notice, shipped with the package. -->
+  <ItemGroup>
+    <Content Include="$(VaultRepoRoot)docs\THIRD-PARTY-NOTICES.md">
+      <Link>THIRD-PARTY-NOTICES.md</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!-- ScreenRecorderLib is a C++/CLI mixed-mode DLL that links the VC++ runtime dynamically,
+       and the NuGet package does not carry it. Stage the redistributable DLLs app-locally for
+       win-x64 builds so a default-on feature never depends on a user-installed redistributable;
+       the loaded module is ScreenRecorderLib.dll in the app root, so the CRT sits beside it.
+       Payloads stay staged under vcruntime/win-x64, not committed (see AGENTS.md). -->
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'win-x64'">
+    <Content Include="$(VaultRepoRoot)vcruntime\win-x64\*.dll">
+      <Link>%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <!-- Foreign-RID native sets must not ship: the portable and MSIX outputs keep only the
+       Windows x64 payloads. No-ops when the globs match nothing (they do today) — kept so
+       the AGENTS.md constraint stays true (review r11). RID names must be REAL ones:
+       osx-x64/osx-arm64, not macos-* (review r18). -->
+  <Target Name="TrimForeignRuntimes" AfterTargets="Build">
+    <ItemGroup>
+      <_ForeignRuntimeDir Include="$(OutDir)runtimes\linux-arm;$(OutDir)runtimes\linux-arm64;$(OutDir)runtimes\linux-x64;$(OutDir)runtimes\osx-arm64;$(OutDir)runtimes\osx-x64;$(OutDir)runtimes\win-arm64;$(OutDir)runtimes\win-x86;$(OutDir)runtimes\vulkan\linux-x64" />
+    </ItemGroup>
+    <RemoveDir Directories="@(_ForeignRuntimeDir)" />
+    <Delete Files="$(OutDir)ggml-metal.metal" ContinueOnError="true" />
+  </Target>
+  <Target Name="TrimForeignRuntimesPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <_ForeignPublishDir Include="$(PublishDir)runtimes\linux-arm;$(PublishDir)runtimes\linux-arm64;$(PublishDir)runtimes\linux-x64;$(PublishDir)runtimes\osx-arm64;$(PublishDir)runtimes\osx-x64;$(PublishDir)runtimes\win-arm64;$(PublishDir)runtimes\win-x86;$(PublishDir)runtimes\vulkan\linux-x64" />
+    </ItemGroup>
+    <RemoveDir Directories="@(_ForeignPublishDir)" />
+    <Delete Files="$(PublishDir)ggml-metal.metal" ContinueOnError="true" />
+  </Target>
+  <!-- The deliverable ships only the models the catalog offers (docs/ASR-ENGINES.md): large-en and
+       large-ja, plus langid. Every other staged model dir is dropped from the publish output so the
+       portable zip stays shippable (4.3 GB of models -> ~3.0 GB). Explicit paths, not a wildcard: a
+       glob could delete a shipped model. No-ops when a dir is absent. Keep this list,
+       EngineCatalog.Options and tools/pack-portable.ps1 in step. -->
+  <Target Name="TrimUnshippedModels" AfterTargets="Publish">
+    <ItemGroup>
+      <_UnshippedModelDir Include="$(PublishDir)models\vosk\small-en;$(PublishDir)models\vosk\medium-en;$(PublishDir)models\vosk\small-ja;$(PublishDir)models\vosk\small-vi;$(PublishDir)models\vosk\large-vi" />
+    </ItemGroup>
+    <RemoveDir Directories="@(_UnshippedModelDir)" />
+  </Target>
+</Project>

@@ -1,0 +1,283 @@
+<Page
+    x:Class="MeetVault.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:MeetVault.Views">
+    <ScrollViewer x:Name="RootScroll" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled"
+                  SizeChanged="RootScroll_SizeChanged">
+        <!-- The content column's width comes from the viewport in RootScroll_SizeChanged: inside a
+             ScrollViewer a StackPanel shrink-to-fits, so a cap plus Center left the rows narrow. -->
+        <StackPanel x:Name="ContentColumn" Padding="24" Spacing="20" HorizontalAlignment="Left">
+
+            <TextBlock x:Uid="SetTitle" Style="{StaticResource TitleTextBlockStyle}" />
+            <InfoBar x:Name="StatusBar" IsOpen="False" Severity="Informational" />
+
+            <StackPanel Spacing="8">
+                <TextBlock x:Uid="SetLangHeader" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetLang" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetLangDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ComboBox x:Name="LanguagePicker" Grid.Column="1" Width="280" HorizontalAlignment="Left"
+                              SelectionChanged="Language_SelectionChanged"
+                              x:Uid="SetLangPicker" />
+                </Grid>
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock x:Uid="SetAudio" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetMic" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetMicDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ComboBox x:Name="MicPicker" x:Uid="SetMicPicker" Grid.Column="1" Width="280" HorizontalAlignment="Left"
+                              SelectionChanged="Picker_SelectionChanged" />
+                </Grid>
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetMicRec" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetMicRecDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ToggleSwitch x:Name="MicSwitch" x:Uid="SetMicSwitch" Grid.Column="1" HorizontalAlignment="Left" IsOn="True"
+                                  Toggled="Audio_Toggled" />
+                </Grid>
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetSysRec" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetSysRecDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ToggleSwitch x:Name="SystemSwitch" x:Uid="SetSysSwitch" Grid.Column="1" HorizontalAlignment="Left" IsOn="True"
+                                  Toggled="Audio_Toggled" />
+                </Grid>
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetSysSrc" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetSysSrcDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ComboBox x:Name="SourcePicker" x:Uid="SetSysSrcPicker" Grid.Column="1" Width="320" HorizontalAlignment="Left"
+                              SelectionChanged="Picker_SelectionChanged" />
+                </Grid>
+                <TextBlock x:Name="AudioStatus" Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock x:Uid="SetTranscription" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetLanguage" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetLanguageDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ComboBox x:Name="SpeechLangPicker" x:Uid="SetLanguagePicker" Grid.Column="1" Width="360" HorizontalAlignment="Left"
+                              SelectionChanged="Picker_SelectionChanged" />
+                </Grid>
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetSize" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetSizeDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ComboBox x:Name="SizePicker" x:Uid="SetSizePicker" Grid.Column="1" Width="360" HorizontalAlignment="Left"
+                              SelectionChanged="Picker_SelectionChanged"
+                              DropDownOpened="SizePicker_DropDownOpened">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Label}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </Grid>
+                <TextBlock x:Name="ModelDetails" Opacity="0.7" TextWrapping="Wrap" />
+                <TextBlock x:Name="TranscriptionStatus" Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock x:Uid="SetScreen" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetScreenEnable" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetScreenEnableDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ToggleSwitch x:Name="ScreenSwitch" x:Uid="SetScreenSwitch" Grid.Column="1" HorizontalAlignment="Left"
+                                  IsOn="True" Toggled="Screen_Toggled" />
+                </Grid>
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetScreenSource" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetScreenSourceDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ComboBox x:Name="ScreenSourcePicker" x:Uid="SetScreenSourcePicker" Grid.Column="1" Width="360" HorizontalAlignment="Left"
+                              SelectionChanged="ScreenSourcePicker_SelectionChanged" />
+                </Grid>
+                <TextBlock x:Uid="SetScreenNote" Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock x:Uid="SetOverlay" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock x:Uid="SetOverlayNote" Opacity="0.7" TextWrapping="Wrap" />
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetPin" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetPinDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ToggleSwitch x:Name="PinSwitch" x:Uid="SetPinSwitch" Grid.Column="1" HorizontalAlignment="Left"
+                                  IsOn="True" Toggled="Pin_Toggled" />
+                </Grid>
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetOpacity" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetOpacityDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <Slider x:Name="OpacitySlider" x:Uid="SetOpacitySlider" Grid.Column="1" Width="280" HorizontalAlignment="Left"
+                            Minimum="0" Maximum="1" StepFrequency="0.05" Value="0.2"
+                            ValueChanged="Opacity_ValueChanged" />
+                </Grid>
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetFont" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetFontDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <NumberBox x:Name="FontSizeBox" x:Uid="SetFontBox" Grid.Column="1" Width="140" HorizontalAlignment="Left"
+                               Minimum="12" Maximum="48" Value="18" SmallChange="1"
+                               SpinButtonPlacementMode="Compact" ValueChanged="Number_ValueChanged" />
+                </Grid>
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetLines" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetLinesDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <NumberBox x:Name="LinesBox" x:Uid="SetLinesBox" Grid.Column="1" Width="140" HorizontalAlignment="Left"
+                               Minimum="1" Maximum="10" Value="4" SmallChange="1"
+                               SpinButtonPlacementMode="Compact" ValueChanged="Number_ValueChanged" />
+                </Grid>
+                <TextBlock x:Name="OverlayStatus" Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock x:Uid="SetStorage" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetLocation" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetLocationDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <TextBox x:Name="StoragePathBox" x:Uid="SetStorageBox" Grid.Column="1" Width="420" HorizontalAlignment="Left"
+                             LostFocus="Refresh_Storage" />
+                </Grid>
+                <TextBlock x:Name="StorageStatus" Opacity="0.7" TextWrapping="Wrap" />
+                <TextBlock x:Name="UsageText" FontWeight="SemiBold" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock x:Uid="SetLogging" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetLogLevel" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetLogLevelDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ComboBox x:Name="LogLevelPicker" x:Uid="SetLogLevelPicker" Grid.Column="1" Width="200" HorizontalAlignment="Left"
+                              SelectionChanged="Picker_SelectionChanged" />
+                </Grid>
+                <TextBlock x:Name="LogStatus" Opacity="0.7" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Uid="SetOpenLog" Click="OpenLogFolder_Click" />
+                    <Button x:Uid="SetShowLog" Click="ShowLog_Click" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock x:Uid="SetBackend" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock x:Uid="SetBackendNote" Opacity="0.7" TextWrapping="Wrap" />
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetBackendUrl" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetBackendUrlDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <TextBox x:Name="BackendUrlBox" x:Uid="SetBackendUrlBox" Grid.Column="1" Width="360" HorizontalAlignment="Left"
+                             LostFocus="BackendUrl_LostFocus" />
+                </Grid>
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="2" VerticalAlignment="Top">
+                        <TextBlock x:Uid="SetAccount" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="SetAccountDesc" Opacity="0.7" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
+                        <TextBlock x:Name="AccountState" VerticalAlignment="Center" />
+                        <Button x:Name="ManageAccountButton" x:Uid="SetAccountButton" Click="ManageAccount_Click" />
+                        <Button x:Name="TestBackendButton" x:Uid="SetTestBackend" Click="TestBackend_Click" />
+                    </StackPanel>
+                </Grid>
+                <TextBlock x:Name="BackendStatus" Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>
+

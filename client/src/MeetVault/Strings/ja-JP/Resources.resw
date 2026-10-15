@@ -1,0 +1,517 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <!-- Shell -->
+  <data name="NavDashboard.Content" xml:space="preserve"><value>ダッシュボード</value></data>
+  <data name="NavLive.Content" xml:space="preserve"><value>ライブ</value></data>
+  <data name="NavMeetings.Content" xml:space="preserve"><value>会議</value></data>
+  <data name="NavBackend.Content" xml:space="preserve"><value>クラウドストレージ</value></data>
+  <data name="NavAccount.Content" xml:space="preserve"><value>アカウント</value></data>
+
+  <!-- Shared: manage flyout, selection toolbar, table headers -->
+  <data name="Manage.ToolTipService.ToolTip" xml:space="preserve"><value>会議の管理</value></data>
+  <data name="Manage.AutomationProperties.Name" xml:space="preserve"><value>会議の管理</value></data>
+  <data name="DeleteMeetings.Text" xml:space="preserve"><value>会議を削除</value></data>
+  <data name="SelAll.ToolTipService.ToolTip" xml:space="preserve"><value>表示中の会議をすべて選択</value></data>
+  <data name="SelAll.AutomationProperties.Name" xml:space="preserve"><value>表示中をすべて選択</value></data>
+  <data name="SelClear.ToolTipService.ToolTip" xml:space="preserve"><value>選択を解除</value></data>
+  <data name="SelClear.AutomationProperties.Name" xml:space="preserve"><value>選択を解除</value></data>
+  <data name="SelDelete.ToolTipService.ToolTip" xml:space="preserve"><value>選択した会議を削除</value></data>
+  <data name="SelDelete.AutomationProperties.Name" xml:space="preserve"><value>選択した会議を削除</value></data>
+  <data name="SelCancel.ToolTipService.ToolTip" xml:space="preserve"><value>選択モードをキャンセル</value></data>
+  <data name="SelCancel.AutomationProperties.Name" xml:space="preserve"><value>選択をキャンセル</value></data>
+  <data name="HeadTitle.Text" xml:space="preserve"><value>タイトル</value></data>
+  <data name="HeadCreated.Text" xml:space="preserve"><value>作成日時</value></data>
+  <data name="HeadDuration.Text" xml:space="preserve"><value>長さ</value></data>
+  <data name="HeadStatus.Text" xml:space="preserve"><value>ステータス</value></data>
+  <data name="MtgRowDel.ToolTipService.ToolTip" xml:space="preserve"><value>この会議と録音を削除</value></data>
+  <data name="MtgRowDel.AutomationProperties.Name" xml:space="preserve"><value>削除</value></data>
+
+  <!-- Dashboard -->
+  <data name="DashStart.Content" xml:space="preserve"><value>新しい会議を開始</value></data>
+  <data name="DashStart.AutomationProperties.Name" xml:space="preserve"><value>新しい会議を開始</value></data>
+  <data name="DashRecovery.Title" xml:space="preserve"><value>未完了の会議が見つかりました</value></data>
+  <data name="DashResume.Content" xml:space="preserve"><value>ライブで再開</value></data>
+  <data name="DashMicLabel.Text" xml:space="preserve"><value>マイク</value></data>
+  <data name="DashEngineLabel.Text" xml:space="preserve"><value>エンジン</value></data>
+  <data name="DashRecent.Text" xml:space="preserve"><value>最近の会議</value></data>
+  <data name="DashEmptyTitle.Text" xml:space="preserve"><value>まだ会議がありません</value></data>
+  <data name="DashEmptyBody.Text" xml:space="preserve"><value>最初の会議を開始すると、時刻・要約付きの文字起こしがここに表示されます。</value></data>
+  <data name="DashGreeting.Text" xml:space="preserve"><value>録音の準備ができました</value></data>
+
+  <!-- Meetings -->
+  <data name="MtgTitle.Text" xml:space="preserve"><value>会議</value></data>
+  <data name="MtgSearch.PlaceholderText" xml:space="preserve"><value>会議を検索</value></data>
+  <data name="MtgSearch.AutomationProperties.Name" xml:space="preserve"><value>会議を検索</value></data>
+
+  <!-- Live -->
+  <data name="LiveTitle.Text" xml:space="preserve"><value>ライブ文字起こし</value></data>
+  <data name="LiveStart.Content" xml:space="preserve"><value>録音を開始</value></data>
+  <data name="LiveStart.AutomationProperties.Name" xml:space="preserve"><value>録音を開始</value></data>
+  <data name="LivePause.Content" xml:space="preserve"><value>一時停止</value></data>
+  <data name="LiveResume.Content" xml:space="preserve"><value>再開</value></data>
+  <data name="LiveOverlay.Content" xml:space="preserve"><value>オーバーレイを表示</value></data>
+  <data name="LiveStop.Content" xml:space="preserve"><value>停止</value></data>
+  <data name="LiveAudioLabel.Text" xml:space="preserve"><value>音声ソース</value></data>
+  <data name="LiveEngineLabel.Text" xml:space="preserve"><value>エンジン状態</value></data>
+
+  <!-- Details -->
+  <data name="DetTitle.Text" xml:space="preserve"><value>詳細</value></data>
+  <data name="DetCopy.Content" xml:space="preserve"><value>文字起こしをコピー</value></data>
+  <data name="DetCopy.AutomationProperties.Name" xml:space="preserve"><value>文字起こしをコピー</value></data>
+  <data name="DetCopy.ToolTipService.ToolTip" xml:space="preserve"><value>文字起こしをクリップボードにコピーします</value></data>
+  <data name="DetExport.Content" xml:space="preserve"><value>ドキュメントにエクスポート</value></data>
+  <data name="DetExport.AutomationProperties.Name" xml:space="preserve"><value>文字起こしをドキュメントにエクスポート</value></data>
+  <data name="DetExport.ToolTipService.ToolTip" xml:space="preserve"><value>文字起こしをドキュメント内のテキストファイルに書き出します</value></data>
+  <data name="DetTranscript.Text" xml:space="preserve"><value>文字起こし</value></data>
+  <data name="DetEmpty.Text" xml:space="preserve"><value>まだ表示する会議がありません。ライブで会議を開始すると、ここに文字起こしが表示されます。</value></data>
+  <data name="DetSpeakerName.AutomationProperties.Name" xml:space="preserve"><value>話者</value></data>
+  <data name="Det.SpeakerFallback" xml:space="preserve"><value>話者 1</value></data>
+  <data name="DetSpeakerName.ToolTipService.ToolTip" xml:space="preserve"><value>この行を別の話者に再割り当てします</value></data>
+  <data name="DetLineName.AutomationProperties.Name" xml:space="preserve"><value>文字起こし行</value></data>
+  <data name="DetLineName.ToolTipService.ToolTip" xml:space="preserve"><value>この行を編集します</value></data>
+
+  <!-- Settings -->
+  <data name="SetTitle.Text" xml:space="preserve"><value>設定</value></data>
+  <data name="SetLangHeader.Text" xml:space="preserve"><value>表示言語</value></data>
+  <data name="SetLang.Text" xml:space="preserve"><value>言語</value></data>
+  <data name="SetLangDesc.Text" xml:space="preserve"><value>アプリの表示言語です。再起動後に反映されます。</value></data>
+  <data name="SetLangPicker.AutomationProperties.Name" xml:space="preserve"><value>表示言語</value></data>
+  <data name="Lang.System" xml:space="preserve"><value>システム既定（Windows に従う）</value></data>
+  <data name="SetLangRestart" xml:space="preserve"><value>言語を保存しました。反映するにはアプリを再起動してください。</value></data>
+  <data name="SetAudio.Text" xml:space="preserve"><value>音声</value></data>
+  <data name="SetMic.Text" xml:space="preserve"><value>マイク</value></data>
+  <data name="SetMicDesc.Text" xml:space="preserve"><value>マイク録音に使用するデバイスです。</value></data>
+  <data name="SetMicPicker.AutomationProperties.Name" xml:space="preserve"><value>マイク</value></data>
+  <data name="SetMicRec.Text" xml:space="preserve"><value>マイクを録音</value></data>
+  <data name="SetMicRecDesc.Text" xml:space="preserve"><value>自分の声です。オフにするとシステム音声のみを録音します。</value></data>
+  <data name="SetMicSwitch.AutomationProperties.Name" xml:space="preserve"><value>マイクを録音</value></data>
+  <data name="SetMicSwitch.OnContent" xml:space="preserve"><value>オン</value></data>
+  <data name="SetMicSwitch.OffContent" xml:space="preserve"><value>オフ</value></data>
+  <data name="SetSysRec.Text" xml:space="preserve"><value>システム音声を録音</value></data>
+  <data name="SetSysRecDesc.Text" xml:space="preserve"><value>スピーカーから再生される音をマイクとミックスして録音します。</value></data>
+  <data name="SetSysSwitch.AutomationProperties.Name" xml:space="preserve"><value>システム音声を録音</value></data>
+  <data name="SetSysSwitch.OnContent" xml:space="preserve"><value>オン</value></data>
+  <data name="SetSysSwitch.OffContent" xml:space="preserve"><value>オフ</value></data>
+  <data name="SetSysSrc.Text" xml:space="preserve"><value>システム音声ソース</value></data>
+  <data name="SetSysSrcDesc.Text" xml:space="preserve"><value>すべてのアプリ、または会議アプリなど特定のアプリ。</value></data>
+  <data name="SetSysSrcPicker.AutomationProperties.Name" xml:space="preserve"><value>システム音声ソース</value></data>
+  <data name="SetTranscription.Text" xml:space="preserve"><value>文字起こし</value></data>
+  <data name="SetLanguage.Text" xml:space="preserve"><value>言語</value></data>
+  <data name="SetLanguageDesc.Text" xml:space="preserve"><value>自動検出は会話の言語に追随し（会議中に切り替わることがあります）、言語を選ぶとその言語に固定されます。</value></data>
+  <data name="SetLanguagePicker.AutomationProperties.Name" xml:space="preserve"><value>音声の言語</value></data>
+  <data name="SetSize.Text" xml:space="preserve"><value>モデルサイズ</value></data>
+  <data name="SetSizeDesc.Text" xml:space="preserve"><value>Small・Medium・Large — 各サイズの意味は下の説明に表示されます。</value></data>
+  <data name="SetSizePicker.AutomationProperties.Name" xml:space="preserve"><value>モデルサイズ</value></data>
+  <data name="SetOverlay.Text" xml:space="preserve"><value>オーバーレイ</value></data>
+  <data name="SetOverlayNote.Text" xml:space="preserve"><value>これらの値は次にオーバーレイを開いたときに適用されます。</value></data>
+  <data name="SetPin.Text" xml:space="preserve"><value>常に最前面</value></data>
+  <data name="SetPinDesc.Text" xml:space="preserve"><value>オーバーレイを他のウィンドウより前面に固定します。</value></data>
+  <data name="SetPinSwitch.AutomationProperties.Name" xml:space="preserve"><value>オーバーレイを最前面に固定</value></data>
+  <data name="SetPinSwitch.OnContent" xml:space="preserve"><value>オン</value></data>
+  <data name="SetPinSwitch.OffContent" xml:space="preserve"><value>オフ</value></data>
+  <data name="SetOpacity.Text" xml:space="preserve"><value>不透明度</value></data>
+  <data name="SetOpacityDesc.Text" xml:space="preserve"><value>オーバーレイ背景の不透明度。</value></data>
+  <data name="SetOpacitySlider.AutomationProperties.Name" xml:space="preserve"><value>オーバーレイの不透明度</value></data>
+  <data name="SetFont.Text" xml:space="preserve"><value>文字サイズ</value></data>
+  <data name="SetFontDesc.Text" xml:space="preserve"><value>オーバーレイ文字起こしのフォントサイズ（ポイント）。</value></data>
+  <data name="SetFontBox.AutomationProperties.Name" xml:space="preserve"><value>オーバーレイの文字サイズ</value></data>
+  <data name="SetLines.Text" xml:space="preserve"><value>表示行数</value></data>
+  <data name="SetLinesDesc.Text" xml:space="preserve"><value>オーバーレイに表示する文字起こし行数。</value></data>
+  <data name="SetLinesBox.AutomationProperties.Name" xml:space="preserve"><value>オーバーレイの表示行数</value></data>
+  <data name="SetStorage.Text" xml:space="preserve"><value>ストレージ</value></data>
+  <data name="SetLocation.Text" xml:space="preserve"><value>保存先</value></data>
+  <data name="SetLocationDesc.Text" xml:space="preserve"><value>エクスポートした文字起こしの保存先フォルダー。</value></data>
+  <data name="SetStorageBox.AutomationProperties.Name" xml:space="preserve"><value>保存先</value></data>
+  <data name="SetLogging.Text" xml:space="preserve"><value>ログ</value></data>
+  <data name="SetLogLevel.Text" xml:space="preserve"><value>ログレベル</value></data>
+  <data name="SetLogLevelDesc.Text" xml:space="preserve"><value>アプリがログファイルに書き込む量。</value></data>
+  <data name="SetLogLevelPicker.AutomationProperties.Name" xml:space="preserve"><value>ログレベル</value></data>
+  <data name="SetOpenLog.Content" xml:space="preserve"><value>ログフォルダーを開く</value></data>
+  <data name="SetOpenLog.AutomationProperties.Name" xml:space="preserve"><value>ログフォルダーを開く</value></data>
+  <data name="SetShowLog.Content" xml:space="preserve"><value>ログを表示</value></data>
+  <data name="SetShowLog.AutomationProperties.Name" xml:space="preserve"><value>ログを表示</value></data>
+
+  <!-- L4.1: Meetings page code strings -->
+  <data name="Mtg.FromRepo" xml:space="preserve"><value>ローカルリポジトリの会議 {0} 件。</value></data>
+  <data name="Mtg.SelectHint" xml:space="preserve"><value>削除する会議を選択し、「選択した会議を削除」を選んでください。</value></data>
+  <data name="Mtg.DraftReason" xml:space="preserve"><value>録音中または再開可能な下書きです。ライブで再開して停止すると保存され、その後削除できます。</value></data>
+  <data name="Mtg.DraftNoDelete" xml:space="preserve"><value>この下書きはまだ再開できます — 削除する前に終了するか停止してください。</value></data>
+  <data name="Mtg.DelTitle" xml:space="preserve"><value>会議を削除しますか？</value></data>
+  <data name="Mtg.DelBody" xml:space="preserve"><value>{0} 件の会議を削除しますか？録音と文字起こしがこのデバイスから削除されます。</value></data>
+  <data name="Mtg.DelConfirm" xml:space="preserve"><value>削除</value></data>
+  <data name="Mtg.Cancel" xml:space="preserve"><value>キャンセル</value></data>
+  <data name="Mtg.Deleted" xml:space="preserve"><value>{0} 件の会議を削除しました。</value></data>
+  <data name="Mtg.Partial" xml:space="preserve"><value>{0} 件削除、{1} 件失敗 — 残りの会議を削除できませんでした。</value></data>
+  <data name="Mtg.PartialSkipped" xml:space="preserve"><value>{0} 件削除、{1} 件失敗、{2} 件の録音ファイルが削除できませんでした — クリーンアップを確認してください。</value></data>
+  <data name="Mtg.CouldNotDeleteSelected" xml:space="preserve"><value>選択した会議を削除できませんでした。</value></data>
+  <data name="Mtg.DelOneTitle" xml:space="preserve"><value>この会議を削除しますか？</value></data>
+  <data name="Mtg.DelOneBody" xml:space="preserve"><value>「{0}」とその文字起こしを削除します。録音ファイルも削除されます。この操作は元に戻せません。</value></data>
+  <data name="Mtg.DeletedOne" xml:space="preserve"><value>「{0}」を削除しました。</value></data>
+  <data name="Mtg.CouldNotDelete" xml:space="preserve"><value>会議を削除できませんでした。</value></data>
+  <data name="Mtg.NoMatch" xml:space="preserve"><value>「{0}」に一致する会議はありません。</value></data>
+  <data name="Mtg.EmptyList" xml:space="preserve"><value>まだ会議がありません。会議を開始するとここに表示されます。</value></data>
+  <data name="Mtg.RowOpen" xml:space="preserve"><value>会議を選択して詳細を開きます</value></data>
+  <data name="Mtg.RowToggle" xml:space="preserve"><value>クリックしてこの会議を選択/解除します</value></data>
+  <data name="Mtg.RowSelected" xml:space="preserve"><value>選択中</value></data>
+  <data name="Mtg.RowNotSelected" xml:space="preserve"><value>未選択</value></data>
+  <data name="Mtg.StatusRecording" xml:space="preserve"><value>録音中</value></data>
+  <data name="Mtg.StatusPaused" xml:space="preserve"><value>一時停止中</value></data>
+  <data name="Mtg.StatusProcessing" xml:space="preserve"><value>処理中</value></data>
+  <data name="Mtg.StatusReady" xml:space="preserve"><value>完了</value></data>
+  <data name="Mtg.StatusFailed" xml:space="preserve"><value>完了できませんでした</value></data>
+  <data name="Mtg.StatusUnknown" xml:space="preserve"><value>不明</value></data>
+  <data name="Mtg.DurInProgress" xml:space="preserve"><value>進行中</value></data>
+  <data name="Mtg.DurMin" xml:space="preserve"><value>{0} 分</value></data>
+  <data name="Mtg.DurHourMin" xml:space="preserve"><value>{0} 時間 {1} 分</value></data>
+  <data name="Mtg.SelectedCount" xml:space="preserve"><value>{0} 件選択</value></data>
+  <data name="Mtg.HiddenNote" xml:space="preserve"><value> 現在の検索で非表示になっている選択中の会議 {0} 件も削除されます。</value></data>
+  <data name="Mtg.MediaSkipped" xml:space="preserve"><value>削除しましたが、{0} 件の録音ファイルを削除できませんでした（管理フォルダー外）：{1}</value></data>
+
+  <!-- L4.2: Dashboard page code strings -->
+  <data name="Dash.GreetingMorning" xml:space="preserve"><value>おはようございます — 録音の準備ができました</value></data>
+  <data name="Dash.GreetingAfternoon" xml:space="preserve"><value>こんにちは — 録音の準備ができました</value></data>
+  <data name="Dash.GreetingEvening" xml:space="preserve"><value>こんばんは — 録音の準備ができました</value></data>
+  <data name="Dash.Interrupted" xml:space="preserve"><value>「{0}」が中断されました。ライブで再開して録音を続けるか、新しい会議を開始してください。この会議は下書きとして残ります。</value></data>
+  <data name="Dash.MicNotStarted" xml:space="preserve"><value>未開始</value></data>
+  <data name="Dash.WindowsDefault" xml:space="preserve"><value>Windows 既定</value></data>
+  <data name="Dash.ModelReady" xml:space="preserve"><value>音声エンジン {0} の準備完了。文字起こしはすべてデバイス上で実行されます。</value></data>
+  <data name="Dash.ModelMissing" xml:space="preserve"><value>音声モデルが未ダウンロードです。モデルが揃うまでライブはデモモードで動作します。</value></data>
+  <data name="Dash.ModelFallback" xml:space="preserve"><value>設定モデルが未ダウンロードのため {0} を使用します。文字起こしはすべてデバイス上で実行されます。</value></data>
+  <data name="Dash.CannotOpenLive" xml:space="preserve"><value>ここからライブを開けません。ナビゲーションの「ライブ」を使用してください。</value></data>
+
+  <!-- L4.3: Live page code strings -->
+  <data name="Live.Recording" xml:space="preserve"><value>録音中。認識された発話が下に表示されます。</value></data>
+  <data name="Live.Paused" xml:space="preserve"><value>一時停止中。停止中の音声は録音されず、再開しても復元されません。</value></data>
+  <data name="Live.Resumed" xml:space="preserve"><value>再開しました。ギャップの後から録音が続きます。</value></data>
+  <data name="Live.Saved" xml:space="preserve"><value>保存しました。{0} 行をローカルリポジトリに書き込みました。</value></data>
+  <data name="Live.CouldNotStart" xml:space="preserve"><value>録音を開始できませんでした。設定でマイクを確認してください。（{0}）</value></data>
+  <data name="Live.CouldNotPause" xml:space="preserve"><value>一時停止できませんでした: {0}</value></data>
+  <data name="Live.CouldNotResume" xml:space="preserve"><value>再開できませんでした: {0}</value></data>
+  <data name="Live.CouldNotStop" xml:space="preserve"><value>停止できませんでした: {0}</value></data>
+  <data name="Live.DemoMode" xml:space="preserve"><value>デモモード: ライブ文字起こしには models/ に Vosk small モデルを追加してください（docs/ASR-ENGINES.md 参照）。</value></data>
+  <data name="Live.CaptureFailed" xml:space="preserve"><value>録音が予期せず停止しました（{0}）。「停止」で保存すると録音済みの内容を保持できます。</value></data>
+  <data name="Live.StreamFailed" xml:space="preserve"><value>文字起こしが予期せず停止しました（{0}）。「停止」で保存すると録音済みの内容を保持できます。</value></data>
+  <data name="Live.StopTitle" xml:space="preserve"><value>この会議を停止して保存しますか？</value></data>
+  <data name="Live.StopBody" xml:space="preserve"><value>録音を停止し、会議は現時点で {0} 行で保存されます。その後、この会議に追加することはできません。</value></data>
+  <data name="Live.StopConfirm" xml:space="preserve"><value>停止して保存</value></data>
+  <data name="Live.KeepRecording" xml:space="preserve"><value>録音を続ける</value></data>
+  <data name="Live.ResumedCount" xml:space="preserve"><value>「{0}」を再開しました。{1} 行を復元しました。</value></data>
+  <data name="Live.CouldNotResumeMeeting" xml:space="preserve"><value>この会議を再開できませんでした。（{0}）</value></data>
+  <data name="Live.AudioIdle" xml:space="preserve"><value>マイク: {0}。録音していません。</value></data>
+  <data name="Live.AudioPaused" xml:space="preserve"><value>一時停止中。マイク: {0}。</value></data>
+  <data name="Live.AudioRecording" xml:space="preserve"><value>{0} から録音しています。</value></data>
+  <data name="Live.DeviceN" xml:space="preserve"><value>デバイス {0}</value></data>
+  <data name="Live.ErrNotActive" xml:space="preserve"><value>会議がアクティブではありません</value></data>
+  <data name="Live.ErrMicUnavailable" xml:space="preserve"><value>マイクを利用できません</value></data>
+  <data name="Live.ErrReadOnly" xml:space="preserve"><value>データフォルダーが読み取り専用です</value></data>
+  <data name="Live.ErrGeneric" xml:space="preserve"><value>問題が発生しました</value></data>
+
+  <!-- L4.4: Details page code strings -->
+  <data name="Det.NoMeeting" xml:space="preserve"><value>まだ表示する会議がありません。ライブで会議を開始すると、ここに文字起こしが表示されます。</value></data>
+  <data name="Det.NoMeetingSelected" xml:space="preserve"><value>会議が選択されていません</value></data>
+  <data name="Det.EditSaveFailed" xml:space="preserve"><value>編集はメモリに保持されましたが、保存に失敗しました: {0}</value></data>
+  <data name="Det.NoLines" xml:space="preserve"><value>行がありません</value></data>
+  <data name="Det.LineCount" xml:space="preserve"><value>{0} 行</value></data>
+  <data name="Det.LineCountEdited" xml:space="preserve"><value>{0} 行 · {1} 件編集済み</value></data>
+  <data name="Det.NoTranscriptLines" xml:space="preserve"><value>この会議の文字起こし行はまだありません。</value></data>
+  <data name="Det.Copied" xml:space="preserve"><value>{0} 行をクリップボードにコピーしました。</value></data>
+  <data name="Det.ClipboardBusy" xml:space="preserve"><value>クリップボードが使用中です。もう一度お試しください。</value></data>
+  <data name="Det.OverwriteTitle" xml:space="preserve"><value>エクスポートを上書きしますか？</value></data>
+  <data name="Det.OverwriteBody" xml:space="preserve"><value>{0} は既に存在します。置き換えますか？</value></data>
+  <data name="Det.Overwrite" xml:space="preserve"><value>上書き</value></data>
+  <data name="Det.Cancel" xml:space="preserve"><value>キャンセル</value></data>
+  <data name="Det.SavedExport" xml:space="preserve"><value>{0} 行を {1} に保存しました。</value></data>
+  <data name="Det.ExportFolderFailed" xml:space="preserve"><value>エクスポート先フォルダーが存在せず、作成できませんでした。設定の保存先を確認してください。</value></data>
+  <data name="Det.ExportWriteFailed" xml:space="preserve"><value>文字起こしファイルを書き込めませんでした: {0}</value></data>
+  <data name="Det.EmptyTranscript" xml:space="preserve"><value>文字起こしが空です。</value></data>
+  <data name="Det.ErrPermissionDenied" xml:space="preserve"><value>アクセスが拒否されました</value></data>
+  <data name="Det.ErrFileInUse" xml:space="preserve"><value>ファイルが使用中か、ディスク容量が不足しています</value></data>
+  <data name="Det.ErrReadOnly" xml:space="preserve"><value>データフォルダーが読み取り専用です</value></data>
+  <data name="Det.ErrGeneric" xml:space="preserve"><value>問題が発生しました</value></data>
+
+  <!-- L4.5: Settings page code strings -->
+  <data name="Set.SysSrcAllApps" xml:space="preserve"><value>すべてのアプリ</value></data>
+  <data name="Set.On" xml:space="preserve"><value>オン</value></data>
+  <data name="Set.Off" xml:space="preserve"><value>オフ</value></data>
+  <data name="Set.OpenLogFailed" xml:space="preserve"><value>ログフォルダーを開けませんでした: {0}</value></data>
+  <data name="Set.NoLogYet" xml:space="preserve"><value>ログはまだありません。{0}</value></data>
+  <data name="Set.ReadLogFailed" xml:space="preserve"><value>ログを読み取れませんでした: {0}</value></data>
+  <data name="Set.AudioBoth" xml:space="preserve"><value>{0} とシステム音声（{1}）を録音しています。ミックスされます。</value></data>
+  <data name="Set.AudioMicOnly" xml:space="preserve"><value>{0} のみを録音しています。</value></data>
+  <data name="Set.AudioSysOnly" xml:space="preserve"><value>システム音声（{0}）のみを録音しています。</value></data>
+  <data name="Set.AudioNone" xml:space="preserve"><value>有効な音声ソースがありません。何も録音されません。</value></data>
+  <data name="Set.TranscriptionStatus" xml:space="preserve"><value>{0} · ダウンロード {1} · {2}</value></data>
+  <data name="Set.SizeSmallDetails" xml:space="preserve"><value>Small — 最も軽く、読み込みも最速。基本精度。このビルドには含まれません（docs/ASR-ENGINES.md 参照）。</value></data>
+  <data name="Set.SizeMediumDetails" xml:space="preserve"><value>Medium — Small より高精度で、CPU でもリアルタイム。このビルドには含まれません（docs/ASR-ENGINES.md 参照）。</value></data>
+  <data name="Set.SizeLargeDetails" xml:space="preserve"><value>Large — 最高精度。読み込みと実行は重め。英語 WER 5.7%（約 2.4 GB）、日本語 CER 8.4%（約 1.3 GB）。</value></data>
+  <data name="Set.ModelInstalled" xml:space="preserve"><value>インストール済み</value></data>
+  <data name="Set.ModelNotInstalled" xml:space="preserve"><value>未インストール — 配置までは Live がインストール済みモデルにフォールバックします（手順: docs/ASR-ENGINES.md）</value></data>
+  <data name="Set.SizeSmall" xml:space="preserve"><value>Small</value></data>
+  <data name="Set.SizeMedium" xml:space="preserve"><value>Medium</value></data>
+  <data name="Set.SizeLarge" xml:space="preserve"><value>Large</value></data>
+  <data name="Set.SizeRowUnavailable" xml:space="preserve"><value>— この言語では利用できません</value></data>
+  <data name="Set.SizeRowNotInstalled" xml:space="preserve"><value>— 未インストール</value></data>
+  <data name="Lang.Auto" xml:space="preserve"><value>自動検出</value></data>
+  <data name="LiveLanguageLabel.Text" xml:space="preserve"><value>言語</value></data>
+  <data name="Live.LangModeAuto" xml:space="preserve"><value>自動</value></data>
+  <data name="Live.LangModeManual" xml:space="preserve"><value>手動</value></data>
+  <data name="Live.LangDetecting" xml:space="preserve"><value>言語を検出しています…</value></data>
+  <data name="Live.LangDetected" xml:space="preserve"><value>検出: {0}</value></data>
+  <data name="Live.LangSwitching" xml:space="preserve"><value>次の無音区間で {0} に切り替えます…</value></data>
+  <data name="Live.LangSwitchFailed" xml:space="preserve"><value>言語を切り替えられませんでした。{0} のまま続行します。</value></data>
+  <data name="Ov.LangAuto" xml:space="preserve"><value>自動</value></data>
+  <data name="LiveScreenLabel.Text" xml:space="preserve"><value>画面収録</value></data>
+  <data name="LiveScreenRecord.OnContent" xml:space="preserve"><value>オン</value></data>
+  <data name="LiveScreenRecord.OffContent" xml:space="preserve"><value>オフ</value></data>
+  <data name="LiveScreenRecord.AutomationProperties.Name" xml:space="preserve"><value>画面を録画する</value></data>
+  <data name="LiveScreenRefresh.Content" xml:space="preserve"><value>更新</value></data>
+  <data name="LiveLanguageCombo.AutomationProperties.Name" xml:space="preserve"><value>言語</value></data>
+  <data name="LiveScreenSourceCombo.AutomationProperties.Name" xml:space="preserve"><value>キャプチャ元</value></data>
+  <data name="LiveScreenStart.Content" xml:space="preserve"><value>画面収録を開始</value></data>
+  <data name="LiveScreenStop.Content" xml:space="preserve"><value>画面収録を停止</value></data>
+  <data name="Live.ScreenOn" xml:space="preserve"><value>画面: {0} に録画中</value></data>
+  <data name="Live.ScreenOff" xml:space="preserve"><value>画面: オフ</value></data>
+  <data name="Live.ScreenFailed" xml:space="preserve"><value>画面収録を停止しました: {0}</value></data>
+  <data name="Live.ScreenUnavailable" xml:space="preserve"><value>この環境では画面収録を利用できません。</value></data>
+  <data name="Live.ScreenPaused" xml:space="preserve"><value>画面収録は一時停止に連動して停止します。</value></data>
+  <data name="LivePreview.AutomationProperties.Name" xml:space="preserve"><value>ライブキャプチャプレビュー</value></data>
+  <data name="LivePreviewPlaceholder.Text" xml:space="preserve"><value>画面収録の実行中、ここにライブプレビューが表示されます。</value></data>
+  <data name="LiveRecBadge.Text" xml:space="preserve"><value>REC</value></data>
+  <data name="LiveTranscriptLabel.Text" xml:space="preserve"><value>文字起こし</value></data>
+  <data name="Live.PreviewFps" xml:space="preserve"><value>{0} fps</value></data>
+  <data name="Ov.Rec" xml:space="preserve"><value>録画中</value></data>
+  <data name="Ov.ScreenToggle" xml:space="preserve"><value>画面収録の開始/停止</value></data>
+  <data name="Set.SizeAutoNote" xml:space="preserve"><value>サイズは言語ごとに適用され、未導入のサイズは Small にフォールバックします。</value></data>
+  <data name="Set.LangIdMissing" xml:space="preserve"><value>言語検出モデルが未導入のため、自動検出は英語で開始します。</value></data>
+  <data name="SetScreen.Text" xml:space="preserve"><value>画面収録</value></data>
+  <data name="SetScreenEnable.Text" xml:space="preserve"><value>会議で画面を録画する</value></data>
+  <data name="SetScreenEnableDesc.Text" xml:space="preserve"><value>新しい会議すべてに適用されます。オフにすると音声のみを録音します。</value></data>
+  <data name="SetScreenSwitch.OnContent" xml:space="preserve"><value>オン</value></data>
+  <data name="SetScreenSwitch.OffContent" xml:space="preserve"><value>オフ</value></data>
+  <data name="SetScreenSwitch.AutomationProperties.Name" xml:space="preserve"><value>会議の画面を録画する</value></data>
+  <data name="SetScreenSource.Text" xml:space="preserve"><value>キャプチャ元</value></data>
+  <data name="SetScreenSourceDesc.Text" xml:space="preserve"><value>ディスプレイまたは特定のウィンドウ。会議の開始ごとに再解決されます（閉じたウィンドウはプライマリディスプレイに戻ります）。</value></data>
+  <data name="SetScreenSourcePicker.AutomationProperties.Name" xml:space="preserve"><value>キャプチャ元</value></data>
+  <data name="SetScreenNote.Text" xml:space="preserve"><value>画面収録は新しい会議で既定で有効です。映像は音声と同じ場所に保存され、一時停止に連動します。</value></data>
+  <data name="Set.LogWriting" xml:space="preserve"><value>{0} 以上を {1} に書き込みます</value></data>
+  <data name="Set.OverlayStatus" xml:space="preserve"><value>常に最前面 {0} · 不透明度 {1} · 文字サイズ {2} pt · {3} 行</value></data>
+  <data name="Set.StorageStatus" xml:space="preserve"><value>文字起こしは {0} に書き込まれます。</value></data>
+  <data name="Set.UsageNone" xml:space="preserve"><value>使用量: 0 B — フォルダーはまだ存在しません。</value></data>
+  <data name="Set.UsageMb" xml:space="preserve"><value>使用量: {0} MB（{1} 内）</value></data>
+  <data name="Set.UsageUnavailable" xml:space="preserve"><value>使用量: 取得できません。</value></data>
+  <data name="Set.SaveFailed" xml:space="preserve"><value>設定をディスクに保存できませんでした（{0}）。変更はこのセッションにのみ適用され、保存されません。</value></data>
+  <data name="Set.ErrReadOnly" xml:space="preserve"><value>データフォルダーが読み取り専用です</value></data>
+  <data name="Set.ErrNotWritable" xml:space="preserve"><value>データフォルダーに書き込みできません</value></data>
+  <data name="Set.ErrNotWritten" xml:space="preserve"><value>データフォルダーに書き込めませんでした</value></data>
+
+  <!-- L4.6: Overlay window code strings -->
+  <data name="Ov.Title" xml:space="preserve"><value>ライブ文字起こし</value></data>
+  <data name="Ov.Settings" xml:space="preserve"><value>オーバーレイ設定</value></data>
+  <data name="Ov.Darkness" xml:space="preserve"><value>背景の暗さ</value></data>
+  <data name="Ov.TextSize" xml:space="preserve"><value>文字サイズ</value></data>
+  <data name="Ov.Font" xml:space="preserve"><value>フォント</value></data>
+  <data name="Ov.Lines" xml:space="preserve"><value>表示行数</value></data>
+  <data name="Ov.Pin" xml:space="preserve"><value>常に最前面</value></data>
+  <data name="Ov.NoLines" xml:space="preserve"><value>文字起こしはまだありません。</value></data>
+  <data name="Ov.NotRecording" xml:space="preserve"><value>録音していません — MeetVault で「録音を開始」を押してください。</value></data>
+  <data name="Ov.Listening" xml:space="preserve"><value>聞き取り中…</value></data>
+  <data name="Ov.On" xml:space="preserve"><value>オン</value></data>
+  <data name="Ov.Off" xml:space="preserve"><value>オフ</value></data>
+
+  <!-- L4.7: MainWindow nav-error dialog -->
+  <data name="Nav.ErrorTitle" xml:space="preserve"><value>{0} を開けませんでした</value></data>
+  <data name="Nav.ErrorPageFallback" xml:space="preserve"><value>そのページ</value></data>
+  <data name="Nav.ErrorBody" xml:space="preserve"><value>このページの読み込み中に問題が発生しました。ダッシュボードに戻ります。詳細は {0} に記録されました。</value></data>
+  <data name="Nav.BackToDashboard" xml:space="preserve"><value>ダッシュボードに戻る</value></data>
+
+  <!-- Backend service -->
+  <data name="SetBackend.Text" xml:space="preserve"><value>クラウドサービス</value></data>
+  <data name="SetBackendNote.Text" xml:space="preserve"><value>クラウドサービスでの事後処理: より高精度な文字起こし、話者ラベル、要約、Q&amp;A。録音はローカルに保存され、サービスなしでも動作します。</value></data>
+  <data name="SetBackendUrl.Text" xml:space="preserve"><value>サーバー URL</value></data>
+  <data name="SetBackendUrlDesc.Text" xml:space="preserve"><value>クラウドサービスのアドレスです。既定のまま MeetVault クラウドを使うか、自分のサーバーを指定できます。</value></data>
+  <data name="SetBackendUrlBox.PlaceholderText" xml:space="preserve"><value>https://meetvault.supersanta.io.vn</value></data>
+  <data name="SetBackendUrlBox.AutomationProperties.Name" xml:space="preserve"><value>クラウドサービス URL</value></data>
+  <data name="Set.BackendSwitched" xml:space="preserve"><value>サーバーを切り替えました。もう一度サインインしてください。</value></data>
+  <data name="SetAccount.Text" xml:space="preserve"><value>アカウント</value></data>
+  <data name="SetAccountDesc.Text" xml:space="preserve"><value>クラウド機能にはサインインが必要です。</value></data>
+  <data name="SetAccountButton.Content" xml:space="preserve"><value>管理</value></data>
+  <data name="Set.AccountSignedIn" xml:space="preserve"><value>{0} でサインイン中</value></data>
+  <data name="Set.AccountSignedOut" xml:space="preserve"><value>サインインしていません</value></data>
+  <data name="SetTestBackend.Content" xml:space="preserve"><value>接続をテスト</value></data>
+  <data name="SetTestBackend.AutomationProperties.Name" xml:space="preserve"><value>バックエンド接続をテスト</value></data>
+  <data name="Set.BackendNoUrl" xml:space="preserve"><value>先にサーバー URL を入力してください。</value></data>
+  <data name="Set.BackendTesting" xml:space="preserve"><value>接続を確認しています…</value></data>
+  <data name="Set.BackendReady" xml:space="preserve"><value>準備完了 · {0}</value></data>
+  <data name="Set.BackendProviders" xml:space="preserve"><value>文字起こし {0} · 話者分離 {1} · 分析 {2}</value></data>
+  <data name="Set.BackendUnreachable" xml:space="preserve"><value>バックエンドに接続できませんでした: {0}</value></data>
+  <data name="Set.BackendTimeout" xml:space="preserve"><value>サーバーが時間内に応答しませんでした</value></data>
+  <data name="Set.BackendNetError" xml:space="preserve"><value>ネットワークエラー</value></data>
+  <data name="Set.BackendBadUrl" xml:space="preserve"><value>サーバー URL が正しくありません</value></data>
+  <!-- Details: backend processing section -->
+  <data name="Det.BackendSendingStep" xml:space="preserve"><value>送信中: {0}</value></data>
+  <data name="Det.BackendNoKey" xml:space="preserve"><value>バックエンド API キーがありません。設定で追加してください。</value></data>
+  <data name="Det.BackendNoUrl" xml:space="preserve"><value>バックエンドのサーバー URL がありません。設定で追加してください。</value></data>
+  <data name="Det.BackendNoMeeting" xml:space="preserve"><value>会議を読み込めませんでした。</value></data>
+  <data name="Det.BackendUnreachable" xml:space="preserve"><value>バックエンドに接続できませんでした。サーバーとキーを確認して再試行してください。</value></data>
+  <data name="Det.BackendFailed" xml:space="preserve"><value>バックエンド処理に失敗しました: {0}</value></data>
+  <data name="Det.BackendCancelSent" xml:space="preserve"><value>キャンセルを要求しました。</value></data>
+  <data name="Det.BackendCancelled" xml:space="preserve"><value>バックエンドへの送信をキャンセルしました。</value></data>
+  <data name="Det.BackendTimeout" xml:space="preserve"><value>バックエンドが時間内に応答しませんでした。もう一度お試しください。</value></data>
+  <data name="Det.BackendCancelPending" xml:space="preserve"><value>ジョブはまだ開始されていません。少し待ってからもう一度キャンセルしてください。</value></data>
+  <data name="Back.State.None" xml:space="preserve"><value>未送信</value></data>
+  <data name="Back.State.Sending" xml:space="preserve"><value>送信中</value></data>
+  <data name="Back.State.Uploaded" xml:space="preserve"><value>アップロード済み</value></data>
+  <data name="Back.State.Processing" xml:space="preserve"><value>処理中</value></data>
+  <data name="Back.State.Ready" xml:space="preserve"><value>完了</value></data>
+  <data name="Back.State.Failed" xml:space="preserve"><value>失敗</value></data>
+  <data name="Back.State.Deleted" xml:space="preserve"><value>削除済み</value></data>
+  <data name="Back.State.Unknown" xml:space="preserve"><value>不明</value></data>
+  <data name="Back.MockBadge" xml:space="preserve"><value>モックデータ</value></data>
+  <data name="Back.Stale" xml:space="preserve"><value>古い分析: {0}</value></data>
+  <data name="Back.Stage.Create" xml:space="preserve"><value>会議を作成中</value></data>
+  <data name="Back.Stage.Audio" xml:space="preserve"><value>音声をアップロード中</value></data>
+  <data name="Back.Stage.Video" xml:space="preserve"><value>画面録画をアップロード中</value></data>
+  <data name="Back.Stage.Transcript" xml:space="preserve"><value>文字起こしをアップロード中</value></data>
+  <data name="Back.Stage.Start" xml:space="preserve"><value>処理を開始中</value></data>
+  <data name="BackPageTitle.Text" xml:space="preserve"><value>クラウドストレージ</value></data>
+  <data name="BackPageMeetingLabel.Text" xml:space="preserve"><value>会議</value></data>
+  <data name="BackPagePick.PlaceholderText" xml:space="preserve"><value>同期済みの会議を選択</value></data>
+  <data name="BackPagePick.AutomationProperties.Name" xml:space="preserve"><value>バックエンドの会議</value></data>
+  <data name="BackPageEmpty.Text" xml:space="preserve"><value>まだどの会議もバックエンドに送信されていません。会議の詳細ページを開き「バックエンドに送信」を押してください。</value></data>
+  <data name="BackPageRefresh.Content" xml:space="preserve"><value>更新</value></data>
+  <data name="BackPageRefresh.AutomationProperties.Name" xml:space="preserve"><value>バックエンドのデータを更新</value></data>
+  <data name="BackPagePlay.Content" xml:space="preserve"><value>録音を再生</value></data>
+  <data name="BackPagePlay.AutomationProperties.Name" xml:space="preserve"><value>録音を再生</value></data>
+  <data name="BackPageRerun.Content" xml:space="preserve"><value>分析を再実行</value></data>
+  <data name="BackPageRerun.AutomationProperties.Name" xml:space="preserve"><value>バックエンドの分析を再実行</value></data>
+  <data name="BackPageUpdateTranscript.Content" xml:space="preserve"><value>文字起こしを更新</value></data>
+  <data name="BackPageUpdateTranscript.AutomationProperties.Name" xml:space="preserve"><value>現在の文字起こしを送信して分析を再実行</value></data>
+  <data name="BackPageRemove.Content" xml:space="preserve"><value>バックエンドから削除</value></data>
+  <data name="BackPageRemove.AutomationProperties.Name" xml:space="preserve"><value>この会議をバックエンドから削除</value></data>
+  <data name="BackPageTranscript.Header" xml:space="preserve"><value>サーバー文字起こし</value></data>
+  <data name="BackPageCopyText.Content" xml:space="preserve"><value>テキストをコピー</value></data>
+  <data name="BackPageSummary.Header" xml:space="preserve"><value>要約</value></data>
+  <data name="BackPageAgenda.Header" xml:space="preserve"><value>アジェンダとセクション</value></data>
+  <data name="BackPageDecisions.Header" xml:space="preserve"><value>決定事項</value></data>
+  <data name="BackPageActions.Header" xml:space="preserve"><value>アクション項目</value></data>
+  <data name="BackPageQa.Header" xml:space="preserve"><value>この会議について質問</value></data>
+  <data name="BackPageQaBox.PlaceholderText" xml:space="preserve"><value>何が決まりましたか…?</value></data>
+  <data name="BackPageQaBox.AutomationProperties.Name" xml:space="preserve"><value>この会議についての質問</value></data>
+  <data name="BackPageAsk.Content" xml:space="preserve"><value>質問</value></data>
+  <data name="BackPageAsk.AutomationProperties.Name" xml:space="preserve"><value>バックエンドに質問</value></data>
+  <data name="BackPageJobs.Header" xml:space="preserve"><value>ジョブ</value></data>
+  <data name="BackPageMedia.Header" xml:space="preserve"><value>サーバー上のメディア</value></data>
+  <data name="BackPageWatch.Content" xml:space="preserve"><value>監視</value></data>
+  <data name="BackPageCancelJob.Content" xml:space="preserve"><value>キャンセル</value></data>
+  <data name="BackPageDownload.Content" xml:space="preserve"><value>ダウンロード</value></data>
+  <data name="Back.NoLocalRecording" xml:space="preserve"><value>ローカルの録音がなく、ダウンロードもまだありません。</value></data>
+  <data name="Back.Copied" xml:space="preserve"><value>サーバーの文字起こしをコピーしました。</value></data>
+  <data name="Back.AskQueued" xml:space="preserve"><value>質問を送信しました — 回答を待っています…</value></data>
+  <data name="Back.RerunStarted" xml:space="preserve"><value>再実行を開始しました…</value></data>
+  <data name="Back.RemoveTitle" xml:space="preserve"><value>バックエンドから削除しますか?</value></data>
+  <data name="Back.RemoveBody" xml:space="preserve"><value>サーバー上のこの会議のコピー、文字起こし、分析が削除されます。ローカルの録音は残ります。</value></data>
+  <data name="Back.Remove" xml:space="preserve"><value>削除</value></data>
+  <data name="Back.Removed" xml:space="preserve"><value>バックエンドから削除しました。</value></data>
+  <data name="Back.Downloading" xml:space="preserve"><value>ダウンロード中…</value></data>
+  <data name="Back.Downloaded" xml:space="preserve"><value>{0} にダウンロードしました</value></data>
+  <data name="Back.LoadFailed" xml:space="preserve"><value>バックエンドのデータを読み込めませんでした: {0}</value></data>
+  <data name="BackForgetLink.Content" xml:space="preserve"><value>このリンクを解除</value></data>
+  <data name="BackForgetLink.AutomationProperties.Name" xml:space="preserve"><value>この会議のバックエンド連携を解除する</value></data>
+  <data name="Back.Unlinked" xml:space="preserve"><value>この会議のバックエンド連携を解除しました。</value></data>
+  <data name="BackPageStatusLabel.Text" xml:space="preserve"><value>ステータス</value></data>
+  <data name="LiveTranscriptEmpty.Text" xml:space="preserve"><value>まだ何も認識されていません。発話が認識されるとここに行が表示されます。</value></data>
+  <!-- Account / session -->
+  <data name="Acc.SessionExpired" xml:space="preserve"><value>セッションの有効期限が切れました。もう一度サインインしてください。</value></data>
+  <data name="Acc.Unreachable" xml:space="preserve"><value>クラウドサービスに接続できませんでした。</value></data>
+  <data name="AccTitle.Text" xml:space="preserve"><value>アカウント</value></data>
+  <data name="AccIntro.Text" xml:space="preserve"><value>クラウド機能 (解析のためのアップロード、クラウドストレージ一覧) の利用にはサインインが必要です。ローカルでの録音と文字起こしはアカウントなしで動作します。</value></data>
+  <data name="AccEmailLabel.Text" xml:space="preserve"><value>メールアドレス</value></data>
+  <data name="AccEmailBox.PlaceholderText" xml:space="preserve"><value>you@example.com</value></data>
+  <data name="AccEmailBox.AutomationProperties.Name" xml:space="preserve"><value>メールアドレス</value></data>
+  <data name="AccPasswordLabel.Text" xml:space="preserve"><value>パスワード</value></data>
+  <data name="AccPasswordBox.PlaceholderText" xml:space="preserve"><value>パスワード</value></data>
+  <data name="AccPasswordBox.AutomationProperties.Name" xml:space="preserve"><value>パスワード</value></data>
+  <data name="AccSignIn.Content" xml:space="preserve"><value>サインイン</value></data>
+  <data name="AccSignIn.AutomationProperties.Name" xml:space="preserve"><value>サインイン</value></data>
+  <data name="AccSignOut.Content" xml:space="preserve"><value>サインアウト</value></data>
+  <data name="AccSignOut.AutomationProperties.Name" xml:space="preserve"><value>サインアウト</value></data>
+  <data name="AccSignedInLabel.Text" xml:space="preserve"><value>サインイン済み</value></data>
+  <data name="Acc.SignedInAs" xml:space="preserve"><value>{0} でサインインしています。</value></data>
+  <data name="Acc.ExpiresAt" xml:space="preserve"><value>セッションの有効期限: {0}</value></data>
+  <data name="Acc.MissingFields" xml:space="preserve"><value>メールアドレスとパスワードを入力してください。</value></data>
+  <data name="Acc.InvalidCredentials" xml:space="preserve"><value>メールアドレスまたはパスワードが正しくありません。</value></data>
+  <data name="Acc.SignInFailed" xml:space="preserve"><value>サインインに失敗しました: {0}</value></data>
+  <data name="Acc.SignedIn" xml:space="preserve"><value>サインインしました。</value></data>
+  <data name="Acc.SignedOut" xml:space="preserve"><value>サインアウトしました。</value></data>
+  <data name="Acc.NoUrl" xml:space="preserve"><value>先に設定でクラウドサービスの URL を設定してください。</value></data>
+  <!-- Cloud Storage screen -->
+  <data name="Cloud.Empty.Text" xml:space="preserve"><value>クラウド上の会議はまだありません。会議の「解析」セクションからアップロードしてください。</value></data>
+  <data name="Cloud.Error" xml:space="preserve"><value>クラウド上の会議を読み込めませんでした: {0}</value></data>
+  <data name="Cloud.SignInNeeded" xml:space="preserve"><value>クラウド上の会議を表示するにはサインインしてください。</value></data>
+  <data name="Cloud.SignInButton.Content" xml:space="preserve"><value>サインイン</value></data>
+  <data name="Cloud.Remove.Content" xml:space="preserve"><value>クラウドから削除</value></data>
+  <data name="Cloud.Remove.AutomationProperties.Name" xml:space="preserve"><value>クラウドから削除</value></data>
+  <data name="Cloud.RemoveTitle" xml:space="preserve"><value>クラウドから削除しますか？</value></data>
+  <data name="Cloud.RemoveBody" xml:space="preserve"><value>録音・文字起こし・解析結果がクラウドサービスから削除されます。ローカルの録音には影響しません。</value></data>
+  <data name="Cloud.Removed" xml:space="preserve"><value>クラウドから削除しました。</value></data>
+  <data name="Cloud.Open.AutomationProperties.Name" xml:space="preserve"><value>会議を開く</value></data>
+  <data name="Cloud.Meta" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="Cloud.OpenLabel" xml:space="preserve"><value>開く</value></data>
+  <data name="Det.LoadingCloudMeeting" xml:space="preserve"><value>クラウドから会議を読み込んでいます…</value></data>
+
+  <!-- Details: Analyze / Transcript / Summary / player -->
+  <data name="DetAnalyzeHeader.Text" xml:space="preserve"><value>会議を解析</value></data>
+  <data name="DetAnalyzeExplain.Text" xml:space="preserve"><value>この動画は、文字起こしの精度向上・議事録の要約・Q&amp;A のためにバックエンドへ送信されます。</value></data>
+  <data name="DetAnalyze.Content" xml:space="preserve"><value>解析</value></data>
+  <data name="DetAnalyzeAgain.Content" xml:space="preserve"><value>再解析</value></data>
+  <data name="DetAnalyzeRetry.Content" xml:space="preserve"><value>解析を再試行</value></data>
+  <data name="DetAnalyzeSendAgain.Content" xml:space="preserve"><value>バックエンドに再送信</value></data>
+  <data name="DetAnalyzeCancel.Content" xml:space="preserve"><value>解析をキャンセル</value></data>
+  <data name="DetAnalyzeForget.Content" xml:space="preserve"><value>このリンクを破棄</value></data>
+  <data name="DetAnalyzeNoRecording" xml:space="preserve"><value>解析できる録音がありません。</value></data>
+  <data name="DetAnalyzeSignIn" xml:space="preserve"><value>会議を解析するにはサインインしてください。</value></data>
+  <data name="DetAnalyzeSignInButton.Content" xml:space="preserve"><value>サインイン</value></data>
+  <data name="DetAnalyzeSubmitted" xml:space="preserve"><value>解析を受け付けました。</value></data>
+  <data name="DetAnalyzeRunning" xml:space="preserve"><value>解析を実行中です。この画面を離れても構いません。</value></data>
+  <data name="DetAnalyzeFailed" xml:space="preserve"><value>解析に失敗しました: {0}</value></data>
+  <data name="DetAnalyzeStatusLine" xml:space="preserve"><value>{0} - {1}</value></data>
+  <data name="An.NotAnalyzed" xml:space="preserve"><value>未解析</value></data>
+  <data name="An.Uploading" xml:space="preserve"><value>アップロード中</value></data>
+  <data name="An.Queued" xml:space="preserve"><value>待機中</value></data>
+  <data name="An.Processing" xml:space="preserve"><value>処理中</value></data>
+  <data name="An.Completed" xml:space="preserve"><value>解析済み</value></data>
+  <data name="An.Failed" xml:space="preserve"><value>解析失敗</value></data>
+  <data name="An.NotOnBackend" xml:space="preserve"><value>バックエンドにありません</value></data>
+  <data name="An.NotOnBackendGone" xml:space="preserve"><value>バックエンドから削除済み — 再度送信すると再アップロードします</value></data>
+  <data name="An.NotOnBackendNeverSent" xml:space="preserve"><value>未送信</value></data>
+  <data name="DetSummaryHeader.Text" xml:space="preserve"><value>会議の要約</value></data>
+  <data name="DetSummaryBefore" xml:space="preserve"><value>要約するには動画を解析してください。</value></data>
+  <data name="DetSummaryDuring" xml:space="preserve"><value>解析中です。完了すると要約が表示されます。</value></data>
+  <data name="DetSummaryFailed" xml:space="preserve"><value>解析に失敗したため要約はありません。「解析」セクションから再試行してください。</value></data>
+  <data name="DetDiscussionsHeader.Text" xml:space="preserve"><value>議題と議論</value></data>
+  <data name="DetDecisionsHeader.Text" xml:space="preserve"><value>決定事項</value></data>
+  <data name="DetActionsHeader.Text" xml:space="preserve"><value>アクション項目</value></data>
+  <data name="DetQaHeader.Text" xml:space="preserve"><value>Q&amp;A</value></data>
+  <data name="DetQaAsk.Content" xml:space="preserve"><value>質問</value></data>
+  <data name="DetQaBox.PlaceholderText" xml:space="preserve"><value>この会議について質問</value></data>
+  <data name="DetQaBox.AutomationProperties.Name" xml:space="preserve"><value>質問</value></data>
+  <data name="DetQaPending" xml:space="preserve"><value>考えています...</value></data>
+  <data name="DetCopySummary.Content" xml:space="preserve"><value>要約をコピー</value></data>
+  <data name="DetCopySummary.AutomationProperties.Name" xml:space="preserve"><value>要約をコピー</value></data>
+  <data name="DetExportWord.Content" xml:space="preserve"><value>Word にエクスポート</value></data>
+  <data name="DetExportWord.AutomationProperties.Name" xml:space="preserve"><value>要約を Word にエクスポート</value></data>
+  <data name="DetWordSaved" xml:space="preserve"><value>保存しました: {0}</value></data>
+  <data name="DetWordFailed" xml:space="preserve"><value>エクスポートに失敗しました: {0}</value></data>
+  <data name="DetWordNoAnalysis" xml:space="preserve"><value>先に会議を解析してください。</value></data>
+  <data name="Det.SourceLocal" xml:space="preserve"><value>ローカル文字起こし</value></data>
+  <data name="Det.SourceCloud" xml:space="preserve"><value>バックエンド強化版の文字起こし</value></data>
+  <data name="DetCloudEmpty" xml:space="preserve"><value>サーバー側の文字起こしはまだありません。</value></data>
+  <data name="DetPlayPause.AutomationProperties.Name" xml:space="preserve"><value>再生/一時停止</value></data>
+  <data name="DetPosition.AutomationProperties.Name" xml:space="preserve"><value>シーク</value></data>
+  <data name="DetVolume.AutomationProperties.Name" xml:space="preserve"><value>音量</value></data>
+  <data name="DetFullscreen.AutomationProperties.Name" xml:space="preserve"><value>全画面</value></data>
+</root>

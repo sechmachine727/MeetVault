@@ -1,0 +1,121 @@
+<Page
+    x:Class="MeetVault.Views.LivePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Padding="24" RowSpacing="16" MaxWidth="1400" HorizontalAlignment="Stretch">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <TextBlock x:Uid="LiveTitle" Style="{StaticResource TitleTextBlockStyle}" />
+        <InfoBar x:Name="StatusBar" Grid.Row="1" IsOpen="False" Severity="Informational" />
+        <Grid Grid.Row="2" ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="360" />
+            </Grid.ColumnDefinitions>
+            <Grid RowSpacing="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <!-- Live capture preview: frames arrive only while a screen run is active. -->
+                <Border x:Name="PreviewBox" x:Uid="LivePreview" Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
+                    <Grid MinHeight="260" MaxHeight="440">
+                        <Image x:Name="PreviewImage" Stretch="Uniform" Margin="1" />
+                        <TextBlock x:Name="PreviewEmpty" x:Uid="LivePreviewPlaceholder" Opacity="0.55"
+                                   TextWrapping="Wrap" MaxWidth="420" TextAlignment="Center"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Border x:Name="RecBadge" Visibility="Collapsed" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                Margin="12" CornerRadius="4" Padding="8,3"
+                                Background="{ThemeResource SystemFillColorCriticalBrush}">
+                            <TextBlock x:Uid="LiveRecBadge" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                        </Border>
+                        <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="12"
+                                CornerRadius="4" Padding="8,3" Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                            <TextBlock x:Name="FpsText" FontSize="12" Opacity="0.9" />
+                        </Border>
+                    </Grid>
+                </Border>
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="StartButton" x:Uid="LiveStart" Click="Start_Click" Style="{StaticResource AccentButtonStyle}" />
+                    <Button x:Name="PauseButton" x:Uid="LivePause" Click="Pause_Click" IsEnabled="False" />
+                    <Button x:Name="ResumeButton" x:Uid="LiveResume" Click="Resume_Click" IsEnabled="False" />
+                    <Button x:Name="OverlayButton" x:Uid="LiveOverlay" Click="Overlay_Click" />
+                    <Button x:Name="StopButton" x:Uid="LiveStop" Click="Stop_Click" IsEnabled="False" />
+                </StackPanel>
+                <Border Grid.Row="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="16">
+                    <Grid RowSpacing="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Uid="LiveTranscriptLabel" Style="{StaticResource SubtitleTextBlockStyle}" />
+                        <!-- ItemsControl, not ListView: ListView item templates with bound buttons NRE
+                             inside ComWrappers vtable computation in the trimmed portable exe. -->
+                        <ScrollViewer Grid.Row="1" x:Name="TranscriptScroll" VerticalScrollMode="Auto" MinHeight="160">
+                            <StackPanel>
+                                <ItemsControl x:Name="TranscriptList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <!-- Single-speaker pipeline: no name column; the 8px left inset is kept for visual parity. -->
+                                            <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Margin="8,0,0,0" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <!-- The open sentence's interim text: a trailing element, never a row of the
+                                     bound collection (the ctor re-snapshots on every collection change). -->
+                                <TextBlock x:Name="PartialLine" TextWrapping="Wrap" Margin="8,0,0,0"
+                                           Opacity="0.85" Visibility="Collapsed" />
+                                <TextBlock x:Name="TranscriptEmpty" x:Uid="LiveTranscriptEmpty" TextWrapping="Wrap"
+                                           Margin="8,0,0,0" Opacity="0.55" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+            <StackPanel Grid.Column="1" Spacing="12">
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="16">
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Uid="LiveAudioLabel" Style="{StaticResource SubtitleTextBlockStyle}" />
+                        <TextBlock x:Name="AudioStatus" Text="Mic: not started." TextWrapping="Wrap" Opacity="0.8" />
+                        <TextBlock x:Uid="LiveEngineLabel" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,8,0,0" />
+                        <TextBlock x:Name="EngineStatus" Text="Checking engines..." TextWrapping="Wrap" Opacity="0.8" />
+                        <TextBlock x:Uid="LiveLanguageLabel" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,8,0,0" />
+                        <ComboBox x:Name="LanguageCombo" x:Uid="LiveLanguageCombo" HorizontalAlignment="Stretch"
+                                  SelectionChanged="LanguageCombo_SelectionChanged" />
+                        <TextBlock x:Name="LangStatus" Text="" TextWrapping="Wrap" Opacity="0.7" />
+                    </StackPanel>
+                </Border>
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="16">
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Uid="LiveScreenLabel" Style="{StaticResource SubtitleTextBlockStyle}" />
+                        <ToggleSwitch x:Name="ScreenToggle" x:Uid="LiveScreenRecord" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="ScreenSourceCombo" x:Uid="LiveScreenSourceCombo" HorizontalAlignment="Stretch"
+                                      SelectionChanged="ScreenSource_Changed" />
+                            <Button Grid.Column="1" x:Uid="LiveScreenRefresh" Click="ScreenRefresh_Click" />
+                        </Grid>
+                        <Button x:Name="ScreenRunButton" x:Uid="LiveScreenStart" Click="ScreenRun_Click" IsEnabled="False"
+                                HorizontalAlignment="Left" />
+                        <TextBlock x:Name="ScreenStatus" Text="" TextWrapping="Wrap" Opacity="0.7" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Page>

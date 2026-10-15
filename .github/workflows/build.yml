@@ -1,0 +1,75 @@
+name: Build and test
+
+on:
+  # Push CI runs only on main: a filterless push trigger bills a full runner set for
+  # every branch push AND for the PR event (the concurrency group keys on github.ref,
+  # so the two do not cancel each other), while the PR event below already covers
+  # feature branches.
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+# Least privilege: this workflow only checks out and tests, so no write scopes.
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    env:
+      VSTEST_CONNECTION_TIMEOUT: 240
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build solution (Release)
+        # Solution maps the app Any CPU to x64 (required: the app defaults RID to
+        # win-x64, and an x86 mapping fails with NETSDK1032). Keep them in sync.
+        run: dotnet build client/MeetVault.sln -c Release
+
+      - name: Test Core (Release)
+        # VoskStreamingTranscriberTests early-returns (xUnit reports it as passed) when
+        # models/vosk/small-en is unstaged; CI has no models, so this run never exercises
+        # live decoding. Local runs on a staged box cover it (see BLOCKERS.md).
+        run: dotnet test client/tests/MeetVault.Core.Tests/MeetVault.Core.Tests.csproj -c Release --nologo -v q
+
+      - name: Publish (win-x64)
+        # The documented/shipped publish command (self-contained), so the payload check
+        # exercises the real packaging paths: Platforms/RID pinning, the vcruntime
+        # Content+Link, TrimForeignRuntimesPublish (review r12/r13).
+        run: dotnet publish client/src/MeetVault/MeetVault.csproj -c Release -r win-x64 --self-contained true -o "$env:RUNNER_TEMP/mv-publish"
+
+      - name: Verify publish payload
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "mv-publish"
+          foreach ($f in @("MeetVault.exe", "ScreenRecorderLib.dll", "Microsoft.ML.OnnxRuntime.dll", "onnxruntime.dll", "libvosk.dll")) {
+            if (-not (Test-Path (Join-Path $dir $f))) { throw "missing $f in publish output" }
+          }
+          # A RID-specific self-contained publish emits no runtimes/ tree at all (the csproj
+          # trim globs match nothing today), so assert against the FILE LIST: a regression
+          # that reintroduces foreign payloads must still fail (review r19). RIDs must be
+          # real ones — osx-*, not macos-* (review r18).
+          $files = Get-ChildItem -Path $dir -Recurse -File | ForEach-Object { $_.FullName.Substring($dir.Length + 1) }
+          foreach ($rid in @("linux-x64", "linux-arm64", "linux-arm", "osx-x64", "osx-arm64", "win-arm64", "win-x86")) {
+            if ($files | Where-Object { $_ -like "runtimes\$rid\*" }) { throw "foreign runtime payload survived: runtimes/$rid" }
+          }
+          # The v0.0.0.0 stub (Microsoft.WindowsAppSDK.ML) would satisfy Test-Path: assert
+          # the real assembly version (the BLOCKERS.md regression, review r20).
+          $an = [System.Reflection.AssemblyName]::GetAssemblyName((Join-Path $dir "Microsoft.ML.OnnxRuntime.dll"))
+          if ($an.Version.Major -lt 1) { throw "Microsoft.ML.OnnxRuntime.dll is the v0 stub (assembly version $($an.Version))" }
+          # The VC++ CRT (vcruntime140/msvcp140) is a locally staged payload (vcruntime/win-x64,
+          # not committed): absent on CI by design, present in shipped builds.

@@ -1,0 +1,148 @@
+<mxfile host="app.diagrams.net" agent="Hermes" version="24.7.17">
+  <diagram id="mvweb-arch" name="MeetVault web console">
+    <mxGraphModel dx="1000" dy="800" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="960" pageHeight="880" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title-left" value="Request path (one origin, one image)" style="text;html=1;fontSize=14;fontStyle=1;align=left;verticalAlign=middle;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="340" height="26" as="geometry" />
+        </mxCell>
+
+        <mxCell id="browser" value="Browser — management console&#10;web/ static SPA, same origin as /v1&#10;session token in localStorage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=10;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="60" width="340" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="nginx" value="nginx vhost&#10;meetvault.supersanta.io.vn" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;spacingLeft=10;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="180" width="340" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fastapi" value="FastAPI app — backend/src/mvb/main.py (create_app)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;verticalAlign=top;fontSize=12;fontStyle=1;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="300" width="340" height="215" as="geometry" />
+        </mxCell>
+        <mxCell id="r1" value="GET / → web/index.html&#10;no-cache + strict CSP" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;align=left;spacingLeft=8;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="58" y="335" width="304" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="r2" value="GET /assets/* → StaticFiles&#10;MVB_WEB_ROOT (default ./web)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;align=left;spacingLeft=8;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="58" y="383" width="304" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="r3" value="/v1/* → api/routers&#10;bearer session token, per-user 404" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;align=left;spacingLeft=8;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="58" y="431" width="304" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="r4" value="/docs + /openapi.json unchanged" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;align=left;spacingLeft=8;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="58" y="479" width="304" height="26" as="geometry" />
+        </mxCell>
+
+        <mxCell id="db" value="SQLite dev /&#10;Postgres prod" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="570" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="media" value="Media volume&#10;/data/media" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="220" y="570" width="160" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="worker" value="Job worker — python -m mvb.jobs.worker&#10;pipeline: media_probe → transcribe → diarize → align → analyze, then qa" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;spacingLeft=10;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="680" width="340" height="62" as="geometry" />
+        </mxCell>
+
+        <mxCell id="providers" value="AI providers (pluggable, mock-labelled)&#10;mock | faster-whisper | pyannote | lmstudio | opencode-go" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;spacingLeft=10;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="790" width="340" height="62" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-ab" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;" edge="1" parent="1" source="browser" target="nginx">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-bc" value="proxy_pass 127.0.0.1:8080" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;" edge="1" parent="1" source="nginx" target="fastapi">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cd" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;" edge="1" parent="1" source="fastapi" target="db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-ce" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;" edge="1" parent="1" source="fastapi" target="media">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cf" value="enqueue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;fontSize=11;" edge="1" parent="1" source="fastapi" target="worker">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="440" y="450" />
+              <mxPoint x="440" y="711" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-df" value="claims jobs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;fontSize=11;" edge="1" parent="1" source="db" target="worker">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-fe" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.75;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;fontSize=11;" edge="1" parent="1" source="worker" target="media">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-fg" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;" edge="1" parent="1" source="worker" target="providers">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="title-right" value="Console modules (web/, no bundler, no npm at runtime)" style="text;html=1;fontSize=14;fontStyle=1;align=left;verticalAlign=middle;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="520" y="20" width="420" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="appjs" value="app.js — session bootstrap, rail, hash routing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="560" y="60" width="320" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="libapi" value="lib/api.js&#10;the /v1 client" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="520" y="170" width="170" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="libstate" value="lib/state.js&#10;token store + poll gate" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="710" y="170" width="170" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="librouter" value="lib/router.js&#10;hash routes only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="520" y="240" width="170" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="libformat" value="lib/format.js&#10;status vocabulary" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="710" y="240" width="170" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="libdom" value="lib/dom.js — element builder (no innerHTML: CSP)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="560" y="310" width="320" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="vmeetings" value="views/meetings.js&#10;cloud list, search, poll" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="520" y="390" width="170" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="vmeeting" value="views/meeting.js&#10;7 tabs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="710" y="390" width="170" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="vsignin" value="views/signin.js" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="520" y="460" width="170" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="vsystem" value="views/system.js — providers" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="710" y="460" width="170" height="42" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-app-api" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.15;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="appjs" target="libapi">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-app-state" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.85;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="appjs" target="libstate">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-lib-lib" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=1;" edge="1" parent="1" source="libapi" target="librouter">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-lib-lib2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=1;" edge="1" parent="1" source="libstate" target="libformat">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-app-dom" value="every view builds DOM through lib/dom.js" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=10;dashed=1;strokeColor=#82b366;" edge="1" parent="1" source="appjs" target="libdom">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="470" y="85" />
+              <mxPoint x="470" y="331" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-dom-views" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=1;" edge="1" parent="1" source="libdom" target="vmeetings">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-dom-views2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.85;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=1;" edge="1" parent="1" source="libdom" target="vmeeting">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend" value="New in this change: blue (FastAPI routes, app.js) and green/orange modules.&#10;Unchanged, reused as-is: grey (nginx vhost, database, media volume,&#10;worker, providers, /docs, /openapi.json).&#10;Status: shipped and verified locally (see REPORT.md); the public vhost is PENDING.&#10;Deployment stays ONE artifact: the existing backend image with COPY web ./web&#10;and MVB_WEB_ROOT=/app/web — no second container, no CORS, no JS build step." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=10;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="520" y="540" width="400" height="130" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

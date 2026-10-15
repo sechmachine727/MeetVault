@@ -1,0 +1,172 @@
+name: backend-ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  lint-and-test:
+    name: lint + tests (py${{ matrix.python }}, sqlite)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install ffmpeg (media fixtures and audio extraction)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Install
+        run: |
+          python -m pip install -U pip
+          pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check src tests
+      - name: Migrations round trip on SQLite
+        env:
+          MVB_ENV: dev
+          MVB_DATABASE_URL: sqlite+pysqlite:///./_ci.db
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+      - name: Tests
+        run: pytest -q
+
+  postgres:
+    name: tests (py3.12, postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mvb
+          POSTGRES_PASSWORD: mvb
+          POSTGRES_DB: mvb
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U mvb -d mvb"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      MVB_TEST_DATABASE_URL: postgresql+psycopg://mvb:mvb@localhost:5432/mvb
+      MVB_RUN_POSTGRES: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Install
+        run: |
+          python -m pip install -U pip
+          pip install -e ".[dev,prod]"
+      - name: Migrations round trip on Postgres
+        env:
+          MVB_ENV: dev
+          MVB_DATABASE_URL: postgresql+psycopg://mvb:mvb@localhost:5432/mvb
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
+      - name: Tests
+        run: pytest -q
+
+  docker:
+    name: docker build + smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image
+        run: docker build -t meetvault-backend:ci .
+      - name: Validate compose file
+        env:
+          POSTGRES_PASSWORD: ci-password
+        run: docker compose config -q
+      - name: Start the api against SQLite and wait for readiness
+        run: |
+          docker run -d --name mvb-ci -p 8080:8080 \
+            -e MVB_ENV=dev \
+            -e MVB_DATABASE_URL=sqlite+pysqlite:////data/mvb.db \
+            -e MVB_MEDIA_ROOT=/data/media \
+            meetvault-backend:ci
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/healthz; then ready=1; break; fi
+            sleep 2
+          done
+          test "${ready:-0}" = "1" || { docker logs mvb-ci; exit 1; }
+      - name: Smoke the API (login + system info + openapi)
+        run: |
+          curl -fsS http://localhost:8080/readyz
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/v1/meetings)" = "401"
+          docker exec mvb-ci python -m mvb.admin create-user --email ci@example.com --password ci-password-1
+          TOKEN=$(curl -fsS -X POST http://localhost:8080/v1/auth/login -H 'Content-Type: application/json' -d '{"email":"ci@example.com","password":"ci-password-1"}' | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+          curl -fsS -H "Authorization: Bearer $TOKEN" http://localhost:8080/v1/system/info
+          curl -fsS http://localhost:8080/openapi.json | head -c 200
+          # The management console ships in the image (COPY web ./web, MVB_WEB_ROOT=/app/web).
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/)" = "200"
+          curl -fsS http://localhost:8080/ | grep -q "MeetVault"
+          curl -fsS http://localhost:8080/assets/app.js | head -c 40
+      - name: Container logs on failure
+        if: failure()
+        run: docker logs mvb-ci
+
+  web-console:
+    name: web console (unit + browser)
+    runs-on: ubuntu-latest
+    # Mirrors exactly what `web/run-demo-stack.sh` + `npx playwright test` do on the authoring box.
+    defaults:
+      run:
+        working-directory: backend/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install ffmpeg (the demo seed generates real media)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Install the backend
+        working-directory: backend
+        run: |
+          python -m pip install -U pip
+          pip install -e ".[dev]"
+      - name: Unit-test the console logic (no browser)
+        run: node --test "tests/*.test.mjs"
+      - name: Install Playwright
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Browser suite against a live demo stack
+        # One step: the api/worker are backgrounded by the script and would not survive a step
+        # boundary on a runner.
+        working-directory: backend
+        env:
+          DEMO_ROOT: ${{ runner.temp }}/mvweb
+        run: |
+          sh web/run-demo-stack.sh start
+          cat "$DEMO_ROOT/seed.json"
+          cd web && npx playwright test --reporter=line
+          cd .. && sh web/run-demo-stack.sh stop
+      - name: Upload the console report and screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-console-report
+          path: |
+            backend/docs/web-report/
+            backend/web/playwright-report/

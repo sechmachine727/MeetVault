@@ -1,0 +1,6 @@
+# Container and shell files must stay LF here too: this folder is bind-mounted into Linux
+# containers and its script runs under /bin/sh, where a CRLF shebang fails with
+# "/bin/sh^M: bad interpreter". backend/.gitattributes does the same for its tree; this folder
+# sits outside it, so it needs its own rule.
+* text=auto eol=lf
+*.png binary

@@ -1,0 +1,122 @@
+# Meetvault_Backend deployment: Postgres + API + worker, one image each.
+#
+#   cp docker.env.example .env      # then set POSTGRES_PASSWORD (and any engine/keys)
+#   docker compose up -d --build
+#   docker compose exec api python -m mvb.admin create-user --email you@example.com
+#
+# Everything below is set in .env — models, API keys, ports, timeouts, signup. See
+# docs/DOCKER.md for the full table and worked examples.
+#
+# The api service runs the migrations before serving; the worker waits for the api
+# to become healthy, so migrations are never applied twice concurrently.
+#
+# The project name is NOT set here on purpose: it comes from COMPOSE_PROJECT_NAME (see
+# .env / docker.env.example), so this dev stack and the deployment stack in deploy/ get their
+# own volumes. Sharing one name made `docker compose down -v` in either folder delete the
+# other's database and media (observed).
+
+# Every runtime setting the two processes share. Explicit mapping (not env_file) so the
+# defaults stay sane with no .env at all, and so `docker compose config` shows the
+# resolved values. Add a new server setting here to expose it to the containers.
+x-app-env: &app-env
+  MVB_ENV: ${MVB_ENV:-prod}
+  MVB_DATABASE_URL: postgresql+psycopg://mvb:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/mvb
+  MVB_MEDIA_ROOT: /data/media
+  MVB_WEB_ROOT: /app/web
+  MVB_MAX_UPLOAD_MB: ${MVB_MAX_UPLOAD_MB:-4096}
+  MVB_JOB_STALE_SECONDS: ${MVB_JOB_STALE_SECONDS:-900}
+  MVB_WORKER_POLL_SECONDS: ${MVB_WORKER_POLL_SECONDS:-2}
+  MVB_WORKER_CONCURRENCY: ${MVB_WORKER_CONCURRENCY:-1}
+  MVB_SESSION_TTL_DAYS: ${MVB_SESSION_TTL_DAYS:-30}
+  # Self-service signup. Set false on a public host and create accounts with mvb.admin.
+  MVB_ALLOW_SIGNUP: ${MVB_ALLOW_SIGNUP:-true}
+  MVB_LOG_LEVEL: ${MVB_LOG_LEVEL:-INFO}
+  # --- engines (mock | faster_whisper | pyannote | lmstudio | opencode-go) ---
+  MVB_TRANSCRIBER: ${MVB_TRANSCRIBER:-mock}
+  MVB_TRANSCRIBER_MODEL: ${MVB_TRANSCRIBER_MODEL:-small}
+  MVB_DIARIZER: ${MVB_DIARIZER:-mock}
+  MVB_DIARIZER_MODEL: ${MVB_DIARIZER_MODEL:-pyannote/speaker-diarization-3.1}
+  MVB_ANALYZER: ${MVB_ANALYZER:-mock}
+  MVB_ANALYZER_MODEL: ${MVB_ANALYZER_MODEL:-}
+  MVB_ANALYZER_TIMEOUT_S: ${MVB_ANALYZER_TIMEOUT_S:-120}
+  # --- engine credentials / endpoints ---
+  MVB_LMSTUDIO_BASE_URL: ${MVB_LMSTUDIO_BASE_URL:-http://host.docker.internal:1234/v1}
+  MVB_LMSTUDIO_API_KEY: ${MVB_LMSTUDIO_API_KEY:-}
+  MVB_OPENCODE_GO_BASE_URL: ${MVB_OPENCODE_GO_BASE_URL:-https://opencode.ai/zen/go/v1}
+  MVB_OPENCODE_GO_API_KEY: ${MVB_OPENCODE_GO_API_KEY:-}
+  # Only the real pyannote diarizer reads this; never commit a real token.
+  HF_TOKEN: ${MVB_HF_TOKEN:-}
+  # Let a real engine reuse an existing local model cache instead of downloading it again.
+  HF_HOME: /data/hf
+
+# Shared by api and worker so a real ASR/diarizer is a rebuild, not a code change.
+x-app-build: &app-build
+  context: .
+  args:
+    APP_EXTRAS: ${APP_EXTRAS:-prod}
+    WITH_TRANSCRIBE: ${WITH_TRANSCRIBE:-false}
+    WITH_DIARIZE: ${WITH_DIARIZE:-false}
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mvb
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: mvb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mvb -d mvb"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build: *app-build
+    image: meetvault-backend:${IMAGE_TAG:-local}
+    environment: *app-env
+      # The image ENTRYPOINT applies `alembic upgrade head` (idempotent) before
+      # every command, so no per-service migration command is needed.
+    ports:
+      # Host port is MVB_PORT (`.env`); INSIDE the container the API always listens on
+      # 8080, so only the left-hand number changes.
+      - "${MVB_PORT:-8080}:8080"
+    volumes:
+      - media:/data/media
+      # Optional host bind for the model cache: set HF_CACHE_DIR (and HF_MOUNT if the cache
+      # lives elsewhere) to reuse weights you already have instead of re-downloading them,
+      # e.g. HF_CACHE_DIR=/srv/models/hf and HF_MOUNT=/data/hf.
+      - ${HF_CACHE_DIR:-./.docker-hf}:/data/hf
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # reach LM Studio / OpenCode on the host
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build: *app-build
+    image: meetvault-backend:${IMAGE_TAG:-local}
+    environment: *app-env
+    command: ["python", "-m", "mvb.jobs.worker"]
+    # The image HEALTHCHECK curls the API's /healthz, which this service does not serve. Left
+    # inherited it reports the worker "unhealthy" forever — misleading in `docker ps` and fatal
+    # under an orchestrator that restarts on health. The worker has no port of its own; its
+    # liveness is the job queue (stale-job reaping) and `restart: unless-stopped`.
+    healthcheck:
+      disable: true
+    volumes:
+      - media:/data/media
+      - ${HF_CACHE_DIR:-./.docker-hf}:/data/hf
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      api:
+        condition: service_healthy # migrations are already applied by the api service
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  media:

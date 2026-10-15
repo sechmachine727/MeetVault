@@ -1,0 +1,7 @@
+# Build and run outputs. The exported image itself is produced by build.sh --save and is far too
+# large for git (GitHub refuses any file over 100 MB), so it is copied to delivery/ for shipping.
+dist/
+# The host model cache mounted at /data/hf (HF_CACHE_DIR).
+.docker-hf/
+# The deployer's real settings, including engine API keys.
+.env

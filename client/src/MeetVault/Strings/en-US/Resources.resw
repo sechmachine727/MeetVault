@@ -1,0 +1,517 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <!-- Shell -->
+  <data name="NavDashboard.Content" xml:space="preserve"><value>Dashboard</value></data>
+  <data name="NavLive.Content" xml:space="preserve"><value>Live</value></data>
+  <data name="NavMeetings.Content" xml:space="preserve"><value>Meetings</value></data>
+  <data name="NavBackend.Content" xml:space="preserve"><value>Cloud Storage</value></data>
+  <data name="NavAccount.Content" xml:space="preserve"><value>Account</value></data>
+
+  <!-- Shared: manage flyout, selection toolbar, table headers -->
+  <data name="Manage.ToolTipService.ToolTip" xml:space="preserve"><value>Manage meetings</value></data>
+  <data name="Manage.AutomationProperties.Name" xml:space="preserve"><value>Manage meetings</value></data>
+  <data name="DeleteMeetings.Text" xml:space="preserve"><value>Delete meetings</value></data>
+  <data name="SelAll.ToolTipService.ToolTip" xml:space="preserve"><value>Select all visible meetings</value></data>
+  <data name="SelAll.AutomationProperties.Name" xml:space="preserve"><value>Select all visible</value></data>
+  <data name="SelClear.ToolTipService.ToolTip" xml:space="preserve"><value>Clear the selection</value></data>
+  <data name="SelClear.AutomationProperties.Name" xml:space="preserve"><value>Clear selection</value></data>
+  <data name="SelDelete.ToolTipService.ToolTip" xml:space="preserve"><value>Delete the selected meetings</value></data>
+  <data name="SelDelete.AutomationProperties.Name" xml:space="preserve"><value>Delete selected</value></data>
+  <data name="SelCancel.ToolTipService.ToolTip" xml:space="preserve"><value>Cancel selection mode</value></data>
+  <data name="SelCancel.AutomationProperties.Name" xml:space="preserve"><value>Cancel selection</value></data>
+  <data name="HeadTitle.Text" xml:space="preserve"><value>Title</value></data>
+  <data name="HeadCreated.Text" xml:space="preserve"><value>Created at</value></data>
+  <data name="HeadDuration.Text" xml:space="preserve"><value>Duration</value></data>
+  <data name="HeadStatus.Text" xml:space="preserve"><value>Status</value></data>
+  <data name="MtgRowDel.ToolTipService.ToolTip" xml:space="preserve"><value>Delete this meeting and its recording</value></data>
+  <data name="MtgRowDel.AutomationProperties.Name" xml:space="preserve"><value>Delete</value></data>
+
+  <!-- Dashboard -->
+  <data name="DashStart.Content" xml:space="preserve"><value>Start new meeting</value></data>
+  <data name="DashStart.AutomationProperties.Name" xml:space="preserve"><value>Start new meeting</value></data>
+  <data name="DashRecovery.Title" xml:space="preserve"><value>Unfinished meeting found</value></data>
+  <data name="DashResume.Content" xml:space="preserve"><value>Resume in Live</value></data>
+  <data name="DashMicLabel.Text" xml:space="preserve"><value>Microphone</value></data>
+  <data name="DashEngineLabel.Text" xml:space="preserve"><value>Engine</value></data>
+  <data name="DashRecent.Text" xml:space="preserve"><value>Recent meetings</value></data>
+  <data name="DashEmptyTitle.Text" xml:space="preserve"><value>No meetings yet</value></data>
+  <data name="DashEmptyBody.Text" xml:space="preserve"><value>Start your first meeting and the transcript lands here with timing and summaries.</value></data>
+  <data name="DashGreeting.Text" xml:space="preserve"><value>Ready to capture</value></data>
+
+  <!-- Meetings -->
+  <data name="MtgTitle.Text" xml:space="preserve"><value>Meetings</value></data>
+  <data name="MtgSearch.PlaceholderText" xml:space="preserve"><value>Search meetings</value></data>
+  <data name="MtgSearch.AutomationProperties.Name" xml:space="preserve"><value>Search meetings</value></data>
+
+  <!-- Live -->
+  <data name="LiveTitle.Text" xml:space="preserve"><value>Live transcript</value></data>
+  <data name="LiveStart.Content" xml:space="preserve"><value>Start recording</value></data>
+  <data name="LiveStart.AutomationProperties.Name" xml:space="preserve"><value>Start recording</value></data>
+  <data name="LivePause.Content" xml:space="preserve"><value>Pause</value></data>
+  <data name="LiveResume.Content" xml:space="preserve"><value>Resume</value></data>
+  <data name="LiveOverlay.Content" xml:space="preserve"><value>Show overlay</value></data>
+  <data name="LiveStop.Content" xml:space="preserve"><value>Stop</value></data>
+  <data name="LiveAudioLabel.Text" xml:space="preserve"><value>Audio sources</value></data>
+  <data name="LiveEngineLabel.Text" xml:space="preserve"><value>Engine status</value></data>
+
+  <!-- Details -->
+  <data name="DetTitle.Text" xml:space="preserve"><value>Details</value></data>
+  <data name="DetCopy.Content" xml:space="preserve"><value>Copy transcript</value></data>
+  <data name="DetCopy.AutomationProperties.Name" xml:space="preserve"><value>Copy transcript</value></data>
+  <data name="DetCopy.ToolTipService.ToolTip" xml:space="preserve"><value>Copy the transcript to the clipboard</value></data>
+  <data name="DetExport.Content" xml:space="preserve"><value>Export to Documents</value></data>
+  <data name="DetExport.AutomationProperties.Name" xml:space="preserve"><value>Export transcript to Documents</value></data>
+  <data name="DetExport.ToolTipService.ToolTip" xml:space="preserve"><value>Write the transcript to a text file in Documents</value></data>
+  <data name="DetTranscript.Text" xml:space="preserve"><value>Transcript</value></data>
+  <data name="DetEmpty.Text" xml:space="preserve"><value>No meeting to show yet. Start one in Live and its transcript lands here.</value></data>
+  <data name="DetSpeakerName.AutomationProperties.Name" xml:space="preserve"><value>Speaker</value></data>
+  <data name="Det.SpeakerFallback" xml:space="preserve"><value>Speaker 1</value></data>
+  <data name="DetSpeakerName.ToolTipService.ToolTip" xml:space="preserve"><value>Reassign this line to another speaker</value></data>
+  <data name="DetLineName.AutomationProperties.Name" xml:space="preserve"><value>Transcript line</value></data>
+  <data name="DetLineName.ToolTipService.ToolTip" xml:space="preserve"><value>Edit this line</value></data>
+
+  <!-- Settings -->
+  <data name="SetTitle.Text" xml:space="preserve"><value>Settings</value></data>
+  <data name="SetLangHeader.Text" xml:space="preserve"><value>Display language</value></data>
+  <data name="SetLang.Text" xml:space="preserve"><value>Language</value></data>
+  <data name="SetLangDesc.Text" xml:space="preserve"><value>The app's interface language. Takes effect after a restart.</value></data>
+  <data name="SetLangPicker.AutomationProperties.Name" xml:space="preserve"><value>Display language</value></data>
+  <data name="Lang.System" xml:space="preserve"><value>System default (follow Windows)</value></data>
+  <data name="SetLangRestart" xml:space="preserve"><value>Language saved. Restart the app to apply it.</value></data>
+  <data name="SetAudio.Text" xml:space="preserve"><value>Audio</value></data>
+  <data name="SetMic.Text" xml:space="preserve"><value>Microphone</value></data>
+  <data name="SetMicDesc.Text" xml:space="preserve"><value>The device used when the microphone is recorded.</value></data>
+  <data name="SetMicPicker.AutomationProperties.Name" xml:space="preserve"><value>Microphone</value></data>
+  <data name="SetMicRec.Text" xml:space="preserve"><value>Record microphone</value></data>
+  <data name="SetMicRecDesc.Text" xml:space="preserve"><value>Your own voice. Turn off to capture only system audio.</value></data>
+  <data name="SetMicSwitch.AutomationProperties.Name" xml:space="preserve"><value>Record microphone</value></data>
+  <data name="SetMicSwitch.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="SetMicSwitch.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="SetSysRec.Text" xml:space="preserve"><value>Record system audio</value></data>
+  <data name="SetSysRecDesc.Text" xml:space="preserve"><value>What your speakers play, mixed with the microphone.</value></data>
+  <data name="SetSysSwitch.AutomationProperties.Name" xml:space="preserve"><value>Record system audio</value></data>
+  <data name="SetSysSwitch.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="SetSysSwitch.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="SetSysSrc.Text" xml:space="preserve"><value>System audio source</value></data>
+  <data name="SetSysSrcDesc.Text" xml:space="preserve"><value>All apps, or one running app such as a conference app.</value></data>
+  <data name="SetSysSrcPicker.AutomationProperties.Name" xml:space="preserve"><value>System audio source</value></data>
+  <data name="SetTranscription.Text" xml:space="preserve"><value>Transcription</value></data>
+  <data name="SetLanguage.Text" xml:space="preserve"><value>Language</value></data>
+  <data name="SetLanguageDesc.Text" xml:space="preserve"><value>Auto-detect follows the spoken language (it can switch mid-meeting); picking a language pins it.</value></data>
+  <data name="SetLanguagePicker.AutomationProperties.Name" xml:space="preserve"><value>Speech language</value></data>
+  <data name="SetSize.Text" xml:space="preserve"><value>Model size</value></data>
+  <data name="SetSizeDesc.Text" xml:space="preserve"><value>Small, Medium or Large — the caption below explains what each choice means.</value></data>
+  <data name="SetSizePicker.AutomationProperties.Name" xml:space="preserve"><value>Model size</value></data>
+  <data name="SetOverlay.Text" xml:space="preserve"><value>Overlay</value></data>
+  <data name="SetOverlayNote.Text" xml:space="preserve"><value>These values apply the next time the overlay window opens.</value></data>
+  <data name="SetPin.Text" xml:space="preserve"><value>Keep on top</value></data>
+  <data name="SetPinDesc.Text" xml:space="preserve"><value>Pin the overlay above other windows.</value></data>
+  <data name="SetPinSwitch.AutomationProperties.Name" xml:space="preserve"><value>Keep overlay on top</value></data>
+  <data name="SetPinSwitch.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="SetPinSwitch.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="SetOpacity.Text" xml:space="preserve"><value>Opacity</value></data>
+  <data name="SetOpacityDesc.Text" xml:space="preserve"><value>Overlay background opacity.</value></data>
+  <data name="SetOpacitySlider.AutomationProperties.Name" xml:space="preserve"><value>Overlay opacity</value></data>
+  <data name="SetFont.Text" xml:space="preserve"><value>Font size</value></data>
+  <data name="SetFontDesc.Text" xml:space="preserve"><value>Overlay transcript font, in points.</value></data>
+  <data name="SetFontBox.AutomationProperties.Name" xml:space="preserve"><value>Overlay font size</value></data>
+  <data name="SetLines.Text" xml:space="preserve"><value>Lines shown</value></data>
+  <data name="SetLinesDesc.Text" xml:space="preserve"><value>How many transcript lines the overlay keeps on screen.</value></data>
+  <data name="SetLinesBox.AutomationProperties.Name" xml:space="preserve"><value>Overlay lines shown</value></data>
+  <data name="SetStorage.Text" xml:space="preserve"><value>Storage</value></data>
+  <data name="SetLocation.Text" xml:space="preserve"><value>Location</value></data>
+  <data name="SetLocationDesc.Text" xml:space="preserve"><value>Folder where exported transcripts are written.</value></data>
+  <data name="SetStorageBox.AutomationProperties.Name" xml:space="preserve"><value>Storage location</value></data>
+  <data name="SetLogging.Text" xml:space="preserve"><value>Logging</value></data>
+  <data name="SetLogLevel.Text" xml:space="preserve"><value>Log level</value></data>
+  <data name="SetLogLevelDesc.Text" xml:space="preserve"><value>How much the app writes to its log file.</value></data>
+  <data name="SetLogLevelPicker.AutomationProperties.Name" xml:space="preserve"><value>Log level</value></data>
+  <data name="SetOpenLog.Content" xml:space="preserve"><value>Open log folder</value></data>
+  <data name="SetOpenLog.AutomationProperties.Name" xml:space="preserve"><value>Open log folder</value></data>
+  <data name="SetShowLog.Content" xml:space="preserve"><value>Show log</value></data>
+  <data name="SetShowLog.AutomationProperties.Name" xml:space="preserve"><value>Show log</value></data>
+
+  <!-- L4.1: Meetings page code strings -->
+  <data name="Mtg.FromRepo" xml:space="preserve"><value>{0} meetings from the local repository.</value></data>
+  <data name="Mtg.SelectHint" xml:space="preserve"><value>Select the meetings to delete, then choose Delete selected.</value></data>
+  <data name="Mtg.DraftReason" xml:space="preserve"><value>Recording or a resumable draft - resume it in Live and press Stop to finish it; it can be deleted afterwards.</value></data>
+  <data name="Mtg.DraftNoDelete" xml:space="preserve"><value>This draft can still be resumed — finish or stop it before deleting.</value></data>
+  <data name="Mtg.DelTitle" xml:space="preserve"><value>Delete meetings?</value></data>
+  <data name="Mtg.DelBody" xml:space="preserve"><value>Delete {0} meeting(s)? Their recordings and transcripts will be removed from this device.</value></data>
+  <data name="Mtg.DelConfirm" xml:space="preserve"><value>Delete</value></data>
+  <data name="Mtg.Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Mtg.Deleted" xml:space="preserve"><value>Deleted {0} meeting(s).</value></data>
+  <data name="Mtg.Partial" xml:space="preserve"><value>{0} deleted, {1} failed - the remaining meetings could not be deleted.</value></data>
+  <data name="Mtg.PartialSkipped" xml:space="preserve"><value>{0} deleted, {1} failed, {2} recording file(s) could not be removed - check before trusting the cleanup.</value></data>
+  <data name="Mtg.CouldNotDeleteSelected" xml:space="preserve"><value>Could not delete the selected meetings.</value></data>
+  <data name="Mtg.DelOneTitle" xml:space="preserve"><value>Delete this meeting?</value></data>
+  <data name="Mtg.DelOneBody" xml:space="preserve"><value>'{0}' and its transcript will be removed. The recording file is deleted too. This cannot be undone.</value></data>
+  <data name="Mtg.DeletedOne" xml:space="preserve"><value>Deleted '{0}'.</value></data>
+  <data name="Mtg.CouldNotDelete" xml:space="preserve"><value>Could not delete the meeting.</value></data>
+  <data name="Mtg.NoMatch" xml:space="preserve"><value>No meetings match "{0}".</value></data>
+  <data name="Mtg.EmptyList" xml:space="preserve"><value>No meetings yet. Start one to populate this list.</value></data>
+  <data name="Mtg.RowOpen" xml:space="preserve"><value>Select a meeting to open its details</value></data>
+  <data name="Mtg.RowToggle" xml:space="preserve"><value>Click to select or deselect this meeting</value></data>
+  <data name="Mtg.RowSelected" xml:space="preserve"><value>Selected</value></data>
+  <data name="Mtg.RowNotSelected" xml:space="preserve"><value>Not selected</value></data>
+  <data name="Mtg.StatusRecording" xml:space="preserve"><value>Recording</value></data>
+  <data name="Mtg.StatusPaused" xml:space="preserve"><value>Paused</value></data>
+  <data name="Mtg.StatusProcessing" xml:space="preserve"><value>Processing</value></data>
+  <data name="Mtg.StatusReady" xml:space="preserve"><value>Ready</value></data>
+  <data name="Mtg.StatusFailed" xml:space="preserve"><value>Did not finish</value></data>
+  <data name="Mtg.StatusUnknown" xml:space="preserve"><value>Unknown</value></data>
+  <data name="Mtg.DurInProgress" xml:space="preserve"><value>In progress</value></data>
+  <data name="Mtg.DurMin" xml:space="preserve"><value>{0} min</value></data>
+  <data name="Mtg.DurHourMin" xml:space="preserve"><value>{0} h {1} min</value></data>
+  <data name="Mtg.SelectedCount" xml:space="preserve"><value>{0} selected</value></data>
+  <data name="Mtg.HiddenNote" xml:space="preserve"><value> {0} selected meeting(s) are hidden by the current search and will be deleted too.</value></data>
+  <data name="Mtg.MediaSkipped" xml:space="preserve"><value>Deleted — but {0} recording file(s) could not be removed (outside the managed folder): {1}</value></data>
+
+  <!-- L4.2: Dashboard page code strings -->
+  <data name="Dash.GreetingMorning" xml:space="preserve"><value>Good morning — ready to capture</value></data>
+  <data name="Dash.GreetingAfternoon" xml:space="preserve"><value>Good afternoon — ready to capture</value></data>
+  <data name="Dash.GreetingEvening" xml:space="preserve"><value>Good evening — ready to capture</value></data>
+  <data name="Dash.Interrupted" xml:space="preserve"><value>'{0}' was interrupted. Resume it in Live to keep recording, or start a new meeting; this one stays as a draft.</value></data>
+  <data name="Dash.MicNotStarted" xml:space="preserve"><value>Not started</value></data>
+  <data name="Dash.WindowsDefault" xml:space="preserve"><value>Windows default</value></data>
+  <data name="Dash.ModelReady" xml:space="preserve"><value>Speech engine {0} ready. Live transcription runs on-device.</value></data>
+  <data name="Dash.ModelMissing" xml:space="preserve"><value>Speech model not downloaded. Live runs in demo mode until models arrive.</value></data>
+  <data name="Dash.ModelFallback" xml:space="preserve"><value>Configured model not downloaded — using {0}. Live transcription runs on-device.</value></data>
+  <data name="Dash.CannotOpenLive" xml:space="preserve"><value>Cannot open Live from here. Use the Live item in the navigation pane.</value></data>
+
+  <!-- L4.3: Live page code strings -->
+  <data name="Live.Recording" xml:space="preserve"><value>Recording. Lines appear below as speech is recognized.</value></data>
+  <data name="Live.Paused" xml:space="preserve"><value>Paused. Audio in the gap is not recorded and will not reappear on resume.</value></data>
+  <data name="Live.Resumed" xml:space="preserve"><value>Resumed. Capture continues after the gap.</value></data>
+  <data name="Live.Saved" xml:space="preserve"><value>Saved. {0} line(s) written to the local repository.</value></data>
+  <data name="Live.CouldNotStart" xml:space="preserve"><value>Could not start capture. Check the microphone in Settings. ({0})</value></data>
+  <data name="Live.CouldNotPause" xml:space="preserve"><value>Could not pause: {0}</value></data>
+  <data name="Live.CouldNotResume" xml:space="preserve"><value>Could not resume: {0}</value></data>
+  <data name="Live.CouldNotStop" xml:space="preserve"><value>Could not stop: {0}</value></data>
+  <data name="Live.DemoMode" xml:space="preserve"><value>Demo mode: add Vosk small models to models/ (see docs/ASR-ENGINES.md) for live transcription.</value></data>
+  <data name="Live.CaptureFailed" xml:space="preserve"><value>Capture stopped unexpectedly ({0}). Press Stop and save to keep what was recorded.</value></data>
+  <data name="Live.StreamFailed" xml:space="preserve"><value>Transcription stopped unexpectedly ({0}). Press Stop and save to keep what was recorded.</value></data>
+  <data name="Live.StopTitle" xml:space="preserve"><value>Stop and save this meeting?</value></data>
+  <data name="Live.StopBody" xml:space="preserve"><value>Recording stops and the meeting is saved with {0} line(s) so far. You cannot add more to it afterwards.</value></data>
+  <data name="Live.StopConfirm" xml:space="preserve"><value>Stop and save</value></data>
+  <data name="Live.KeepRecording" xml:space="preserve"><value>Keep recording</value></data>
+  <data name="Live.ResumedCount" xml:space="preserve"><value>Resumed '{0}'. {1} line(s) restored.</value></data>
+  <data name="Live.CouldNotResumeMeeting" xml:space="preserve"><value>Could not resume this meeting. ({0})</value></data>
+  <data name="Live.AudioIdle" xml:space="preserve"><value>Mic: {0}. Not recording.</value></data>
+  <data name="Live.AudioPaused" xml:space="preserve"><value>Paused. Mic: {0}.</value></data>
+  <data name="Live.AudioRecording" xml:space="preserve"><value>Recording from {0}.</value></data>
+  <data name="Live.DeviceN" xml:space="preserve"><value>device {0}</value></data>
+  <data name="Live.ErrNotActive" xml:space="preserve"><value>the meeting is not active</value></data>
+  <data name="Live.ErrMicUnavailable" xml:space="preserve"><value>the microphone is not available</value></data>
+  <data name="Live.ErrReadOnly" xml:space="preserve"><value>the data folder is read-only</value></data>
+  <data name="Live.ErrGeneric" xml:space="preserve"><value>something went wrong</value></data>
+
+  <!-- L4.4: Details page code strings -->
+  <data name="Det.NoMeeting" xml:space="preserve"><value>No meeting to show yet. Start one in Live and its transcript lands here.</value></data>
+  <data name="Det.NoMeetingSelected" xml:space="preserve"><value>No meeting selected</value></data>
+  <data name="Det.EditSaveFailed" xml:space="preserve"><value>Edit kept in memory; save failed: {0}</value></data>
+  <data name="Det.NoLines" xml:space="preserve"><value>No lines</value></data>
+  <data name="Det.LineCount" xml:space="preserve"><value>{0} line(s)</value></data>
+  <data name="Det.LineCountEdited" xml:space="preserve"><value>{0} line(s) · {1} edited</value></data>
+  <data name="Det.NoTranscriptLines" xml:space="preserve"><value>No transcript lines for this meeting yet.</value></data>
+  <data name="Det.Copied" xml:space="preserve"><value>Copied {0} line(s) to the clipboard.</value></data>
+  <data name="Det.ClipboardBusy" xml:space="preserve"><value>The clipboard is busy. Try again.</value></data>
+  <data name="Det.OverwriteTitle" xml:space="preserve"><value>Overwrite export?</value></data>
+  <data name="Det.OverwriteBody" xml:space="preserve"><value>{0} already exists. Replace it?</value></data>
+  <data name="Det.Overwrite" xml:space="preserve"><value>Overwrite</value></data>
+  <data name="Det.Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Det.SavedExport" xml:space="preserve"><value>Saved {0} line(s) to {1}.</value></data>
+  <data name="Det.ExportFolderFailed" xml:space="preserve"><value>The export folder does not exist and could not be created. Check the storage location in Settings.</value></data>
+  <data name="Det.ExportWriteFailed" xml:space="preserve"><value>Could not write the transcript file: {0}</value></data>
+  <data name="Det.EmptyTranscript" xml:space="preserve"><value>The transcript is empty.</value></data>
+  <data name="Det.ErrPermissionDenied" xml:space="preserve"><value>permission denied</value></data>
+  <data name="Det.ErrFileInUse" xml:space="preserve"><value>the file is in use or the disk is full</value></data>
+  <data name="Det.ErrReadOnly" xml:space="preserve"><value>the data folder is read-only</value></data>
+  <data name="Det.ErrGeneric" xml:space="preserve"><value>something went wrong</value></data>
+
+  <!-- L4.5: Settings page code strings -->
+  <data name="Set.SysSrcAllApps" xml:space="preserve"><value>All apps</value></data>
+  <data name="Set.On" xml:space="preserve"><value>on</value></data>
+  <data name="Set.Off" xml:space="preserve"><value>off</value></data>
+  <data name="Set.OpenLogFailed" xml:space="preserve"><value>Could not open the log folder: {0}</value></data>
+  <data name="Set.NoLogYet" xml:space="preserve"><value>No log yet. {0}</value></data>
+  <data name="Set.ReadLogFailed" xml:space="preserve"><value>Could not read the log: {0}</value></data>
+  <data name="Set.AudioBoth" xml:space="preserve"><value>Recording {0} and system audio ({1}); mixed together.</value></data>
+  <data name="Set.AudioMicOnly" xml:space="preserve"><value>Recording {0} only.</value></data>
+  <data name="Set.AudioSysOnly" xml:space="preserve"><value>Recording system audio ({0}) only.</value></data>
+  <data name="Set.AudioNone" xml:space="preserve"><value>No audio source enabled; nothing will be recorded.</value></data>
+  <data name="Set.TranscriptionStatus" xml:space="preserve"><value>{0} · {1} download · {2}</value></data>
+  <data name="Set.SizeSmallDetails" xml:space="preserve"><value>Small — the lightest and fastest to load, with basic accuracy. Not part of this build; see docs/ASR-ENGINES.md.</value></data>
+  <data name="Set.SizeMediumDetails" xml:space="preserve"><value>Medium — more accurate than Small and still realtime on CPU. Not part of this build; see docs/ASR-ENGINES.md.</value></data>
+  <data name="Set.SizeLargeDetails" xml:space="preserve"><value>Large — the most accurate tier; heavier to load and run. English 5.7% word error rate (~2.4 GB), Japanese 8.4% character error rate (~1.3 GB).</value></data>
+  <data name="Set.ModelInstalled" xml:space="preserve"><value>installed</value></data>
+  <data name="Set.ModelNotInstalled" xml:space="preserve"><value>not installed — Live falls back to an installed model until the files are staged (see docs/ASR-ENGINES.md)</value></data>
+  <data name="Set.SizeSmall" xml:space="preserve"><value>Small</value></data>
+  <data name="Set.SizeMedium" xml:space="preserve"><value>Medium</value></data>
+  <data name="Set.SizeLarge" xml:space="preserve"><value>Large</value></data>
+  <data name="Set.SizeRowUnavailable" xml:space="preserve"><value>— not available for this language</value></data>
+  <data name="Set.SizeRowNotInstalled" xml:space="preserve"><value>— not installed</value></data>
+  <data name="Lang.Auto" xml:space="preserve"><value>Auto-detect</value></data>
+  <data name="LiveLanguageLabel.Text" xml:space="preserve"><value>Language</value></data>
+  <data name="Live.LangModeAuto" xml:space="preserve"><value>auto</value></data>
+  <data name="Live.LangModeManual" xml:space="preserve"><value>manual</value></data>
+  <data name="Live.LangDetecting" xml:space="preserve"><value>Listening to detect the language…</value></data>
+  <data name="Live.LangDetected" xml:space="preserve"><value>Detected: {0}</value></data>
+  <data name="Live.LangSwitching" xml:space="preserve"><value>Switching to {0} at the next pause…</value></data>
+  <data name="Live.LangSwitchFailed" xml:space="preserve"><value>Couldn't switch language — staying on {0}.</value></data>
+  <data name="Ov.LangAuto" xml:space="preserve"><value>auto</value></data>
+  <data name="LiveScreenLabel.Text" xml:space="preserve"><value>Screen recording</value></data>
+  <data name="LiveScreenRecord.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="LiveScreenRecord.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="LiveScreenRecord.AutomationProperties.Name" xml:space="preserve"><value>Record the screen</value></data>
+  <data name="LiveScreenRefresh.Content" xml:space="preserve"><value>Refresh</value></data>
+  <data name="LiveLanguageCombo.AutomationProperties.Name" xml:space="preserve"><value>Language</value></data>
+  <data name="LiveScreenSourceCombo.AutomationProperties.Name" xml:space="preserve"><value>Capture source</value></data>
+  <data name="LiveScreenStart.Content" xml:space="preserve"><value>Start screen recording</value></data>
+  <data name="LiveScreenStop.Content" xml:space="preserve"><value>Stop screen recording</value></data>
+  <data name="Live.ScreenOn" xml:space="preserve"><value>Screen: recording to {0}</value></data>
+  <data name="Live.ScreenOff" xml:space="preserve"><value>Screen: off</value></data>
+  <data name="Live.ScreenFailed" xml:space="preserve"><value>Screen recording stopped: {0}</value></data>
+  <data name="Live.ScreenUnavailable" xml:space="preserve"><value>Screen recording is unavailable on this system.</value></data>
+  <data name="Live.ScreenPaused" xml:space="preserve"><value>Screen recording pauses with the meeting.</value></data>
+  <data name="LivePreview.AutomationProperties.Name" xml:space="preserve"><value>Live capture preview</value></data>
+  <data name="LivePreviewPlaceholder.Text" xml:space="preserve"><value>The live preview appears here while screen recording is running.</value></data>
+  <data name="LiveRecBadge.Text" xml:space="preserve"><value>REC</value></data>
+  <data name="LiveTranscriptLabel.Text" xml:space="preserve"><value>Transcript</value></data>
+  <data name="Live.PreviewFps" xml:space="preserve"><value>{0} fps</value></data>
+  <data name="Ov.Rec" xml:space="preserve"><value>Recording</value></data>
+  <data name="Ov.ScreenToggle" xml:space="preserve"><value>Start/stop screen recording</value></data>
+  <data name="Set.SizeAutoNote" xml:space="preserve"><value>Size applies per language; unavailable sizes fall back to Small.</value></data>
+  <data name="Set.LangIdMissing" xml:space="preserve"><value>Language detection model is not installed; Auto-detect starts in English.</value></data>
+  <data name="SetScreen.Text" xml:space="preserve"><value>Screen recording</value></data>
+  <data name="SetScreenEnable.Text" xml:space="preserve"><value>Record screens in meetings</value></data>
+  <data name="SetScreenEnableDesc.Text" xml:space="preserve"><value>Applies to every new meeting; turn it off for audio-only recording.</value></data>
+  <data name="SetScreenSwitch.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="SetScreenSwitch.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="SetScreenSwitch.AutomationProperties.Name" xml:space="preserve"><value>Record screens in meetings</value></data>
+  <data name="SetScreenSource.Text" xml:space="preserve"><value>Capture source</value></data>
+  <data name="SetScreenSourceDesc.Text" xml:space="preserve"><value>A display or a specific window; re-resolved at every meeting start (a closed window falls back to the primary display).</value></data>
+  <data name="SetScreenSourcePicker.AutomationProperties.Name" xml:space="preserve"><value>Capture source</value></data>
+  <data name="SetScreenNote.Text" xml:space="preserve"><value>Screen recording is enabled by default for new meetings; video is stored next to the audio and pauses with the meeting.</value></data>
+  <data name="Set.LogWriting" xml:space="preserve"><value>Writing {0} and above to {1}</value></data>
+  <data name="Set.OverlayStatus" xml:space="preserve"><value>Keep on top {0} · opacity {1} · font {2} pt · {3} line(s)</value></data>
+  <data name="Set.StorageStatus" xml:space="preserve"><value>Transcripts will be written to {0}.</value></data>
+  <data name="Set.UsageNone" xml:space="preserve"><value>Usage: 0 B — folder does not exist yet.</value></data>
+  <data name="Set.UsageMb" xml:space="preserve"><value>Usage: {0} MB in {1}</value></data>
+  <data name="Set.UsageUnavailable" xml:space="preserve"><value>Usage: unavailable.</value></data>
+  <data name="Set.SaveFailed" xml:space="preserve"><value>Settings could not be saved to disk ({0}). Changes apply this session and are not persisted.</value></data>
+  <data name="Set.ErrReadOnly" xml:space="preserve"><value>the data folder is read-only</value></data>
+  <data name="Set.ErrNotWritable" xml:space="preserve"><value>the data folder is not writable</value></data>
+  <data name="Set.ErrNotWritten" xml:space="preserve"><value>the data folder could not be written</value></data>
+
+  <!-- L4.6: Overlay window code strings -->
+  <data name="Ov.Title" xml:space="preserve"><value>Live transcript</value></data>
+  <data name="Ov.Settings" xml:space="preserve"><value>Overlay settings</value></data>
+  <data name="Ov.Darkness" xml:space="preserve"><value>Background darkness</value></data>
+  <data name="Ov.TextSize" xml:space="preserve"><value>Text size</value></data>
+  <data name="Ov.Font" xml:space="preserve"><value>Text font</value></data>
+  <data name="Ov.Lines" xml:space="preserve"><value>Lines shown</value></data>
+  <data name="Ov.Pin" xml:space="preserve"><value>Keep above other windows</value></data>
+  <data name="Ov.NoLines" xml:space="preserve"><value>No transcript lines yet.</value></data>
+  <data name="Ov.NotRecording" xml:space="preserve"><value>Not recording — press Start recording in MeetVault.</value></data>
+  <data name="Ov.Listening" xml:space="preserve"><value>Listening…</value></data>
+  <data name="Ov.On" xml:space="preserve"><value>On</value></data>
+  <data name="Ov.Off" xml:space="preserve"><value>Off</value></data>
+
+  <!-- L4.7: MainWindow nav-error dialog -->
+  <data name="Nav.ErrorTitle" xml:space="preserve"><value>Could not open {0}</value></data>
+  <data name="Nav.ErrorPageFallback" xml:space="preserve"><value>that page</value></data>
+  <data name="Nav.ErrorBody" xml:space="preserve"><value>Something went wrong loading this page. You are back on the dashboard; the details were logged under {0}.</value></data>
+  <data name="Nav.BackToDashboard" xml:space="preserve"><value>Back to Dashboard</value></data>
+
+  <!-- Backend service -->
+  <data name="SetBackend.Text" xml:space="preserve"><value>Cloud service</value></data>
+  <data name="SetBackendNote.Text" xml:space="preserve"><value>Post-meeting processing on your cloud service: better transcript, speaker labels, summary and Q&amp;A. Recording stays local and keeps working without it.</value></data>
+  <data name="SetBackendUrl.Text" xml:space="preserve"><value>Server URL</value></data>
+  <data name="SetBackendUrlDesc.Text" xml:space="preserve"><value>The cloud service address. Leave the default to use the MeetVault cloud, or point it at your own server.</value></data>
+  <data name="SetBackendUrlBox.PlaceholderText" xml:space="preserve"><value>https://meetvault.supersanta.io.vn</value></data>
+  <data name="SetBackendUrlBox.AutomationProperties.Name" xml:space="preserve"><value>Cloud service URL</value></data>
+  <data name="Set.BackendSwitched" xml:space="preserve"><value>Switched server — sign in again.</value></data>
+  <data name="SetAccount.Text" xml:space="preserve"><value>Account</value></data>
+  <data name="SetAccountDesc.Text" xml:space="preserve"><value>Cloud features need a signed-in account.</value></data>
+  <data name="SetAccountButton.Content" xml:space="preserve"><value>Manage</value></data>
+  <data name="Set.AccountSignedIn" xml:space="preserve"><value>Signed in as {0}</value></data>
+  <data name="Set.AccountSignedOut" xml:space="preserve"><value>Not signed in</value></data>
+  <data name="SetTestBackend.Content" xml:space="preserve"><value>Test connection</value></data>
+  <data name="SetTestBackend.AutomationProperties.Name" xml:space="preserve"><value>Test backend connection</value></data>
+  <data name="Set.BackendNoUrl" xml:space="preserve"><value>Add the server URL first.</value></data>
+  <data name="Set.BackendTesting" xml:space="preserve"><value>Testing the connection…</value></data>
+  <data name="Set.BackendReady" xml:space="preserve"><value>Ready · {0}</value></data>
+  <data name="Set.BackendProviders" xml:space="preserve"><value>transcribe {0} · diarize {1} · analyze {2}</value></data>
+  <data name="Set.BackendUnreachable" xml:space="preserve"><value>Could not reach the backend: {0}</value></data>
+  <data name="Set.BackendTimeout" xml:space="preserve"><value>the server did not answer in time</value></data>
+  <data name="Set.BackendNetError" xml:space="preserve"><value>network error</value></data>
+  <data name="Set.BackendBadUrl" xml:space="preserve"><value>that server URL is not valid</value></data>
+  <!-- Details: backend processing section -->
+  <data name="Det.BackendSendingStep" xml:space="preserve"><value>Sending: {0}</value></data>
+  <data name="Det.BackendNoKey" xml:space="preserve"><value>Backend API key missing. Add it in Settings.</value></data>
+  <data name="Det.BackendNoUrl" xml:space="preserve"><value>Backend server URL missing. Add it in Settings.</value></data>
+  <data name="Det.BackendNoMeeting" xml:space="preserve"><value>The meeting could not be loaded.</value></data>
+  <data name="Det.BackendUnreachable" xml:space="preserve"><value>The backend could not be reached. Check the server and the key, then try again.</value></data>
+  <data name="Det.BackendFailed" xml:space="preserve"><value>Backend processing failed: {0}</value></data>
+  <data name="Det.BackendCancelSent" xml:space="preserve"><value>Cancellation requested.</value></data>
+  <data name="Det.BackendCancelled" xml:space="preserve"><value>The backend send was cancelled.</value></data>
+  <data name="Det.BackendTimeout" xml:space="preserve"><value>The backend did not respond in time. Try again.</value></data>
+  <data name="Det.BackendCancelPending" xml:space="preserve"><value>The job has not started yet — try Cancel again in a moment.</value></data>
+  <data name="Back.State.None" xml:space="preserve"><value>not sent</value></data>
+  <data name="Back.State.Sending" xml:space="preserve"><value>sending</value></data>
+  <data name="Back.State.Uploaded" xml:space="preserve"><value>uploaded</value></data>
+  <data name="Back.State.Processing" xml:space="preserve"><value>processing</value></data>
+  <data name="Back.State.Ready" xml:space="preserve"><value>ready</value></data>
+  <data name="Back.State.Failed" xml:space="preserve"><value>failed</value></data>
+  <data name="Back.State.Deleted" xml:space="preserve"><value>deleted</value></data>
+  <data name="Back.State.Unknown" xml:space="preserve"><value>unknown</value></data>
+  <data name="Back.MockBadge" xml:space="preserve"><value>mock data</value></data>
+  <data name="Back.Stale" xml:space="preserve"><value>Out of date: {0}</value></data>
+  <data name="Back.Stage.Create" xml:space="preserve"><value>creating meeting</value></data>
+  <data name="Back.Stage.Audio" xml:space="preserve"><value>uploading audio</value></data>
+  <data name="Back.Stage.Video" xml:space="preserve"><value>uploading screen video</value></data>
+  <data name="Back.Stage.Transcript" xml:space="preserve"><value>uploading transcript</value></data>
+  <data name="Back.Stage.Start" xml:space="preserve"><value>starting processing</value></data>
+  <data name="BackPageTitle.Text" xml:space="preserve"><value>Cloud Storage</value></data>
+  <data name="BackPageMeetingLabel.Text" xml:space="preserve"><value>Meeting</value></data>
+  <data name="BackPagePick.PlaceholderText" xml:space="preserve"><value>Choose a synced meeting</value></data>
+  <data name="BackPagePick.AutomationProperties.Name" xml:space="preserve"><value>Backend meeting</value></data>
+  <data name="BackPageEmpty.Text" xml:space="preserve"><value>No meetings have been sent to the backend yet. Open a meeting's Details page and press Send to backend.</value></data>
+  <data name="BackPageRefresh.Content" xml:space="preserve"><value>Refresh</value></data>
+  <data name="BackPageRefresh.AutomationProperties.Name" xml:space="preserve"><value>Refresh backend data</value></data>
+  <data name="BackPagePlay.Content" xml:space="preserve"><value>Play recording</value></data>
+  <data name="BackPagePlay.AutomationProperties.Name" xml:space="preserve"><value>Play recording</value></data>
+  <data name="BackPageRerun.Content" xml:space="preserve"><value>Re-run analysis</value></data>
+  <data name="BackPageRerun.AutomationProperties.Name" xml:space="preserve"><value>Re-run the backend analysis</value></data>
+  <data name="BackPageUpdateTranscript.Content" xml:space="preserve"><value>Update transcript</value></data>
+  <data name="BackPageUpdateTranscript.AutomationProperties.Name" xml:space="preserve"><value>Upload the current transcript and re-run analysis</value></data>
+  <data name="BackPageRemove.Content" xml:space="preserve"><value>Remove from backend</value></data>
+  <data name="BackPageRemove.AutomationProperties.Name" xml:space="preserve"><value>Remove this meeting from the backend</value></data>
+  <data name="BackPageTranscript.Header" xml:space="preserve"><value>Server transcript</value></data>
+  <data name="BackPageCopyText.Content" xml:space="preserve"><value>Copy text</value></data>
+  <data name="BackPageSummary.Header" xml:space="preserve"><value>Summary</value></data>
+  <data name="BackPageAgenda.Header" xml:space="preserve"><value>Agenda &amp; sections</value></data>
+  <data name="BackPageDecisions.Header" xml:space="preserve"><value>Decisions</value></data>
+  <data name="BackPageActions.Header" xml:space="preserve"><value>Action items</value></data>
+  <data name="BackPageQa.Header" xml:space="preserve"><value>Ask about this meeting</value></data>
+  <data name="BackPageQaBox.PlaceholderText" xml:space="preserve"><value>What did we decide about …?</value></data>
+  <data name="BackPageQaBox.AutomationProperties.Name" xml:space="preserve"><value>Question about this meeting</value></data>
+  <data name="BackPageAsk.Content" xml:space="preserve"><value>Ask</value></data>
+  <data name="BackPageAsk.AutomationProperties.Name" xml:space="preserve"><value>Ask the backend</value></data>
+  <data name="BackPageJobs.Header" xml:space="preserve"><value>Jobs</value></data>
+  <data name="BackPageMedia.Header" xml:space="preserve"><value>Media on the server</value></data>
+  <data name="BackPageWatch.Content" xml:space="preserve"><value>Watch</value></data>
+  <data name="BackPageCancelJob.Content" xml:space="preserve"><value>Cancel</value></data>
+  <data name="BackPageDownload.Content" xml:space="preserve"><value>Download</value></data>
+  <data name="Back.NoLocalRecording" xml:space="preserve"><value>No local recording and nothing downloaded yet.</value></data>
+  <data name="Back.Copied" xml:space="preserve"><value>Server transcript copied.</value></data>
+  <data name="Back.AskQueued" xml:space="preserve"><value>Question sent — waiting for the answer…</value></data>
+  <data name="Back.RerunStarted" xml:space="preserve"><value>Re-run started…</value></data>
+  <data name="Back.RemoveTitle" xml:space="preserve"><value>Remove from the backend?</value></data>
+  <data name="Back.RemoveBody" xml:space="preserve"><value>The server's copy, transcript and analysis for this meeting will be deleted. The local recording stays.</value></data>
+  <data name="Back.Remove" xml:space="preserve"><value>Remove</value></data>
+  <data name="Back.Removed" xml:space="preserve"><value>Removed from the backend.</value></data>
+  <data name="Back.Downloading" xml:space="preserve"><value>Downloading…</value></data>
+  <data name="Back.Downloaded" xml:space="preserve"><value>Downloaded to {0}</value></data>
+  <data name="Back.LoadFailed" xml:space="preserve"><value>Could not load backend data: {0}</value></data>
+  <data name="BackForgetLink.Content" xml:space="preserve"><value>Forget this link</value></data>
+  <data name="BackForgetLink.AutomationProperties.Name" xml:space="preserve"><value>Forget the backend link for this meeting</value></data>
+  <data name="Back.Unlinked" xml:space="preserve"><value>The backend link was removed from this meeting.</value></data>
+  <data name="BackPageStatusLabel.Text" xml:space="preserve"><value>Status</value></data>
+  <data name="LiveTranscriptEmpty.Text" xml:space="preserve"><value>Nothing recognized yet — lines appear here as speech is recognized.</value></data>
+  <!-- Account / session -->
+  <data name="Acc.SessionExpired" xml:space="preserve"><value>Your session has expired. Sign in again.</value></data>
+  <data name="Acc.Unreachable" xml:space="preserve"><value>Could not reach the cloud service.</value></data>
+  <data name="AccTitle.Text" xml:space="preserve"><value>Account</value></data>
+  <data name="AccIntro.Text" xml:space="preserve"><value>Sign in to use cloud features: uploading meetings for analysis and the Cloud Storage list. Local recording and transcription work without an account.</value></data>
+  <data name="AccEmailLabel.Text" xml:space="preserve"><value>Email</value></data>
+  <data name="AccEmailBox.PlaceholderText" xml:space="preserve"><value>you@example.com</value></data>
+  <data name="AccEmailBox.AutomationProperties.Name" xml:space="preserve"><value>Email</value></data>
+  <data name="AccPasswordLabel.Text" xml:space="preserve"><value>Password</value></data>
+  <data name="AccPasswordBox.PlaceholderText" xml:space="preserve"><value>Password</value></data>
+  <data name="AccPasswordBox.AutomationProperties.Name" xml:space="preserve"><value>Password</value></data>
+  <data name="AccSignIn.Content" xml:space="preserve"><value>Sign in</value></data>
+  <data name="AccSignIn.AutomationProperties.Name" xml:space="preserve"><value>Sign in</value></data>
+  <data name="AccSignOut.Content" xml:space="preserve"><value>Sign out</value></data>
+  <data name="AccSignOut.AutomationProperties.Name" xml:space="preserve"><value>Sign out</value></data>
+  <data name="AccSignedInLabel.Text" xml:space="preserve"><value>Signed in</value></data>
+  <data name="Acc.SignedInAs" xml:space="preserve"><value>Signed in as {0}.</value></data>
+  <data name="Acc.ExpiresAt" xml:space="preserve"><value>Session expires {0}.</value></data>
+  <data name="Acc.MissingFields" xml:space="preserve"><value>Enter your email and password.</value></data>
+  <data name="Acc.InvalidCredentials" xml:space="preserve"><value>Email or password is incorrect.</value></data>
+  <data name="Acc.SignInFailed" xml:space="preserve"><value>Sign-in failed: {0}</value></data>
+  <data name="Acc.SignedIn" xml:space="preserve"><value>Signed in.</value></data>
+  <data name="Acc.SignedOut" xml:space="preserve"><value>Signed out.</value></data>
+  <data name="Acc.NoUrl" xml:space="preserve"><value>Set the cloud service URL in Settings first.</value></data>
+  <!-- Cloud Storage screen -->
+  <data name="Cloud.Empty.Text" xml:space="preserve"><value>No cloud meetings yet. Upload one from a meeting's Analyze section.</value></data>
+  <data name="Cloud.Error" xml:space="preserve"><value>Could not load cloud meetings: {0}</value></data>
+  <data name="Cloud.SignInNeeded" xml:space="preserve"><value>Sign in to see your cloud meetings.</value></data>
+  <data name="Cloud.SignInButton.Content" xml:space="preserve"><value>Sign in</value></data>
+  <data name="Cloud.Remove.Content" xml:space="preserve"><value>Remove from cloud</value></data>
+  <data name="Cloud.Remove.AutomationProperties.Name" xml:space="preserve"><value>Remove from cloud</value></data>
+  <data name="Cloud.RemoveTitle" xml:space="preserve"><value>Remove from the cloud?</value></data>
+  <data name="Cloud.RemoveBody" xml:space="preserve"><value>The recording, transcript and analysis are deleted from the cloud service. The local recording is not affected.</value></data>
+  <data name="Cloud.Removed" xml:space="preserve"><value>Removed from the cloud.</value></data>
+  <data name="Cloud.Open.AutomationProperties.Name" xml:space="preserve"><value>Open meeting</value></data>
+  <data name="Cloud.Meta" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="Cloud.OpenLabel" xml:space="preserve"><value>Open</value></data>
+  <data name="Det.LoadingCloudMeeting" xml:space="preserve"><value>Loading meeting from the cloud…</value></data>
+
+  <!-- Details: Analyze / Transcript / Summary / player -->
+  <data name="DetAnalyzeHeader.Text" xml:space="preserve"><value>Analyze meeting</value></data>
+  <data name="DetAnalyzeExplain.Text" xml:space="preserve"><value>This video will be sent to the backend for analysis to provide improved transcription, meeting summarization, and Q&amp;A.</value></data>
+  <data name="DetAnalyze.Content" xml:space="preserve"><value>Analyze</value></data>
+  <data name="DetAnalyzeAgain.Content" xml:space="preserve"><value>Analyze again</value></data>
+  <data name="DetAnalyzeRetry.Content" xml:space="preserve"><value>Retry analysis</value></data>
+  <data name="DetAnalyzeSendAgain.Content" xml:space="preserve"><value>Send to backend again</value></data>
+  <data name="DetAnalyzeCancel.Content" xml:space="preserve"><value>Cancel analysis</value></data>
+  <data name="DetAnalyzeForget.Content" xml:space="preserve"><value>Forget this link</value></data>
+  <data name="DetAnalyzeNoRecording" xml:space="preserve"><value>This meeting has no recording to analyze.</value></data>
+  <data name="DetAnalyzeSignIn" xml:space="preserve"><value>Sign in to analyze meetings.</value></data>
+  <data name="DetAnalyzeSignInButton.Content" xml:space="preserve"><value>Sign in</value></data>
+  <data name="DetAnalyzeSubmitted" xml:space="preserve"><value>Submitted for analysis.</value></data>
+  <data name="DetAnalyzeRunning" xml:space="preserve"><value>Analysis is running - you can leave this screen.</value></data>
+  <data name="DetAnalyzeFailed" xml:space="preserve"><value>Analysis failed: {0}</value></data>
+  <data name="DetAnalyzeStatusLine" xml:space="preserve"><value>{0} - {1}</value></data>
+  <data name="An.NotAnalyzed" xml:space="preserve"><value>Not analyzed</value></data>
+  <data name="An.Uploading" xml:space="preserve"><value>Uploading</value></data>
+  <data name="An.Queued" xml:space="preserve"><value>Queued</value></data>
+  <data name="An.Processing" xml:space="preserve"><value>Processing</value></data>
+  <data name="An.Completed" xml:space="preserve"><value>Analyzed</value></data>
+  <data name="An.Failed" xml:space="preserve"><value>Analysis failed</value></data>
+  <data name="An.NotOnBackend" xml:space="preserve"><value>Not on backend</value></data>
+  <data name="An.NotOnBackendGone" xml:space="preserve"><value>deleted from the backend — send it again to re-upload</value></data>
+  <data name="An.NotOnBackendNeverSent" xml:space="preserve"><value>not sent yet</value></data>
+  <data name="DetSummaryHeader.Text" xml:space="preserve"><value>Meeting summary</value></data>
+  <data name="DetSummaryBefore" xml:space="preserve"><value>Please analyze the video for summarization.</value></data>
+  <data name="DetSummaryDuring" xml:space="preserve"><value>Analysis in progress - the summary appears when it completes.</value></data>
+  <data name="DetSummaryFailed" xml:space="preserve"><value>Analysis failed - no summary is available. Retry from the Analyze section.</value></data>
+  <data name="DetDiscussionsHeader.Text" xml:space="preserve"><value>Agenda &amp; discussion</value></data>
+  <data name="DetDecisionsHeader.Text" xml:space="preserve"><value>Decisions</value></data>
+  <data name="DetActionsHeader.Text" xml:space="preserve"><value>Action items</value></data>
+  <data name="DetQaHeader.Text" xml:space="preserve"><value>Q&amp;A</value></data>
+  <data name="DetQaAsk.Content" xml:space="preserve"><value>Ask</value></data>
+  <data name="DetQaBox.PlaceholderText" xml:space="preserve"><value>Ask about this meeting</value></data>
+  <data name="DetQaBox.AutomationProperties.Name" xml:space="preserve"><value>Question</value></data>
+  <data name="DetQaPending" xml:space="preserve"><value>Thinking...</value></data>
+  <data name="DetCopySummary.Content" xml:space="preserve"><value>Copy summary</value></data>
+  <data name="DetCopySummary.AutomationProperties.Name" xml:space="preserve"><value>Copy summary</value></data>
+  <data name="DetExportWord.Content" xml:space="preserve"><value>Export to Word</value></data>
+  <data name="DetExportWord.AutomationProperties.Name" xml:space="preserve"><value>Export summary to Word</value></data>
+  <data name="DetWordSaved" xml:space="preserve"><value>Saved {0}</value></data>
+  <data name="DetWordFailed" xml:space="preserve"><value>Export failed: {0}</value></data>
+  <data name="DetWordNoAnalysis" xml:space="preserve"><value>Analyze the meeting first.</value></data>
+  <data name="Det.SourceLocal" xml:space="preserve"><value>Local transcript</value></data>
+  <data name="Det.SourceCloud" xml:space="preserve"><value>Backend-enhanced transcript</value></data>
+  <data name="DetCloudEmpty" xml:space="preserve"><value>No server transcript yet.</value></data>
+  <data name="DetPlayPause.AutomationProperties.Name" xml:space="preserve"><value>Play or pause</value></data>
+  <data name="DetPosition.AutomationProperties.Name" xml:space="preserve"><value>Seek</value></data>
+  <data name="DetVolume.AutomationProperties.Name" xml:space="preserve"><value>Volume</value></data>
+  <data name="DetFullscreen.AutomationProperties.Name" xml:space="preserve"><value>Fullscreen</value></data>
+</root>
