@@ -37,6 +37,7 @@ there is no CORS, no second container and no JavaScript build step.
 | 19 | Mock output never disguised | per-object badges: "Mock transcript" / "Mock analysis" | `meeting.is_mock`, `run.is_mock` | `04-detail`, `06-analysis` |
 | 20 | Stale analysis surfaced, not hidden | "Out of date" banner (genuinely stale kinds only) | `status.stale_kinds` minus `fresh_kinds` | `04-detail`, `12-versions` |
 | 21 | — (new) | Service tab: effective providers | `/v1/system/{info,providers}` | `10-screenshots` (11-service) |
+| 22 | — (new) | Sign-up screen: create an account with an email (name optional), then signed in on an empty cloud | `POST /v1/auth/register` | `01b-signup` |
 
 **Deliberate scope boundary:** recording, media upload and transcript import stay in the desktop
 app — that is what the desktop's Cloud Storage screen does too. The console is read/manage/analyse.
@@ -60,6 +61,7 @@ Production is the same image: `docker compose up -d --build` (or the deployed st
 | Screenshot | What it shows |
 |---|---|
 | `screens/01-sign-in.png` | The sign-in screen (the console is account-gated; every `/v1` call carries the session token) |
+| `screens/01b-sign-up.png` | The sign-up screen: name (optional), email, password, confirm — the way in without an admin running `mvb.admin create-user` |
 | `screens/02-meetings-list.png` | The cloud list: three meetings, status pills, "Analyzed" badge, search + status filter + paging, range "1–3 of 3" |
 | `screens/03-remove-confirm.png` | The "Remove from cloud?" confirmation (states that the server copy goes, the local recording does not) |
 | `screens/04-meeting-overview.png` | Meeting detail: facts (status/language/duration/created/counts), "Mock transcript" badge, both recordings (audio + screen video, with its `starts at 0:02` offset) with playback/download/delete |
@@ -80,20 +82,20 @@ All commands were run in this session; the tails below are real.
 
 ```text
 $ cd backend && ./.venv/Scripts/python.exe -m pytest -q
-236 passed, 2 skipped, 1 warning in 49.21s            (baseline before this work: 214 passed, 2 skipped)
+265 passed, 2 skipped, 1 warning in 51.85s            (baseline before this work: 214 passed, 2 skipped)
 
 $ ./.venv/Scripts/python.exe -m ruff check src tests
 All checks passed!
 $ ./.venv/Scripts/python.exe -m ruff format --check src tests
-110 files already formatted
+113 files already formatted
 
 $ cd backend/web && node --test "tests/*.test.mjs"
-ℹ tests 30
-ℹ pass 30
+ℹ tests 36
+ℹ pass 36
 ℹ fail 0
 
 $ cd backend/web && MVB_DEMO_URL=http://127.0.0.1:8099 npx playwright test --reporter=line
-60 passed (1.0m)                                      (two projects: narrow 420 px, then desktop 1440 px)
+65 passed (1.1m)                                      (two projects: narrow 420 px, then desktop 1440 px)
 ```
 
 - **Zero console errors** is asserted by every browser spec (`fixtures.js` collects
@@ -207,8 +209,16 @@ $ cd backend/web && MVB_DEMO_URL=http://127.0.0.1:8099 npx playwright test --rep
     asserts the invariant the user experiences: **every filter option returns exactly the rows whose
     pill it names** (expectation derived from the rendered pills, not hardcoded).
 16. **Documentation drift (reported, not changed):** `backend/README.md` §Status still says
-    "157 tests pass" (the suite is 236) and `docs/ACCEPTANCE.md`/`COVERAGE` rows predate the web
+    "157 tests pass" (the suite is 265) and `docs/ACCEPTANCE.md`/`COVERAGE` rows predate the web
     console. Out of scope here; worth a docs sweep.
+17. **Sign-up ships open, and this backend has no rate limiter.** `MVB_ALLOW_SIGNUP` defaults to
+    `true` (the owner asked for self-service email sign-up), so anyone who can reach the server can
+    create accounts, and every registration runs scrypt (~16 MiB) — a cheap CPU/memory DoS vector.
+    Verified: there is no limiter or `429` anywhere in `src/mvb/`. One env var closes it
+    (`MVB_ALLOW_SIGNUP=false` → `403 signup_disabled`, and the console shows the reason); a per-IP
+    limiter or invite codes would be the next step. `409 email_taken` also reveals whether an
+    address is registered — accepted deliberately, because the alternative (silently succeeding)
+    would break the sign-up screen.
 
 ## 6. Architecture
 
