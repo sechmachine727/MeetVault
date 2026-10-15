@@ -48,7 +48,32 @@ public class BackendAnalysisStateTests
         Assert.Equal(AnalysisState.Processing, BackendAnalysisState.Map(Sync("processing"), null, false));
         Assert.Equal(AnalysisState.Completed, BackendAnalysisState.Map(Sync("ready"), null, false));
         Assert.Equal(AnalysisState.Failed, BackendAnalysisState.Map(Sync("failed"), null, false));
-        Assert.Equal(AnalysisState.Failed, BackendAnalysisState.Map(Sync("not_found"), null, false));
+        // The server no longer holds the meeting: that is "not on the backend", not an analysis
+        // failure — the user sends it again (see NextAction_*).
+        Assert.Equal(AnalysisState.NotAnalyzed, BackendAnalysisState.Map(Sync("not_found"), null, false));
+    }
+
+    // The regression this pins: a meeting whose cloud copy was deleted offered "Retry analysis",
+    // which re-ran against the dead backend id and could only answer 404. A dangling link (or no
+    // link at all) must send the meeting again instead.
+    [Fact]
+    public void NextAction_DeletedCloudCopy_SendsAgain()
+        => Assert.Equal(BackendAction.Send, BackendAnalysisState.NextAction(Sync("not_found")));
+
+    [Fact]
+    public void NextAction_NoSyncRow_Sends()
+        => Assert.Equal(BackendAction.Send, BackendAnalysisState.NextAction(null));
+
+    [Fact]
+    public void NextAction_NoBackendId_Sends()
+        => Assert.Equal(BackendAction.Send, BackendAnalysisState.NextAction(new("m1", null, "failed", "boom", false, "2026-10-14T00:00:00Z")));
+
+    [Fact]
+    public void NextAction_LinkedMeeting_Reruns()
+    {
+        Assert.Equal(BackendAction.Rerun, BackendAnalysisState.NextAction(Sync("ready")));
+        Assert.Equal(BackendAction.Rerun, BackendAnalysisState.NextAction(Sync("failed")));
+        Assert.Equal(BackendAction.Rerun, BackendAnalysisState.NextAction(Sync("processing")));
     }
 
     [Theory]

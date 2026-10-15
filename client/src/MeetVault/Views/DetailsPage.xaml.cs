@@ -36,6 +36,9 @@ public sealed partial class DetailsPage : Page
     // --- Analysis result (badge source): the LAST loaded analysis bundle ---
     private BackendBundle? _lastAnalysis;
     private string _stateLabelKey = "An.NotAnalyzed";
+    // The server has no such meeting (the cloud copy was deleted): the link is dangling, the
+    // state shows "Not on backend", and the action sends the meeting again from scratch.
+    private bool _backendGone;
     // A cloud-only meeting (no local row) carries its backend id here; local meetings link
     // through _backendId / the backend_sync row.
     private string? _cloudBackendId = null;
@@ -695,11 +698,29 @@ public sealed partial class DetailsPage : Page
             var meetingId = _meeting?.Id;
             if (meetingId is not null) FlushEdits();
             var existing = meetingId is null ? null : AppStore.Repo.LoadBackendSync(meetingId);
-            var backendId = _cloudBackendId ?? existing?.BackendId;
+            var backendId = _cloudBackendId ?? (_backendGone ? null : existing?.BackendId);
             _backendId = backendId;
-            if (meetingId is not null)
-                AppStore.Repo.SaveBackendSync(new(meetingId, backendId, "sending", null, existing?.Mock ?? false, NowIso()));
             RenderAnalyzeState(AnalysisState.Uploading, null);
+            if (backendId is not null)
+            {
+                // Already uploaded (or cloud-only): a re-run forces the analysis again. A 404 here
+                // means the cloud copy was deleted, so the link is dropped and the send below
+                // re-creates the meeting (the server's create is idempotent on source+external_id,
+                // and it replaces the tombstone the delete left behind).
+                try
+                {
+                    var rerun = await client.ProcessAsync(backendId, new[] { "analyze" }, force: true, ct: ct);
+                    if (rerun.JobIds.Count > 0) _backendActiveJobId = rerun.JobIds[0];
+                }
+                catch (BackendApiException ex) when (ex.Code == "not_found")
+                {
+                    MeetVault.Core.AppLog.Warn("backend: cloud copy is gone (" + backendId + "); re-sending the meeting");
+                    if (meetingId is not null) AppStore.Repo.ClearBackendSync(meetingId);
+                    _backendId = null;
+                    backendId = null;
+                    _backendGone = false;
+                }
+            }
             if (backendId is null)
             {
                 var meeting = AppStore.Repo.Load(meetingId!);
@@ -717,11 +738,9 @@ public sealed partial class DetailsPage : Page
                 if (meetingId is not null)
                     AppStore.Repo.SaveBackendSync(new(meetingId, backendId, "processing", null, false, NowIso()));
             }
-            else
+            else if (meetingId is not null)
             {
-                // Already uploaded (or cloud-only): a re-run forces the analysis again.
-                var rerun = await client.ProcessAsync(backendId, new[] { "analyze" }, force: true, ct: ct);
-                if (rerun.JobIds.Count > 0) _backendActiveJobId = rerun.JobIds[0];
+                AppStore.Repo.SaveBackendSync(new(meetingId, backendId, "sending", null, existing?.Mock ?? false, NowIso()));
             }
             RenderAnalyzeState(AnalysisState.Queued, null);
             var final = await new BackendSync(client).WaitForTerminalAsync(backendId, status =>
@@ -802,12 +821,20 @@ public sealed partial class DetailsPage : Page
         {
             var status = await client.GetStatusAsync(backendId);
             var hasAnalysis = status.FreshKinds.Count > 0;
+            _backendGone = false;
             RenderAnalyzeState(BackendAnalysisState.Map(AppStore.Repo.LoadBackendSync(_meeting?.Id ?? ""), status, hasAnalysis), status);
         }
         catch (BackendApiException ex) when (ex.Code == "not_found" && _meeting is not null)
         {
+            // The server deleted this meeting: record the dangling link, drop the cached id so the
+            // next Analyze re-sends instead of re-running against a dead id (BackendAction.Send),
+            // and show the "Not on backend" state rather than an analysis failure.
             AppStore.Repo.SaveBackendSync(new(_meeting.Id, backendId, "not_found", "not_found: the cloud copy is gone", false, NowIso()));
-            RenderAnalyzeState(AnalysisState.Failed, null);
+            _backendId = null;
+            _backendGone = true;
+            _lastAnalysis = null;
+            UpdateMockBadge();
+            RenderAnalyzeState(AnalysisState.NotAnalyzed, null);
         }
         catch (BackendApiException ex)
         {
@@ -840,6 +867,8 @@ public sealed partial class DetailsPage : Page
         {
             AnalysisState.Completed => Loc.T("DetAnalyzeAgain.Content"),
             AnalysisState.Failed => Loc.T("DetAnalyzeRetry.Content"),
+            // The meeting is not on the backend (yet, or any more): the action is a send, not a retry.
+            _ when _backendGone => Loc.T("DetAnalyzeSendAgain.Content"),
             _ => Loc.T("DetAnalyze.Content"),
         };
         var forget = state == AnalysisState.Failed
@@ -852,6 +881,15 @@ public sealed partial class DetailsPage : Page
             ? Visibility.Visible : Visibility.Collapsed;
         AnalyzeProgress.Visibility = state is AnalysisState.Uploading or AnalysisState.Queued or AnalysisState.Processing
             ? Visibility.Visible : Visibility.Collapsed;
+        if (_backendGone && state == AnalysisState.NotAnalyzed)
+        {
+            // Say what is actually true and what the button will do, instead of the bare
+            // "Not analyzed" that used to sit beside a red not_found error bar.
+            var reason = AppStore.Repo.LoadBackendSync(_meeting?.Id ?? "")?.State == "not_found"
+                ? Loc.T("An.NotOnBackendGone")
+                : Loc.T("An.NotOnBackend");
+            AnalyzeStateText.Text = Loc.Tf("DetAnalyzeStatusLine", Loc.T("An.NotOnBackend"), reason);
+        }
         if (state == AnalysisState.NotAnalyzed && _meeting is { MediaPath: null } && _cloudBackendId is null)
         {
             AnalyzeStateText.Text = Loc.T("DetAnalyzeNoRecording");

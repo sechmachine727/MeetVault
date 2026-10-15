@@ -2,6 +2,13 @@ namespace MeetVault.Core.Backend;
 
 public enum AnalysisState { NotAnalyzed, Uploading, Queued, Processing, Completed, Failed }
 
+// What the next Analyze click must do for a meeting whose sync row exists.
+// Fired when a backend id is on file but the SERVER no longer has that meeting: a deleted cloud
+// copy (the backend soft-deletes and keeps the row, so only the client's link dangles) cannot be
+// analyzed — it has to be re-created and re-uploaded, and the server's create is idempotent on
+// (source, external_id), so the re-send replaces the tombstone instead of duplicating it.
+public enum BackendAction { Send, Rerun }
+
 // Single mapping from backend-reported state to the six user-visible analysis states.
 // Rules (keep in sync with docs/INTEGRATION.md):
 // - Backend status is authoritative whenever it is available (status != null).
@@ -25,10 +32,21 @@ public static class BackendAnalysisState
             "sending" => AnalysisState.Uploading,
             "processing" => AnalysisState.Processing,
             "ready" => AnalysisState.Completed,
-            "failed" or "not_found" => AnalysisState.Failed,
+            // A dangling link (the server deleted the meeting) is not an analysis failure: it is
+            // back to "not on the backend yet", which is what the user can act on by sending again.
+            "not_found" => AnalysisState.NotAnalyzed,
+            "failed" => AnalysisState.Failed,
             _ => AnalysisState.NotAnalyzed,
         };
     }
+
+    // Send vs re-run for a meeting that already has a backend link. "not_found" means the server
+    // holds no such meeting, so the only way forward is a full send (create + media + transcript);
+    // a re-run against the dead id can only answer 404.
+    public static BackendAction NextAction(BackendSyncRow? sync)
+        => !string.IsNullOrEmpty(sync?.BackendId) && sync!.State != "not_found"
+            ? BackendAction.Rerun
+            : BackendAction.Send;
 
     public static AnalysisState FromCloudRow(string meetingStatus, string? latestJobType, string? latestJobState, bool hasAnalysis)
     {

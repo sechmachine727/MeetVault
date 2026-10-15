@@ -469,6 +469,7 @@
   <data name="DetAnalyze.Content" xml:space="preserve"><value>Analyze</value></data>
   <data name="DetAnalyzeAgain.Content" xml:space="preserve"><value>Analyze again</value></data>
   <data name="DetAnalyzeRetry.Content" xml:space="preserve"><value>Retry analysis</value></data>
+  <data name="DetAnalyzeSendAgain.Content" xml:space="preserve"><value>Send to backend again</value></data>
   <data name="DetAnalyzeCancel.Content" xml:space="preserve"><value>Cancel analysis</value></data>
   <data name="DetAnalyzeForget.Content" xml:space="preserve"><value>Forget this link</value></data>
   <data name="DetAnalyzeNoRecording" xml:space="preserve"><value>This meeting has no recording to analyze.</value></data>
@@ -484,6 +485,9 @@
   <data name="An.Processing" xml:space="preserve"><value>Processing</value></data>
   <data name="An.Completed" xml:space="preserve"><value>Analyzed</value></data>
   <data name="An.Failed" xml:space="preserve"><value>Analysis failed</value></data>
+  <data name="An.NotOnBackend" xml:space="preserve"><value>Not on backend</value></data>
+  <data name="An.NotOnBackendGone" xml:space="preserve"><value>deleted from the backend — send it again to re-upload</value></data>
+  <data name="An.NotOnBackendNeverSent" xml:space="preserve"><value>not sent yet</value></data>
   <data name="DetSummaryHeader.Text" xml:space="preserve"><value>Meeting summary</value></data>
   <data name="DetSummaryBefore" xml:space="preserve"><value>Please analyze the video for summarization.</value></data>
   <data name="DetSummaryDuring" xml:space="preserve"><value>Analysis in progress - the summary appears when it completes.</value></data>

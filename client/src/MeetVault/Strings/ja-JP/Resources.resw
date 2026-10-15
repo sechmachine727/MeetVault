@@ -469,6 +469,7 @@
   <data name="DetAnalyze.Content" xml:space="preserve"><value>解析</value></data>
   <data name="DetAnalyzeAgain.Content" xml:space="preserve"><value>再解析</value></data>
   <data name="DetAnalyzeRetry.Content" xml:space="preserve"><value>解析を再試行</value></data>
+  <data name="DetAnalyzeSendAgain.Content" xml:space="preserve"><value>バックエンドに再送信</value></data>
   <data name="DetAnalyzeCancel.Content" xml:space="preserve"><value>解析をキャンセル</value></data>
   <data name="DetAnalyzeForget.Content" xml:space="preserve"><value>このリンクを破棄</value></data>
   <data name="DetAnalyzeNoRecording" xml:space="preserve"><value>解析できる録音がありません。</value></data>
@@ -484,6 +485,9 @@
   <data name="An.Processing" xml:space="preserve"><value>処理中</value></data>
   <data name="An.Completed" xml:space="preserve"><value>解析済み</value></data>
   <data name="An.Failed" xml:space="preserve"><value>解析失敗</value></data>
+  <data name="An.NotOnBackend" xml:space="preserve"><value>バックエンドにありません</value></data>
+  <data name="An.NotOnBackendGone" xml:space="preserve"><value>バックエンドから削除済み — 再度送信すると再アップロードします</value></data>
+  <data name="An.NotOnBackendNeverSent" xml:space="preserve"><value>未送信</value></data>
   <data name="DetSummaryHeader.Text" xml:space="preserve"><value>会議の要約</value></data>
   <data name="DetSummaryBefore" xml:space="preserve"><value>要約するには動画を解析してください。</value></data>
   <data name="DetSummaryDuring" xml:space="preserve"><value>解析中です。完了すると要約が表示されます。</value></data>
