@@ -332,9 +332,10 @@
   <data name="SetBackend.Text" xml:space="preserve"><value>Cloud service</value></data>
   <data name="SetBackendNote.Text" xml:space="preserve"><value>Post-meeting processing on your cloud service: better transcript, speaker labels, summary and Q&amp;A. Recording stays local and keeps working without it.</value></data>
   <data name="SetBackendUrl.Text" xml:space="preserve"><value>Server URL</value></data>
-  <data name="SetBackendUrlDesc.Text" xml:space="preserve"><value>The cloud service address, for example http://localhost:8080.</value></data>
-  <data name="SetBackendUrlBox.PlaceholderText" xml:space="preserve"><value>http://localhost:8080</value></data>
+  <data name="SetBackendUrlDesc.Text" xml:space="preserve"><value>The cloud service address. Leave the default to use the MeetVault cloud, or point it at your own server.</value></data>
+  <data name="SetBackendUrlBox.PlaceholderText" xml:space="preserve"><value>https://meetvault.supersanta.io.vn</value></data>
   <data name="SetBackendUrlBox.AutomationProperties.Name" xml:space="preserve"><value>Cloud service URL</value></data>
+  <data name="Set.BackendSwitched" xml:space="preserve"><value>Switched server — sign in again.</value></data>
   <data name="SetAccount.Text" xml:space="preserve"><value>Account</value></data>
   <data name="SetAccountDesc.Text" xml:space="preserve"><value>Cloud features need a signed-in account.</value></data>
   <data name="SetAccountButton.Content" xml:space="preserve"><value>Manage</value></data>

@@ -332,9 +332,10 @@
   <data name="SetBackend.Text" xml:space="preserve"><value>クラウドサービス</value></data>
   <data name="SetBackendNote.Text" xml:space="preserve"><value>クラウドサービスでの事後処理: より高精度な文字起こし、話者ラベル、要約、Q&amp;A。録音はローカルに保存され、サービスなしでも動作します。</value></data>
   <data name="SetBackendUrl.Text" xml:space="preserve"><value>サーバー URL</value></data>
-  <data name="SetBackendUrlDesc.Text" xml:space="preserve"><value>クラウドサービスのアドレス (例: http://localhost:8080)。</value></data>
-  <data name="SetBackendUrlBox.PlaceholderText" xml:space="preserve"><value>http://localhost:8080</value></data>
+  <data name="SetBackendUrlDesc.Text" xml:space="preserve"><value>クラウドサービスのアドレスです。既定のまま MeetVault クラウドを使うか、自分のサーバーを指定できます。</value></data>
+  <data name="SetBackendUrlBox.PlaceholderText" xml:space="preserve"><value>https://meetvault.supersanta.io.vn</value></data>
   <data name="SetBackendUrlBox.AutomationProperties.Name" xml:space="preserve"><value>クラウドサービス URL</value></data>
+  <data name="Set.BackendSwitched" xml:space="preserve"><value>サーバーを切り替えました。もう一度サインインしてください。</value></data>
   <data name="SetAccount.Text" xml:space="preserve"><value>アカウント</value></data>
   <data name="SetAccountDesc.Text" xml:space="preserve"><value>クラウド機能にはサインインが必要です。</value></data>
   <data name="SetAccountButton.Content" xml:space="preserve"><value>管理</value></data>
