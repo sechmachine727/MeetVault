@@ -100,15 +100,42 @@ def make_wav(path: Path, seconds: float) -> Path:
     return path
 
 
-def upload_audio(token: str, meeting_id: str, wav: Path) -> int:
+def make_video(path: Path, seconds: float, size: str = "640x360", rate: int = 15) -> Path:
+    """A real H.264 MP4 — the desktop client's screen-recording track."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"testsrc=size={size}:rate={rate}:duration={seconds}",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            str(path),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    return path
+
+
+def upload_media(
+    token: str, meeting_id: str, path: Path, kind: str, content_type: str, start_offset_ms: int = 0
+) -> int:
     boundary = "----mvwebseed"
     body = (
         f"--{boundary}\r\n"
-        f'Content-Disposition: form-data; name="file"; filename="{wav.name}"\r\n'
-        f"Content-Type: audio/wav\r\n\r\n"
-    ).encode() + wav.read_bytes() + f"\r\n--{boundary}--\r\n".encode()
+        f'Content-Disposition: form-data; name="file"; filename="{path.name}"\r\n'
+        f"Content-Type: {content_type}\r\n\r\n"
+    ).encode() + path.read_bytes() + f"\r\n--{boundary}--\r\n".encode()
     request = urllib.request.Request(
-        f"{BASE}/v1/meetings/{meeting_id}/media?kind=audio",
+        f"{BASE}/v1/meetings/{meeting_id}/media?kind={kind}&start_offset_ms={start_offset_ms}",
         data=body,
         headers={
             "Authorization": f"Bearer {token}",
@@ -116,8 +143,12 @@ def upload_audio(token: str, meeting_id: str, wav: Path) -> int:
         },
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=180) as response:
+    with urllib.request.urlopen(request, timeout=300) as response:
         return response.status
+
+
+def upload_audio(token: str, meeting_id: str, wav: Path) -> int:
+    return upload_media(token, meeting_id, wav, "audio", "audio/wav")
 
 
 def create_meeting(token: str, title: str, suffix: str) -> dict:
@@ -153,11 +184,17 @@ def main() -> int:
         meeting_id = meeting["id"]
         wav = make_wav(MEDIA / "seed" / f"demo-{index}.wav", seconds)
         assert upload_audio(token, meeting_id, wav) == 201
+        # Meetings 1 and 3 also carry a screen-recording track, exactly like the desktop client's
+        # video asset (kind=video, starting 2 s into the meeting) so the console's video path,
+        # start offset and per-kind rendering are exercised, not just audio.
+        if index in (1, 3):
+            video = make_video(MEDIA / "seed" / f"demo-{index}-screen.mp4", seconds)
+            assert upload_media(token, meeting_id, video, "video", "video/mp4", start_offset_ms=2000) == 201
         status, imported = http(
             "POST", f"/v1/meetings/{meeting_id}/transcripts?align=auto", token=token, body=TRANSCRIPT
         )
         assert status == 201, (status, imported)
-        created.append({"id": meeting_id, "title": title})
+        created.append({"id": meeting_id, "title": title, "media": 2 if index in (1, 3) else 1})
 
     # Meeting 1: run the full pipeline to a finished, analyzed state.
     status, started = http(

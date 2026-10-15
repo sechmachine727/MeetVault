@@ -1,4 +1,4 @@
-import { el, clear } from "../lib/dom.js";
+import { el, clear, appendAll } from "../lib/dom.js";
 import {
   formatDate,
   formatDuration,
@@ -33,8 +33,28 @@ export async function renderMeeting(ctx, route) {
   // ONE shared player for the whole detail view: transcript rows, agenda items, sections and
   // citations all seek into it. A media element cannot send the Authorization header, so the
   // source is a blob fetched with the header (docs/API.md "Browser playback").
-  const player = el("audio", { controls: true, "data-testid": "player" });
+  //
+  // The element SWAPS between <audio> and <video> with the loaded asset's kind: a screen-recording
+  // track must be watchable, not merely audible (an <audio> element plays an MP4's audio only).
+  const playerHost = el("div", { class: "player-host", "data-testid": "player-host" });
+  const playerCaption = el("div", { class: "meta", "data-testid": "player-caption" });
+  let player = el("audio", { controls: true, "data-testid": "player" });
+  playerHost.append(player);
   let currentAssetId = null;
+
+  function setCaption(asset) {
+    playerCaption.textContent = asset
+      ? `Playing: ${asset.original_name} (${asset.kind}, ${formatDuration(asset.duration_ms)})`
+      : "No recording on the server for this meeting.";
+  }
+
+  function swapPlayerElement(kind) {
+    const wanted = kind === "video" ? "video" : "audio";
+    if (player.tagName.toLowerCase() === wanted) return;
+    const replacement = el(wanted, { controls: true, "data-testid": "player" });
+    player.replaceWith(replacement);
+    player = replacement;
+  }
 
   function releaseBlob() {
     if (state.blobUrl) URL.revokeObjectURL(state.blobUrl);
@@ -42,13 +62,16 @@ export async function renderMeeting(ctx, route) {
     currentAssetId = null;
   }
 
-  async function loadAsset(assetId) {
-    if (currentAssetId === assetId) return;
-    const blob = await ctx.api.mediaBlob(assetId);
+  async function loadAsset(asset) {
+    if (currentAssetId === asset.id) return;
+    const blob = await ctx.api.mediaBlob(asset.id);
     releaseBlob();
     state.blobUrl = URL.createObjectURL(blob);
-    currentAssetId = assetId;
+    currentAssetId = asset.id;
+    swapPlayerElement(asset.kind);
     player.src = state.blobUrl;
+    // The caption names what is loaded NOW — it must follow a track switch, not only the mount.
+    setCaption(asset);
   }
 
   async function downloadAsset(asset, fallbackName) {
@@ -83,7 +106,8 @@ export async function renderMeeting(ctx, route) {
     const status = state.status || {};
     const step = describeJobState(status);
     const elapsed = status.active_job_started_at ? formatElapsed(status.active_job_started_at, Date.now()) : "";
-    head.append(
+    appendAll(
+      head,
       el("h1", { text: state.meeting.title }),
       el("p", {
         class: "sub",
@@ -117,17 +141,21 @@ export async function renderMeeting(ctx, route) {
   async function loadPlayerBar() {
     clear(playerBar);
     const media = await ctx.api.listMedia(meetingId, { limit: 50 }).catch(() => ({ items: [] }));
+    // The AUDIO track is the meeting's timeline anchor (and what the transcript seeks against), so
+    // it is what the shared player shows by default; a screen-recording track is loaded on demand
+    // from the media list, which swaps the element to <video>.
     const asset = media.items.find((item) => item.kind === "audio") || media.items[0];
-    playerBar.append(
-      el("div", { class: "meta", "data-testid": "player-caption", text: asset ? `Playing: ${asset.original_name} (${formatDuration(asset.duration_ms)})` : "No recording on the server for this meeting." }),
-      player,
-    );
+    setCaption(asset);
+    playerBar.append(playerCaption, playerHost);
     if (asset && !currentAssetId) {
       try {
-        await loadAsset(asset.id);
+        await loadAsset(asset);
       } catch (err) {
         ctx.toast(friendlyError(err));
       }
+    } else if (!asset) {
+      releaseBlob();
+      player.removeAttribute("src");
     }
   }
 
@@ -340,7 +368,14 @@ export async function renderMeeting(ctx, route) {
             el("div", { class: "title", text: asset.original_name || asset.storage_key }),
             el("div", {
               class: "meta",
-              text: `${asset.kind}${asset.role ? ` (${asset.role})` : ""} · ${formatDuration(asset.duration_ms)} · ${formatBytes(asset.size_bytes)}`,
+              text: [
+                `${asset.kind}${asset.role ? ` (${asset.role})` : ""}`,
+                formatDuration(asset.duration_ms),
+                formatBytes(asset.size_bytes),
+                asset.start_offset_ms ? `starts at ${formatDuration(asset.start_offset_ms)}` : "",
+              ]
+                .filter(Boolean)
+                .join(" · "),
             }),
           ),
           el(
@@ -353,7 +388,7 @@ export async function renderMeeting(ctx, route) {
                 "data-testid": "load-playback",
                 onclick: async () => {
                   try {
-                    await loadAsset(asset.id);
+                    await loadAsset(asset);
                     await player.play().catch(() => {});
                   } catch (err) {
                     ctx.toast(friendlyError(err));
@@ -892,7 +927,6 @@ export async function renderMeeting(ctx, route) {
       state.disposed = true;
       clearTimeout(state.pollTimer);
       releaseBlob();
-      if (player.parentElement === playerBar) playerBar.append(player);
     },
     { once: true },
   );

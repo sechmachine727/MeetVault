@@ -25,6 +25,17 @@ export function clear(node) {
   return node;
 }
 
+// `Node.append(null)` does NOT skip the argument — it stringifies it, so a conditional child
+// (`cond ? el(...) : null`) renders the literal text "null" in the page. Always append through
+// this helper when any child can be null/undefined/false.
+export function appendAll(node, ...children) {
+  for (const child of children.flat()) {
+    if (child === null || child === undefined || child === false) continue;
+    node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  }
+  return node;
+}
+
 // XSS-safe text join for server-provided strings.
 export function textList(items, separator = " · ") {
   return (items || []).map((item) => String(item)).join(separator);

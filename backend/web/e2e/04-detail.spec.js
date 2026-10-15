@@ -8,7 +8,7 @@ test("opening a meeting shows the header, the facts and the player", async ({ si
   await expect(signedIn.getByTestId("player-bar")).toContainText("Playing:");
 
   const subtitle = signedIn.locator("p.sub").first();
-  await expect(subtitle).toContainText("1 recording(s)");
+  await expect(subtitle).toContainText("2 recording(s)");
   await expect(subtitle).toContainText("transcript version(s)");
 
   const facts = signedIn.getByTestId("overview");
@@ -20,14 +20,52 @@ test("opening a meeting shows the header, the facts and the player", async ({ si
   expect(consoleErrors).toEqual([]);
 });
 
-test("the overview lists the server recordings with size and a download action", async ({ signedIn }) => {
+test("the overview lists both server recordings — the audio and the screen track — with their kind", async ({
+  signedIn,
+}) => {
   await openMeeting(signedIn, READY);
   const media = signedIn.getByTestId("media-list");
-  await expect(media.locator(".row")).toHaveCount(1);
-  await expect(media).toContainText("demo-1.wav");
-  await expect(media).toContainText("audio");
+  await expect(media.locator(".row")).toHaveCount(2);
+  const audioRow = media.locator(".row", { hasText: "demo-1.wav" });
+  const videoRow = media.locator(".row", { hasText: "demo-1-screen.mp4" });
+  await expect(audioRow.locator(".meta")).toContainText("audio");
   // 30 s of 48 kHz mono PCM ≈ 2.8 MB — assert the shape, not a unit.
-  await expect(media.locator(".meta")).toContainText(/\d+(\.\d+)? (KB|MB)/);
+  await expect(audioRow.locator(".meta")).toContainText(/\d+(\.\d+)? (KB|MB)/);
+  await expect(videoRow.locator(".meta")).toContainText("video");
+  // The screen track's timeline offset is part of the contract and must be visible.
+  await expect(videoRow.locator(".meta")).toContainText("starts at 0:02");
+});
+
+test("the shared player defaults to the AUDIO track and swaps to <video> for the screen track", async ({
+  signedIn,
+  consoleErrors,
+}) => {
+  await openMeeting(signedIn, READY);
+  // Default: the audio track is the timeline anchor the transcript seeks against.
+  await expect(signedIn.getByTestId("player-caption")).toContainText("(audio, 0:30)");
+  await expect(signedIn.getByTestId("player-host").locator("video")).toHaveCount(0);
+
+  const videoRow = signedIn.getByTestId("media-list").locator(".row", { hasText: "demo-1-screen.mp4" });
+  await videoRow.getByTestId("load-playback").click();
+  await expect(signedIn.getByTestId("player-caption")).toContainText("(video, 0:30)");
+
+  // A screen recording must be WATCHABLE: the element becomes a real <video> with a duration.
+  const element = signedIn.getByTestId("player-host").locator("video");
+  await expect(element).toHaveCount(1);
+  await expect.poll(async () => element.evaluate((node) => node.readyState), { timeout: 20_000 }).toBeGreaterThanOrEqual(1);
+  const duration = await element.evaluate((node) => node.duration);
+  expect(duration).toBeGreaterThan(20);
+  expect(consoleErrors).toEqual([]);
+});
+
+test("a video track can be downloaded and deleted like any other recording", async ({ signedIn }) => {
+  await openMeeting(signedIn, READY);
+  const videoRow = signedIn.getByTestId("media-list").locator(".row", { hasText: "demo-1-screen.mp4" });
+  const [download] = await Promise.all([
+    signedIn.waitForEvent("download"),
+    videoRow.getByTestId("download").click(),
+  ]);
+  expect(download.suggestedFilename()).toBe("demo-1-screen.mp4");
 });
 
 test("Re-run analysis posts the analyze step with force and reports the toast", async ({ signedIn }) => {
