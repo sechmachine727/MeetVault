@@ -60,6 +60,49 @@ test("the status filter narrows the list", async ({ signedIn }) => {
   await expect(signedIn.locator(".row")).toHaveCount(3);
 });
 
+test("every filter option returns exactly the rows whose pill it names", async ({ signedIn }) => {
+  const labels = await signedIn.getByLabel("Filter by status").locator("option").allTextContents();
+  expect(labels).toEqual(["All statuses", "Ready", "Processing", "Not processed", "Failed"]);
+
+  // The filter speaks the RAW meeting status while the pill shows a DERIVED one, so the two can
+  // disagree: "Processing" used to return nothing while a row plainly read "Processing", and
+  // "Uploaded" returned rows labelled "Not processed". Derive the expectation from what the user
+  // sees, then require the filter to agree with it.
+  const rows = signedIn.locator(".row");
+  await expect(rows.first()).toBeVisible();
+  const all = await rows.evaluateAll((nodes) =>
+    nodes.map((r) => ({ id: r.dataset.row, pill: r.querySelector('[data-testid="status"]').textContent })),
+  );
+  expect(all).toHaveLength(3);
+
+  for (const [value, pill] of [
+    ["ready", "Ready"],
+    ["processing", "Processing"],
+    ["uploaded", "Not processed"],
+  ]) {
+    const expected = all.filter((r) => r.pill.startsWith(pill)).map((r) => r.id);
+    expect(expected, `no seeded row shows "${pill}"`).not.toHaveLength(0);
+    await signedIn.getByLabel("Filter by status").selectOption(value);
+    await expect(rows).toHaveCount(expected.length); // auto-waits for the re-render
+    const got = await rows.evaluateAll((nodes) => nodes.map((r) => r.dataset.row));
+    expect(got.sort(), `filter ${value} returned the wrong rows`).toEqual([...expected].sort());
+  }
+
+  await signedIn.getByLabel("Filter by status").selectOption("");
+  await expect(rows).toHaveCount(3);
+});
+
+test("a running job shows its step and elapsed, never a meaningless 0%", async ({ signedIn }) => {
+  const pill = signedIn.locator('.row[data-kind="processing"] [data-testid="status"]');
+  await expect(pill).toBeVisible();
+  await expect(pill).toContainText("Processing");
+  await expect(pill).toContainText("analyze running");
+  await expect(pill).toHaveText(/\d+m \d+s/); // the elapsed timer is what proves it is alive
+  // /status.progress is completed-steps/total-steps, so it sits at 0 for the whole first step
+  // while the job itself is half done: a bare "0%" reads as "nothing is happening".
+  expect(await pill.textContent()).not.toContain("0%");
+});
+
 test("server-side paging controls are wired (single page here, so both are disabled)", async ({
   signedIn,
 }) => {

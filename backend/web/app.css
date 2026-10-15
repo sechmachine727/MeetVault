@@ -98,6 +98,7 @@ button, .btn {
   background: var(--surface); color: var(--text);
   border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 7px 14px; cursor: pointer;
+  white-space: nowrap; /* a control label must never split across lines */
 }
 button:hover, .btn:hover { background: var(--surface-2); }
 button.primary, .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
@@ -212,11 +213,18 @@ pre.meta { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; font-size:
 @media (max-width: 860px) {
   .app-shell { grid-template-columns: 1fr; }
   .rail {
-    flex-direction: row; align-items: center; gap: 12px;
-    border-right: none; border-bottom: 1px solid var(--border); overflow-x: auto;
+    flex-direction: row; align-items: center; gap: 10px 16px;
+    /* WRAP, never shrink: as a shrinkable row the account block was crushed to 60px and the
+       address shattered mid-word ("demo@m / eetvault.lo / cal"). Two tidy rows beat that. */
+    flex-wrap: wrap;
+    border-right: none; border-bottom: 1px solid var(--border);
   }
+  .rail .brand { padding: 0; }
   .rail nav { flex-direction: row; }
-  .rail footer { margin: 0; border: none; padding: 0; }
+  .rail footer { margin: 0; border: none; padding: 0; flex: 1 1 auto; min-width: 0; }
+  .account { flex-direction: row; align-items: center; gap: 10px; padding: 0; }
+  .account .who, .account .mail { overflow-wrap: normal; }
+  .account .mail { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   main.view { padding: 18px 16px 48px; }
   .row { grid-template-columns: 1fr; }
 }

@@ -62,7 +62,9 @@ export async function renderMeetings(ctx, route) {
       ["", "All statuses"],
       ["ready", "Ready"],
       ["processing", "Processing"],
-      ["uploaded", "Uploaded"],
+      // The raw status is `uploaded`, but a row in that state is labelled "Not processed" by
+      // statusLabel — the filter must speak the same language as the pills it filters.
+      ["uploaded", "Not processed"],
       ["failed", "Failed"],
     ].map(([value, label]) => el("option", { value, selected: state.status === value }, label)),
   );
@@ -93,10 +95,11 @@ export async function renderMeetings(ctx, route) {
     const elapsed =
       status && status.active_job_started_at ? formatElapsed(status.active_job_started_at, Date.now()) : "";
     const step = status ? describeJobState(status) : "";
-    const progressText =
-      status && typeof status.progress === "number" && isProcessing(meeting.latest_job_state)
-        ? `${Math.round((status.progress || 0) * 100)}%`
-        : "";
+    // /status.progress counts COMPLETED steps, so it reads 0 for the entire first step while the
+    // job itself is half done — a bare "0%" tells the user nothing is happening. Show it only once
+    // it means something; the step name and the elapsed timer carry the "still alive" signal.
+    const progress = status && typeof status.progress === "number" ? status.progress : 0;
+    const progressText = isProcessing(meeting.latest_job_state) && progress > 0 ? `${Math.round(progress * 100)}%` : "";
     const statusBits = [statusLabel(kind), step, progressText, elapsed].filter(Boolean);
     const badges = [];
     if (meeting.has_analysis) badges.push(el("span", { class: "pill", "data-testid": "analyzed-badge", text: "Analyzed" }));

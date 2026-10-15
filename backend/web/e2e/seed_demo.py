@@ -235,7 +235,7 @@ def main() -> int:
     # Meeting 3: pin a running job so the list shows a live elapsed timer deterministically.
     # heartbeat_at is set so the worker's stale-job reaper leaves it alone.
     from mvb.db.base import get_session_factory
-    from mvb.db.models import Job
+    from mvb.db.models import Job, Meeting
 
     session = get_session_factory()()
     try:
@@ -254,6 +254,12 @@ def main() -> int:
                 is_mock=True,
             )
         )
+        # The real pipeline endpoint flips the meeting's own status to `processing` when it starts
+        # a run (api/routers/meetings.py). Pinning a running job without that left the list showing
+        # a "Processing" pill for a row the `status=processing` filter could not return — the
+        # fixture created a state production cannot reach.
+        meeting = session.get(Meeting, uuid.UUID(created[2]["id"]))
+        meeting.status = "processing"
         session.commit()
     finally:
         session.close()
