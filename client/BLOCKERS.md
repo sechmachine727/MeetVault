@@ -13,7 +13,7 @@
 - Next: run `publish/win-x64/MeetVault.exe`, press Start recording, speak, Stop, then open the meeting in Meetings and press play. Report anything that looks wrong.
 
 ### 2. Spoken JA/VI accuracy
-- The staged models: small-en/ja/vi and medium-en load and decode live; large-en loads in ~16 s and decodes faster than realtime (offline probe); large-ja/large-vi are staged with their files verified but not yet exercised. English is live-verified end-to-end (record → sentence-cased segments → save) and small vs medium were compared on a synthetic fixture; JA and VI are live-verified to load (`vosk: loaded dir=…`) and produce + save segments. Accuracy on real spoken JA/VI has not been judged.
+- The deliverable ships `large-ja` + `large-vi` only. Both load live (`vosk: loaded dir=…`) and produce + save segments; `large-vi` also passes the live contract test end-to-end (a 17 s fixture → partials → ≥2 sentence-cased endpoint finals) — the fixture is English, so the words are nonsense and the test asserts the transport contract rather than the text. English (`small-en`/`medium-en`/`large-en`) and the small JA/VI models are no longer shipped: the catalog and `tools/pack-portable.ps1` carry only the two large models. Accuracy on real spoken JA/VI has not been judged.
 - Next: one short spoken JA clip and one VI clip, with the matching language + size selected in Settings.
 
 ### 3. Gemini live call

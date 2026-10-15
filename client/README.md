@@ -54,16 +54,14 @@ dotnet build MeetVault.sln -c Release
 dotnet test tests\MeetVault.Core.Tests\MeetVault.Core.Tests.csproj -c Release --nologo -v q
 ```
 
-The suite's Vosk contract test early-returns (reported as passed) when `models/vosk/small-en` is unstaged — a green CI run does not exercise live decoding.
+The suite's Vosk contract test early-returns (reported as passed) when `models/vosk/large-vi` is unstaged — a green CI run does not exercise live decoding.
 
 ## Run
 
-Build the portable release into the canonical folder, then copy in the speech models:
+Build the portable release into the canonical folder, stage only the shipped models, and zip:
 
 ```powershell
-rmdir /s /q publish\win-x64
-dotnet publish src\MeetVault\MeetVault.csproj -c Release -r win-x64 --self-contained true -o publish\win-x64
-Copy-Item -Recurse -Force models publish\win-x64\models
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\pack-portable.ps1
 publish\win-x64\MeetVault.exe
 ```
 
@@ -83,15 +81,14 @@ The package lands at `src/MeetVault/AppPackages/MeetVault_1.0.0.0_x64_Test/MeetV
 
 Place these under `models/`. They are gitignored and must be staged next to the executable for a portable run.
 
-| Folder | Language | Size tier | Download |
-| --- | --- | --- | --- |
-| `vosk/small-en` | English | Small | ~40 MB |
-| `vosk/medium-en` | English | Medium | ~128 MB |
-| `vosk/large-en` | English | Large | ~1.8 GB |
-| `vosk/small-ja` | Japanese | Small | ~48 MB |
-| `vosk/large-ja` | Japanese | Large | ~1 GB |
-| `vosk/small-vi` | Vietnamese | Small | ~32 MB |
-| `vosk/large-vi` | Vietnamese | Large | ~78 MB |
+| Folder | Language | Size tier | Download | Shipped |
+| --- | --- | --- | --- | --- |
+| `vosk/large-ja` | Japanese | Large | ~1 GB | yes |
+| `vosk/large-vi` | Vietnamese | Large | ~78 MB | yes |
+
+Only the shipped rows reach the deliverable — `tools/pack-portable.ps1` stages exactly those and the
+`TrimUnshippedModels` target drops everything else. See [docs/ASR-ENGINES.md](docs/ASR-ENGINES.md)
+for the retired English and small/medium models.
 
 The auto-detect language-ID model goes under `models/langid/`: `voxlingua107.onnx` (SpeechBrain
 VoxLingua107 ECAPA checkpoint exported to ONNX, `christopherthompson81/voxlingua107-lid-onnx`)
