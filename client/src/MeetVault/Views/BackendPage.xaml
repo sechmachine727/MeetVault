@@ -2,8 +2,12 @@
     x:Class="MeetVault.Views.BackendPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <ScrollViewer HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Padding="24" Spacing="12" MaxWidth="1100" HorizontalAlignment="Center">
+    <ScrollViewer x:Name="RootScroll" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled"
+                  SizeChanged="RootScroll_SizeChanged">
+        <!-- The list fills the page: the content column's width is set from the viewport in
+             RootScroll_SizeChanged, because inside a ScrollViewer neither Center nor Stretch
+             makes a StackPanel span the pane (measured: it shrink-to-fits its content). -->
+        <StackPanel x:Name="ContentColumn" Padding="24" Spacing="12" HorizontalAlignment="Left">
             <TextBlock x:Uid="BackPageTitle" Style="{StaticResource TitleTextBlockStyle}" />
             <InfoBar x:Name="StatusBar" IsOpen="False" Severity="Informational">
                 <InfoBar.ActionButton>

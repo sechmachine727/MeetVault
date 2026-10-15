@@ -205,6 +205,18 @@ public sealed partial class BackendPage : Page
         StatusBar.IsOpen = true;
     }
 
+    // The Cloud Storage list covers the whole page: inside a ScrollViewer a StackPanel
+    // shrink-to-fits its content, so the width is clamped from the VIEWPORT explicitly (the same
+    // measured approach DashboardPage/MeetingsPage use). No upper cap — the cards fill the pane,
+    // which is what "cover the remaining width" means here. Size from ViewportWidth when it is
+    // known: e.NewSize.Width includes the vertical scrollbar's gutter, which would push the right
+    // edge past the visible area.
+    private void RootScroll_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var width = RootScroll.ViewportWidth > 0 ? RootScroll.ViewportWidth : e.NewSize.Width;
+        if (width > 0) ContentColumn.Width = width;
+    }
+
     private static string DescribeBackendError(Exception ex) => ex switch
     {
         BackendApiException api => api.Code + ": " + api.Message,

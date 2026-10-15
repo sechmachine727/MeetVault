@@ -3,8 +3,11 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:MeetVault.Views">
-    <ScrollViewer HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Padding="24" Spacing="20" MaxWidth="1100" HorizontalAlignment="Center">
+    <ScrollViewer x:Name="RootScroll" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled"
+                  SizeChanged="RootScroll_SizeChanged">
+        <!-- The content column's width comes from the viewport in RootScroll_SizeChanged: inside a
+             ScrollViewer a StackPanel shrink-to-fits, so a cap plus Center left the rows narrow. -->
+        <StackPanel x:Name="ContentColumn" Padding="24" Spacing="20" HorizontalAlignment="Left">
 
             <TextBlock x:Uid="SetTitle" Style="{StaticResource TitleTextBlockStyle}" />
             <InfoBar x:Name="StatusBar" IsOpen="False" Severity="Informational" />

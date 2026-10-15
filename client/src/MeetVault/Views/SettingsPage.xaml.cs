@@ -616,4 +616,13 @@ public sealed partial class SettingsPage : Page
             return Loc.T("Set.UsageUnavailable");
         }
     }
+
+    // The settings rows cover the whole page (same measured approach as BackendPage): the width is
+    // taken from the VIEWPORT so the vertical scrollbar's gutter cannot push the right edge out of
+    // view, and there is no upper cap — the rows fill the pane.
+    private void RootScroll_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var width = RootScroll.ViewportWidth > 0 ? RootScroll.ViewportWidth : e.NewSize.Width;
+        if (width > 0) ContentColumn.Width = width;
+    }
 }
