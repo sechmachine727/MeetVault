@@ -10,7 +10,7 @@ public sealed class AutoLanguagePolicy
         int AgreementCount = 3,        // agreeing detections needed to switch
         int AgreementWindow = 5,       // look at the last N detections
         long CooldownMs = 20_000,      // after a switch, ignore suggestions for this long
-        string[]? Supported = null);   // defaults to en/ja/vi (the transcription languages)
+        string[]? Supported = null);   // defaults to the shipped transcription languages (EngineCatalog)
 
     private readonly Settings _s;
     private readonly string[] _supported;
@@ -18,8 +18,15 @@ public sealed class AutoLanguagePolicy
     private long? _lastSwitchMs;
     private string? _active;
 
+    // The languages this policy may switch to — the shipped catalog's languages unless the caller
+    // pinned an explicit set. Exposed so a test can prove the two cannot drift.
+    public IReadOnlyList<string> SupportedLanguages => _supported;
+
     public AutoLanguagePolicy(Settings? settings = null)
-    { _s = settings ?? new Settings(); _supported = _s.Supported ?? new[] { "en", "ja", "vi" }; }
+    {
+        _s = settings ?? new Settings();
+        _supported = _s.Supported ?? MeetVault.Core.EngineCatalog.Languages.Select(l => l.Code).ToArray();
+    }
 
     // A manual pick or resume must clear the cooldown too: detections right after the user's
     // choice must not be silently suppressed (review r6). An auto-applied switch uses the
