@@ -2,8 +2,8 @@
     x:Class="MeetVault.Views.BackendPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <ScrollViewer>
-        <StackPanel Padding="24" Spacing="12" MaxWidth="1100" HorizontalAlignment="Stretch">
+    <ScrollViewer HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Padding="24" Spacing="12" MaxWidth="1100" HorizontalAlignment="Center">
             <TextBlock x:Uid="BackPageTitle" Style="{StaticResource TitleTextBlockStyle}" />
             <InfoBar x:Name="StatusBar" IsOpen="False" Severity="Informational">
                 <InfoBar.ActionButton>
