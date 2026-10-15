@@ -1,7 +1,7 @@
 // Hash routing keeps the SPA server-free: no catch-all route, so /v1, /docs and /openapi.json
 // stay exactly as they were. Pure functions -> unit-tested.
 
-const TAB_ROUTES = new Set(["meetings", "login", "system"]);
+const TAB_ROUTES = new Set(["meetings", "login", "signup", "system"]);
 
 export function parseHash(hash) {
   const raw = (hash || "").replace(/^#/, "");

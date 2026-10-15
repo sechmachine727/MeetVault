@@ -22,9 +22,14 @@ test("a meeting route carries the id and the tab", () => {
   });
 });
 
-test("login and system are recognised", () => {
+test("login, signup and system are recognised", () => {
   assert.deepEqual(parseHash("#/login"), { name: "login", id: null, params: {} });
+  assert.deepEqual(parseHash("#/signup"), { name: "signup", id: null, params: {} });
   assert.deepEqual(parseHash("#/system"), { name: "system", id: null, params: {} });
+});
+
+test("the signup route round-trips through toHash", () => {
+  assert.equal(toHash("signup"), "#/signup");
 });
 
 test("an unknown route falls back to the meetings list", () => {
