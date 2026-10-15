@@ -313,3 +313,53 @@ Requirement-to-evidence ledger for the client side of the login + cloud redesign
 tests/MeetVault.Core.Tests/MeetVault.Core.Tests.csproj -c Release` → `Failed: 0, Passed: 324`.
 UI behavior is verified by the build gate plus the app log and UIA drives in the progress log; there
 is no UI test project, so view code carries no unit tests.
+
+## Deliverable trim — Vosk large-ja + large-vi only (2026-10-15)
+
+The owner asked for a smaller deliverable: the portable zip carried all seven Vosk models (4.2 GB
+staged, 3.3 GB zipped). The catalog now lists exactly the two large models the deliverable ships,
+and the packager stages exactly those. Plan: `.hermes/plans/2026-10-15_134400-ship-ja-vi-large-only.md`.
+
+| Feature area | Where | Evidence |
+|---|---|---|
+| Model catalog | `src/MeetVault.Core/EngineCatalog.cs` | 2 rows (`large-ja`, `large-vi`), `Tiers = {large}`, `Languages = {ja, vi}`, `Default = Options[0]`. A retired id (`small-en`, `medium-en`, `base`) or a stale language resolves to the shipped default instead of a model that is not on disk — `EngineCatalogTests` (8 facts, RED before the change) |
+| Auto-language policy | `src/MeetVault.Core/LangId/AutoLanguagePolicy.cs` | `Supported` defaults to the catalog's languages, so `en` can no longer be suggested; `SupportedLanguages` exposed for the test. `LangIdTests.SupportedLanguages_FollowTheShippedCatalog`; that class's fixtures moved from `en`/`ja` to the shipped `ja`/`vi` (3 of them failed until they did) |
+| Settings + Live auto mode | `src/MeetVault/Views/SettingsPage.xaml.cs` (130, 502) | The two `"en"` auto-mode fallbacks derive from `EngineCatalog.Default`. The remaining two `"en"` literals in that file are the **UI**-language picker (`ui.language`, en-US/ja-JP resw) — unrelated to speech |
+| Live contract test | `tests/MeetVault.Core.Tests/VoskStreamingTranscriberTests.cs` | Loads `models/vosk/large-vi` (a shipped model) instead of `small-en` and asserts the transport contract (partials, ≥2 sentence-cased endpoint finals, non-empty text). The fixture is English, so the old word-level assertion ("fox") cannot hold against a JA/VI model — coverage deliberately narrowed to the transport |
+| Publish trim | `src/MeetVault/MeetVault.csproj` (`TrimUnshippedModels`) | Deletes the five unshipped model dirs from the publish output; explicit paths, no wildcard (a glob could delete a shipped model) |
+| Packaging | `tools/pack-portable.ps1` | One command: clean publish → stage `large-ja` + `large-vi` + `langid` → trim → zip → print size + SHA256. Resolves its root by finding `src\MeetVault\MeetVault.csproj` (PS 5.1 leaves `$PSScriptRoot` at a drive root for a relative `-File`, which sent every path to `D:\src\…`); zips with `%SystemRoot%\System32\tar.exe` (a bare `tar` resolves to MSYS GNU tar, which reads `D:\…` as a remote host: `Cannot connect to D: resolve failed`) |
+| Copy | `Strings/en-US/Resources.resw`, `Strings/ja-JP/Resources.resw` | The three size captions describe the shipped models; the Small/Medium strings stay (unreachable — the tier list is `{large}`) so en/ja key parity holds (472 keys each) |
+| Docs | `docs/ASR-ENGINES.md`, `README.md`, `BLOCKERS.md`, `docs/THIRD-PARTY-NOTICES.md`, `docs/mvp-winui/06-build-and-run.md`, `AGENTS.md` | The shipped set, the retired set, and the packaging step. The notices now attribute only the two redistributed models |
+
+**Measured deliverable** (`powershell -File tools/pack-portable.ps1`, 2026-10-15 14:2x):
+
+| | before | after |
+|---|---|---|
+| portable zip | 3,486,535,125 B (3.3 GB) | **1,320,511,909 B (1259.3 MB)** |
+| SHA256 | — | `9BAE321F941B633D4E35388904153463A4A28D8A692A0EF7107ACA7E089A598D` |
+| staged models | 4.2 GB (7 dirs) | 1725.8 MB (`large-ja`, `large-vi`, `langid`) |
+| zip entries | — | 605, with **0** unshipped model paths (`tar -tf … \| grep -c 'small-en\|medium-en\|large-en\|small-ja\|small-vi'` → 0) |
+
+**Gates for this wave** (from `client/`): `dotnet build MeetVault.sln -c Release` → `Build succeeded.
+0 Error(s)` (the 3 known `CA1416` warnings remain); `dotnet test
+tests/MeetVault.Core.Tests/MeetVault.Core.Tests.csproj -c Release` → `Failed: 0, Passed: 359` (355 +
+the 4 added facts).
+
+**Live proof (published build, UIA + app log, 2026-10-15 14:16–14:21):** Dashboard →
+`Speech engine Vosk large - Japanese ready`. Settings ▸ Transcription → `SpeechLangPicker` offers
+exactly Auto-detect / 日本語 / Tiếng Việt (no English), `SizePicker` offers exactly one row `Large`,
+`ModelDetails` shows the new Large caption. Live → `EngineStatus` = `live: vosk large-ja`,
+`LangStatus` = `日本語 · auto` (auto used to resolve to English — the fix, verified live). With the
+language pinned to 日本語, starting a meeting logged
+`vosk: loaded dir=D:\workspace\MeetVault\client\publish\win-x64\models\vosk\large-ja`,
+`swap: active engine -> …large-ja` and `streaming: decode thread started` — **the trimmed deliverable
+loads the shipped model**. In Auto mode the engine is created only after a language detection (the
+relay's documented "listen first" window), so a silent capture loads nothing and commits 0 segments —
+observed, not a defect.
+
+**Product consequence, recorded not hidden:** the deliverable no longer carries any English model, so
+English meetings cannot be transcribed, and there is no runtime download path to add one back.
+
+**Machine state after the drill:** the two drill meetings (`e3fee00f…`, `c516f7d1…`) and their media
+(2 m4a + 1 screen mp4) were deleted; the owner's 3 meetings are untouched; `screen.enabled=true` and
+`transcription.language=auto` were restored; the app was closed.
