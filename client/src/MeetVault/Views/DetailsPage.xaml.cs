@@ -28,6 +28,9 @@ public sealed partial class DetailsPage : Page
     private List<MediaTrack> _videoTracks = new();
     private MediaTrack? _videoTrack;
     private int _highlightIndex = -1;
+    // Rate limit for the video drift correction (see SyncVideoTo): a decoder that cannot keep up
+    // must not turn into a seek storm, because every seek restarts the decode pipeline.
+    private long _lastVideoResyncTicks;
     // --- Analyze section ---
     private bool _backendBusy;
     private CancellationTokenSource? _backendCts;
@@ -216,19 +219,24 @@ public sealed partial class DetailsPage : Page
             UpdateTransportUi();
         });
 
+    // The sound is the master: the video plays while the audio plays, holds its frame otherwise.
+    // This route alone is not enough (and used to be outright wrong): at the instant Play is
+    // pressed the playhead has not yet reached the run's start offset, so the old
+    // `position >= StartOffsetMs` sample read "before the run" and PAUSED the video for the whole
+    // run. The drift seek below then became the only thing that moved it - one ~500 ms jump every
+    // ~half second, i.e. an apparent ~2 fps for a 30 fps file (measured 2026-10-15 on a 64 s
+    // track: video state=Paused at every tick). So the play state is reconciled here AND on every
+    // position tick, in SyncVideoTo, which is idempotent.
     private void OnAudioPlaybackStateChanged(Windows.Media.Playback.MediaPlaybackSession sender, object args)
-        => DispatcherQueue.TryEnqueue(() =>
-        {
-            if (_videoTrack is null || VideoPlayer.MediaPlayer is not { } vmp) return;
-            var session = Player.MediaPlayer?.PlaybackSession;
-            if (session is null) return;
-            if (session.PlaybackState == Windows.Media.Playback.MediaPlaybackState.Playing &&
-                session.Position.TotalMilliseconds >= _videoTrack.StartOffsetMs)
-            { try { vmp.Play(); } catch { } }
-            else { try { vmp.Pause(); } catch { } }
-        });
+        => DispatcherQueue.TryEnqueue(() => SyncVideoTo(sender.Position));
 
-    // Keeps the video within 400 ms of the audio playhead (shifted by the active run's
+    // The drift beyond which the video is pulled back onto the audio playhead. Every resync is a
+    // seek, and a seek restarts the decode pipeline (a visible stall), so the correction is rate
+    // limited by ResyncAllowed and never used as the mechanism that advances the picture.
+    private const double DriftToleranceMs = 400;
+    private const double ResyncCooldownSeconds = 2;
+
+    // Keeps the video within DriftToleranceMs of the audio playhead (shifted by the active run's
     // offset); before a run's offset the video holds its first frame, paused.
     private void SyncVideoTo(TimeSpan audioPosition)
     {
@@ -241,20 +249,56 @@ public sealed partial class DetailsPage : Page
         if (_videoTrack is not null && VideoPlayer.MediaPlayer is { } vmp && vmp.PlaybackSession is { } videoSession)
         {
             var target = ms - _videoTrack.StartOffsetMs;
+            var audioPlaying = Player.MediaPlayer?.PlaybackSession?.PlaybackState
+                == Windows.Media.Playback.MediaPlaybackState.Playing;
+            var playing = videoSession.PlaybackState == Windows.Media.Playback.MediaPlaybackState.Playing;
             try
             {
                 if (target < 0)
                 {
+                    // Before this run starts: hold its first frame.
+                    if (playing) vmp.Pause();
                     if (videoSession.Position != TimeSpan.Zero) videoSession.Position = TimeSpan.Zero;
                 }
-                else if (Math.Abs(videoSession.Position.TotalMilliseconds - target) > 400)
+                else if (audioPlaying)
                 {
-                    videoSession.Position = TimeSpan.FromMilliseconds(target);
+                    if (!playing)
+                    {
+                        // Start aligned: seek to the playhead FIRST, then play. Playing from 0 here
+                        // would leave the picture a fixed offset behind the sound for the whole run.
+                        videoSession.Position = TimeSpan.FromMilliseconds(target);
+                        vmp.Play();
+                        MeetVault.Core.AppLog.Info("details: video play at " + (long)target
+                            + " ms (run offset " + _videoTrack.StartOffsetMs + " ms)");
+                    }
+                    else if (Math.Abs(videoSession.Position.TotalMilliseconds - target) > DriftToleranceMs && ResyncAllowed())
+                    {
+                        var drift = (long)(videoSession.Position.TotalMilliseconds - target);
+                        videoSession.Position = TimeSpan.FromMilliseconds(target);
+                        MeetVault.Core.AppLog.Info("details: video drift " + drift + " ms -> resynced to " + (long)target + " ms");
+                    }
+                }
+                else
+                {
+                    // Paused (or ended): follow the playhead without playing, so a paused seek shows
+                    // the right frame instead of the frame it happened to stop on.
+                    if (playing) vmp.Pause();
+                    if (Math.Abs(videoSession.Position.TotalMilliseconds - target) > 40)
+                        videoSession.Position = TimeSpan.FromMilliseconds(target);
                 }
             }
             catch { }
         }
         HighlightSegment(ms);
+    }
+
+    private bool ResyncAllowed()
+    {
+        var now = System.Diagnostics.Stopwatch.GetTimestamp();
+        if (_lastVideoResyncTicks != 0 &&
+            System.Diagnostics.Stopwatch.GetElapsedTime(_lastVideoResyncTicks).TotalSeconds < ResyncCooldownSeconds) return false;
+        _lastVideoResyncTicks = now;
+        return true;
     }
 
     // The last run that has started at the playhead; before the first offset and after the
