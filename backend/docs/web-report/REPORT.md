@@ -71,8 +71,8 @@ Production is the same image: `docker compose up -d --build` (or the deployed st
 | `screens/09-versions.png` | Versions tab: both transcript versions, the active one marked, activate/delete |
 | `screens/10-jobs.png` | Jobs tab: the pipeline history with state, progress, mock marking, cancel (only while running) and the SSE "Live events" pane |
 | `screens/11-service.png` | Service tab: what this server is actually running (`/v1/system/info` + `/v1/system/providers`) |
-| `screens/12-list-processing.png` | A live processing row: "Processing · analyze running · 0% · 4m 30s" — the elapsed timer counting up |
-| `screens/13-narrow-list.png` | The same list at 420 px: the rail collapses to a top bar, no horizontal overflow |
+| `screens/12-list-processing.png` | A live processing row: "Processing · analyze running · 4m 30s" — the elapsed timer counting up (no misleading 0%) |
+| `screens/13-narrow-list.png` | The same list at 420 px: the rail collapses to a two-row top bar, no horizontal overflow, the account line unbroken |
 
 ## 4. Test evidence
 
@@ -93,7 +93,7 @@ $ cd backend/web && node --test "tests/*.test.mjs"
 ℹ fail 0
 
 $ cd backend/web && MVB_DEMO_URL=http://127.0.0.1:8099 npx playwright test --reporter=line
-57 passed (59.8s)                                     (two projects: narrow 420 px, then desktop 1440 px)
+60 passed (1.0m)                                      (two projects: narrow 420 px, then desktop 1440 px)
 ```
 
 - **Zero console errors** is asserted by every browser spec (`fixtures.js` collects
@@ -185,7 +185,28 @@ $ cd backend/web && MVB_DEMO_URL=http://127.0.0.1:8099 npx playwright test --rep
     the `el()` helper. Fixed with `appendAll()` in `lib/dom.js`, and the a11y spec now walks every
     text node on the list and all seven tabs and fails on a node whose whole content is
     "null"/"undefined" — proven to bite (the mutant fails, the fix passes).
-13. **Documentation drift (reported, not changed):** `backend/README.md` §Status still says
+13. **The mobile header shattered words and split controls.** Below 860 px the rail becomes a row of
+    three *shrinkable* flex children, so at 420 px the account block was crushed to 60 px: the
+    address rendered as three lines (`demo@m` / `eetvault.lo` / `cal`) and **Sign out** broke across
+    three lines, inflating the header to 218 px. Measured before/after with
+    `mail.getClientRects().length` (3 → 1) and the rail height (218 px → 121 px). Fixed by wrapping
+    the rail instead of shrinking it and keeping the identity block on one line (nowrap + ellipsis);
+    `14-responsive` now asserts one line box, an unclipped address, a single-line control, no
+    sideways scroll and a header under 140 px.
+14. **The list claimed "0%" while a job was half done.** `/status.progress` counts *completed steps*,
+    so it sits at 0 for the entire first step: the row read
+    `Processing · analyze running · 0% · 14m 52s` while the running job's own progress was 0.47. A
+    bare 0% tells the user nothing is happening. The percentage now appears only once it means
+    something; the step name and the elapsed timer carry the liveness signal.
+15. **The status filter contradicted the pills it filters.** The filter matches the *raw* meeting
+    status while the pill shows a *derived* state, so `Processing` returned **zero** rows while a row
+    plainly read "Processing", and the `Uploaded` option returned rows labelled "Not processed".
+    Two causes, both fixed: the option is now labelled with the pill's word ("Not processed"), and
+    the fixture no longer invents an unreachable state — the seeded pinned `running` job now also
+    sets the meeting's status to `processing`, exactly as the real pipeline endpoint does. `02-list`
+    asserts the invariant the user experiences: **every filter option returns exactly the rows whose
+    pill it names** (expectation derived from the rendered pills, not hardcoded).
+16. **Documentation drift (reported, not changed):** `backend/README.md` §Status still says
     "157 tests pass" (the suite is 236) and `docs/ACCEPTANCE.md`/`COVERAGE` rows predate the web
     console. Out of scope here; worth a docs sweep.
 
