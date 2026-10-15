@@ -67,7 +67,9 @@ publish\win-x64\MeetVault.exe
 
 The publish brings in the native libraries the app loads (`libvosk.dll` via the Vosk package, `onnxruntime.dll` via `Microsoft.ML.OnnxRuntime`, and ScreenRecorderLib's x64 mixed-mode assembly). Screen recording additionally needs the Microsoft Visual C++ 2015-2022 x64 redistributable at runtime; without it the app reports "screen capture unavailable" and records audio-only.
 
-The portable build has no package identity, so Windows Credential Locker is unavailable and the sign-in session token may not persist across runs. Install the MSIX for the full feature set.
+For a **regular-user install** (one file, no admin, no UAC, models included) build the per-user installer instead: `tools\build-installer.ps1` → `publish\MeetVaultSetup-1.0.0.exe`. See [installer/README.md](installer/README.md).
+
+The portable build and the installer have no package identity, so the WinRT Windows Credential Locker is unavailable; the app falls back to a DPAPI-protected file under `%APPDATA%\MeetVault\secrets` (current user only, never plaintext — see [installer/README.md](installer/README.md)), so the sign-in token does persist across runs. Only an MSIX install uses Credential Locker itself.
 
 The MSIX is produced by `dotnet build` with the Appx targets enabled:
 
