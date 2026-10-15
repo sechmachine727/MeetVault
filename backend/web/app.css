@@ -193,9 +193,13 @@ ul.bullets li { margin-bottom: 6px; }
 .player-host .player-slot[hidden] { display: none; }
 
 .toast {
-  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
   background: var(--surface); color: var(--text); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 10px 16px; box-shadow: var(--shadow); z-index: 20;
+  /* Never wider than the viewport and never a row of one letter per line: a long message used to
+     run off both edges (and its own width was whatever the text demanded). */
+  max-width: min(92vw, 520px); width: max-content;
+  text-align: center; overflow-wrap: anywhere;
 }
 
 dialog {
@@ -211,30 +215,8 @@ dialog .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; ma
 pre.meta { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; font-size: 12px; }
 
 /* ---------- sign-in ---------- */
-/* main carried a 1240px column cap, which pinned the card into a left-anchored strip beside the
-   rail: on the 2560px display its centre landed at 836px against a 1280px viewport middle, i.e.
-   hard left of centre, and it rode at 40% height. Dropping the cap and centring main's content puts
-   the card in the middle of the area beside the rail, on both axes. :has() scopes it to auth. */
-main.view:has(.signin) {
-  max-width: none;
-  display: grid;
-  place-items: center;
-  min-height: 100vh;
-  padding: 24px;
-}
-.signin { display: grid; place-items: center; width: 100%; }
+.signin { display: grid; place-items: center; min-height: 60vh; padding: 24px; }
 .signin .card { width: min(400px, 100%); display: flex; flex-direction: column; gap: 14px; }
-
-/* One gap for the whole auth form: as a plain block stack the two fields touched each other and the
-   action row sat flush against the password input (measured: label bottom 543px == row top 543px). */
-.signin form { display: flex; flex-direction: column; gap: 14px; }
-.signin form h2, .signin form p.sub, .signin form .banner { margin: 0; }
-
-/* The auth actions share ONE line: a stacked paragraph put "Create an account" on its own row
-   underneath the button, which read as an afterthought. The secondary is a link styled as a button
-   (a btn) so the pair reads as one control group and their heights match. */
-.form-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-a.btn, a.btn:hover { text-decoration: none; }
 /* ---------- responsive ----------
    Four tiers, driven by the width the console actually has:
 
@@ -287,10 +269,6 @@ a.btn, a.btn:hover { text-decoration: none; }
   table.segments { display: block; overflow-x: auto; white-space: nowrap; }
   .player-host video, .player-host audio { margin-top: 4px; }
   dialog { max-width: calc(100vw - 32px); padding: 16px; }
-  /* The rail is a top bar here, so the auth card centres in what is left BELOW it - and main must
-     not still claim a full 100vh of its own, which scrolled the page by the bar's height. */
-  .app-shell:has(.signin) { display: flex; flex-direction: column; }
-  main.view:has(.signin) { flex: 1 1 auto; min-height: 0; }
 }
 
 /* --- phone: one navigation line and a tighter rhythm --- */
