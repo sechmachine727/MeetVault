@@ -5,15 +5,26 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from mvb.api.deps import DbSession, PrincipalDep, SettingsDep
 from mvb.api.errors import ApiError
+from mvb.config import Settings
 from mvb.db.models import AuthToken, User
 from mvb.schemas.auth import LoginIn, LoginOut, MeOut, UserOut
 from mvb.schemas.common import OkResponse
 from mvb.security import DUMMY_HASH, new_session_token, verify_password
 
 router = APIRouter(tags=["auth"])
+
+
+def issue_session(db: Session, user: User, settings: Settings) -> tuple[str, datetime]:
+    """Mint a session token for `user` and persist its hash. Returns (raw_token, expires_at)."""
+    raw, digest = new_session_token()
+    expires_at = datetime.now(UTC) + timedelta(days=settings.session_ttl_days)
+    db.add(AuthToken(id=uuid.uuid4(), user_id=user.id, token_hash=digest, expires_at=expires_at))
+    db.commit()
+    return raw, expires_at
 
 
 @router.post("/auth/login", response_model=LoginOut)
@@ -24,10 +35,7 @@ def login(payload: LoginIn, db: DbSession, settings: SettingsDep) -> LoginOut:
     ok = verify_password(payload.password, stored)
     if user is None or not ok or not user.is_active:
         raise ApiError(401, "invalid_credentials", "Email or password is incorrect.")
-    raw, digest = new_session_token()
-    expires_at = datetime.now(UTC) + timedelta(days=settings.session_ttl_days)
-    db.add(AuthToken(id=uuid.uuid4(), user_id=user.id, token_hash=digest, expires_at=expires_at))
-    db.commit()
+    raw, expires_at = issue_session(db, user, settings)
     return LoginOut(token=raw, expires_at=expires_at, user=UserOut.model_validate(user))
 
 
