@@ -24,7 +24,7 @@
             <InfoBar x:Name="StatusBar" IsOpen="False" Severity="Informational" />
             <InfoBar x:Name="RecoveryBar" x:Uid="DashRecovery" IsOpen="False" Severity="Warning" IsClosable="True">
                 <InfoBar.ActionButton>
-                    <Button x:Uid="DashResume" Click="Resume_Click" />
+                    <Button x:Name="ResumeActionButton" x:Uid="DashResume" Click="Resume_Click" />
                 </InfoBar.ActionButton>
             </InfoBar>
             <VariableSizedWrapGrid Orientation="Horizontal" MaximumRowsOrColumns="4" ItemWidth="220">

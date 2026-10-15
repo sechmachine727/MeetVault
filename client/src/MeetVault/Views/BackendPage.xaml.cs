@@ -36,17 +36,23 @@ public sealed partial class BackendPage : Page
     private void RenderSignedState()
     {
         var signedIn = AppSession.IsSignedIn;
+        // The x:Uid never reaches the InfoBar.ActionButton child (it renders empty, 24x13,
+        // invisible): set the label in code, like the row labels.
+        SignInActionButton.Content = Loc.T("Cloud.SignInButton.Content");
         SignInActionButton.Visibility = signedIn ? Visibility.Collapsed : Visibility.Visible;
         if (!signedIn)
         {
             MeetingsList.ItemsSource = null;
-            EmptyState.Visibility = Visibility.Visible;
-            EmptyState.Text = AppSession.LastError ?? Loc.T("Cloud.SignInNeeded");
+            // One message per surface: the bar carries the error (or the plain signed-out note)
+            // at an honest severity; the empty state below carries the standing sign-in prompt —
+            // never the same text twice.
+            StatusBar.Severity = AppSession.LastError is null ? InfoBarSeverity.Informational : InfoBarSeverity.Error;
+            StatusBar.Message = AppSession.LastError ?? Loc.T("Cloud.SignInNeeded");
             // The sign-in button is the InfoBar's ActionButton: a closed InfoBar hides it, so the
             // signed-out page must open the bar to expose the only sign-in affordance (review fix).
-            StatusBar.Severity = InfoBarSeverity.Informational;
-            StatusBar.Message = EmptyState.Text;
             StatusBar.IsOpen = true;
+            EmptyState.Visibility = Visibility.Visible;
+            EmptyState.Text = Loc.T("Cloud.SignInNeeded");
         }
     }
 

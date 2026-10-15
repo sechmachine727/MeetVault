@@ -19,6 +19,9 @@ public sealed partial class DashboardPage : Page
         {
             _recoverable = unfinished[0];
             RecoveryBar.Message = Loc.Tf("Dash.Interrupted", _recoverable.Title);
+            // The x:Uid never reaches the InfoBar.ActionButton child (same defect as the Cloud
+            // Storage sign-in button): set the resume label in code.
+            ResumeActionButton.Content = Loc.T("DashResume.Content");
             RecoveryBar.IsOpen = true;
         }
         var hour = DateTime.Now.Hour;
