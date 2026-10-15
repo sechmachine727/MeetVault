@@ -124,10 +124,10 @@ public sealed partial class SettingsPage : Page
     // Sizes the current language actually offers; keep the selected tier when still valid.
     private void RefreshSizeRows()
     {
-        // Auto mode shows the tiers English offers (the live resolver applies the chosen
-        // size where a language has it and falls back to small otherwise).
+        // Auto mode shows the tiers the default shipped language offers (the live resolver applies
+        // the chosen size where a language has it).
         var lang = CurrentLanguage();
-        if (lang == "auto") lang = "en";
+        if (lang == "auto") lang = MeetVault.Core.EngineCatalog.Default.Language;
         var keep = SizeTier();
         var rows = MeetVault.Core.EngineCatalog.Tiers.Select(t =>
         {
@@ -499,7 +499,7 @@ public sealed partial class SettingsPage : Page
             _ => Loc.T("Set.SizeSmallDetails"),
         };
         var statusLang = CurrentLanguage();
-        var option = MeetVault.Core.EngineCatalog.Find(statusLang == "auto" ? "en" : statusLang, tier);
+        var option = MeetVault.Core.EngineCatalog.Find(statusLang == "auto" ? MeetVault.Core.EngineCatalog.Default.Language : statusLang, tier);
         if (option is not null)
         {
             var availability = MeetVault.Core.EngineCatalog.IsAvailable(option, ModelsRoot)
