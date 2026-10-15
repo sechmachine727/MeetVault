@@ -17,6 +17,12 @@ test("capture the console flow in order", async ({ page }) => {
   await page.getByRole("heading", { name: "Sign in to the cloud" }).waitFor();
   await shot(page, "01-sign-in.png");
 
+  await page.goto("/#/signup");
+  await page.getByRole("heading", { name: "Create your account" }).waitFor();
+  await shot(page, "01b-sign-up.png");
+  await page.goto("/#/login");
+  await page.getByRole("heading", { name: "Sign in to the cloud" }).waitFor();
+
   await page.getByLabel("Email").fill(EMAIL);
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
