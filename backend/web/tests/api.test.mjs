@@ -136,3 +136,48 @@ test("the speaker merge body uses the server's field name", async () => {
   assert.equal(calls[0].url, "/v1/speakers/a/merge");
   assert.equal(JSON.parse(calls[0].opts.body).target_speaker_id, "b");
 });
+
+test("register posts the account body to /v1/auth/register", async () => {
+  const calls = [];
+  const api = createApi({
+    fetchImpl: async (url, opts) => {
+      calls.push({ url, body: JSON.parse(opts.body) });
+      return jsonResponse(201, {
+        token: "t",
+        expires_at: "2026-01-01T00:00:00Z",
+        user: { email: "a@b.com" },
+      });
+    },
+    onAuthFailure: () => {},
+  });
+  const out = await api.register("a@b.com", "long-enough-1", "A");
+  assert.equal(calls[0].url, "/v1/auth/register");
+  assert.deepEqual(calls[0].body, { email: "a@b.com", password: "long-enough-1", display_name: "A" });
+  assert.equal(out.token, "t");
+});
+
+test("register sends an empty display_name, never undefined", async () => {
+  const calls = [];
+  const api = createApi({
+    fetchImpl: async (url, opts) => {
+      calls.push({ url, body: JSON.parse(opts.body) });
+      return jsonResponse(201, { token: "t", expires_at: "2026-01-01T00:00:00Z", user: { email: "a@b.com" } });
+    },
+    onAuthFailure: () => {},
+  });
+  await api.register("a@b.com", "long-enough-1");
+  assert.equal(calls[0].body.display_name, "");
+});
+
+test("a 401 from REGISTER is not a dead session either", async () => {
+  let fired = 0;
+  const api = createApi({
+    fetchImpl: async () =>
+      jsonResponse(401, { error: { code: "email_taken", message: "taken" }, request_id: "r9" }),
+    onAuthFailure: () => {
+      fired += 1;
+    },
+  });
+  await assert.rejects(() => api.register("a@b.com", "long-enough-1", ""));
+  assert.equal(fired, 0);
+});

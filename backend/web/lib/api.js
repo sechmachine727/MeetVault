@@ -33,7 +33,10 @@ export function createApi({ fetchImpl, onAuthFailure, baseUrl = "" } = {}) {
     } catch {
       throw new ApiError(0, { error: { code: "network_error", message: "The service is unreachable." } });
     }
-    if (res.status === 401 && !path.startsWith("/v1/auth/login")) fail();
+    // A 401 from an auth ATTEMPT is bad credentials, not a dead session — firing the hook there
+    // wiped the form (and the wrong-password message) with "Your session expired".
+    const isAuthAttempt = path === "/v1/auth/login" || path === "/v1/auth/register";
+    if (res.status === 401 && !isAuthAttempt) fail();
     if (!res.ok) {
       let envelope = null;
       try {
@@ -74,6 +77,10 @@ export function createApi({ fetchImpl, onAuthFailure, baseUrl = "" } = {}) {
     },
     // Auth
     login: (email, password) => request("POST", "/v1/auth/login", { body: { email, password } }),
+    register: (email, password, displayName) =>
+      request("POST", "/v1/auth/register", {
+        body: { email, password, display_name: displayName || "" },
+      }),
     logout: () => request("POST", "/v1/auth/logout"),
     me: () => request("GET", "/v1/auth/me"),
     // Meetings
