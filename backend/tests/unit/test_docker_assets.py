@@ -132,3 +132,18 @@ def test_the_host_port_is_configurable_and_the_container_port_is_fixed() -> None
         assert re.search(r'"\$\{MVB_PORT:-\d+\}:8080"', path.read_text(encoding="utf-8")), (
             f"{path.name}: publish MVB_PORT on the host against the fixed container port 8080"
         )
+
+
+def test_container_files_are_pinned_to_lf_line_endings() -> None:
+    """A CRLF shebang or script is fatal in a Linux container ("/bin/sh^M: bad interpreter") and
+    deploy/build.sh runs under sh. backend/.gitattributes covers the backend tree; deploy/ sits
+    outside it, so it needs its own rule or a Windows clone with core.autocrlf=true would ship
+    CRLF into the image.
+    """
+    for directory in (REPO / "backend", REPO / "deploy"):
+        attributes = directory / ".gitattributes"
+        assert attributes.exists(), f"{directory.name}/ has no .gitattributes"
+        text = attributes.read_text(encoding="utf-8")
+        assert re.search(r"^\* text=auto eol=lf$", text, re.MULTILINE), (
+            f"{attributes} must force LF for the files that enter containers"
+        )
