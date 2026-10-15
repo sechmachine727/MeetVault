@@ -80,9 +80,9 @@ installer needs no code change for sign-in persistence.
 ## Facts about the artifact
 
 - Payload: `MeetVault.exe` + the .NET/WindowsAppSDK payload + `libvosk.dll`/`onnxruntime.dll` +
-  `vcruntime140*.dll` + the shipped models (`large-ja`, `large-vi`, `langid`) — the same tree the
+  `vcruntime140*.dll` + the shipped models (`large-en`, `large-ja`, `langid`) — the same tree the
   portable zip carries, so the installer works offline on first launch.
-- `Compression=lzma2/normal` + solid: the ~1.7 GB of Vosk model data barely compresses, so
+- `Compression=lzma2/normal` + solid: the ~3.7 GB of Vosk model data barely compresses, so
   max/solid buys a few percent for many extra minutes. Bump it if size ever beats build time.
 - Version lives in two places that must move together: `#define AppVersion` in
   `installer\MeetVault.iss` and `<Identity Version>` in `src\MeetVault\Package.appxmanifest`.

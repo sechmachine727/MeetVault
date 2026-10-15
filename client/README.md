@@ -9,14 +9,14 @@ Built with C# and WinUI 3 on .NET 8. Local use needs no account; an optional clo
 
 ## Status
 
-Working MVP, tested on Windows 11. The solution builds with 0 errors; three pre-existing `CA1416` warnings remain in `ProcessLoopbackCapture.cs` (COM release call sites) — do not add more. The Core test suite passes 324 tests. The portable build launches and records, transcribes, and saves meetings. See [BLOCKERS.md](BLOCKERS.md) for what still needs a specific machine to verify.
+Working MVP, tested on Windows 11. The solution builds with 0 errors; three pre-existing `CA1416` warnings remain in `ProcessLoopbackCapture.cs` (COM release call sites) — do not add more. The Core test suite passes 372 tests. The portable build launches and records, transcribes, and saves meetings. See [BLOCKERS.md](BLOCKERS.md) for what still needs a specific machine to verify.
 
 Per-process audio capture is implemented but has not been exercised against a machine with the target app playing. The app supports English and Japanese with Vosk's large model tier; meetings default to Auto-detect, which identifies the spoken language with a staged VoxLingua107 model (see Speech models) and switches the engine live. JA accuracy has not been verified with real speech.
 
 ## Features
 
 - Record the microphone and system output together, mixed into one track, so your own voice is never lost. The system side can capture every app or a single chosen app (a conference call).
-- On-device streaming transcription (Vosk, small/medium/large tiers), so transcription runs offline. The open sentence appears live as a normal transcript line while you speak.
+- On-device streaming transcription (Vosk, the large tier for English and Japanese), so transcription runs offline. The open sentence appears live as a normal transcript line while you speak.
 - Automatic language detection (SpeechBrain VoxLingua107 via ONNX): new meetings default to Auto-detect and the engine follows the spoken language mid-meeting; picking a language pins it. The same language control appears in the meeting window, the overlay, and Settings.
 - Screen recording alongside the audio: a whole display or a single window, video-only MP4, enabled by default and paused with the meeting; each run is saved as a track with its timeline offset.
 - Live transcript view with a pinnable, always-on-top overlay (auto-opens with the meeting; recording indicator + screen-recording control included).
@@ -90,7 +90,7 @@ Place these under `models/`. They are gitignored and must be staged next to the 
 
 Only the shipped rows reach the deliverable — `tools/pack-portable.ps1` stages exactly those and the
 `TrimUnshippedModels` target drops everything else. See [docs/ASR-ENGINES.md](docs/ASR-ENGINES.md)
-for the retired small/medium tiers and the Vietnamese models.
+for the not-shipped tiers and the retired Vietnamese models.
 
 The auto-detect language-ID model goes under `models/langid/`: `voxlingua107.onnx` (SpeechBrain
 VoxLingua107 ECAPA checkpoint exported to ONNX, `christopherthompson81/voxlingua107-lid-onnx`)
@@ -136,8 +136,8 @@ Settings persist in `%APPDATA%\MeetVault\meetings.db` (SQLite, `settings` table)
 ## Known gaps
 
 - Audio capture mixes the microphone and system output. Capturing one application uses the WASAPI process-loopback API (`ProcessLoopbackCapture`), which falls back to system-wide capture when the API is unavailable; the per-app path is not yet confirmed on a machine with the target app playing.
-- JA/VI accuracy needs validation with real speech.
-- Cloud features (sign-in, Analyze meeting, Cloud Storage, Word export) are implemented and covered by the Core suite; the live end-to-end run against a running backend is the remaining owner-side check (see [docs/COVERAGE.md](docs/COVERAGE.md)).
+- Japanese accuracy needs validation with real speech.
+- Cloud features (sign-in, Analyze meeting, Cloud Storage, Word export) are implemented and covered by the Core suite, and the live flow against the deployed backend has been exercised (sign-in, Cloud Storage listing, a full API smoke run on 2026-10-15); Analyze → summary → Word export on a fresh real recording is the remaining owner-side check (see [docs/COVERAGE.md](docs/COVERAGE.md)).
 - Meetings recorded by the retired diarized pipeline keep their speaker rows in Details with the speaker picker still editable (only rename was removed); new meetings are single-speaker by construction.
 
 ## Links

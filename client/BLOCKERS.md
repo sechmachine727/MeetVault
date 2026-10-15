@@ -1,10 +1,10 @@
 # BLOCKERS.md — genuine blockers for user review
 
-> Updated 2026-10-11 (Vosk-only pipeline): the engine surface is one family — **Vosk**
-> (English / Japanese / Vietnamese; small/medium/large model tiers, medium English-only),
-> offline streaming, CPU-only, **single-speaker by construction**. Whisper, Moonshine, Zipformer, the sherpa diarization/VAD stack, the GPU
-> backends and their packages/models were removed the same day. Only items that stop
-> progress with no local alternative go here.
+> Updated 2026-10-15: the engine surface is one family — **Vosk** (English / Japanese, the
+> `large` tier only), offline streaming, CPU-only, **single-speaker by construction**. The
+> Vietnamese models and the small/medium tiers were removed from the deliverable the same day
+> (owner steer); Whisper, Moonshine, Zipformer, the sherpa diarization/VAD stack and the GPU
+> backends were removed earlier. Only items that stop progress with no local alternative go here.
 
 ## Active (need you physically present — no local alternative)
 
@@ -12,13 +12,13 @@
 - This machine reports a microphone now ("0: Microphone Array (MacBook Pro M)"), but unattended synthetic testing of a real recording is not something I can validate for you.
 - Next: run `publish/win-x64/MeetVault.exe`, press Start recording, speak, Stop, then open the meeting in Meetings and press play. Report anything that looks wrong.
 
-### 2. Spoken JA/VI accuracy
-- The deliverable ships `large-ja` + `large-vi` only. Both load live (`vosk: loaded dir=…`) and produce + save segments; `large-vi` also passes the live contract test end-to-end (a 17 s fixture → partials → ≥2 sentence-cased endpoint finals) — the fixture is English, so the words are nonsense and the test asserts the transport contract rather than the text. English (`small-en`/`medium-en`/`large-en`) and the small JA/VI models are no longer shipped: the catalog and `tools/pack-portable.ps1` carry only the two large models. Accuracy on real spoken JA/VI has not been judged.
-- Next: one short spoken JA clip and one VI clip, with the matching language + size selected in Settings.
+### 2. Spoken Japanese accuracy
+- The deliverable ships `large-en` + `large-ja` only. Both load live (`vosk: loaded dir=…`) and produce + save segments; `large-en` also passes the live contract test end-to-end (a 17 s fixture → partials → ≥2 sentence-cased endpoint finals, matched against the fixture's ground truth). The Vietnamese models (`small-vi`, `large-vi`) and the small/medium tiers (`small-en`, `medium-en`, `small-ja`) are no longer shipped: the catalog and `tools/pack-portable.ps1` carry only the two large models, and a stored setting that names a retired model resolves to the shipped default. Accuracy on real spoken JA has not been judged.
+- Next: one short spoken JA clip, with Japanese selected in Settings.
 
-### 3. Gemini live call
-- Transport is implemented and unit-tested against stubs. No live call has run.
-- Next: enter your Gemini API key in Settings (install the MSIX first; the portable exe has no Credential Locker), then Send to Gemini on a finished meeting.
+### 3. Cloud service (not a blocker — verified 2026-10-15)
+- The cloud flow is live: sign-in and the Cloud Storage list were driven end-to-end against the deployed backend (`https://meetvault.supersanta.io.vn`) on 2026-10-15, and the API smoke (login → create → upload → process → transcript → analysis) passed. The retired Gemini integration is gone from both source and strings.
+- Remaining owner-side check: Analyze → summary → Word export on a *fresh real recording* from this machine (the earlier proof used a short probe clip).
 
 ### 4. MSIX install (needs an admin machine-root trust)
 - The MSIX builds unsigned (no `signtool` on this box) and install needs the AppPublisher cert trusted at machine scope, which needs admin.

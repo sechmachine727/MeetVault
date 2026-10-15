@@ -310,7 +310,8 @@ Requirement-to-evidence ledger for the client side of the login + cloud redesign
 
 **Gates for this wave** (from `client/`): `dotnet build MeetVault.sln -c Release` → `Build succeeded.
 0 Error(s)` (the known 3 `CA1416` warnings remain); `dotnet test
-tests/MeetVault.Core.Tests/MeetVault.Core.Tests.csproj -c Release` → `Failed: 0, Passed: 324`.
+tests/MeetVault.Core.Tests/MeetVault.Core.Tests.csproj -c Release` → `Failed: 0, Passed: 324` at the
+time; the suite is **372** today (see the correction at the end of this file).
 UI behavior is verified by the build gate plus the app log and UIA drives in the progress log; there
 is no UI test project, so view code carries no unit tests.
 
@@ -400,3 +401,34 @@ The owner asked for an installer a regular user can just run. Two findings drove
 token → uninstalled (exit 0) with the app dir and the Start-menu shortcut gone and
 `%APPDATA%\MeetVault` (meetings.db + the recordings) intact. The only unexercised case is a machine
 where the Locker is genuinely unavailable (the DPAPI fallback), which cannot be simulated here.
+
+## Correction — the shipped set is English + Japanese, and the installer check (2026-10-15)
+
+Two regressions from the trims above were found by a read-only audit and fixed; the sections above
+are kept as the historical record of what was done on 2026-10-15, but they no longer describe the
+build:
+
+1. **Shipped models: `large-en` + `large-ja`** (the owner's later steer the same day removed
+   Vietnamese — `3280660`, `c70bf2f`, `cc736ad`, recorded in
+   `docs/progress/progress_supersanta/PROGRESS_2026-10-15.md`). The catalog rows are
+   `en/large` + `ja/large`, `Languages = {en, ja}`, `Default = Find("en","large")`; the publish trim
+   drops `small-en;medium-en;small-ja;small-vi;large-vi`; the packager stages `large-en, large-ja`.
+   The staged payload is ~4.3 GB and the zip ~3.0 GB
+   (`ZIP 3011 MB (3,157,244,364 B)`, SHA256 `69766F20…`).
+2. **`tools/build-installer.ps1` did not follow that change.** It still required `large-ja` **and**
+   `large-vi` in the staged payload, so the installer could not be built at all from the en+ja tree
+   (the "verified end-to-end" row above predates the trim). The check now requires `large-en` and
+   `large-ja`, the same pair `pack-portable.ps1` stages and `TrimUnshippedModels` keeps.
+3. **Dead tier fallbacks in the live language switch.** `LivePage.xaml.cs` resolved
+   `EngineCatalog.Find(code, "small")` in three places (the lazy start, the auto-mode
+   no-speech fallback, and the mid-meeting auto switch) and `SettingsPage` seeded a fresh install
+   with `("auto", "small")`. With `Tiers = {large}` those lookups could only return null: a stored
+   non-`large` size made an auto language switch fail outright, and the "avoid the large tier"
+   shortcut was inert. All four now derive from `EngineCatalog.DefaultTier` (a new accessor), and the
+   fresh-install default is the shipped default.
+
+| Check | Command | Observed |
+|---|---|---|
+| Solution build | `dotnet build client\MeetVault.sln -c Release` | `Build succeeded. 0 Warning(s) 0 Error(s)` |
+| Core suite | `dotnet test tests\MeetVault.Core.Tests\MeetVault.Core.Tests.csproj -c Release` | `Failed: 0, Passed: 372, Skipped: 0` |
+| No stale tier left | `Select-String -Path …LivePage.xaml.cs,…SettingsPage.xaml.cs -Pattern '"small"'` | no matches |

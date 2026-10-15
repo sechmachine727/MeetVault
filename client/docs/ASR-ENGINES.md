@@ -1,4 +1,4 @@
-# Speech models — Vosk (Japanese / Vietnamese)
+# Speech models — Vosk (English / Japanese)
 
 MeetVault ships one engine family: **Vosk** — offline, streaming, CPU-only. Settings →
 Transcription selects **Language** (`transcription.language`) and **Model size**
@@ -8,7 +8,7 @@ source of truth. Earlier engine families and the diarization/VAD pipeline were r
 **The deliverable ships exactly two models — `large-en` and `large-ja`** (plus the language-ID
 model). Vietnamese and the small/medium tiers are not shipped; there is no runtime download
 path, so the catalog lists only what ships and `tools/pack-portable.ps1` stages only that. With
-both large models staged the portable zip is roughly 4.3 GB.
+both large models staged the staged model payload is ~4.3 GB and the portable zip is ~3.0 GB.
 
 ## Tiers
 
@@ -47,6 +47,6 @@ An unstaged tier shows "— not installed" in Settings; Live falls back to an in
 of the same language. Required files per model are the ones the catalog lists for it
 (dynamic-graph models: `graph/Gr.fst` + `graph/HCLr.fst`; composed models: `graph/HCLG.fst`).
 A legacy `transcription.model` value is migrated once to the language/size pair (unknown ids
-fall back to English/Large, the shipped default). Big models need more RAM (roughly 1–2 GB when running) and take
-longer to load; the small models stay the lightest option. Overlay/feed rendering is
+fall back to English/Large, the shipped default). The large models need more RAM (roughly 1–2 GB when running) and take
+several seconds to load; the retired small models stay the lightest option. Overlay/feed rendering is
 unchanged by the model choice.

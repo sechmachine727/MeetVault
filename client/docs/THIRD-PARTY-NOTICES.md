@@ -8,12 +8,12 @@ terms of those components.
 The app ships `libvosk.dll` through the `Vosk` NuGet package. Vosk and Kaldi are licensed
 under the Apache License 2.0; copyright Alpha Cephei Inc. and contributors.
 
-The **redistributed** models under `models/vosk/` are the Vosk Japanese and Vietnamese large
-models (`vosk-model-ja-0.22`, `vosk-model-vn-0.4`) — the only two the deliverable ships —
+The **redistributed** models under `models/vosk/` are the Vosk English and Japanese large
+models (`vosk-model-en-us-0.22`, `vosk-model-ja-0.22`) — the only two the deliverable ships —
 distributed by Alpha Cephei under the Apache License 2.0 and not committed to this repository.
-The English and small/medium models (`vosk-model-small-en-us-0.15`,
-`vosk-model-en-us-0.22-lgraph`, `vosk-model-en-us-0.22`, `vosk-model-small-ja-0.22`,
-`vosk-model-small-vn-0.4`) are no longer part of the deliverable.
+Every other model is no longer part of the deliverable: the Vietnamese models
+(`vosk-model-small-vn-0.4`, `vosk-model-vn-0.4`) and the small/medium tiers
+(`vosk-model-small-en-us-0.15`, `vosk-model-en-us-0.22-lgraph`, `vosk-model-small-ja-0.22`).
 
 ## ScreenRecorderLib (screen recording)
 

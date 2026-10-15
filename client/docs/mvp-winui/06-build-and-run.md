@@ -26,14 +26,17 @@ Tests that need the real Vosk models skip when `models/vosk/` is absent.
 `publish/win-x64` is the single canonical portable output.
 
 ```powershell
-# One canonical portable deliverable: publish, stage only the shipped models (large-ja, large-vi),
+# One canonical portable deliverable: publish, stage only the shipped models (see the note below),
 # trim, zip, and print the size + SHA256.
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\pack-portable.ps1
 ```
 
+*(Spec text above is frozen. The models actually staged today are `large-en` + `large-ja`; the
+Vietnamese and small/medium tiers were removed on 2026-10-15 — see [../ASR-ENGINES.md](../ASR-ENGINES.md).)*
+
 The deliverable carries only the models `EngineCatalog` offers — see [../ASR-ENGINES.md](../ASR-ENGINES.md).
 Staging more than that does not ship: the script and the `TrimUnshippedModels` target drop everything
-else, which is what keeps the zip near 1 GB instead of 3.3 GB.
+else, which is what keeps the zip shippable (~3.0 GB) instead of carrying every staged tier.
 
 ## Installer (regular users)
 
