@@ -9,7 +9,11 @@
 #
 # The api service runs the migrations before serving; the worker waits for the api
 # to become healthy, so migrations are never applied twice concurrently.
-name: meetvault-backend
+#
+# The project name is NOT set here on purpose: it comes from COMPOSE_PROJECT_NAME (see
+# .env / docker.env.example), so this dev stack and the deployment stack in deploy/ get their
+# own volumes. Sharing one name made `docker compose down -v` in either folder delete the
+# other's database and media (observed).
 
 # Every runtime setting the two processes share. Explicit mapping (not env_file) so the
 # defaults stay sane with no .env at all, and so `docker compose config` shows the
