@@ -6,9 +6,27 @@
 [CmdletBinding()]
 param(
     [string]$Config = "Release",
-    [string]$RepoRoot = (Resolve-Path "$PSScriptRoot\..").Path
+    [string]$RepoRoot = ""
 )
 $ErrorActionPreference = "Stop"
+
+# Resolve the client repo root by looking for the app project, not by trusting a path shape:
+# PowerShell 5.1 leaves $PSScriptRoot at a drive root when -File is given a relative path
+# (observed: it resolved to "D:\", so every path below landed in D:\src\...). Try the script's
+# own parent first, then the current directory.
+if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
+    foreach ($candidate in @((Join-Path $PSScriptRoot ".."), (Get-Location).Path)) {
+        if (Test-Path (Join-Path $candidate "src\MeetVault\MeetVault.csproj")) {
+            $RepoRoot = (Resolve-Path $candidate).Path
+            break
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
+        throw "client repo root not found: run this from the client folder (cd client) or pass -RepoRoot <path>"
+    }
+}
+Write-Host ("== repo root: " + $RepoRoot)
+
 $ShippedModels = @("large-ja", "large-vi")
 $PublishDir = Join-Path $RepoRoot "publish\win-x64"
 $PublishRoot = Join-Path $RepoRoot "publish"
@@ -40,9 +58,17 @@ Get-ChildItem (Join-Path $ModelsOut "vosk") -Directory |
 Write-Host "== zip =="
 # One canonical package: drop a previous stamp so publish/ never holds two.
 Get-ChildItem $PublishRoot -Filter "MeetVault-*-portable.zip" | Remove-Item -Force
-# tar (bsdtar, Windows 10+) handles a multi-GB tree far better than Compress-Archive.
-& tar.exe -a -c -f $Zip -C $PublishDir .
-if ($LASTEXITCODE -ne 0) { throw "tar failed" }
+# Use the SYSTEM bsdtar by absolute path: a bare `tar.exe` picks up MSYS/GNU tar from a git-bash
+# PATH, and GNU tar reads "D:\..." as a remote host ("Cannot connect to D: resolve failed").
+# bsdtar also handles a multi-GB tree far better than Compress-Archive.
+$tar = Join-Path $env:SystemRoot "System32\tar.exe"
+if (Test-Path $tar) {
+    & $tar -a -c -f $Zip -C $PublishDir .
+    if ($LASTEXITCODE -ne 0) { throw "tar failed" }
+} else {
+    Write-Host "  (no bsdtar; falling back to Compress-Archive - slower)"
+    Compress-Archive -Path (Join-Path $PublishDir "*") -DestinationPath $Zip -CompressionLevel Optimal -Force
+}
 
 $size = (Get-Item $Zip).Length
 $mb = [math]::Round($size / 1MB, 1)
