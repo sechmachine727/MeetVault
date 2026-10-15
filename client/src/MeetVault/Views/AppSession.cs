@@ -15,7 +15,7 @@ public static class AppSession
 
     public static bool IsSignedIn => User is not null;
 
-    public static string Url => (AppStore.Repo.GetSetting("backend.url") ?? "").Trim();
+    public static string Url => BackendSettings.Resolve(AppStore.Repo.GetSetting("backend.url"));
 
     // A client with the stored session token. Callers pattern:
     //   if (!AppSession.TryCreateClient(out var client)) { show sign-in prompt; return; }
@@ -94,6 +94,15 @@ public static class AppSession
     }
 
     public static void ClearError() => LastError = null;
+
+    // Drop the in-memory sign-in state without calling the server (used when the server changes:
+    // the stored token belongs to the previous server and must not be reused).
+    public static void ClearSignInState()
+    {
+        User = null;
+        ExpiresAt = null;
+        LastError = null;
+    }
 
     private static void Clear()
     {

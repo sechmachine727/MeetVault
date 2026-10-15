@@ -310,8 +310,22 @@ public sealed partial class SettingsPage : Page
     private void BackendUrl_LostFocus(object sender, RoutedEventArgs e)
     {
         if (_loading || !_ready) return;
-        Persist("backend.url", BackendUrlBox.Text.Trim().TrimEnd('/'));
+        var previous = AppStore.Repo.GetSetting("backend.url");
+        var next = MeetVault.Core.Backend.BackendSettings.Normalize(BackendUrlBox.Text);
+        if (MeetVault.Core.Backend.BackendSettings.IsServerChange(previous, next)) ResetServerScopedState();
+        Persist("backend.url", next);
         Refresh();
+    }
+
+    // A different server invalidates everything scoped to the old one: the vault session token,
+    // the per-meeting cloud links, and the cached server documents.
+    private void ResetServerScopedState()
+    {
+        try { AppStore.Secrets.Clear("AuthToken"); } catch { }
+        AppStore.Repo.ClearAllBackendSync();
+        new MeetVault.Core.Backend.BackendCache(MeetVault.Core.Backend.BackendCache.DefaultRoot).ClearAll();
+        AppSession.ClearSignInState();
+        BackendStatus.Text = Loc.T("Set.BackendSwitched");
     }
 
     private void ManageAccount_Click(object sender, RoutedEventArgs e)
@@ -414,7 +428,9 @@ public sealed partial class SettingsPage : Page
         if (int.TryParse(repo.GetSetting("audio.mic"), out var micIdx) && micIdx >= 0 && micIdx < MicPicker.Items.Count) MicPicker.SelectedIndex = micIdx;
         var logLevel = (repo.GetSetting("logging.level") ?? "debug").Trim().ToLowerInvariant();
         LogLevelPicker.SelectedIndex = Array.IndexOf(new[] { "trace", "debug", "info", "warning", "error", "off" }, logLevel) is var li && li >= 0 ? li : 1;
-        BackendUrlBox.Text = repo.GetSetting("backend.url") ?? "";
+        // The effective URL: the stored one when set, else the shipped default. (No legacy
+        // migration: a stored local dev URL stays until it is switched explicitly.)
+        BackendUrlBox.Text = MeetVault.Core.Backend.BackendSettings.Resolve(repo.GetSetting("backend.url"));
         MicSwitch.IsOn = repo.GetSetting("audio.mic.enabled") != "off";
         SystemSwitch.IsOn = repo.GetSetting("audio.system.enabled") != "off";
         var app = repo.GetSetting("audio.system.app") ?? "";
@@ -530,7 +546,7 @@ public sealed partial class SettingsPage : Page
             repo.SetSetting("audio.mic.enabled", OnOff(MicSwitch.IsOn));
             repo.SetSetting("audio.system.enabled", OnOff(SystemSwitch.IsOn));
             repo.SetSetting("audio.system.app", SourceValue());
-            repo.SetSetting("backend.url", BackendUrlBox.Text.Trim().TrimEnd('/'));
+            repo.SetSetting("backend.url", MeetVault.Core.Backend.BackendSettings.Normalize(BackendUrlBox.Text));
             var logLevel = LogLevelPicker.SelectedItem as string ?? "debug";
             repo.SetSetting("logging.level", logLevel);
             MeetVault.Core.AppLog.Configure(logLevel);
