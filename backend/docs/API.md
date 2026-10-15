@@ -22,6 +22,15 @@ created it: a foreign id answers `404 not_found`, exactly like a missing one.
 | POST | `/v1/auth/login` | exchange email + password for a session token (`MVB_SESSION_TTL_DAYS`, default 30) |
 | POST | `/v1/auth/logout` | revoke the presented token |
 | GET | `/v1/auth/me` | current user + token lifetime |
+| POST | `/v1/auth/register` | create an account from email + password and return a session token (`201`; `403 signup_disabled` when `MVB_ALLOW_SIGNUP=false`; `400 invalid_email`/`weak_password`; `409 email_taken`) |
+
+Registration is self-service when `MVB_ALLOW_SIGNUP=true` (the default). There is no email
+verification — this deployment has no mail server, so anyone who can reach the server can create an
+account; set `MVB_ALLOW_SIGNUP=false` on a public host and provision accounts with
+`python -m mvb.admin create-user`. A `409 email_taken` also tells a caller that an address is
+registered (standard for a self-hosted service, and the alternative — silently succeeding — would
+break the sign-up screen). Passwords must be at least 8 characters; the email is normalized
+(trimmed + lower-cased) before it is stored or compared.
 
 ## Meetings
 
