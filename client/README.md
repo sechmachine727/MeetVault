@@ -11,7 +11,7 @@ Built with C# and WinUI 3 on .NET 8. Local use needs no account; an optional clo
 
 Working MVP, tested on Windows 11. The solution builds with 0 errors; three pre-existing `CA1416` warnings remain in `ProcessLoopbackCapture.cs` (COM release call sites) — do not add more. The Core test suite passes 324 tests. The portable build launches and records, transcribes, and saves meetings. See [BLOCKERS.md](BLOCKERS.md) for what still needs a specific machine to verify.
 
-Per-process audio capture is implemented but has not been exercised against a machine with the target app playing. The app supports English, Japanese, and Vietnamese with Vosk's small/medium/large model tiers (medium is English-only); meetings default to Auto-detect, which identifies the spoken language with a staged VoxLingua107 model (see Speech models) and switches the engine live. JA/VI accuracy has not been verified with real speech.
+Per-process audio capture is implemented but has not been exercised against a machine with the target app playing. The app supports English and Japanese with Vosk's large model tier; meetings default to Auto-detect, which identifies the spoken language with a staged VoxLingua107 model (see Speech models) and switches the engine live. JA accuracy has not been verified with real speech.
 
 ## Features
 
@@ -54,7 +54,7 @@ dotnet build MeetVault.sln -c Release
 dotnet test tests\MeetVault.Core.Tests\MeetVault.Core.Tests.csproj -c Release --nologo -v q
 ```
 
-The suite's Vosk contract test early-returns (reported as passed) when `models/vosk/large-vi` is unstaged — a green CI run does not exercise live decoding.
+The suite's Vosk contract test early-returns (reported as passed) when `models/vosk/large-ja` is unstaged — a green CI run does not exercise live decoding.
 
 ## Run
 
@@ -85,20 +85,20 @@ Place these under `models/`. They are gitignored and must be staged next to the 
 
 | Folder | Language | Size tier | Download | Shipped |
 | --- | --- | --- | --- | --- |
+| `vosk/large-en` | English | Large | ~1.8 GB | yes |
 | `vosk/large-ja` | Japanese | Large | ~1 GB | yes |
-| `vosk/large-vi` | Vietnamese | Large | ~78 MB | yes |
 
 Only the shipped rows reach the deliverable — `tools/pack-portable.ps1` stages exactly those and the
 `TrimUnshippedModels` target drops everything else. See [docs/ASR-ENGINES.md](docs/ASR-ENGINES.md)
-for the retired English and small/medium models.
+for the retired small/medium tiers and the Vietnamese models.
 
 The auto-detect language-ID model goes under `models/langid/`: `voxlingua107.onnx` (SpeechBrain
 VoxLingua107 ECAPA checkpoint exported to ONNX, `christopherthompson81/voxlingua107-lid-onnx`)
 and its `lang_map.json`. Without this folder, Auto-detect is unavailable and meetings fall
 back to the configured language.
 
-All are Vosk models (alphacephei.com/vosk/models), offline and streaming. Japanese and
-Vietnamese have no medium tier — the picker shows those rows disabled. Staging commands and
+All are Vosk models (alphacephei.com/vosk/models), offline and streaming. Neither shipped
+language has a small or medium tier in this build — the picker shows only Large. Staging commands and
 the exact required files: [docs/ASR-ENGINES.md](docs/ASR-ENGINES.md).
 
 ## Configuration
@@ -107,7 +107,7 @@ Settings persist in `%APPDATA%\MeetVault\meetings.db` (SQLite, `settings` table)
 
 - **Display language**: the interface language — English or Japanese. **System default** follows the Windows display language; an explicit choice applies after a restart.
 - **Audio**: microphone device, record-microphone on/off, record-system-audio on/off, and the system-audio source (all apps, or one running app). Microphone and system audio are mixed; disabling one records the other alone.
-- **Transcription**: Language (English / Japanese / Vietnamese) and Model size (Small / Medium / Large). Offline streaming, runs on CPU. The caption under the controls explains what each size means; a tier whose files are missing shows "— not installed" and Live falls back to an installed model. Model staging: [docs/ASR-ENGINES.md](docs/ASR-ENGINES.md).
+- **Transcription**: Language (English / Japanese) and Model size (Large). Offline streaming, runs on CPU. The caption under the controls explains what each size means; a tier whose files are missing shows "— not installed" and Live falls back to an installed model. Model staging: [docs/ASR-ENGINES.md](docs/ASR-ENGINES.md).
 - **Overlay**: keep on top, background darkness (default 0.20), font size (default 18), lines shown.
 - **Storage**: export folder.
 - **Logging**: log level (default `debug`), open log folder, show log.

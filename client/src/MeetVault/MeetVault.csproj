@@ -141,7 +141,7 @@
        EngineCatalog.Options and tools/pack-portable.ps1 in step. -->
   <Target Name="TrimUnshippedModels" AfterTargets="Publish">
     <ItemGroup>
-      <_UnshippedModelDir Include="$(PublishDir)models\vosk\small-en;$(PublishDir)models\vosk\medium-en;$(PublishDir)models\vosk\large-en;$(PublishDir)models\vosk\small-ja;$(PublishDir)models\vosk\small-vi" />
+      <_UnshippedModelDir Include="$(PublishDir)models\vosk\small-en;$(PublishDir)models\vosk\medium-en;$(PublishDir)models\vosk\small-ja;$(PublishDir)models\vosk\small-vi;$(PublishDir)models\vosk\large-vi" />
     </ItemGroup>
     <RemoveDir Directories="@(_UnshippedModelDir)" />
   </Target>

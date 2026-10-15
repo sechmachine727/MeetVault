@@ -30,7 +30,7 @@ if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
 }
 Write-Host ("== repo root: " + $RepoRoot)
 
-$ShippedModels = @("large-ja", "large-vi")
+$ShippedModels = @("large-en", "large-ja")
 $PublishDir = Join-Path $RepoRoot "publish\win-x64"
 $PublishRoot = Join-Path $RepoRoot "publish"
 $Stamp = Get-Date -Format "yyyy-MM-dd"
