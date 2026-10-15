@@ -23,6 +23,12 @@ public static class EngineCatalog
     // Display order of the model-size dropdown.
     public static readonly string[] Tiers = { "large" };
 
+    // The tier every persisted setting and fallback resolves to. Callers that need a size and
+    // have none must use this instead of naming a tier inline: the shipped set can drop a tier
+    // (small/medium were retired with the English+Japanese set), and a hard-coded name then
+    // silently fails every lookup.
+    public static string DefaultTier => Tiers[0];
+
     // Language dropdown: endonyms (standard convention); Code is the persisted value.
     public static readonly (string Code, string Endonym)[] Languages =
     {
@@ -73,8 +79,8 @@ public static class EngineCatalog
     }
 
     // Exact (language, size) wins; then any tier of that language; then the retired single key;
-    // then the shipped default. A stored language that no longer ships (e.g. English) lands on
-    // the default rather than on a model that is not on disk.
+    // then the shipped default. A stored (language, size) pair that no longer ships — the
+    // retired Vietnamese language or the small/medium tiers — lands on a model that is on disk.
     public static EngineOption Resolve(string? language, string? size, string? legacyModel = null)
     {
         var exact = Find(language, size);

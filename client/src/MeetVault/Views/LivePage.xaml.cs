@@ -245,7 +245,7 @@ public sealed partial class LivePage : Page
             // thread — the large tier takes seconds), not when the tab is opened.
             if (_relay is not null && !_autoMode && _relay.ActiveModelDir is null)
             {
-                var option = _resolvedOption ?? EngineCatalog.Find(_activeLanguage, "small");
+                var option = _resolvedOption ?? EngineCatalog.Find(_activeLanguage, EngineCatalog.DefaultTier);
                 if (option is null || !await Task.Run(() => _relay.SwapTo(Path.Combine(ModelDir, "vosk", option.Model))))
                     throw new InvalidOperationException("engine init failed for " + (option?.Model ?? _activeLanguage));
             }
@@ -270,12 +270,12 @@ public sealed partial class LivePage : Page
             if (_autoMode && _langMonitor is not null && _relay is not null && _relay.ActiveModelDir is null)
             {
                 // Auto: collect the first speech windows, then transcribe on the detected
-                // language — or English/small when no speech is detected at all.
+                // language — or English at the configured tier when no speech is detected at all.
                 Status(Loc.T("Live.LangDetecting"));
                 await EnsureLangIdLoaded();
                 // The gate needs a full 4 s window plus inference before any detection can
                 // exist; 3.5 s deterministically lost that race, so the auto start always
-                // fell through to en/small (review r5).
+                // fell through to the English fallback (review r5).
                 var waitOwner = _session;
                 await Task.Delay(6500);
                 // Pause/Stop during the wait must not let the continuation swap an engine
@@ -283,7 +283,8 @@ public sealed partial class LivePage : Page
                 if (_relay is null || !ReferenceEquals(_session, waitOwner) || _state != LiveState.Recording) return;
                 if (_relay.ActiveModelDir is null)
                 {
-                    var fallback = EngineCatalog.Find("en", "small");
+                    var fallback = EngineCatalog.Find("en", AppStore.Repo.GetSetting("transcription.size") ?? EngineCatalog.DefaultTier)
+                        ?? EngineCatalog.Default;
                     // onlyIfNoEngine: an auto-initial swap may be loading behind the gate —
                     // the fallback must not overwrite the detected engine (review r14).
                     if (fallback is not null && await Task.Run(() => _relay.SwapTo(Path.Combine(ModelDir, "vosk", fallback.Model), onlyIfNoEngine: true)))
@@ -298,7 +299,7 @@ public sealed partial class LivePage : Page
                         }
                         LiveBridge.SetLanguage(new LiveBridge.LanguageInfo("en", true, false));
                         EngineStatus.Text = _engineMode;
-                        MeetVault.Core.AppLog.Info("langid: no speech in 3.5 s; starting en/small (fallback)");
+                        MeetVault.Core.AppLog.Info("langid: no speech in 3.5 s; starting " + fallback.Model + " (fallback)");
                     }
                 }
                 Status(Loc.T("Live.Recording"));
@@ -725,18 +726,19 @@ public sealed partial class LivePage : Page
         if (_relay is null) return false;
         try
         {
-        var size = AppStore.Repo.GetSetting("transcription.size") ?? "small";
-        var option = EngineCatalog.Find(code, size) ?? EngineCatalog.Find(code, "small");
+        var size = AppStore.Repo.GetSetting("transcription.size") ?? EngineCatalog.DefaultTier;
+        // A stored size that no longer ships (small/medium were retired with the English+Japanese
+        // set) must not veto the switch: fall back to the same language at the shipped tier.
+        var option = EngineCatalog.Find(code, size) ?? EngineCatalog.Find(code, EngineCatalog.DefaultTier);
         if (option is null)
         {
             MeetVault.Core.AppLog.Warn("langid: " + code + " has no staged model; keeping " + _activeLanguage);
             SyncLanguageCombo(_autoMode ? "auto" : _activeLanguage);
             return false;
         }
-        // A MID-MEETING auto switch avoids the large tier (measured: large loads in ~16.5 s
-        // vs 0.24 s small); the initial pick and manual picks keep the configured tier.
-        if (reason == "auto" && size == "large" && _relay.ActiveModelDir is not null && code != _activeLanguage)
-            option = EngineCatalog.Find(code, "small") ?? option;
+        // The retired "avoid the large tier on a mid-meeting auto switch" shortcut lived here: it
+        // resolved the same language at the small tier, which no longer ships, so it could only
+        // ever return null and the switch always loaded the configured tier anyway.
         var relay = _relay;
         var owner = _session;
         // The engine build takes seconds on the large tier and must never run on the UI

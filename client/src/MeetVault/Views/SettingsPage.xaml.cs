@@ -116,7 +116,7 @@ public sealed partial class SettingsPage : Page
             : MeetVault.Core.EngineCatalog.Languages[Math.Clamp(idx - 1, 0, MeetVault.Core.EngineCatalog.Languages.Length - 1)].Code;
     }
 
-    private string SizeTier() => (SizePicker.SelectedItem as SizeRow)?.Tier ?? "small";
+    private string SizeTier() => (SizePicker.SelectedItem as SizeRow)?.Tier ?? MeetVault.Core.EngineCatalog.DefaultTier;
 
     private static string FormatMb(int mb) =>
         mb < 1000 ? "~" + mb + " MB" : "~" + (mb / 1000.0).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " GB";
@@ -402,7 +402,7 @@ public sealed partial class SettingsPage : Page
             // Fresh install with no legacy model: Auto-detect is the default mode. An
             // install that still names a retired transcription.model migrates to its pair.
             (langCode, sizeTier) = string.IsNullOrEmpty(repo.GetSetting("transcription.model"))
-                ? ("auto", "small")
+                ? ("auto", MeetVault.Core.EngineCatalog.DefaultTier)
                 : MeetVault.Core.EngineCatalog.MigrateLegacy(repo.GetSetting("transcription.model"));
             repo.SetSetting("transcription.language", langCode);
             repo.SetSetting("transcription.size", sizeTier);

@@ -134,9 +134,9 @@
     <RemoveDir Directories="@(_ForeignPublishDir)" />
     <Delete Files="$(PublishDir)ggml-metal.metal" ContinueOnError="true" />
   </Target>
-  <!-- The deliverable ships only the models the catalog offers (docs/ASR-ENGINES.md): large-ja and
-       large-vi, plus langid. Every other staged model dir is dropped from the publish output so the
-       portable zip stays shippable (4.1 GB of models -> ~1.5 GB). Explicit paths, not a wildcard: a
+  <!-- The deliverable ships only the models the catalog offers (docs/ASR-ENGINES.md): large-en and
+       large-ja, plus langid. Every other staged model dir is dropped from the publish output so the
+       portable zip stays shippable (4.3 GB of models -> ~3.0 GB). Explicit paths, not a wildcard: a
        glob could delete a shipped model. No-ops when a dir is absent. Keep this list,
        EngineCatalog.Options and tools/pack-portable.ps1 in step. -->
   <Target Name="TrimUnshippedModels" AfterTargets="Publish">
