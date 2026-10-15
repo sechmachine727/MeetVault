@@ -79,7 +79,7 @@ public sealed class AutoLanguagePolicyTests
         var policy = new AutoLanguagePolicy();
         var expected = EngineCatalog.Languages.Select(l => l.Code).ToArray();
         Assert.Equal(expected, policy.SupportedLanguages);
-        Assert.DoesNotContain("en", policy.SupportedLanguages);
+        Assert.DoesNotContain("vi", policy.SupportedLanguages);
         Assert.All(EngineCatalog.Options, o => Assert.Contains(o.Language, policy.SupportedLanguages));
     }
 
@@ -91,43 +91,43 @@ public sealed class AutoLanguagePolicyTests
         Assert.Equal(new[] { "ja" }, policy.SupportedLanguages);
     }
 
-    // The policy's supported set is the shipped catalog (ja, vi) — these fixtures use those two
+    // The policy's supported set is the shipped catalog (en, ja) — these fixtures use those two
     // languages, never a code the product no longer ships. The mechanics are language-agnostic.
 
     [Fact]
     public void TwoAgreeingDetections_NoSwitch()
     {
         var p = NewPolicy(); p.SetActive("ja");
-        Assert.Null(p.Detection("vi", 0.9f, 0));
-        Assert.Null(p.Detection("vi", 0.9f, 100));
+        Assert.Null(p.Detection("en", 0.9f, 0));
+        Assert.Null(p.Detection("en", 0.9f, 100));
     }
 
     [Fact]
     public void ThreeAgreeingDetections_Switch()
     {
         var p = NewPolicy(); p.SetActive("ja");
-        Assert.Null(p.Detection("vi", 0.9f, 0));
-        Assert.Null(p.Detection("vi", 0.9f, 100));
-        Assert.Equal("vi", p.Detection("vi", 0.9f, 200));
+        Assert.Null(p.Detection("en", 0.9f, 0));
+        Assert.Null(p.Detection("en", 0.9f, 100));
+        Assert.Equal("en", p.Detection("en", 0.9f, 200));
     }
 
     [Fact]
     public void ActiveLanguageDetection_ResetsAgreement()
     {
         var p = NewPolicy(); p.SetActive("ja");
-        p.Detection("vi", 0.9f, 0);
-        p.Detection("vi", 0.9f, 100);
+        p.Detection("en", 0.9f, 0);
+        p.Detection("en", 0.9f, 100);
         Assert.Null(p.Detection("ja", 0.95f, 200));       // back to the active language: reset
-        Assert.Null(p.Detection("vi", 0.9f, 300));
-        Assert.Null(p.Detection("vi", 0.9f, 400));
-        Assert.Equal("vi", p.Detection("vi", 0.9f, 500));
+        Assert.Null(p.Detection("en", 0.9f, 300));
+        Assert.Null(p.Detection("en", 0.9f, 400));
+        Assert.Equal("en", p.Detection("en", 0.9f, 500));
     }
 
     [Fact]
     public void LowConfidence_Ignored()
     {
         var p = NewPolicy(); p.SetActive("ja");
-        for (var i = 0; i < 5; i++) Assert.Null(p.Detection("vi", 0.4f, i * 100));
+        for (var i = 0; i < 5; i++) Assert.Null(p.Detection("en", 0.4f, i * 100));
     }
 
     [Fact]
@@ -141,10 +141,10 @@ public sealed class AutoLanguagePolicyTests
     public void Cooldown_BlocksThenAllowsASecondSwitch()
     {
         var p = NewPolicy(); p.SetActive("ja");
-        p.Detection("vi", 0.9f, 0);
-        p.Detection("vi", 0.9f, 100);
-        Assert.Equal("vi", p.Detection("vi", 0.9f, 200));
-        p.SetActiveKeepCooldown("vi");                     // the app applies the auto switch; the cooldown stays
+        p.Detection("en", 0.9f, 0);
+        p.Detection("en", 0.9f, 100);
+        Assert.Equal("en", p.Detection("en", 0.9f, 200));
+        p.SetActiveKeepCooldown("en");                     // the app applies the auto switch; the cooldown stays
         Assert.Null(p.Detection("ja", 0.9f, 300));        // inside cooldown: not even recorded
         Assert.Null(p.Detection("ja", 0.9f, 1100));
         Assert.Null(p.Detection("ja", 0.9f, 1300));       // cooldown over: agreement re-accumulates
@@ -156,10 +156,10 @@ public sealed class AutoLanguagePolicyTests
     public void SetActive_ClearsTheCooldown()
     {
         var p = NewPolicy(); p.SetActive("ja");
-        p.Detection("vi", 0.9f, 0);
-        p.Detection("vi", 0.9f, 100);
-        Assert.Equal("vi", p.Detection("vi", 0.9f, 200));  // auto switch; cooldown running
-        p.SetActive("vi");                                 // the user confirms the pick: cooldown clears
+        p.Detection("en", 0.9f, 0);
+        p.Detection("en", 0.9f, 100);
+        Assert.Equal("en", p.Detection("en", 0.9f, 200));  // auto switch; cooldown running
+        p.SetActive("en");                                 // the user confirms the pick: cooldown clears
         p.Detection("ja", 0.9f, 300);                      // under a cooldown window of the switch — recorded
         p.Detection("ja", 0.9f, 400);
         Assert.Equal("ja", p.Detection("ja", 0.9f, 500));  // agreement completes: not suppressed
@@ -171,12 +171,12 @@ public sealed class AutoLanguagePolicyTests
         // Pause/stop: two non-active detections before the pause + one after resume must
         // NOT meet the agreement count (review r12).
         var p = NewPolicy(); p.SetActive("ja");
-        p.Detection("vi", 0.9f, 0);
-        p.Detection("vi", 0.9f, 100);
+        p.Detection("en", 0.9f, 0);
+        p.Detection("en", 0.9f, 100);
         p.ResetAgreement();
-        Assert.Null(p.Detection("vi", 0.9f, 200));   // window starts over — not a switch
-        p.Detection("vi", 0.9f, 300);
-        Assert.Equal("vi", p.Detection("vi", 0.9f, 400));
+        Assert.Null(p.Detection("en", 0.9f, 200));   // window starts over — not a switch
+        p.Detection("en", 0.9f, 300);
+        Assert.Equal("en", p.Detection("en", 0.9f, 400));
     }
 }
 

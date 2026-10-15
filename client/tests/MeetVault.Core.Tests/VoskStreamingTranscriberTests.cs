@@ -6,9 +6,9 @@ public sealed class VoskStreamingTranscriberTests
 {
     private static string? ModelDir()
     {
-        // A SHIPPED model: the deliverable carries large-ja and large-vi only. large-vi is the
-        // smaller of the two, so the live contract test stays fast.
-        var dir = Path.Combine(TestAudio.RepoRoot, "models", "vosk", "large-vi");
+        // A SHIPPED model: the deliverable carries large-en and large-ja only. large-en is the
+        // English model and the fixture is English speech, so the decode is meaningful.
+        var dir = Path.Combine(TestAudio.RepoRoot, "models", "vosk", "large-en");
         return File.Exists(Path.Combine(dir, "am", "final.mdl")) ? dir : null;
     }
 
@@ -52,10 +52,10 @@ public sealed class VoskStreamingTranscriberTests
         // three sentences, so a single-segment result would mean Vosk's own endpoints never
         // fired (only the flush closed the stream).
         Assert.True(segs.Count >= 2, "expected an endpoint final, got " + segs.Count + " segment(s)");
-        // The fixture is English and the shipped models are Japanese/Vietnamese, so the words come
-        // out as nonsense ("Việc hoạch rộng phút chốc…") — this test owns the transport contract:
-        // every segment carries text, and the final arrives sentence-cased. The old word-level
-        // assertion ("fox") only held while the fixture ran through small-en, which no longer ships.
+        // The fixture is English and large-en is the shipped English model, so the words come out
+        // correctly — the assertions stay contract-level (every segment carries text, the first
+        // arrives sentence-cased, and an endpoint final exists) so a future model swap cannot
+        // silently break the transport without failing here.
         Assert.All(segs, s => Assert.False(string.IsNullOrWhiteSpace(s.Text), "empty segment text"));
         // Vosk emits all lowercase; the final text must arrive sentence-cased.
         Assert.True(char.IsUpper(segs[0].Text[0]), "expected sentence case, got: " + segs[0].Text);

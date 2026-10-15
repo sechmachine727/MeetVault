@@ -63,7 +63,7 @@ public static class LiveBridge
     public static event Action<MeetingState>? MeetingStateChanged;
     public static event Action<LanguageInfo>? LanguageChanged;
     public static event Action<bool>? ScreenStateChanged;
-    public static event Action<string>? LanguageRequested;   // "auto"|"en"|"ja"|"vi" — from any control
+    public static event Action<string>? LanguageRequested;   // "auto"|"en"|"ja" — from any control
     public static event Action? ScreenToggleRequested;       // from the overlay button
 
     public static void SetMeetingState(MeetingState state)

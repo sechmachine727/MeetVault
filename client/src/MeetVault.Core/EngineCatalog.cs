@@ -14,10 +14,11 @@ public sealed record EngineOption(
 
 public static class EngineCatalog
 {
-    // The deliverable ships exactly two models — see docs/ASR-ENGINES.md. English and the
-    // small/medium tiers were dropped so the portable zip stays shippable (~1.5 GB of models
-    // instead of 4.1 GB); there is no runtime download path to fetch the rest.
-    // Keep this list, docs/ASR-ENGINES.md and tools/pack-portable.ps1 in step.
+    // The deliverable ships exactly two models — see docs/ASR-ENGINES.md: Vosk large-en and
+    // large-ja. Vietnamese and the small/medium tiers are not shipped (there is no runtime
+    // download path to fetch them), so the catalog lists only what ships.
+    // Keep this list, docs/ASR-ENGINES.md, tools/pack-portable.ps1 and the TrimUnshippedModels
+    // target in src/MeetVault/MeetVault.csproj in step.
 
     // Display order of the model-size dropdown.
     public static readonly string[] Tiers = { "large" };
@@ -25,7 +26,7 @@ public static class EngineCatalog
     // Language dropdown: endonyms (standard convention); Code is the persisted value.
     public static readonly (string Code, string Endonym)[] Languages =
     {
-        ("ja", "日本語"), ("vi", "Tiếng Việt"),
+        ("en", "English"), ("ja", "日本語"),
     };
 
     // Dynamic-graph models ship Gr.fst + HCLr.fst and the native composes the decode graph
@@ -44,12 +45,12 @@ public static class EngineCatalog
 
     public static IReadOnlyList<EngineOption> Options { get; } = new[]
     {
+        new EngineOption("en", "large", "large-en", "Vosk large — English", 1800, Parts("large-en", composed: true)),
         new EngineOption("ja", "large", "large-ja", "Vosk large — Japanese", 1000, Parts("large-ja", composed: true)),
-        new EngineOption("vi", "large", "large-vi", "Vosk large — Vietnamese", 78, Parts("large-vi", composed: true)),
     };
 
     // A fresh install starts on the primary shipped language; the other is one click away.
-    public static EngineOption Default => Options[0];
+    public static EngineOption Default => Find("en", "large")!;
 
     public static EngineOption? Find(string? language, string? size)
     {
@@ -61,7 +62,8 @@ public static class EngineCatalog
     }
 
     // Retired single-key store (`transcription.model`) -> (language, size). Anything unknown
-    // (older removed engines: tiny, base, small-en, medium-en, …) maps to the shipped default.
+    // (older removed engines and tiers: tiny, base, small-en, medium-en, large-vi, …) maps to
+    // the shipped default.
     public static (string Language, string Size) MigrateLegacy(string? model)
     {
         var m = (model ?? "").Trim().ToLowerInvariant();

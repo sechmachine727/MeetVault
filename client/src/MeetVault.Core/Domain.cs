@@ -13,7 +13,7 @@ public sealed record Segment(string Id, string SpeakerId, long StartMs, long End
 
 public enum MeetingStatus { Recording, Paused, Processing, Ready, Failed }
 
-// Language: the meeting's active transcription language code ("en"/"ja"/"vi"), "" until
+// Language: the meeting's active transcription language code ("en"/"ja"), "" until
 // the first write. Owned exclusively by SetMeetingLanguage — never touched by Save's
 // upsert so checkpoints cannot clobber it.
 public sealed record Meeting(string Id, string Title, DateTimeOffset StartedAt, DateTimeOffset? EndedAt, MeetingStatus Status, string? MediaPath, string? MediaMime, string Language = "");
