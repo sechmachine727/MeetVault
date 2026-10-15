@@ -37,7 +37,7 @@ if (-not $SkipStage) {
 
 $stage = Join-Path $RepoRoot "publish\win-x64"
 if (-not (Test-Path (Join-Path $stage "MeetVault.exe"))) { throw "staged payload missing: $stage\MeetVault.exe" }
-foreach ($m in @("large-ja", "large-vi")) {
+foreach ($m in @("large-en", "large-ja")) {
     if (-not (Test-Path (Join-Path $stage "models\vosk\$m"))) { throw "staged payload is missing the shipped model $m" }
 }
 Write-Host "== payload ok (exe + both shipped models) =="
