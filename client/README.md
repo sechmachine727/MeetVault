@@ -112,7 +112,7 @@ Settings persist in `%APPDATA%\MeetVault\meetings.db` (SQLite, `settings` table)
 - **Overlay**: keep on top, background darkness (default 0.20), font size (default 18), lines shown.
 - **Storage**: export folder.
 - **Logging**: log level (default `debug`), open log folder, show log.
-- **Cloud service**: server URL and the Account row (sign in / sign out; the session token is held in Windows Credential Locker).
+- **Cloud service**: the app ships pointing at `https://meetvault.supersanta.io.vn`; Settings ▸ Server URL overrides it. Switching servers signs you out and clears the per-meeting cloud links and cached server documents. The session token is held in the Windows Credential Locker (never in the database).
 
 ## Data and logs
 
