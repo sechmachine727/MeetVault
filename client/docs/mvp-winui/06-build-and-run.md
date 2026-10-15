@@ -26,11 +26,14 @@ Tests that need the real Vosk models skip when `models/vosk/` is absent.
 `publish/win-x64` is the single canonical portable output.
 
 ```powershell
-rmdir /s /q publish\win-x64
-dotnet publish src\MeetVault\MeetVault.csproj -c Release -r win-x64 --self-contained true -o publish\win-x64
-Copy-Item -Recurse -Force models publish\win-x64\models
-publish\win-x64\MeetVault.exe
+# One canonical portable deliverable: publish, stage only the shipped models (large-ja, large-vi),
+# trim, zip, and print the size + SHA256.
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\pack-portable.ps1
 ```
+
+The deliverable carries only the models `EngineCatalog` offers — see [../ASR-ENGINES.md](../ASR-ENGINES.md).
+Staging more than that does not ship: the script and the `TrimUnshippedModels` target drop everything
+else, which is what keeps the zip near 1 GB instead of 3.3 GB.
 
 The native libraries come from the package references during publish (`libvosk.dll` via the Vosk package). Copied by hand: `models/` (the Vosk and langid models) and — for a portable build on a machine without the VC++ redistributable — the staged `vcruntime/win-x64` DLLs (see the app project's Content items).
 

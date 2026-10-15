@@ -37,7 +37,7 @@ These keep the published app from crashing. Each was found the hard way.
 - `App.xaml.cs` loads the app's own `onnxruntime.dll` through `NativeLibrary.Load` before `InitializeComponent`. sherpa-onnx binds the DLL by base name; without the pin it picks up the WindowsAppRuntime framework copy and access-violates.
 - The app project sets `WindowsAppSdkDeploymentManagerInitialize=false` and `WindowsAppSdkBootstrapInitialize=true`. The portable build has no package identity, and deployment auto-init fails without it.
 - `publish/win-x64` is the only portable output. The `TrimForeignRuntimes` targets in `MeetVault.csproj` delete linux, macOS, and non-x64 native payloads after build and publish; keep them so both the portable build and the MSIX stay clean.
-- Never commit `models/`, `cuda/`, or `vcruntime/`. They are gitignored and staged at the repository root. `models/` is copied into the publish folder by hand; the `Content` items below bundle `cuda/` and `vcruntime/` automatically. Staging procedure: [docs/CUDA-SETUP.md](docs/CUDA-SETUP.md).
+- Never commit `models/`, `cuda/`, or `vcruntime/`. They are gitignored and staged at the repository root. Staging procedure: [docs/CUDA-SETUP.md](docs/CUDA-SETUP.md). The **deliverable** carries only the models `EngineCatalog` offers (Vosk large-ja + large-vi + langid); `tools/pack-portable.ps1` stages exactly those and the `TrimUnshippedModels` target drops anything else, so the portable zip stays ~1 GB instead of 3.3 GB. The `Content` items below bundle `cuda/` and `vcruntime/` automatically.
 - Do not hand a live `ObservableCollection` across the WinRT boundary. Snapshot with `.ToArray()` and refresh on change (see `LivePage`, `DetailsPage`, `OverlayWindow`).
 
 ## Pull request review pipeline
