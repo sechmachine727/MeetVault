@@ -43,6 +43,17 @@ public sealed class BackendCache
         catch (Exception ex) { AppLog.Warn("backend: cache read failed: " + ex.Message); return null; }
     }
 
+    // Drop every cached server document + downloaded asset. Used when the server changes: the
+    // cached JSON belongs to the previous server and would otherwise be shown as current.
+    public void ClearAll()
+    {
+        try
+        {
+            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+        }
+        catch (Exception ex) { AppLog.Warn("backend: cache clear failed: " + ex.Message); }
+    }
+
     // Every non-alphanumeric character maps to "_" rather than being dropped, so ids that differ
     // only in separators stop sharing one file. The mapping is NOT injective ("a b" and "a/b" map
     // alike); GUID hex / server UUIDs are fixed-format, so the non-injective mapping does not

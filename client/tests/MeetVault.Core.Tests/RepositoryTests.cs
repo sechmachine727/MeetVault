@@ -68,5 +68,14 @@ public sealed class RepositoryTests : IDisposable
         Assert.Equal("off", _repo.GetSetting("overlay.pin"));
     }
 
+    [Fact]
+    public void ClearAllBackendSync_RemovesEveryRow()
+    {
+        _repo.SaveBackendSync(new BackendSyncRow("m1", "b1", "ready", null, false, "2026-10-14T00:00:00Z"));
+        _repo.SaveBackendSync(new BackendSyncRow("m2", "b2", "ready", null, false, "2026-10-14T00:00:00Z"));
+        Assert.Equal(2, _repo.ClearAllBackendSync());
+        Assert.Empty(_repo.ListSyncedMeetings());
+    }
+
 }
 

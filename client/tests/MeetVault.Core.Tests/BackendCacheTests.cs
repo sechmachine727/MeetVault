@@ -29,4 +29,16 @@ public sealed class BackendCacheTests : IDisposable
         Assert.Equal(Path.Combine(_root, "media", "m_1_A.bin"), cache.MediaPath("m 1/A", ".bin"));
         Assert.NotEqual(cache.MediaPath("m 1/A", ".bin"), cache.MediaPath("m1A", ".bin"));
     }
+
+    [Fact]
+    public void ClearAll_RemovesCachedDocumentsAndMedia()
+    {
+        var cache = new BackendCache(_root);
+        cache.SaveAnalysis("m1", "{}");
+        cache.SaveTranscript("m1", "{}");
+        Assert.NotNull(cache.LoadAnalysis("m1"));
+        cache.ClearAll();
+        Assert.Null(cache.LoadAnalysis("m1"));
+        Assert.False(Directory.Exists(_root));
+    }
 }

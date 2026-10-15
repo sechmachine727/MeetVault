@@ -545,6 +545,14 @@ public sealed class LocalMeetingRepository : IMeetingStore, IDisposable
         c.ExecuteNonQuery();
     }
 
+    // Every cloud link belongs to the server that minted it; a server change drops them all.
+    public int ClearAllBackendSync()
+    {
+        using var c = _db.CreateCommand();
+        c.CommandText = "DELETE FROM backend_sync";
+        return c.ExecuteNonQuery();
+    }
+
     // Meetings that have a backend row, newest first — the Backend page's picker.
     public IReadOnlyList<(Meeting Meeting, BackendSyncRow Sync)> ListSyncedMeetings()
     {
