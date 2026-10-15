@@ -6,27 +6,22 @@ import sys
 
 from sqlalchemy import select
 
+from mvb.accounts import EmailTaken, InvalidRegistration, create_user, find_user, normalize_email
 from mvb.db.base import session_scope
 from mvb.db.models import Meeting, User
-from mvb.security import hash_password
-
-MIN_PASSWORD_LENGTH = 8
 
 
 def _create_user(email: str, password: str, display_name: str) -> int:
-    email = email.strip().lower()
-    if "@" not in email:
-        print(f"invalid email: {email}", file=sys.stderr)
+    try:
+        with session_scope() as session:
+            user = create_user(session, email=email, password=password, display_name=display_name)
+    except InvalidRegistration as exc:
+        print(exc.message, file=sys.stderr)
         return 1
-    if len(password) < MIN_PASSWORD_LENGTH:
-        print(f"password must be at least {MIN_PASSWORD_LENGTH} characters", file=sys.stderr)
+    except EmailTaken:
+        print(f"user already exists: {normalize_email(email)}", file=sys.stderr)
         return 1
-    with session_scope() as session:
-        if session.scalar(select(User).where(User.email == email)) is not None:
-            print(f"user already exists: {email}", file=sys.stderr)
-            return 1
-        session.add(User(email=email, display_name=display_name, password_hash=hash_password(password)))
-    print(f"created user: {email}")
+    print(f"created user: {user.email}")
     return 0
 
 
@@ -38,9 +33,9 @@ def _list_users() -> int:
 
 
 def _adopt_meetings(email: str) -> int:
-    email = email.strip().lower()
+    email = normalize_email(email)
     with session_scope() as session:
-        user = session.scalar(select(User).where(User.email == email))
+        user = find_user(session, email)
         if user is None:
             print(f"no such user: {email}", file=sys.stderr)
             return 1
