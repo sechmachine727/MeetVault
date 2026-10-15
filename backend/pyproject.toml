@@ -30,7 +30,15 @@ dev = [
   "ruff>=0.7",
   "respx>=0.21",
 ]
-transcribe = ["faster-whisper>=1.0"]
+transcribe = [
+  "faster-whisper>=1.0",
+  # faster-whisper 1.2.x decodes through `av.open(..., metadata_errors="ignore")`, an
+  # argument PyAV removed in 19.0. Its own constraint is only `av>=11`, so without this pin a
+  # fresh install (the Docker image is the one that matters) resolves av 19 and every real
+  # transcription fails with "TypeError: open() got an unexpected keyword argument
+  # 'metadata_errors'" — the mock never touches av, so nothing else catches it.
+  "av<19",
+]
 diarize = ["pyannote.audio>=3.3", "torch>=2.4"]
 
 [tool.hatch.build.targets.wheel]

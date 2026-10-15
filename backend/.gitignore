@@ -9,6 +9,8 @@ __pycache__/
 *.sqlite3
 _local.db
 data/
+# Docker: the model-cache folder bind-mounted at /data/hf (compose sets HF_CACHE_DIR to it).
+.docker-hf/
 dist/
 build/
 *.egg-info/

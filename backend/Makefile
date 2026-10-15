@@ -1,7 +1,9 @@
 PY := .venv/Scripts/python.exe
 PY_LINUX := .venv/bin/python
 
-.PHONY: install test lint fmt migrate run worker e2e cov openapi smoke docker-build docker-up docker-down docker-logs dev
+.PHONY: install test lint fmt migrate run worker e2e cov openapi smoke dev \
+        docker-env docker-build-image docker-up docker-user docker-ps docker-providers \
+        docker-down docker-reset docker-logs
 
 install:
 	python -m venv .venv && $(PY) -m pip install -U pip && $(PY) -m pip install -e ".[dev]"
@@ -41,14 +43,46 @@ smoke:
 dev:
 	bash scripts/dev.sh $(A)
 
-docker-build:
-	docker build -t meetvault-backend:local .
+# --- Docker (see docs/DOCKER.md) ---------------------------------------------------------
+# Three containers (Postgres + api + worker) driven entirely by .env. --env-file is explicit so
+# these targets behave the same from the repo root (make -C backend ...).
+#
+#   cp docker.env.example .env     # set POSTGRES_PASSWORD, models, keys, MVB_PORT
+#   make docker-up                 # build + start
+#   make docker-user EMAIL=you@example.com
+#
+# An engine that must live IN the image (faster-whisper, pyannote) is a build arg, not a setting:
+#   make docker-build-image EXTRA_ARGS="--build-arg WITH_TRANSCRIBE=true"
+DC := docker compose --env-file .env
+
+# A fresh copy of the settings template (refuses to clobber an existing .env).
+docker-env:
+	@test -f .env && echo ".env already exists - edit it, or delete it first" || \
+		( cp docker.env.example .env && echo "wrote .env - set POSTGRES_PASSWORD before 'make docker-up'" )
+
+docker-build-image:
+	docker build -t meetvault-backend:local $(EXTRA_ARGS) .
 
 docker-up:
-	docker compose up -d --build
+	$(DC) up -d --build
+
+# Create an account without signup: make docker-user EMAIL=you@example.com [PASSWORD=...]
+docker-user:
+	$(DC) exec api python -m mvb.admin create-user --email $(EMAIL) $(if $(PASSWORD),--password $(PASSWORD),)
+
+docker-ps:
+	$(DC) ps
+
+# What is really running: effective provider per capability (requested vs effective, is_mock).
+docker-providers:
+	@$(DC) exec -T api curl -fsS http://127.0.0.1:8080/readyz
 
 docker-down:
-	docker compose down
+	$(DC) down
+
+# Also deletes the database and media volumes.
+docker-reset:
+	$(DC) down -v
 
 docker-logs:
-	docker compose logs -f api worker
+	$(DC) logs -f api worker
