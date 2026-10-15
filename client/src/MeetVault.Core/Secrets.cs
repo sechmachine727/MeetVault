@@ -1,7 +1,9 @@
 namespace MeetVault.Core;
 
-// Secret access seam (Windows Credential Locker in the app, a fake in tests). The cloud
-// credentials — the session token today — are stored here, never in a file or a log.
+// Secret access seam. In a packaged (MSIX) install this is Windows Credential Locker; in an
+// unpackaged one (portable zip, classic installer) it is a DPAPI-protected file under the app's
+// data dir — see SecretStores.Choose. Either way the cloud credentials (the session token today)
+// are never plaintext on disk and never in a log.
 public interface ISecretStore
 {
     string? Get(string key);

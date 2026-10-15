@@ -107,9 +107,37 @@ public static class AppStore
 {
     private static LocalMeetingRepository? _repo;
 
+    // The app's data root: the DB, the media root and (for unpackaged installs) the secrets dir.
+    public static string DataDir
+    {
+        get
+        {
+            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MeetVault");
+            Directory.CreateDirectory(dir);
+            return dir;
+        }
+    }
+
     // M7: single shared secret store; Settings/Details/uploader all use this, never new().
-    private static CredentialLockerSecretStore? _secrets;
-    public static CredentialLockerSecretStore Secrets => _secrets ??= new();
+    // Credential Locker when the app has package identity (MSIX); the DPAPI file store when it
+    // does not (portable zip, classic installer). Without the fallback the token silently never
+    // persisted there and the user signed in again on every launch.
+    private static ISecretStore? _secrets;
+    public static ISecretStore Secrets => _secrets ??= SecretStores.Choose(
+        () => { var locker = new CredentialLockerSecretStore(); return locker.IsAvailable ? locker : null; },
+        () => new DpapiSecretStore(SecretsDir));
+
+    // Unpackaged-install secrets (DPAPI, current user). Only materialised when the fallback is
+    // actually used, so a packaged install leaves no empty folder behind.
+    public static string SecretsDir
+    {
+        get
+        {
+            var dir = Path.Combine(DataDir, "secrets");
+            Directory.CreateDirectory(dir);
+            return dir;
+        }
+    }
 
     public static LocalMeetingRepository Repo
     {
@@ -117,12 +145,10 @@ public static class AppStore
         {
             if (_repo is null)
             {
-                var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MeetVault");
-                Directory.CreateDirectory(dir);
                 // Pass the media root explicitly: the repository only runs its staged-deletion
                 // sweep for an explicit root, so a db-only construction (tests) can never
                 // touch the real media directory (review r10).
-                _repo = new LocalMeetingRepository(Path.Combine(dir, "meetings.db"), MediaDir);
+                _repo = new LocalMeetingRepository(Path.Combine(DataDir, "meetings.db"), MediaDir);
             }
             return _repo;
         }
@@ -134,7 +160,7 @@ public static class AppStore
     {
         get
         {
-            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MeetVault", "media");
+            var dir = Path.Combine(DataDir, "media");
             Directory.CreateDirectory(dir);
             return dir;
         }

@@ -20,6 +20,10 @@ public sealed class CredentialLockerSecretStore : ISecretStore
         }
     }
 
+    // The WinRT vault needs package identity: in an unpackaged install (portable zip, classic
+    // installer) this is false and SecretStores.Choose picks the DPAPI file store instead.
+    public bool IsAvailable => Vault is not null;
+
     public string? Get(string key)
     {
         var vault = Vault;
