@@ -5,6 +5,7 @@ import { parseHash, toHash } from "./lib/router.js";
 import { el, clear } from "./lib/dom.js";
 import { friendlyError } from "./lib/format.js";
 import { renderSignIn } from "./views/signin.js";
+import { renderSignUp } from "./views/signup.js";
 import { renderMeetings } from "./views/meetings.js";
 import { renderMeeting } from "./views/meeting.js";
 import { renderSystem } from "./views/system.js";
@@ -52,14 +53,26 @@ function hardSignOut(reason) {
   else renderRoute();
 }
 
-async function signIn(email, password) {
-  const result = await api.login(email, password);
+// Sign-in and sign-up differ only in which endpoint answers; both end in a session.
+function establishSession(result) {
   store.save(result.token, result.user);
   api.setToken(result.token);
   ctx.session = { user: result.user, expires_at: result.expires_at };
+}
+
+async function signIn(email, password) {
+  const result = await api.login(email, password);
+  establishSession(result);
+  return result;
+}
+
+async function signUp(email, password, displayName) {
+  const result = await api.register(email, password, displayName);
+  establishSession(result);
   return result;
 }
 ctx.signIn = signIn;
+ctx.signUp = signUp;
 
 function renderRail() {
   const shell = document.getElementById("app");
@@ -111,7 +124,12 @@ function renderRail() {
             "Sign out",
           ),
         )
-      : el("a", { href: "#/login" }, "Sign in"),
+      : el(
+          "div",
+          { class: "account" },
+          el("a", { href: "#/login" }, "Sign in"),
+          el("a", { href: "#/signup", "data-testid": "signup-link" }, "Create account"),
+        ),
   );
   const rail = el(
     "aside",
@@ -142,6 +160,10 @@ async function renderRoute() {
     ctx.session = null;
   }
   try {
+    if (route.name === "signup") {
+      main.append(renderSignUp(ctx));
+      return;
+    }
     if (route.name === "login" || (!ctx.session && route.name !== "system")) {
       main.append(renderSignIn(ctx));
       return;

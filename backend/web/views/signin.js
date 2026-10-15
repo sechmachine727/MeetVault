@@ -37,6 +37,7 @@ export function renderSignIn(ctx) {
     el("label", { class: "field" }, "Email", email),
     el("label", { class: "field" }, "Password", password),
     submit,
+    el("p", { class: "sub" }, el("a", { href: "#/signup" }, "Create an account")),
   );
   return el("div", { class: "signin" }, el("div", { class: "card" }, form));
 }
