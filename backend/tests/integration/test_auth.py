@@ -102,3 +102,49 @@ def test_a_new_account_starts_with_an_empty_cloud(client) -> None:
 def test_register_display_name_defaults_to_the_local_part(client) -> None:
     body = client.post("/v1/auth/register", json={"email": "noname@example.com", "password": "brand-new-1"}).json()
     assert body["user"]["display_name"] == "noname"
+
+
+def test_register_duplicate_email_is_409(client) -> None:
+    payload = {"email": "dupe@example.com", "password": "brand-new-1"}
+    assert client.post("/v1/auth/register", json=payload).status_code == 201
+    again = client.post("/v1/auth/register", json=payload)
+    assert again.status_code == 409
+    assert again.json()["error"]["code"] == "email_taken"
+    assert "already has an account" in again.json()["error"]["message"]
+
+
+def test_register_duplicate_email_is_case_insensitive(client) -> None:
+    assert client.post("/v1/auth/register", json={"email": "case@example.com", "password": "brand-new-1"}).status_code == 201
+    assert client.post("/v1/auth/register", json={"email": "CASE@Example.COM", "password": "brand-new-1"}).status_code == 409
+
+
+def test_register_short_password_is_400(client) -> None:
+    response = client.post("/v1/auth/register", json={"email": "weak@example.com", "password": "short"})
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "weak_password"
+    assert "8" in response.json()["error"]["message"]
+
+
+def test_register_bad_email_is_400(client) -> None:
+    response = client.post("/v1/auth/register", json={"email": "not-an-email", "password": "brand-new-1"})
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_email"
+
+
+def test_register_is_refused_when_signup_is_disabled(client, monkeypatch) -> None:
+    from mvb.config import get_settings
+
+    monkeypatch.setenv("MVB_ALLOW_SIGNUP", "false")
+    get_settings.cache_clear()  # SettingsDep resolves through the lru_cache
+    response = client.post("/v1/auth/register", json={"email": "closed@example.com", "password": "brand-new-1"})
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "signup_disabled"
+
+
+def test_register_does_not_create_a_row_when_it_refuses(client) -> None:
+    client.post("/v1/auth/register", json={"email": "ghost2@example.com", "password": "short"})
+    from mvb.accounts import find_user
+    from mvb.db.base import get_session_factory
+
+    with get_session_factory()() as session:
+        assert find_user(session, "ghost2@example.com") is None

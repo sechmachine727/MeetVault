@@ -43,3 +43,13 @@ def test_short_password_is_refused(db_session) -> None:
         create_user(db_session, email="a@example.com", password="short")
     assert exc.value.code == "weak_password"
     assert "8" in exc.value.message
+
+
+def test_the_unique_constraint_race_also_raises_email_taken(db_session, monkeypatch) -> None:
+    """Two concurrent registers: the pre-check passes for both, the INSERT loses the race."""
+    import mvb.accounts as accounts
+
+    monkeypatch.setattr(accounts, "find_user", lambda db, email: None)  # pretend both checked first
+    accounts.create_user(db_session, email="race@example.com", password="long-enough-1")
+    with pytest.raises(accounts.EmailTaken):
+        accounts.create_user(db_session, email="race@example.com", password="long-enough-1")
