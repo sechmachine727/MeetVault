@@ -66,3 +66,39 @@ def test_token_is_not_logged(client, auth_user, caplog) -> None:
     with caplog.at_level(logging.DEBUG):
         client.get("/v1/auth/me", headers=auth_user.headers)
     assert auth_user.token not in caplog.text
+
+
+def test_register_creates_an_account_and_signs_it_in(client) -> None:
+    response = client.post(
+        "/v1/auth/register",
+        json={"email": "New@Example.com", "password": "brand-new-1", "display_name": "New Person"},
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["user"]["email"] == "new@example.com"  # normalized
+    assert body["user"]["display_name"] == "New Person"
+    assert len(body["token"]) > 20
+    assert body["expires_at"]
+    # the returned token is a live session, not a decoration
+    me = client.get("/v1/auth/me", headers={"Authorization": f"Bearer {body['token']}"})
+    assert me.status_code == 200
+    assert me.json()["user"]["email"] == "new@example.com"
+
+
+def test_register_then_login_with_the_same_password(client) -> None:
+    created = client.post("/v1/auth/register", json={"email": "two@example.com", "password": "brand-new-1"})
+    assert created.status_code == 201
+    login = client.post("/v1/auth/login", json={"email": "TWO@example.com", "password": "brand-new-1"})
+    assert login.status_code == 200
+    assert login.json()["user"]["email"] == "two@example.com"
+
+
+def test_a_new_account_starts_with_an_empty_cloud(client) -> None:
+    body = client.post("/v1/auth/register", json={"email": "fresh@example.com", "password": "brand-new-1"}).json()
+    page = client.get("/v1/meetings", headers={"Authorization": f"Bearer {body['token']}"}).json()
+    assert page["total"] == 0
+
+
+def test_register_display_name_defaults_to_the_local_part(client) -> None:
+    body = client.post("/v1/auth/register", json={"email": "noname@example.com", "password": "brand-new-1"}).json()
+    assert body["user"]["display_name"] == "noname"
